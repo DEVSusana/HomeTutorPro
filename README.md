@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="./docs/screenshots/banner.png" width="100%" alt="HomeTutorPro Banner" />
-</p>
 
 <p align="center">
   <img src="./docs/screenshots/ic_app_icon.png" width="128" height="128" alt="HomeTutorPro Icon" />
