@@ -67,7 +67,7 @@ HomeTutorPro prioriza la privacidad del tutor y sus alumnos. La base de datos lo
 
 1.  Clona el repositorio:
     ```bash
-    git clone [https://github.com/tuusuario/HomeTutorPro.git](https://github.com/tuusuario/HomeTutorPro.git)
+    git clone [https://github.com/DEVSusana/HomeTutorPro.git](https://github.com/DEVSusana/HomeTutorPro.git)
     ```
 2.  Configura Firebase:
     * Descarga tu archivo `google-services.json` desde la consola de Firebase.
