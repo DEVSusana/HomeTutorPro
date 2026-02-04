@@ -1,0 +1,29 @@
+# Codecov Configuration
+
+# Coverage thresholds
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 2%
+    patch:
+      default:
+        target: 70%
+
+# Ignore patterns
+ignore:
+  - "app/src/androidTest/**"
+  - "app/src/test/**"
+  - "**/R.java"
+  - "**/BuildConfig.java"
+  - "**/*Test*.kt"
+  - "**/*Module.kt"
+  - "**/di/**"
+  - "**/*MapperImpl*.kt"
+
+# Comment configuration
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false

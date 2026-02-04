@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">HomeTutorPro</string>
+
+    <!-- Common Actions -->
+    <string name="save">Guardar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete">Eliminar</string>
+    <string name="confirm">Confirmar</string>
+    <string name="ok">OK</string>
+    <string name="back">Atrás</string>
+    <string name="loading">Cargando…</string>
+    <string name="settings">Ajustes</string>
+
+    <!-- Common Labels -->
+    <string name="email">Correo electrónico</string>
+    <string name="password">Contraseña</string>
+    <string name="name">Nombre</string>
+    <string name="address">Dirección</string>
+    <string name="phone">Teléfono</string>
+    <string name="age">Edad</string>
+
+    <!-- Authentication -->
+    <string name="login">Iniciar sesión</string>
+    <string name="register">Registrarse</string>
+    <string name="logout">Cerrar sesión</string>
+    <string name="login_title">HomeTutorPro - Acceso</string>
+    <string name="register_title">HomeTutorPro - Registro</string>
+    <string name="back_to_login">Volver al inicio de sesión</string>
+    <string name="show_password">Mostrar contraseña</string>
+    <string name="hide_password">Ocultar contraseña</string>
+    <string name="login_error_invalid_credentials">Credenciales no válidas</string>
+    <string name="login_error_failed">El inicio de sesión falló: Credenciales no válidas o error de red</string>
+    <string name="login_error_invalid_email">Formato de correo electrónico no válido</string>
+    <string name="login_error_password_too_short">La contraseña debe tener al menos 6 caracteres</string>
+    <string name="login_error_empty_fields">Por favor, rellena todos los campos</string>
+    <string name="register_error_name_empty">El nombre no puede estar vacío</string>
+    <string name="register_error_invalid_email">Formato de correo electrónico no válido</string>
+    <string name="register_error_short_password">La contraseña debe tener al menos 6 caracteres</string>
+    <string name="register_error_registration_failed">Falló el registro</string>
+    <string name="register_error_registration_failed_message">Falló el registro. Por favor, inténtalo de nuevo.</string>
+
+    <!-- Navigation -->
+    <string name="weekly_schedule">Horario Semanal</string>
+    <string name="monthly_schedule">Horario Mensual</string>
+    <string name="my_students">Mis Estudiantes</string>
+    <string name="resources">Recursos</string>
+    <string name="schedule">Horario</string>
+
+    <!-- Student Detail -->
+    <string name="student_name">Nombre del estudiante *</string>
+    <string name="course">Curso</string>
+    <string name="subjects">Asignaturas (ej. Matemáticas, Física)</string>
+    <string name="parent_phone">Teléfono del padre/tutor</string>
+    <string name="price_per_hour">Precio por hora (€)</string>
+    <string name="special_needs">Atención Educativa</string>
+    <string name="pending_balance">Saldo pendiente: %.2f€</string>
+    <string name="last_payment">Último pago: %s</string>
+    <string name="no_payments">Sin pagos registrados</string>
+    <string name="student_detail_new_student">Nuevo Estudiante</string>
+    <string name="student_detail_back">Atrás</string>
+    <string name="student_detail_edit">Editar</string>
+    <string name="student_detail_cancel_edit">Cancelar Edición</string>
+    <string name="student_detail_active_status">Alumno Activo</string>
+    <string name="student_detail_active_status_desc">Los alumnos inactivos se ocultan de la lista principal pero sus datos se conservan.</string>
+    <string name="student_detail_student_name">Nombre del Alumno</string>
+    <string name="student_detail_tab_personal">Personal</string>
+    <string name="student_detail_tab_finance">Finanzas</string>
+    <string name="student_detail_tab_schedules">Horarios</string>
+    <string name="student_detail_tab_resources">Recursos</string>
+    
+    <!-- New Student Guidance -->
+    <string name="student_detail_new_student_step">Paso %d de 2</string>
+    <string name="student_detail_step_1_title">Paso 1: Información Personal</string>
+    <string name="student_detail_step_2_title">Paso 2: Horarios y Finanzas</string>
+    <string name="student_detail_next_step">Siguiente: Añadir Horarios</string>
+    <string name="student_detail_guidance_message">Rellena la información personal del alumno y luego añade horarios y detalles financieros.</string>
+    <string name="student_detail_save_first_schedule_tip">Añade horarios aquí. Se guardarán cuando crees el alumno.</string>
+    <string name="student_detail_pending_schedules_title">Horarios Pendientes</string>
+    <string name="student_detail_pending_schedules_added">Horarios añadidos (pendiente de guardar)</string>
+    <string name="student_detail_save_first_schedule">Crea el alumno para gestionar horarios</string>
+    <string name="student_detail_save_first_resource">Crea el alumno para subir recursos</string>
+
+    <string name="student_detail_age">Edad</string>
+    <string name="student_detail_course">Curso</string>
+    <string name="student_detail_subjects">Asignaturas</string>
+    <string name="student_detail_parent_phone">Teléfono del Padre/Tutor</string>
+    <string name="student_detail_address">Dirección</string>
+    <string name="student_detail_price_per_hour">Precio por Hora (€)</string>
+    <string name="student_detail_special_needs">Atención Educativa</string>
+    <string name="student_detail_student_phone">Teléfono del Estudiante</string>
+    <string name="student_detail_student_email">Email del Estudiante</string>
+    <string name="student_detail_student_color">Color del Estudiante</string>
+    <string name="student_detail_color">Color:</string>
+    <string name="student_detail_navigate_to_address">Navegar a la Dirección (Google Maps)</string>
+    <string name="student_detail_schedule">Horario</string>
+    <string name="student_detail_pending_balance">Saldo Pendiente: %s €</string>
+    <string name="student_detail_pending_balance_label">Saldo Pendiente</string>
+    <string name="student_detail_edit_balance">Editar Saldo</string>
+    <string name="student_detail_last_payment">Último Pago: %s</string>
+    <string name="student_detail_collect_cash">Cobrar (Efectivo)</string>
+    <string name="student_detail_collect_bizum">Cobrar (Bizum)</string>
+    <string name="student_detail_start_class">Iniciar Clase</string>
+    <string name="student_detail_continue">Continuar</string>
+    <string name="student_detail_create_student">Crear Estudiante</string>
+    <string name="student_detail_save_changes">Guardar Cambios</string>
+    <string name="student_detail_delete_student">Eliminar Estudiante</string>
+    <string name="student_detail_delete_student_dialog_title">Eliminar Estudiante</string>
+    <string name="student_detail_delete_student_dialog_text">¿Estás seguro de que quieres eliminar este estudiante? Esta acción no se puede deshacer.</string>
+    <string name="student_detail_delete">Eliminar</string>
+    <string name="student_detail_cancel">Cancelar</string>
+    <string name="student_detail_success_student_saved">¡Estudiante guardado con éxito!</string>
+    <string name="student_detail_error_unexpected">Ocurrió un error inesperado</string>
+    <string name="student_detail_error_unknown">Error desconocido</string>
+    <string name="student_detail_save_first">Por favor, guarde el estudiante antes de acceder a esta sección</string>
+    <string name="student_detail_error_save_failed">Error al guardar el estudiante. Inténtalo de nuevo.</string>
+    <string name="student_detail_error_name_required">El nombre del estudiante es obligatorio</string>
+    <string name="student_detail_error_invalid_price">El precio por hora debe ser mayor que 0</string>
+    <string name="student_detail_error_invalid_balance">Cantidad de saldo no válida</string>
+    <string name="student_detail_success_student_deleted">¡Estudiante eliminado con éxito!</string>
+    <string name="student_detail_error_delete_failed">No se pudo eliminar el estudiante. Por favor, inténtalo de nuevo.</string>
+    <string name="student_detail_success_payment_registered">¡Pago de %.2f € registrado con éxito!</string>
+    <string name="student_detail_error_payment_failed">No se pudo registrar el pago. Por favor, inténtalo de nuevo.</string>
+    <string name="student_detail_success_class_started">¡Clase iniciada! Se han añadido %.2f € al saldo.</string>
+    <string name="student_detail_error_update_balance_failed">No se pudo actualizar el saldo.</string>
+    <string name="student_detail_success_schedule_saved">¡Horario guardado con éxito!</string>
+    <string name="student_detail_error_schedule_conflict_student">¡Conflicto de horario! %1$s ya tiene una clase a las %2$s</string>
+    <string name="student_detail_error_schedule_conflict">¡Conflicto de horario! Este horario ya está ocupado.</string>
+    <string name="student_detail_error_schedule_conflict_time_slot">El horario ya está ocupado</string>
+    <string name="student_detail_error_schedule_failed">No se pudo guardar el horario.</string>
+    <string name="student_detail_success_schedule_deleted">¡Horario eliminado con éxito!</string>
+    <string name="student_detail_error_schedule_delete_failed">No se pudo eliminar el horario.</string>
+    <string name="student_detail_error_save_schedules_failed">Alumno guardado, pero algunos horarios tienen conflictos.</string>
+    <string name="student_detail_finance">Finanzas</string>
+    <string name="student_detail_actions">Acciones</string>
+    <string name="student_detail_notes">Notas</string>
+    <string name="student_detail_notes_hint">Añade notas, observaciones, progreso...</string>
+    
+    <!-- Resource Sharing -->
+    <string name="student_detail_share_resources">Compartir Recursos</string>
+    <string name="student_detail_shared_resources">Recursos Compartidos</string>
+    <string name="student_detail_select_file">Seleccionar Archivo</string>
+    <string name="student_detail_share_dialog_title">Compartir Archivo</string>
+    <string name="student_detail_share_method">Método de compartir:</string>
+    <string name="student_detail_share_via_email">Email</string>
+    <string name="student_detail_share_via_whatsapp">WhatsApp</string>
+    <string name="student_detail_share_notes">Notas (opcional)</string>
+    <string name="student_detail_share_notes_hint">Añade notas sobre este recurso...</string>
+    <string name="student_detail_share">Compartir</string>
+    <string name="student_detail_file_name">Archivo: %s</string>
+    <string name="student_detail_file_size">Tamaño: %s</string>
+    <string name="student_detail_shared_at">Compartido: %s</string>
+    <string name="student_detail_shared_via">Vía: %s</string>
+    <string name="student_detail_no_shared_resources">No hay recursos compartidos</string>
+    <string name="student_detail_delete_resource">Eliminar recurso</string>
+    <string name="student_detail_delete_resource_dialog_title">Eliminar Recurso</string>
+    <string name="student_detail_delete_resource_dialog_text">¿Estás seguro de que quieres eliminar este registro de recurso compartido?</string>
+    <string name="student_detail_success_resource_shared">¡Recurso compartido con éxito!</string>
+    <string name="student_detail_error_share_failed">No se pudo guardar el registro del recurso compartido</string>
+    <string name="student_detail_error_no_file_selected">No se ha seleccionado ningún archivo</string>
+    <string name="student_detail_success_resource_deleted">¡Registro de recurso eliminado con éxito!</string>
+    <string name="student_detail_error_delete_resource_failed">No se pudo eliminar el registro del recurso</string>
+
+    <!-- Student Actions -->
+    <string name="navigate_to_address">Navegar a la dirección (Google Maps)</string>
+    <string name="collect_cash">Cobrar (Efectivo)</string>
+    <string name="collect_bizum">Cobrar (Bizum)</string>
+    <string name="start_class">Iniciar clase (60 min - Notificar fin)</string>
+    <string name="delete_student">Eliminar estudiante</string>
+    <string name="delete_student_title">Eliminar estudiante</string>
+    <string name="delete_student_message">¿Estás seguro de que quieres eliminar este estudiante? Esta acción no se puede deshacer.</string>
+
+    <!-- Schedule -->
+    <string name="add_schedule">Añadir horario</string>
+    <string name="day_of_week">Día de la semana</string>
+    <string name="start_time">Hora de inicio (HH:mm)</string>
+    <string name="end_time">Hora de fin (HH:mm)</string>
+    <string name="start_time_placeholder">09:00</string>
+    <string name="end_time_placeholder">10:00</string>
+    <string name="time_placeholder">HH:mm</string>
+    
+    <!-- Bulk Schedule Creation -->
+    <string name="bulk_schedule_title">Añadir Múltiples Horarios</string>
+    <string name="bulk_schedule_add_another">Añadir Otro Horario</string>
+    <string name="bulk_schedule_remove">Eliminar</string>
+    <string name="bulk_schedule_save_all">Guardar Todos los Horarios</string>
+    <string name="bulk_schedule_schedule_number">Horario #%d</string>
+    <string name="bulk_schedule_success">¡%d horarios guardados con éxito!</string>
+    <string name="bulk_schedule_error_empty">Por favor, añade al menos un horario</string>
+    <string name="bulk_schedule_error_invalid_time">Formato de hora inválido en horario #%1$d</string>
+    <string name="bulk_schedule_error_conflict">Conflicto en horario #%1$d: %2$s</string>
+    <string name="bulk_schedule_no_schedules">Aún no hay horarios. Pulsa \"Añadir Otro Horario\" para empezar.</string>
+    <string name="bulk_schedule_info">Crea múltiples horarios de clase a la vez. Puedes añadir tantos como necesites.</string>
+    <string name="bulk_schedule_create">Crear Horarios</string>
+
+
+    <!-- Days of Week -->
+    <string name="monday">Lunes</string>
+    <string name="tuesday">Martes</string>
+    <string name="wednesday">Miércoles</string>
+    <string name="thursday">Jueves</string>
+    <string name="friday">Viernes</string>
+    <string name="saturday">Sábado</string>
+    <string name="sunday">Domingo</string>
+
+    <!-- Schedule Exceptions -->
+    <string name="modify_class">Modificar clase</string>
+    <string name="cancel_class">Cancelar</string>
+    <string name="reschedule_class">Reprogramar</string>
+    <string name="new_start_time">Nueva hora de inicio</string>
+    <string name="new_end_time">Nueva hora de fin</string>
+    <string name="new_day_of_week">Nuevo día de la semana</string>
+    <string name="reason_optional">Motivo (opcional)</string>
+
+    <!-- Payment -->
+    <string name="register_payment">Registrar pago</string>
+    <string name="enter_amount_paid">Introduce la cantidad pagada:</string>
+    <string name="amount">Cantidad (€)</string>
+
+    <!-- Validation Messages -->
+    <string name="error_empty_email">El correo electrónico no puede estar vacío</string>
+    <string name="error_invalid_email">Correo electrónico inválido</string>
+    <string name="error_empty_password">La contraseña no puede estar vacía</string>
+    <string name="error_short_password">La contraseña debe tener al menos 6 caracteres</string>
+    <string name="error_empty_name">El nombre no puede estar vacío</string>
+    <string name="error_invalid_credentials">Credenciales inválidas</string>
+    <string name="error_network">Error de red</string>
+    <string name="error_unknown">Error desconocido</string>
+
+    <!-- Success Messages -->
+    <string name="success_student_saved">Estudiante guardado correctamente</string>
+    <string name="success_payment_registered">Pago registrado correctamente</string>
+    <string name="success_schedule_saved">Horario guardado correctamente</string>
+    <string name="success_student_deleted">Estudiante eliminado correctamente</string>
+
+    <!-- Empty States -->
+    <string name="no_students">No hay estudiantes</string>
+    <string name="no_schedules">No hay horarios</string>
+    <string name="no_resources">No hay recursos</string>
+
+    <!-- Content Descriptions -->
+    <string name="cd_back_button">Botón de retroceso</string>
+    <string name="cd_add_button">Botón de añadir</string>
+    <string name="cd_delete_button">Botón de eliminar</string>
+    <string name="cd_menu_button">Botón de menú</string>
+    <string name="cd_student_list">Lista de estudiantes</string>
+    <string name="cd_grid_view">Vista de cuadrícula</string>
+    <string name="cd_list_view">Vista de lista</string>
+    <string name="cd_app_logo">Logo de la aplicación</string>
+    <string name="cd_email_icon">Icono de email</string>
+    <string name="cd_password_icon">Icono de contraseña</string>
+    <string name="cd_login_icon">Icono de inicio de sesión</string>
+    <string name="cd_register_icon">Icono de registro</string>
+    <string name="cd_person_icon">Icono de persona</string>
+    <string name="cd_age_icon">Icono de edad</string>
+    <string name="cd_location_icon">Icono de ubicación</string>
+    <string name="cd_phone_icon">Icono de teléfono</string>
+    <string name="cd_school_icon">Icono de escuela</string>
+    <string name="cd_book_icon">Icono de libro</string>
+    <string name="cd_euro_icon">Icono de euro</string>
+    <string name="cd_money_icon">Icono de dinero</string>
+    <string name="cd_smartphone_icon">Icono de smartphone</string>
+    <string name="cd_color_picker">Selector de color</string>
+    <string name="cd_play_icon">Icono de reproducir</string>
+    <string name="cd_calendar_icon">Icono de calendario</string>
+    <string name="cd_upload_icon">Icono de subir</string>
+    <string name="cd_time_icon">Icono de hora</string>
+    <string name="cd_file_icon">Icono de archivo</string>
+    <string name="cd_success_icon">Icono de éxito</string>
+    <string name="cd_error_icon">Icono de error</string>
+    <string name="cd_warning_icon">Icono de advertencia</string>
+
+    <!-- Menu -->
+    <string name="menu_language">Language / Idioma</string>
+    <string name="menu_premium">Actualiza a Premium</string>
+    <string name="menu_resources">Recursos</string>
+
+    <!-- Language Selection -->
+    <string name="language_dialog_title">Select Language / Seleccionar Idioma</string>
+    <string name="language_english">🇬🇧  English</string>
+    <string name="language_spanish">🇪🇸  Español</string>
+    <string name="language_cancel">Cancel / Cancelar</string>
+
+    <!-- View Modes -->
+    <string name="view_mode_grid">Vista de cuadrícula</string>
+    <string name="view_mode_list">Vista de lista</string>
+
+    <!-- Upload/Download -->
+    <string name="upload_file">Subir archivo</string>
+    <string name="no_classes">Sin clases</string>
+
+    <!-- Start Class Dialog -->
+    <string name="start_class_dialog_title">Iniciar Clase</string>
+    <string name="start_class_dialog_text">Selecciona la duración (minutos):</string>
+    <string name="start_class_dialog_duration">%d min</string>
+    <string name="start_class_dialog_start">Iniciar</string>
+    <string name="start_class_dialog_cancel">Cancelar</string>
+
+    <!-- Feedback Dialog -->
+    <string name="feedback_success">Éxito</string>
+    <string name="feedback_error">Error</string>
+
+    <!-- Weekly Schedule -->
+    <string name="weekly_schedule_no_classes">No hay clases programadas</string>
+    <string name="weekly_schedule_no_classes_grid">Sin clases</string>
+    <string name="weekly_schedule_cancelled">Cancelada</string>
+    <string name="weekly_schedule_rescheduled">Reprogramada</string>
+    <string name="weekly_schedule_success_exception_saved">Excepción guardada con éxito</string>
+    <string name="weekly_schedule_error_schedule_conflict">¡Conflicto de horario! Este horario ya está ocupado.</string>
+    <string name="weekly_schedule_error_exception_failed">No se pudo guardar la excepción</string>
+    <string name="weekly_schedule_success_exception_removed">Excepción eliminada con éxito</string>
+    <string name="weekly_schedule_error_remove_exception_failed">No se pudo eliminar la excepción</string>
+
+    <!-- Student List -->
+    <string name="student_list_weekly_schedule">Horario Semanal</string>
+    <string name="student_list_search_placeholder">Buscar alumnos...</string>
+    <string name="student_list_filter_all">Todos</string>
+    <string name="student_list_filter_balance">Con Saldo</string>
+    <string name="student_list_filter_active">Activos</string>
+    <string name="student_list_filter_inactive">Inactivos</string>
+    <string name="student_list_sort_name">Nombre</string>
+    <string name="student_list_sort_balance">Saldo</string>
+    <string name="student_list_sort_last_class">Última Clase</string>
+    <string name="student_list_cd_search">Buscar</string>
+    <string name="student_list_cd_sort">Ordenar</string>
+    <string name="student_list_cd_clear_search">Borrar búsqueda</string>
+    
+    <!-- Weekly Schedule -->
+    <string name="schedule_view_weekly">Semanal</string>
+    <string name="schedule_view_monthly">Mensual</string>
+    <string name="schedule_action_start">Iniciar</string>
+    <string name="schedule_action_cancel">Cancelar</string>
+    <string name="schedule_action_reschedule">Reagendar</string>
+    <string name="schedule_status_completed">Completada</string>
+    <string name="schedule_status_cancelled">Cancelada</string>
+    <string name="schedule_status_pending">Pendiente</string>
+    <string name="student_list_logout">Cerrar Sesión</string>
+    <string name="student_list_add_student">Añadir Estudiante</string>
+    <string name="student_list_unnamed_student">Estudiante sin nombre</string>
+    <string name="student_list_balance">Saldo: %.2f €</string>
+    <string name="student_list_age">%d años</string>
+
+    <!-- Resources -->
+    <string name="resources_back">Atrás</string>
+    <string name="resources_upload_file">Subir Archivo</string>
+    <string name="resources_delete">Eliminar</string>
+    <string name="resources_success_upload">Recurso subido con éxito</string>
+    <string name="resources_error_upload_failed">Fallo en la subida</string>
+    <string name="resources_success_delete">Recurso eliminado con éxito</string>
+    <string name="resources_error_delete_failed">Fallo al eliminar</string>
+
+    <!-- Schedule Form -->
+    <string name="schedule_form_error_save_failed">No se pudo guardar el horario</string>
+    <string name="schedule_form_back">Atrás</string>
+    <string name="schedule_form_save_schedule">Guardar Horario</string>
+    <string name="schedule_form_day_monday">Lunes</string>
+    <string name="schedule_form_day_tuesday">Martes</string>
+    <string name="schedule_form_day_wednesday">Miércoles</string>
+    <string name="schedule_form_day_thursday">Jueves</string>
+    <string name="schedule_form_day_friday">Viernes</string>
+    <string name="schedule_form_day_saturday">Sábado</string>
+    <string name="schedule_form_day_sunday">Domingo</string>
+
+    <!-- Schedule -->
+    <string name="schedule_success_delete">Horario eliminado con éxito</string>
+    <string name="schedule_error_delete_failed">No se pudo eliminar el horario</string>
+    <string name="schedule_list_title">Horario</string>
+    <string name="schedule_list_back">Atrás</string>
+    <string name="schedule_list_add_schedule">Añadir Horario</string>
+    <string name="schedule_list_delete">Eliminar</string>
+
+    <!-- Schedule Exception Dialog -->
+    <string name="schedule_exception_modify_class">Modificar clase</string>
+    <string name="schedule_exception_original">Original: %1$s - %2$s</string>
+    <string name="schedule_exception_action">Acción:</string>
+    <string name="schedule_exception_cancel">Cancelar</string>
+    <string name="schedule_exception_reschedule">Reprogramar</string>
+    <string name="schedule_exception_new_schedule">Nuevo horario:</string>
+    <string name="schedule_exception_day_of_week">Día de la semana</string>
+    <string name="schedule_exception_new_start_time">Nueva hora de inicio</string>
+    <string name="schedule_exception_new_end_time">Nueva hora de fin</string>
+    <string name="schedule_exception_conflict_title">⚠️ Conflicto de horario</string>
+    <string name="schedule_exception_conflict_message">Coincide con la clase de %1$s de %2$s a %3$s</string>
+    <string name="schedule_exception_reason_optional">Motivo (opcional)</string>
+    <string name="schedule_exception_save">Guardar</string>
+    <string name="schedule_exception_remove">Eliminar excepción</string>
+    <string name="schedule_exception_cancel_button">Cancelar</string>
+
+    <!-- Payment Dialog -->
+    <string name="payment_error_invalid_amount">Cantidad inválida</string>
+
+    <!-- Icons -->
+    <string name="icon_warning">⚠️</string>
+
+    <!-- Resources -->
+    <string name="resource_default_name_prefix">Recurso_</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">Fin de Clase</string>
+    <string name="notification_channel_description">Notificaciones para indicar cuando termina una clase.</string>
+    <string name="notification_title">¡Clase Terminada!</string>
+    <string name="notification_text">La clase con %1$s ha terminado</string>
+    <string name="notification_permission_needed">Para recibir notificaciones de fin de clase, activa el permiso de "Alarmas y recordatorios"</string>
+    <string name="student_default_name">Estudiante</string>
+
+    <!-- Days of the Week -->
+    <string name="day_monday">Lunes</string>
+    <string name="day_tuesday">Martes</string>
+    <string name="day_wednesday">Miércoles</string>
+    <string name="day_thursday">Jueves</string>
+    <string name="day_friday">Viernes</string>
+    <string name="day_saturday">Sábado</string>
+    <string name="day_sunday">Domingo</string>
+    <string name="student_not_found">Estudiante no encontrado</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_language">Idioma</string>
+    <string name="settings_premium">Premium</string>
+    <string name="settings_debug">Depuración</string>
+    <string name="settings_account">Cuenta</string>
+    <string name="settings_logout">Cerrar sesión</string>
+    <string name="settings_debug_premium">Modo Premium de Depuración</string>
+    <string name="settings_premium_status">Estado Premium</string>
+    <string name="settings_premium_active">Activo</string>
+    <string name="settings_premium_inactive">Inactivo</string>
+    <string name="settings_upgrade_premium">Actualizar a Premium</string>
+    <string name="settings_version">Versión %s</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Oscuro</string>
+    <string name="settings_theme_system">Sistema</string>
+    <string name="settings_theme_dialog_title">Elegir Tema</string>
+    <string name="settings_edit_profile">Editar Perfil</string>
+
+    <!-- Edit Profile -->
+    <string name="edit_profile_title">Editar Perfil</string>
+    <string name="edit_profile_name">Nombre</string>
+    <string name="edit_profile_email">Correo Electrónico</string>
+    <string name="edit_profile_password">Nueva Contraseña (opcional)</string>
+    <string name="edit_profile_save">Guardar Cambios</string>
+    <string name="edit_profile_success">¡Perfil actualizado con éxito!</string>
+    <string name="edit_profile_error">Error al actualizar el perfil</string>
+    <string name="edit_profile_working_hours">Horario de Trabajo</string>
+    <string name="edit_profile_working_start">Inicio: %s</string>
+    <string name="edit_profile_working_end">Fin: %s</string>
+
+    <!-- Dashboard -->
+    <string name="nav_dashboard">Inicio</string>
+    <string name="dashboard_active_students">Alumnos Activos</string>
+    <string name="dashboard_pending_classes_today">Clases Pendientes Hoy</string>
+    <string name="dashboard_pending_income">Saldo Pendiente</string>
+    <string name="dashboard_next_class">Próxima Clase</string>
+    <string name="dashboard_no_upcoming_classes">No hay clases próximas</string>
+    <string name="dashboard_quick_actions">Acciones Rápidas</string>
+    <string name="dashboard_action_add_student">Añadir Alumno</string>
+    <string name="dashboard_action_add_student_subtitle">Crear perfil y horario</string>
+    <string name="dashboard_action_view_students">Ver Alumnos</string>
+    <string name="dashboard_action_view_students_subtitle">Gestionar perfiles</string>
+    <string name="dashboard_action_shared_resources">Recursos Compartidos</string>
+    <string name="dashboard_action_shared_resources_subtitle">Subir y compartir</string>
+    <string name="dashboard_hello">Hola</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_schedule">Horario</string>
+    <string name="nav_students">Alumnos</string>
+    <string name="nav_settings">Ajustes</string>
+
+    <string name="student_status_inactive">Inactivo</string>
+    <string name="student_status_inactive_desc">Este alumno está marcado como inactivo.</string>
+    <string name="student_list_no_results">No se encontraron resultados</string>
+    <string name="student_list_no_students">No se encontraron alumnos</string>
+    <string name="student_list_clear_search">Borrar búsqueda</string>
+    <string name="student_detail_register_payment">Registrar pago</string>
+    <string name="weekly_schedule_free_day">¡Día Libre!</string>
+    <string name="weekly_schedule_enjoy_free_time">¡Disfruta de tu tiempo libre!</string>
+    <string name="weekly_schedule_free_slot">Libre</string>
+</resources>

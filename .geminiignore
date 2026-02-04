@@ -1,0 +1,18 @@
+# Ignorar directorios de build, salida y caché
+/build
+/*/build/
+.gradle/
+.idea/
+.vscode/
+local.properties
+
+# Ignorar archivos binarios
+*.apk
+*.aab
+*.jar
+*.so
+*.class
+
+# Ignorar dependencias (si no están ya en .gitignore)
+/node_modules
+/Pods
