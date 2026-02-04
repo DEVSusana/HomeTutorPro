@@ -1,24 +1,33 @@
-# HomeTutorPro 🍎
+<p align="center">
+  <img src="./docs/screenshots/banner.png" width="100%" alt="HomeTutorPro Banner" />
+</p>
 
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge&logo=android)](https://github.com/tuusuario/hometutorpro)
-[![Coverage](https://img.shields.io/badge/Coverage-82%25-blue?style=for-the-badge&logo=codecov)](https://github.com/tuusuario/hometutorpro)
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.20-purple?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
-[![Compose](https://img.shields.io/badge/UI-Jetpack_Compose-navy?style=for-the-badge&logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
+<p align="center">
+  <img src="./docs/screenshots/ic_app_icon.png" width="128" height="128" alt="HomeTutorPro Icon" />
+</p>
 
-**HomeTutorPro** es una solución integral de gestión educativa diseñada para tutores independientes y profesores. La aplicación permite centralizar la administración de alumnos, horarios, finanzas y recursos pedagógicos bajo un entorno seguro, moderno y eficiente.
+<h1 align="center">HomeTutorPro</h1>
+
+<p align="center">
+  <a href="#"><img src="https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge&logo=android" alt="Build Status"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Coverage-82%25-blue?style=for-the-badge&logo=codecov" alt="Coverage"></a>
+</p>
+
+<p align="center">
+  <strong>Gestión Educativa Inteligente y Segura</strong><br>
+  Una solución integral para tutores modernos construida con Clean Architecture y Jetpack Compose.
+</p>
 
 ---
 
 ## ✨ Características Principales
 
-* **👥 Gestión de Alumnos:** Perfiles detallados con historial académico y contacto.
-* **📅 Horario Inteligente:** Vistas semanales y mensuales dinámicas para un control total del tiempo.
-* **💰 Control Financiero:** Seguimiento de saldos pendientes, registro de pagos y tarifas personalizadas.
-* **📂 Recursos Compartidos:** Gestión de archivos en la nube mediante Firebase Storage.
-* **🔒 Seguridad Avanzada:** Cifrado de base de datos local y almacenamiento seguro de credenciales.
-* **🌍 Multi-idioma:** Soporte nativo completo para Español e Inglés.
-
----
+* **👥 Gestión de Alumnos:** Perfiles con historial y contacto.
+* **📅 Horario Inteligente:** Vistas semanales y mensuales para control total.
+* **💰 Control Financiero:** Seguimiento de saldos y precios por hora.
+* **📂 Recursos Compartidos:** Gestión de archivos y materiales en la nube.
+* **🔒 Seguridad:** Base de datos local cifrada con SQLCipher.
+* **🌍 Multi-idioma:** Soporte completo para Español e Inglés.
 
 ## 📸 Screenshots
 
@@ -30,47 +39,20 @@
 | :---: | :---: | :---: |
 | ![Perfil](./docs/screenshots/perfil_personal.png) | ![Finanzas](./docs/screenshots/finanzas_alumno.png) | ![Recursos](./docs/screenshots/recursos_compartidos.png) |
 
----
+## 🏗️ Arquitectura y Tech Stack
 
-## 🏗️ Arquitectura y Calidad
+El proyecto utiliza **Clean Architecture** con **MVVM** y **UDF** (Unidirectional Data Flow).
 
-El proyecto implementa **Clean Architecture** con un patrón de presentación **MVVM** y flujo de datos unidireccional (**UDF**). Esta estructura garantiza que la lógica de negocio sea independiente de los frameworks de UI o bases de datos.
+* **UI:** Jetpack Compose para una interfaz moderna y reactiva.
+* **DI:** Hilt para inyección de dependencias.
+* **DB:** Room con cifrado SQLCipher (Soporte Android 15+).
+* **Backend:** Firebase (Auth, Firestore, Storage).
+* **Testing:** Suite de +150 tests (Unitarios e Instrumentados).
 
-* **Capa de UI:** Desarrollada 100% en **Jetpack Compose**, utilizando `StateFlow` para la reactividad.
-* **Capa de Dominio:** Contiene los `UseCases` y entidades de negocio puras (Kotlin puro).
-* **Capa de Datos:** Implementa el patrón Repository para gestionar múltiples fuentes de datos (Room + Firebase).
+## 🚀 Instalación
 
-### Calidad de Código
-* **Tests:** Más de 150 tests unitarios e instrumentados.
-* **Mocking:** Uso de `MockK` y `Turbine` para el testeo de flujos de Coroutines.
-
----
-
-## 🛠️ Tech Stack
-
-* **Lenguaje:** Kotlin + Coroutines & Flow.
-* **Inyección de Dependencias:** Hilt (Dagger).
-* **Persistencia:** * **Room + SQLCipher:** Base de datos local cifrada (Compatible con 16KB page size para Android 15+).
-    * **DataStore:** Para preferencias del sistema.
-* **Backend:** Firebase (Auth, Firestore, Storage, Crashlytics).
-* **Red:** Retrofit + OkHttp (para servicios externos).
-
----
-
-## 🔒 Nota sobre Seguridad
-
-HomeTutorPro prioriza la privacidad del tutor y sus alumnos. La base de datos local utiliza **SQLCipher**, lo que significa que incluso si el dispositivo es vulnerado, los datos personales permanecen inaccesibles sin la clave de cifrado generada de forma segura mediante el **Android Keystore System**.
-
----
-
-## 🚀 Guía de Instalación
-
-1.  Clona el repositorio:
-    ```bash
-    git clone [https://github.com/DEVSusana/HomeTutorPro.git](https://github.com/DEVSusana/HomeTutorPro.git)
-    ```
-2.  Configura Firebase:
-    * Descarga tu archivo `google-services.json` desde la consola de Firebase.
-    * Colócalo en la carpeta `/app`.
+1. Clona el repositorio.
+2. Añade tu `google-services.json` de Firebase en `/app`.
+3. Sincroniza Gradle y ejecuta el proyecto.
 3.  Sincroniza el proyecto con Gradle en Android Studio.
 4.  Ejecuta la variante de `debug` en tu emulador o dispositivo físico.
