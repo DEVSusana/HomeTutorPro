@@ -225,9 +225,17 @@ fun WeeklyScheduleScreen(
                         onStartClass = { studentId, studentName ->
                             selectedStudentForClass = Pair(studentId, studentName)
                             showStartClassDialog = true
-                        }
+                        },
+                        onAddExtraClass = viewModel::openAddExtraClassDialog
                     )
                 }
+            }
+
+            if (state.showExtraClassDialog) {
+                com.devsusana.hometutorpro.presentation.student_detail.components.AddExtraClassDialog(
+                    onDismiss = viewModel::closeAddExtraClassDialog,
+                    onConfirm = viewModel::saveExtraClass
+                )
             }
         }
     }

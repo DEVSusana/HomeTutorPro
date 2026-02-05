@@ -111,7 +111,7 @@ fun ModernStudentCard(
                 }
             }
 
-            // Balance badge (Only if active or has balance)
+            // Balance badge
             if (student.pendingBalance > 0) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -119,10 +119,24 @@ fun ModernStudentCard(
                     tonalElevation = 2.dp
                 ) {
                     Text(
-                        text = "${student.pendingBalance}€",
+                        text = "%.2f€".format(student.pendingBalance),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = if (student.isActive) 1f else 0.6f),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            } else if (student.pendingBalance < 0) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (student.isActive) 1f else 0.6f),
+                    tonalElevation = 2.dp
+                ) {
+                    Text(
+                        text = "%.2f€".format(student.pendingBalance),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = if (student.isActive) 1f else 0.6f),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }

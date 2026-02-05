@@ -48,6 +48,9 @@ fun StudentDetailScreen(
         onBalanceEditToggle = viewModel::onBalanceEditToggle,
         onTabChange = viewModel::onTabChange,
         onPriceChange = viewModel::onPriceChange,
-        onContinue = viewModel::continueToNextStep
+        onContinue = viewModel::continueToNextStep,
+        onShowExtraClassDialog = viewModel::showExtraClassDialog,
+        onHideExtraClassDialog = viewModel::hideExtraClassDialog,
+        onSaveExtraClass = viewModel::saveExtraClass
     )
 }

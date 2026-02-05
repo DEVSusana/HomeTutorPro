@@ -4,7 +4,8 @@ import java.time.DayOfWeek
 
 enum class ExceptionType {
     CANCELLED,    // Class cancelled for this date
-    RESCHEDULED   // Class moved to different time on same date
+    RESCHEDULED,  // Class moved to different time on same date
+    EXTRA         // Additional class for this specific date
 }
 
 data class ScheduleException(

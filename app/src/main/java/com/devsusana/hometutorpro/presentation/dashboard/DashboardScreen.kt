@@ -93,7 +93,9 @@ fun DashboardScreen(
                     value = "${String.format("%.0f", state.totalPendingIncome)}", 
                     icon = Icons.Default.EuroSymbol,
                     color = MaterialTheme.colorScheme.secondary, 
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onNavigateToStudents() }
                 )
             }
         }
@@ -162,6 +164,10 @@ fun DashboardScreen(
 
     var showStartClassDialog by remember { mutableStateOf(false) }
     var selectedStudentForClass by remember { mutableStateOf<Pair<String, String>?>(null) }
+    
+    // Extra Class Dialog state
+    var showExtraClassDialog by remember { mutableStateOf(false) }
+    var studentIdForExtraClass by remember { mutableStateOf<String?>(null) }
 
     if (state.showExceptionDialog && state.selectedSchedule != null) {
         ScheduleExceptionDialog(
@@ -173,6 +179,10 @@ fun DashboardScreen(
             onStartClass = { studentId, studentName ->
                 selectedStudentForClass = Pair(studentId, studentName)
                 showStartClassDialog = true
+            },
+            onAddExtraClass = { studentId ->
+                studentIdForExtraClass = studentId
+                showExtraClassDialog = true
             }
         )
     }
@@ -189,6 +199,22 @@ fun DashboardScreen(
                 }
                 showStartClassDialog = false
                 selectedStudentForClass = null
+            }
+        )
+    }
+
+    if (showExtraClassDialog && studentIdForExtraClass != null) {
+        com.devsusana.hometutorpro.presentation.student_detail.components.AddExtraClassDialog(
+            onDismiss = { 
+                showExtraClassDialog = false
+                studentIdForExtraClass = null
+            },
+            onConfirm = { dateMillis, startStr, endStr ->
+                studentIdForExtraClass?.let { studentId ->
+                    viewModel.addExtraClass(studentId, dateMillis, startStr, endStr)
+                }
+                showExtraClassDialog = false
+                studentIdForExtraClass = null
             }
         )
     }

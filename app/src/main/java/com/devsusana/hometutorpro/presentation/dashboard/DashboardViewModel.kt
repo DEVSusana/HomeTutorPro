@@ -266,6 +266,49 @@ class DashboardViewModel @Inject constructor(
         }
     }
     
+    fun addExtraClass(studentId: String, dateMillis: Long, startTime: String, endTime: String) {
+        viewModelScope.launch {
+            val uid = getCurrentUserUseCase().value?.uid ?: return@launch
+            _state.update { it.copy(isLoading = true) }
+            
+            getStudentByIdUseCase(uid, studentId).first().let { student ->
+                if (student == null) {
+                    _state.update { it.copy(isLoading = false, errorMessage = R.string.student_detail_error_unexpected) }
+                    return@launch
+                }
+                
+                val start = LocalTime.parse(startTime)
+                val end = LocalTime.parse(endTime)
+                val durationMinutes = java.time.Duration.between(start, end).toMinutes().toInt()
+                
+                if (durationMinutes <= 0) {
+                    _state.update { it.copy(isLoading = false, errorMessage = R.string.student_detail_error_unexpected) }
+                    return@launch
+                }
+                
+                val priceToAdd = (durationMinutes / 60.0) * student.pricePerHour
+                val newBalance = student.pendingBalance + priceToAdd
+                val updatedStudent = student.copy(pendingBalance = newBalance)
+                
+                when (saveStudentUseCase(uid, updatedStudent)) {
+                    is Result.Success<*> -> {
+                        dismissDialog()
+                        loadDashboardData()
+                        _state.update {
+                             it.copy(
+                                 isLoading = false,
+                                 successMessage = R.string.student_detail_success_extra_class_added
+                             )
+                        }
+                    }
+                    is Result.Error<*> -> {
+                        _state.update { it.copy(isLoading = false, errorMessage = R.string.student_detail_error_update_balance_failed) }
+                    }
+                }
+            }
+        }
+    }
+    
     fun clearFeedback() {
         _state.update { it.copy(successMessage = null, errorMessage = null) }
     }

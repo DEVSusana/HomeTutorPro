@@ -168,8 +168,10 @@ fun EditProfileScreen(
                         }
                     }
 
-                    if (showStartTimePicker) {
-                        TimePickerDialog(
+// Local TimePickerDialog removed in favor of shared component
+
+                if (showStartTimePicker) {
+                        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
                             initialTime = state.workingStartTime,
                             onDismiss = { showStartTimePicker = false },
                             onTimeSelected = { 
@@ -202,7 +204,7 @@ fun EditProfileScreen(
                     }
 
                     if (showEndTimePicker) {
-                        TimePickerDialog(
+                        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
                             initialTime = state.workingEndTime,
                             onDismiss = { showEndTimePicker = false },
                             onTimeSelected = { 
@@ -211,7 +213,6 @@ fun EditProfileScreen(
                             }
                         )
                     }
-                    
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Button(
@@ -246,44 +247,4 @@ fun EditProfileScreen(
             onDismiss = { viewModel.onEvent(EditProfileUiEvent.DismissFeedback) }
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TimePickerDialog(
-    initialTime: String,
-    onDismiss: () -> Unit,
-    onTimeSelected: (String) -> Unit
-) {
-    val time = try {
-        LocalTime.parse(initialTime)
-    } catch (e: Exception) {
-        LocalTime.of(8, 0)
-    }
-
-    val timePickerState = rememberTimePickerState(
-        initialHour = time.hour,
-        initialMinute = time.minute,
-        is24Hour = true
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                val selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
-                onTimeSelected(selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")))
-            }) {
-                Text(stringResource(R.string.ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-        text = {
-            TimePicker(state = timePickerState)
-        }
-    )
 }
