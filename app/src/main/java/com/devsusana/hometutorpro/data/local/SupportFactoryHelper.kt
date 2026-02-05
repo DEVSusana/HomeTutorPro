@@ -16,6 +16,8 @@ object SupportFactoryHelper {
     private const val DATABASE_NAME = "hometutorpro.db"
 
     fun createFactory(context: Context): SupportSQLiteOpenHelper.Factory {
+        System.loadLibrary("sqlcipher")
+
         val passphraseString = getOrCreatePassphrase(context)
         migrateIfNecessary(context, passphraseString)
         return SupportOpenHelperFactory(passphraseString.toByteArray())
@@ -24,8 +26,6 @@ object SupportFactoryHelper {
     private fun migrateIfNecessary(context: Context, passphraseString: String) {
         val dbFile = context.getDatabasePath(DATABASE_NAME)
         if (!dbFile.exists()) return
-
-        System.loadLibrary("sqlcipher")
 
         var isUnencrypted = false
         try {
