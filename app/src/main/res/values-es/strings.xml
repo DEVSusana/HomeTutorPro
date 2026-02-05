@@ -136,6 +136,8 @@
     <string name="student_detail_actions">Acciones</string>
     <string name="student_detail_notes">Notas</string>
     <string name="student_detail_notes_hint">Añade notas, observaciones, progreso...</string>
+    <string name="student_detail_add_extra_class">Añadir Clase Extra</string>
+    <string name="student_detail_success_extra_class_added">¡Clase extra añadida con éxito!</string>
     
     <!-- Resource Sharing -->
     <string name="student_detail_share_resources">Compartir Recursos</string>
@@ -363,6 +365,7 @@
     <string name="schedule_form_day_sunday">Domingo</string>
 
     <!-- Schedule -->
+    <string name="schedule_form_date">Fecha</string>
     <string name="schedule_success_delete">Horario eliminado con éxito</string>
     <string name="schedule_error_delete_failed">No se pudo eliminar el horario</string>
     <string name="schedule_list_title">Horario</string>

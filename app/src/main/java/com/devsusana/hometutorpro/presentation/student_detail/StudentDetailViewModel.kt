@@ -47,7 +47,8 @@ class StudentDetailViewModel @Inject constructor(
     private val saveSharedResourceUseCase: ISaveSharedResourceUseCase,
     private val deleteSharedResourceUseCase: IDeleteSharedResourceUseCase,
     private val getAllSchedulesUseCase: IGetAllSchedulesUseCase,
-    private val getSchedulesUseCase: IGetSchedulesUseCase
+    private val getSchedulesUseCase: IGetSchedulesUseCase,
+    private val saveScheduleExceptionUseCase: com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(StudentDetailState())
@@ -701,6 +702,49 @@ class StudentDetailViewModel @Inject constructor(
                 bulkSchedules = emptyList(),
                 successMessage = Pair(R.string.bulk_schedule_success, savedCount)
             )
+        }
+    }
+
+    fun showExtraClassDialog() {
+        _state.value = _state.value.copy(showExtraClassDialog = true)
+    }
+
+    fun hideExtraClassDialog() {
+        _state.value = _state.value.copy(showExtraClassDialog = false)
+    }
+
+    fun saveExtraClass(date: Long, startTime: String, endTime: String) {
+        viewModelScope.launch {
+             val student = _state.value.student ?: return@launch
+             
+             _state.value = _state.value.copy(isLoading = true)
+
+             val extraClass = com.devsusana.hometutorpro.domain.entities.ScheduleException(
+                 id = java.util.UUID.randomUUID().toString(),
+                 studentId = student.id,
+                 date = date,
+                 type = com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA,
+                 originalScheduleId = "EXTRA", // Marker for extra class
+                 newStartTime = startTime,
+                 newEndTime = endTime,
+                 reason = "Extra Class"
+             )
+
+             when (saveScheduleExceptionUseCase(student.professorId, student.id, extraClass)) {
+                 is Result.Success -> {
+                     _state.value = _state.value.copy(
+                         isLoading = false,
+                         showExtraClassDialog = false,
+                         successMessage = R.string.student_detail_success_extra_class_added
+                     )
+                 }
+                 is Result.Error -> {
+                     _state.value = _state.value.copy(
+                         isLoading = false,
+                         errorMessage = R.string.student_detail_error_save_failed
+                     )
+                 }
+             }
         }
     }
 }

@@ -284,6 +284,65 @@ class WeeklyScheduleViewModel @Inject constructor(
         }
     }
 
+    fun openAddExtraClassDialog(studentId: String) {
+        _state.update { 
+            it.copy(
+                showExtraClassDialog = true,
+                selectedStudentIdForExtraClass = studentId,
+                showExceptionDialog = false // Close exception dialog
+            ) 
+        }
+    }
+
+    fun closeAddExtraClassDialog() {
+        _state.update { 
+            it.copy(
+                showExtraClassDialog = false,
+                selectedStudentIdForExtraClass = null
+            ) 
+        }
+    }
+
+    fun saveExtraClass(date: Long, startTime: String, endTime: String) {
+        viewModelScope.launch {
+             val uid = getCurrentUserUseCase().value?.uid ?: return@launch
+             val studentId = _state.value.selectedStudentIdForExtraClass ?: return@launch
+             
+             _state.update { it.copy(isLoading = true) }
+
+             val extraClass = com.devsusana.hometutorpro.domain.entities.ScheduleException(
+                 id = java.util.UUID.randomUUID().toString(),
+                 studentId = studentId,
+                 date = date,
+                 type = com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA,
+                 originalScheduleId = "EXTRA", // Marker for extra class
+                 newStartTime = startTime,
+                 newEndTime = endTime,
+                 reason = "Extra Class"
+             )
+
+             when (val result = saveScheduleExceptionUseCase(uid, studentId, extraClass)) {
+                 is Result.Success -> {
+                     closeAddExtraClassDialog()
+                     loadWeeklySchedule()
+                     _state.update {
+                         it.copy(
+                             successMessage = R.string.student_detail_success_extra_class_added
+                         )
+                     }
+                 }
+                 is Result.Error -> {
+                     _state.update {
+                         it.copy(
+                             isLoading = false,
+                             errorMessage = R.string.student_detail_error_save_failed
+                         )
+                     }
+                 }
+             }
+        }
+    }
+
     private fun minutesToTime(minutes: Int): String {
         val h = minutes / 60
         val m = minutes % 60

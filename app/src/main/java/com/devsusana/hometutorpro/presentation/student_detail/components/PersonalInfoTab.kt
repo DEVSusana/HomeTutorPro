@@ -233,12 +233,12 @@ fun PersonalInfoTab(
                 value = student.notes,
                 onValueChange = { onStudentChange(student.copy(notes = it)) },
                 label = { Text(stringResource(id = R.string.student_detail_notes)) },
-                enabled = isEditMode,
+                readOnly = !isEditMode,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
-                    .testTag("notes_field"),
-                maxLines = 6,
+                    .defaultMinSize(minHeight = 150.dp)
+                    .testTag("notes_field")
+                    .verticalScroll(rememberScrollState()),
                 placeholder = { Text(stringResource(R.string.student_detail_notes_hint)) },
                 leadingIcon = { 
                     Icon(
@@ -246,12 +246,16 @@ fun PersonalInfoTab(
                         contentDescription = stringResource(R.string.cd_file_icon)
                     ) 
                 },
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                    disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                colors = if (!isEditMode) {
+                    OutlinedTextFieldDefaults.colors(
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    OutlinedTextFieldDefaults.colors()
+                }
             )
         }
         
