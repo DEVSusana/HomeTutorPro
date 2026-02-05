@@ -59,7 +59,11 @@ fun StudentDetailContent(
     onBalanceEditToggle: () -> Unit,
     onTabChange: (Int) -> Unit,
     onPriceChange: (String) -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    // Extra Class Dialog Callbacks
+    onShowExtraClassDialog: () -> Unit,
+    onHideExtraClassDialog: () -> Unit,
+    onSaveExtraClass: (Long, String, String) -> Unit
 ) {
     val context = LocalContext.current
     val student = state.student
@@ -141,6 +145,8 @@ fun StudentDetailContent(
     }
 
     val newStudentString = stringResource(id = R.string.student_detail_new_student)
+    val permissionNeededText = stringResource(R.string.notification_permission_needed)
+    val settingsText = stringResource(R.string.settings)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     
@@ -161,11 +167,12 @@ fun StudentDetailContent(
 
                 val scheduled = NotificationHelper.scheduleClassEndNotification(context, student?.name ?: newStudentString, duration.toLong())
                 
+                
                 if (!scheduled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     scope.launch {
                         val result = snackbarHostState.showSnackbar(
-                            message = context.getString(R.string.notification_permission_needed),
-                            actionLabel = context.getString(R.string.settings),
+                            message = permissionNeededText,
+                            actionLabel = settingsText,
                             duration = SnackbarDuration.Long
                         )
                         if (result == SnackbarResult.ActionPerformed) {
@@ -181,6 +188,13 @@ fun StudentDetailContent(
                 onStartClass(duration)
                 showStartClassDialog = false
             }
+        )
+    }
+
+    if (state.showExtraClassDialog) {
+        AddExtraClassDialog(
+            onDismiss = onHideExtraClassDialog,
+            onConfirm = onSaveExtraClass
         )
     }
 
@@ -359,7 +373,8 @@ fun StudentDetailContent(
                                 selectedPaymentType = PaymentType.EFFECTIVE 
                                 showPaymentDialog = true
                             },
-                            onStartClassClick = { showStartClassDialog = true }
+                            onStartClassClick = { showStartClassDialog = true },
+                            onAddExtraClassClick = onShowExtraClassDialog
                         )
                         3 -> ResourcesTab(
                             student = student,
@@ -409,7 +424,10 @@ private fun StudentDetailContentNewStudentPreview() {
             onBalanceEditToggle = {},
             onTabChange = {},
             onPriceChange = {},
-            onContinue = {}
+            onContinue = {},
+            onShowExtraClassDialog = {},
+            onHideExtraClassDialog = {},
+            onSaveExtraClass = { _, _, _ -> }
         )
     }
 }
@@ -454,7 +472,10 @@ private fun StudentDetailContentViewStudentPreview() {
             onBalanceEditToggle = {},
             onTabChange = {},
             onPriceChange = {},
-            onContinue = {}
+            onContinue = {},
+            onShowExtraClassDialog = {},
+            onHideExtraClassDialog = {},
+            onSaveExtraClass = { _, _, _ -> }
         )
     }
 }
@@ -485,7 +506,10 @@ private fun StudentDetailContentLoadingPreview() {
             onBalanceEditToggle = {},
             onTabChange = {},
             onPriceChange = {},
-            onContinue = {}
+            onContinue = {},
+            onShowExtraClassDialog = {},
+            onHideExtraClassDialog = {},
+            onSaveExtraClass = { _, _, _ -> }
         )
     }
 }
@@ -516,7 +540,10 @@ private fun StudentDetailContentNotFoundPreview() {
             onBalanceEditToggle = {},
             onTabChange = {},
             onPriceChange = {},
-            onContinue = {}
+            onContinue = {},
+            onShowExtraClassDialog = {},
+            onHideExtraClassDialog = {},
+            onSaveExtraClass = { _, _, _ -> }
         )
     }
 }

@@ -5,6 +5,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -25,7 +27,8 @@ fun ScheduleExceptionDialog(
     onDismiss: () -> Unit,
     onSave: (ScheduleException) -> Unit,
     onDelete: ((String, String) -> Unit)? = null,
-    onStartClass: ((String, String) -> Unit)? = null // studentId, studentName
+    onStartClass: ((String, String) -> Unit)? = null, // studentId, studentName
+    onAddExtraClass: ((String) -> Unit)? = null // studentId
 ) {
     var exceptionType by remember { 
         mutableStateOf(item.exception?.type ?: ExceptionType.CANCELLED) 
@@ -167,6 +170,30 @@ fun ScheduleExceptionDialog(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
+                // Add Extra Class Button
+                if (onAddExtraClass != null) {
+                   Button(
+                        onClick = {
+                            onAddExtraClass(item.student.id)
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(com.devsusana.hometutorpro.R.string.student_detail_add_extra_class))
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 // Exception Type Selection
                 Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_action), style = MaterialTheme.typography.labelLarge)
                 Row(
@@ -220,21 +247,58 @@ fun ScheduleExceptionDialog(
                         }
                     }
                     
-                    OutlinedTextField(
-                        value = newStartTime,
-                        onValueChange = { newStartTime = it },
-                        label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_new_start_time)) },
-                        placeholder = { Text("HH:mm") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = newEndTime,
-                        onValueChange = { newEndTime = it },
-                        label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_new_end_time)) },
-                        placeholder = { Text("HH:mm") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // Time Selectors ROW
+                    var showNewStartTimePicker by remember { mutableStateOf(false) }
+                    var showNewEndTimePicker by remember { mutableStateOf(false) }
+                    
+                    if (showNewStartTimePicker) {
+                        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
+                            initialTime = newStartTime,
+                            onDismiss = { showNewStartTimePicker = false },
+                            onTimeSelected = { 
+                                newStartTime = it
+                                showNewStartTimePicker = false
+                            }
+                        )
+                    }
+                    
+                    if (showNewEndTimePicker) {
+                        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
+                            initialTime = newEndTime,
+                            onDismiss = { showNewEndTimePicker = false },
+                            onTimeSelected = { 
+                                newEndTime = it
+                                showNewEndTimePicker = false
+                            }
+                        )
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // New Start Time
+                        OutlinedButton(
+                            onClick = { showNewStartTimePicker = true },
+                            modifier = Modifier.weight(1f),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(newStartTime)
+                        }
+                        
+                        // New End Time
+                        OutlinedButton(
+                            onClick = { showNewEndTimePicker = true },
+                            modifier = Modifier.weight(1f),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(newEndTime)
+                        }
+                    }
                     
                     // Conflict warning
                     if (hasConflict && conflictingClass != null) {

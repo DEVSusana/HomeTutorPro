@@ -34,5 +34,7 @@ data class WeeklyScheduleState(
     val showExceptionDialog: Boolean = false,
     val selectedSchedule: WeeklyScheduleItem.Regular? = null,
     val successMessage: Any? = null,
-    val errorMessage: Any? = null
+    val errorMessage: Any? = null,
+    val showExtraClassDialog: Boolean = false,
+    val selectedStudentIdForExtraClass: String? = null
 )

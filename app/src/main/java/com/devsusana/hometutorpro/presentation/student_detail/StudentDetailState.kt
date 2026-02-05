@@ -36,5 +36,8 @@ data class StudentDetailState(
     val pendingSchedules: List<com.devsusana.hometutorpro.domain.entities.Schedule> = emptyList(),
     
     // Saved schedules for existing students
-    val schedules: List<com.devsusana.hometutorpro.domain.entities.Schedule> = emptyList()
+    val schedules: List<com.devsusana.hometutorpro.domain.entities.Schedule> = emptyList(),
+
+    // Extra Class Dialog
+    val showExtraClassDialog: Boolean = false
 )

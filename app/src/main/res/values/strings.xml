@@ -136,6 +136,8 @@
     <string name="student_detail_actions">Actions</string>
     <string name="student_detail_notes">Notes</string>
     <string name="student_detail_notes_hint">Add notes, observations, progress...</string>
+    <string name="student_detail_add_extra_class">Add Extra Class</string>
+    <string name="student_detail_success_extra_class_added">Extra class added successfully!</string>
     
     <!-- Resource Sharing -->
     <string name="student_detail_share_resources">Share Resources</string>
@@ -368,6 +370,7 @@
 
 
     <!-- Schedule -->
+    <string name="schedule_form_date">Date</string>
     <string name="schedule_success_delete">Schedule deleted successfully</string>
     <string name="schedule_error_delete_failed">Failed to delete schedule</string>
     <string name="schedule_list_title">Schedule</string>

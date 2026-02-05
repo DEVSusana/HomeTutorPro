@@ -40,6 +40,7 @@ fun FinanceTab(
     onPriceChange: (String) -> Unit,
     onPaymentClick: (PaymentType) -> Unit,
     onStartClassClick: () -> Unit,
+    onAddExtraClassClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -147,6 +148,18 @@ fun FinanceTab(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(id = R.string.student_detail_start_class))
                 }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = onAddExtraClassClick,
+                    modifier = Modifier.fillMaxWidth().testTag("add_extra_class_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                ) {
+                    Icon(Icons.Default.Event, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(id = R.string.student_detail_add_extra_class))
+                }
             }
         }
 
@@ -181,7 +194,8 @@ private fun FinanceTabWithBalancePreview() {
             onBalanceEditToggle = {},
             onPriceChange = {},
             onPaymentClick = {},
-            onStartClassClick = {}
+            onStartClassClick = {},
+            onAddExtraClassClick = {}
         )
     }
 }
@@ -211,7 +225,8 @@ private fun FinanceTabNoBalancePreview() {
             onBalanceEditToggle = {},
             onPriceChange = {},
             onPaymentClick = {},
-            onStartClassClick = {}
+            onStartClassClick = {},
+            onAddExtraClassClick = {}
         )
     }
 }
@@ -241,7 +256,8 @@ private fun FinanceTabEditModePreview() {
             onBalanceEditToggle = {},
             onPriceChange = {},
             onPaymentClick = {},
-            onStartClassClick = {}
+            onStartClassClick = {},
+            onAddExtraClassClick = {}
         )
     }
 }

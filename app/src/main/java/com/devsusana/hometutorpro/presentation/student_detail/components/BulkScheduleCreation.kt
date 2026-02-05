@@ -175,6 +175,31 @@ private fun ScheduleEntryCard(
     onScheduleChange: (BulkScheduleEntry) -> Unit,
     onRemove: () -> Unit
 ) {
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+    
+    if (showStartTimePicker) {
+        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
+            initialTime = schedule.startTime.ifEmpty { "09:00" },
+            onDismiss = { showStartTimePicker = false },
+            onTimeSelected = { 
+                onScheduleChange(schedule.copy(startTime = it))
+                showStartTimePicker = false
+            }
+        )
+    }
+    
+    if (showEndTimePicker) {
+        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
+            initialTime = schedule.endTime.ifEmpty { "10:00" },
+            onDismiss = { showEndTimePicker = false },
+            onTimeSelected = { 
+                onScheduleChange(schedule.copy(endTime = it))
+                showEndTimePicker = false
+            }
+        )
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -250,32 +275,52 @@ private fun ScheduleEntryCard(
                     }
                 }
             }
+            
+            // Times Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                 // Start Time
+                 Column(modifier = Modifier.weight(1f)) {
+                     Text(
+                        text = stringResource(R.string.start_time),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    OutlinedButton(
+                        onClick = { showStartTimePicker = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("start_time_field_$scheduleNumber"),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(schedule.startTime.ifEmpty { stringResource(R.string.start_time_placeholder) })
+                    }
+                 }
 
-            // Start Time
-            OutlinedTextField(
-                value = schedule.startTime,
-                onValueChange = { onScheduleChange(schedule.copy(startTime = it)) },
-                label = { Text(stringResource(R.string.start_time)) },
-                leadingIcon = { Icon(Icons.Default.AccessTime, contentDescription = stringResource(R.string.cd_time_icon)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("start_time_field_$scheduleNumber"),
-                shape = RoundedCornerShape(8.dp),
-                placeholder = { Text(stringResource(R.string.start_time_placeholder)) }
-            )
-
-            // End Time
-            OutlinedTextField(
-                value = schedule.endTime,
-                onValueChange = { onScheduleChange(schedule.copy(endTime = it)) },
-                label = { Text(stringResource(R.string.end_time)) },
-                leadingIcon = { Icon(Icons.Default.AccessTime, contentDescription = stringResource(R.string.cd_time_icon)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("end_time_field_$scheduleNumber"),
-                shape = RoundedCornerShape(8.dp),
-                placeholder = { Text(stringResource(R.string.end_time_placeholder)) }
-            )
+                // End Time
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.end_time),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    OutlinedButton(
+                        onClick = { showEndTimePicker = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("end_time_field_$scheduleNumber"),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(schedule.endTime.ifEmpty { stringResource(R.string.end_time_placeholder) })
+                    }
+                }
+            }
 
             // Error message
             schedule.error?.let { error ->
