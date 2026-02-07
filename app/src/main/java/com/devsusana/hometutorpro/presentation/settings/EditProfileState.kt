@@ -8,6 +8,7 @@ data class EditProfileState(
     val isLoading: Boolean = false,
     val workingStartTime: String = "08:00",
     val workingEndTime: String = "23:00",
+    val notes: String = "",
     val successMessage: String? = null,
     val errorMessage: String? = null
 )

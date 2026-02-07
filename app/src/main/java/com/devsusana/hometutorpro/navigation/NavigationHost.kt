@@ -2,6 +2,7 @@ package com.devsusana.hometutorpro.navigation
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -123,7 +124,9 @@ fun NavigationHost() {
                 NavHost(
                     navController = navController, 
                     startDestination = Route.Splash,
-                    modifier = Modifier.padding(paddingValues)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
                 ) {
                     mainGraph(navController)
                     authGraph(navController)

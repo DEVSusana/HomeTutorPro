@@ -56,7 +56,8 @@ class AuthRepositoryImpl @Inject constructor(
                     email = firebaseUser.email ?: "",
                     displayName = firebaseUser.displayName ?: "",
                     workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime()
+                    workingEndTime = authManager.getWorkingEndTime(),
+                    notes = authManager.getNotes()
                 )
                 
                 if (billingManager.isPremium.value) {
@@ -89,7 +90,8 @@ class AuthRepositoryImpl @Inject constructor(
                     email = email, 
                     displayName = name,
                     workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime()
+                    workingEndTime = authManager.getWorkingEndTime(),
+                    notes = authManager.getNotes()
                 )
             } else {
                 _currentUser.value = null
@@ -109,7 +111,8 @@ class AuthRepositoryImpl @Inject constructor(
                     email = user.email ?: "",
                     displayName = user.displayName ?: "",
                     workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime()
+                    workingEndTime = authManager.getWorkingEndTime(),
+                    notes = authManager.getNotes()
                 )
                 _currentUser.value = domainUser
                 
@@ -144,7 +147,8 @@ class AuthRepositoryImpl @Inject constructor(
                     email = email, 
                     displayName = name,
                     workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime()
+                    workingEndTime = authManager.getWorkingEndTime(),
+                    notes = authManager.getNotes()
                 )
                 _currentUser.value = user
                 Result.Success(user)
@@ -181,7 +185,8 @@ class AuthRepositoryImpl @Inject constructor(
                     email = firebaseUser.email ?: "",
                     displayName = name,
                     workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime()
+                    workingEndTime = authManager.getWorkingEndTime(),
+                    notes = authManager.getNotes()
                 )
                 _currentUser.value = domainUser
                 Result.Success(domainUser)
@@ -210,7 +215,8 @@ class AuthRepositoryImpl @Inject constructor(
         name: String, 
         email: String, 
         workingStartTime: String, 
-        workingEndTime: String
+        workingEndTime: String,
+        notes: String
     ): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
@@ -232,6 +238,7 @@ class AuthRepositoryImpl @Inject constructor(
             authManager.updateEmail(email)
             authManager.updateWorkingStartTime(workingStartTime)
             authManager.updateWorkingEndTime(workingEndTime)
+            authManager.updateNotes(notes)
 
             // Update local StateFlow
             val current = _currentUser.value
@@ -240,7 +247,8 @@ class AuthRepositoryImpl @Inject constructor(
                     displayName = name, 
                     email = email,
                     workingStartTime = workingStartTime,
-                    workingEndTime = workingEndTime
+                    workingEndTime = workingEndTime,
+                    notes = notes
                 )
             }
 
@@ -281,7 +289,8 @@ class AuthRepositoryImpl @Inject constructor(
                     email = user.email ?: "", 
                     displayName = name,
                     workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime()
+                    workingEndTime = authManager.getWorkingEndTime(),
+                    notes = authManager.getNotes()
                 )
                 _currentUser.value = domainUser
                 Result.Success(domainUser)

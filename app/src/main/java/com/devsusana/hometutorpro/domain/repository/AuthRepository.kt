@@ -14,7 +14,8 @@ interface AuthRepository {
         name: String, 
         email: String, 
         workingStartTime: String, 
-        workingEndTime: String
+        workingEndTime: String,
+        notes: String
     ): Result<Unit, DomainError>
     suspend fun updatePassword(newPassword: String): Result<Unit, DomainError>
 }

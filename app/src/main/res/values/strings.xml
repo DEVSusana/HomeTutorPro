@@ -446,6 +446,27 @@
     <string name="dashboard_action_shared_resources_subtitle">Upload and share files</string>
     <string name="dashboard_hello">Hello</string>
 
+    <string name="dashboard_action_notes">My Notes</string>
+    <string name="dashboard_action_notes_subtitle">Manage personal tasks and ideas</string>
+
+    <!-- Notes Screen -->
+    <string name="notes_title">My Notes</string>
+    <string name="notes_subtitle">Keep track of your pending tasks and ideas here.</string>
+    <string name="notes_label">Notes</string>
+    <string name="notes_placeholder">Type your notes here…</string>
+    <string name="notes_save_success">Notes saved successfully</string>
+    <string name="notes_save_error">Failed to save notes</string>
+    <string name="cd_save_notes">Save Notes</string>
+
+    <!-- Notifications -->
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_class_end_notifications">Class End Alarms</string>
+    <string name="settings_class_end_notifications_desc">Be notified when a class is over</string>
+    <string name="settings_test_alarm">Test Alarm</string>
+    <string name="notification_permission_title">Notifications Permission</string>
+    <string name="notification_permission_desc">Allow notifications to receive class end alarms with sound</string>
+    <string name="notification_exact_alarm_permission">The app needs permission to schedule exact alarms for classes. Please enable it in system settings.</string>
+
     <string name="nav_schedule">Schedule</string>
     <string name="nav_students">Students</string>
     <string name="nav_settings">Settings</string>

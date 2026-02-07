@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
@@ -16,34 +17,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.BuildConfig
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.core.settings.SettingsManager
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsItem
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsSectionTitle
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
-import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onLogoutClick: () -> Unit,
     onPremiumClick: () -> Unit,
-    onEditProfileClick: () -> Unit
+    onEditProfileClick: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val settingsManager = remember {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            com.devsusana.hometutorpro.di.SettingsManagerEntryPoint::class.java
-        ).settingsManager()
-    }
+    val state by viewModel.state.collectAsState()
     
-    val coroutineScope = rememberCoroutineScope()
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     
@@ -66,24 +59,6 @@ fun SettingsScreen(
             // Account Section
             SettingsSectionTitle(stringResource(R.string.settings_account))
             
-            // Premium Status
-            // TODO: Remove false check to re-enable Premium UI
-            if (false) {
-                SettingsItem(
-                    icon = Icons.Default.Star,
-                    title = stringResource(R.string.settings_premium),
-                    subtitle = if (isPremium) stringResource(R.string.settings_premium_active) else stringResource(R.string.settings_premium_inactive),
-                    onClick = onPremiumClick,
-                    trailing = {
-                        if (!isPremium) {
-                            TextButton(onClick = onPremiumClick) {
-                                Text(stringResource(R.string.settings_upgrade_premium))
-                            }
-                        }
-                    }
-                )
-            }
-            
             // Edit Profile
             SettingsItem(
                 icon = Icons.Default.Person,
@@ -93,23 +68,50 @@ fun SettingsScreen(
             
             HorizontalDivider()
             
+            // Notifications Section
+            SettingsSectionTitle(stringResource(R.string.settings_notifications))
+            
+            SettingsItem(
+                icon = Icons.Default.Notifications,
+                title = stringResource(R.string.settings_class_end_notifications),
+                subtitle = stringResource(R.string.settings_class_end_notifications_desc),
+                onClick = { viewModel.onClassEndNotificationsToggle(!state.classEndNotificationsEnabled) },
+                trailing = {
+                    Switch(
+                        checked = state.classEndNotificationsEnabled,
+                        onCheckedChange = { viewModel.onClassEndNotificationsToggle(it) }
+                    )
+                }
+            )
+
+            // Test Notification Button
+            TextButton(
+                onClick = { viewModel.showTestNotification() },
+                modifier = Modifier.padding(start = 56.dp)
+            ) {
+                Text(stringResource(R.string.settings_test_alarm))
+            }
+
+            HorizontalDivider()
+            
+            // Preferences Section
+            SettingsSectionTitle(stringResource(R.string.settings_theme_dialog_title))
+            
             // Language
             SettingsItem(
                 icon = Icons.Default.Language,
                 title = stringResource(R.string.settings_language),
-                subtitle = if (java.util.Locale.getDefault().language == "es") "Español" else "English",
+                subtitle = if (state.language == "es") "Español" else "English",
                 onClick = { showLanguageDialog = true }
             )
             
             HorizontalDivider()
             
             // Theme Mode
-            val themeMode by settingsManager.themeModeFlow.collectAsState(initial = SettingsManager.ThemeMode.SYSTEM)
-            
             SettingsItem(
                 icon = Icons.Default.Palette,
                 title = stringResource(R.string.settings_theme),
-                subtitle = when (themeMode) {
+                subtitle = when (state.themeMode) {
                     SettingsManager.ThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
                     SettingsManager.ThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
                     SettingsManager.ThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
@@ -120,29 +122,18 @@ fun SettingsScreen(
             HorizontalDivider()
             
             // Debug Section (Only in Debug builds)
-            // TODO: Remove checks to re-enable Debug Premium UI
             if (BuildConfig.DEBUG && false) {
-                val isDebugPremium by settingsManager.isDebugPremiumFlow.collectAsState(initial = false)
-                
                 SettingsSectionTitle(stringResource(R.string.settings_debug))
                 
                 SettingsItem(
                     icon = Icons.Default.BugReport,
                     title = stringResource(R.string.settings_debug_premium),
-                    subtitle = if (isDebugPremium) "ON" else "OFF",
-                    onClick = { 
-                        coroutineScope.launch {
-                            settingsManager.setDebugPremium(!isDebugPremium)
-                        }
-                    },
+                    subtitle = if (state.isDebugPremium) "ON" else "OFF",
+                    onClick = { viewModel.onDebugPremiumToggle(!state.isDebugPremium) },
                     trailing = {
                         Switch(
-                            checked = isDebugPremium,
-                            onCheckedChange = { 
-                                coroutineScope.launch {
-                                    settingsManager.setDebugPremium(it)
-                                }
-                            }
+                            checked = state.isDebugPremium,
+                            onCheckedChange = { viewModel.onDebugPremiumToggle(it) }
                         )
                     }
                 )
@@ -187,10 +178,8 @@ fun SettingsScreen(
                 Column {
                     TextButton(
                         onClick = {
-                            coroutineScope.launch {
-                                settingsManager.setLanguage(SettingsManager.LANGUAGE_ENGLISH)
-                                LocaleHelper.setLocale(context as android.app.Activity, "en")
-                            }
+                            viewModel.onLanguageChange(SettingsManager.LANGUAGE_ENGLISH)
+                            LocaleHelper.setLocale(context as android.app.Activity, "en")
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -205,10 +194,8 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick = {
-                            coroutineScope.launch {
-                                settingsManager.setLanguage(SettingsManager.LANGUAGE_SPANISH)
-                                LocaleHelper.setLocale(context as android.app.Activity, "es")
-                            }
+                            viewModel.onLanguageChange(SettingsManager.LANGUAGE_SPANISH)
+                            LocaleHelper.setLocale(context as android.app.Activity, "es")
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -232,8 +219,6 @@ fun SettingsScreen(
     
     // Theme Dialog
     if (showThemeDialog) {
-        val themeMode by settingsManager.themeModeFlow.collectAsState(initial = SettingsManager.ThemeMode.SYSTEM)
-        
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
             title = { Text(stringResource(R.string.settings_theme_dialog_title)) },
@@ -247,11 +232,9 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = themeMode == SettingsManager.ThemeMode.LIGHT,
+                            selected = state.themeMode == SettingsManager.ThemeMode.LIGHT,
                             onClick = {
-                                coroutineScope.launch {
-                                    settingsManager.setThemeMode(SettingsManager.ThemeMode.LIGHT)
-                                }
+                                viewModel.onThemeModeChange(SettingsManager.ThemeMode.LIGHT)
                                 showThemeDialog = false
                             }
                         )
@@ -271,11 +254,9 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = themeMode == SettingsManager.ThemeMode.DARK,
+                            selected = state.themeMode == SettingsManager.ThemeMode.DARK,
                             onClick = {
-                                coroutineScope.launch {
-                                    settingsManager.setThemeMode(SettingsManager.ThemeMode.DARK)
-                                }
+                                viewModel.onThemeModeChange(SettingsManager.ThemeMode.DARK)
                                 showThemeDialog = false
                             }
                         )
@@ -295,11 +276,9 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = themeMode == SettingsManager.ThemeMode.SYSTEM,
+                            selected = state.themeMode == SettingsManager.ThemeMode.SYSTEM,
                             onClick = {
-                                coroutineScope.launch {
-                                    settingsManager.setThemeMode(SettingsManager.ThemeMode.SYSTEM)
-                                }
+                                viewModel.onThemeModeChange(SettingsManager.ThemeMode.SYSTEM)
                                 showThemeDialog = false
                             }
                         )
@@ -318,15 +297,5 @@ fun SettingsScreen(
                 }
             }
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SettingsScreenPreview() {
-    com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme {
-        // Mocking SettingsManager would be needed for a real preview with data logic
-        // For visual preview of layout:
-        SettingsSectionTitle("Account")
     }
 }
