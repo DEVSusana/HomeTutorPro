@@ -465,6 +465,27 @@
     <string name="dashboard_action_shared_resources_subtitle">Subir y compartir</string>
     <string name="dashboard_hello">Hola</string>
 
+    <string name="dashboard_action_notes">Mis Notas</string>
+    <string name="dashboard_action_notes_subtitle">Gestiona tus tareas e ideas personales</string>
+
+    <!-- Notes Screen -->
+    <string name="notes_title">Mis Notas</string>
+    <string name="notes_subtitle">Lleva un seguimiento de tus tareas pendientes e ideas aquí.</string>
+    <string name="notes_label">Notas</string>
+    <string name="notes_placeholder">Escribe tus notas aquí…</string>
+    <string name="notes_save_success">Notas guardadas con éxito</string>
+    <string name="notes_save_error">Error al guardar las notas</string>
+    <string name="cd_save_notes">Guardar Notas</string>
+
+    <!-- Notifications -->
+    <string name="settings_notifications">Notificaciones</string>
+    <string name="settings_class_end_notifications">Alarmas de Fin de Clase</string>
+    <string name="settings_class_end_notifications_desc">Recibe un aviso cuando termine una clase</string>
+    <string name="settings_test_alarm">Probar Alarma</string>
+    <string name="notification_permission_title">Permiso de Notificaciones</string>
+    <string name="notification_permission_desc">Permite notificaciones para recibir alarmas de fin de clase con sonido</string>
+    <string name="notification_exact_alarm_permission">La aplicación necesita permiso para programar alarmas exactas para las clases. Por favor, actívalo en los ajustes del sistema.</string>
+
     <!-- Bottom Navigation -->
     <string name="nav_schedule">Horario</string>
     <string name="nav_students">Alumnos</string>

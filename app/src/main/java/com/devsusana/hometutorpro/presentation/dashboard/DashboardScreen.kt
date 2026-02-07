@@ -3,8 +3,8 @@ package com.devsusana.hometutorpro.presentation.dashboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,12 +15,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -28,6 +30,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.setValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.core.utils.NotificationHelper
 import com.devsusana.hometutorpro.presentation.components.ScheduleExceptionDialog
 import com.devsusana.hometutorpro.presentation.student_detail.components.StartClassDialog
 import com.devsusana.hometutorpro.presentation.components.FeedbackDialog
@@ -46,19 +49,44 @@ fun DashboardScreen(
     onNavigateToStudents: () -> Unit,
     onNavigateToResources: () -> Unit,
     onAddStudent: () -> Unit,
+    onNavigateToNotes: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val today = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault()))
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val exactAlarmMessage = stringResource(R.string.notification_exact_alarm_permission)
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        item {
+    LaunchedEffect(state.permissionNeeded) {
+        if (state.permissionNeeded) {
+            val result = snackbarHostState.showSnackbar(
+                message = exactAlarmMessage,
+                actionLabel = context.getString(R.string.settings),
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                NotificationHelper.openExactAlarmSettings(context)
+            }
+            viewModel.clearPermissionNeeded()
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+            // Welcome Section
             Column {
                 Text(
                     text = today.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
@@ -73,9 +101,8 @@ fun DashboardScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-        }
 
-        item {
+            // Stats Section
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -98,67 +125,78 @@ fun DashboardScreen(
                         .clickable { onNavigateToStudents() }
                 )
             }
-        }
 
-        item {
-            Text(
-                text = stringResource(R.string.dashboard_next_class),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            if (state.nextClass != null) {
-                NextClassCard(
-                    item = state.nextClass!!,
-                    onClick = { viewModel.onScheduleClick(state.nextClass!!) }
+            // Next Class Section
+            Column {
+                Text(
+                    text = stringResource(R.string.dashboard_next_class),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
-            } else {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.5f))
-                ) {
-                    Box(modifier = Modifier.padding(24.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = stringResource(R.string.dashboard_no_upcoming_classes), 
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Spacer(modifier = Modifier.height(12.dp))
+                if (state.nextClass != null) {
+                    NextClassCard(
+                        item = state.nextClass!!,
+                        onClick = { viewModel.onScheduleClick(state.nextClass!!) }
+                    )
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.5f))
+                    ) {
+                        Box(modifier = Modifier.padding(24.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = stringResource(R.string.dashboard_no_upcoming_classes), 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        item {
-            Text(
-                text = stringResource(R.string.dashboard_quick_actions),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickActionButton(
-                    title = stringResource(R.string.dashboard_action_add_student),
-                    subtitle = stringResource(R.string.dashboard_action_add_student_subtitle),
-                    icon = Icons.Default.PersonAdd,
-                    color = MaterialTheme.colorScheme.primary,
-                    onClick = onAddStudent
+            // Quick Actions Section
+            Column {
+                Text(
+                    text = stringResource(R.string.dashboard_quick_actions),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
-                
-                QuickActionButton(
-                    title = stringResource(R.string.dashboard_action_view_students),
-                    subtitle = stringResource(R.string.dashboard_action_view_students_subtitle),
-                    icon = Icons.Default.School,
-                    color = MaterialTheme.colorScheme.tertiary, 
-                    onClick = onNavigateToStudents
-                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    QuickActionButton(
+                        title = stringResource(R.string.dashboard_action_add_student),
+                        subtitle = stringResource(R.string.dashboard_action_add_student_subtitle),
+                        icon = Icons.Default.PersonAdd,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = onAddStudent
+                    )
+                    
+                    QuickActionButton(
+                        title = stringResource(R.string.dashboard_action_view_students),
+                        subtitle = stringResource(R.string.dashboard_action_view_students_subtitle),
+                        icon = Icons.Default.School,
+                        color = MaterialTheme.colorScheme.tertiary, 
+                        onClick = onNavigateToStudents
+                    )
 
-                QuickActionButton(
-                    title = stringResource(R.string.dashboard_action_shared_resources),
-                    subtitle = stringResource(R.string.dashboard_action_shared_resources_subtitle),
-                    icon = Icons.Default.Folder,
-                    color = MaterialTheme.colorScheme.secondary,
-                    onClick = onNavigateToResources
-                )
+                    QuickActionButton(
+                        title = stringResource(R.string.dashboard_action_shared_resources),
+                        subtitle = stringResource(R.string.dashboard_action_shared_resources_subtitle),
+                        icon = Icons.Default.Folder,
+                        color = MaterialTheme.colorScheme.secondary,
+                        onClick = onNavigateToResources
+                    )
+
+                    QuickActionButton(
+                        title = stringResource(R.string.dashboard_action_notes),
+                        subtitle = stringResource(R.string.dashboard_action_notes_subtitle),
+                        icon = Icons.Default.Edit,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        onClick = onNavigateToNotes
+                    )
+                }
             }
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 
@@ -219,40 +257,21 @@ fun DashboardScreen(
         )
     }
     
-    if (state.successMessage != null) {
+    val successMessage = state.successMessage
+    if (successMessage != null) {
         FeedbackDialog(
             isSuccess = true,
-            message = {
-                when (val message = state.successMessage) {
-                    is Int -> Text(stringResource(id = message))
-                    is String -> Text(message)
-                    is Pair<*, *> -> {
-                        val resId = message.first as Int
-                        val arg = message.second ?: ""
-                        Text(stringResource(id = resId, arg))
-                    }
-                }
-            },
+            message = { Text(successMessage) },
             onDismiss = viewModel::clearFeedback
         )
     }
 
-    if (state.errorMessage != null) {
+    val errorMessage = state.errorMessage
+    if (errorMessage != null) {
         FeedbackDialog(
             isSuccess = false,
-            message = {
-                when (val message = state.errorMessage) {
-                    is Int -> Text(stringResource(id = message))
-                    is String -> Text(message)
-                }
-            },
+            message = { Text(errorMessage) },
             onDismiss = viewModel::clearFeedback
         )
     }
 }
-
-
-
-
-
-

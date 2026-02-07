@@ -1,8 +1,10 @@
 package com.devsusana.hometutorpro.presentation.weekly_schedule
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.core.utils.NotificationHelper
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.entities.ScheduleException
@@ -39,6 +41,7 @@ class WeeklyScheduleViewModel @Inject constructor(
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
+    private val application: Application
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WeeklyScheduleState())
@@ -89,6 +92,24 @@ class WeeklyScheduleViewModel @Inject constructor(
                                 allRegularSchedules.add(WeeklyScheduleItem.Regular(schedule, student, exception, currentDate))
                             }
                             currentDate = currentDate.plusDays(1)
+                        }
+                    }
+                }
+
+                // Add standalone extra classes
+                exceptionsMap.values.flatten().filter { it.type == com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA && it.originalScheduleId == "EXTRA" }.forEach { extraException ->
+                    val student = students.find { it.id == extraException.studentId }
+                    if (student != null && student.isActive) {
+                        val extraDate = java.time.Instant.ofEpochMilli(extraException.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                        if (!extraDate.isBefore(startOfWeek) && !extraDate.isAfter(endOfWeek)) {
+                            val dummySchedule = com.devsusana.hometutorpro.domain.entities.Schedule(
+                                id = "EXTRA_${extraException.id}",
+                                studentId = student.id,
+                                dayOfWeek = extraDate.dayOfWeek,
+                                startTime = extraException.newStartTime,
+                                endTime = extraException.newEndTime
+                            )
+                            allRegularSchedules.add(WeeklyScheduleItem.Regular(dummySchedule, student, extraException, extraDate))
                         }
                     }
                 }
@@ -180,14 +201,14 @@ class WeeklyScheduleViewModel @Inject constructor(
                     loadWeeklySchedule() 
                     _state.update { 
                         it.copy(
-                            successMessage = R.string.weekly_schedule_success_exception_saved
+                            successMessage = application.getString(R.string.weekly_schedule_success_exception_saved)
                         ) 
                     }
                 }
                 is Result.Error -> {
                     val errorMsg = when (result.error) {
-                        DomainError.ScheduleConflict -> R.string.weekly_schedule_error_schedule_conflict
-                        else -> R.string.weekly_schedule_error_exception_failed
+                        DomainError.ScheduleConflict -> application.getString(R.string.weekly_schedule_error_schedule_conflict)
+                        else -> application.getString(R.string.weekly_schedule_error_exception_failed)
                     }
                     _state.update { 
                         it.copy(
@@ -210,7 +231,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                     loadWeeklySchedule() 
                     _state.update { 
                         it.copy(
-                            successMessage = R.string.weekly_schedule_success_exception_removed
+                            successMessage = application.getString(R.string.weekly_schedule_success_exception_removed)
                         ) 
                     }
                 }
@@ -218,7 +239,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                     _state.update { 
                         it.copy(
                             isLoading = false,
-                            errorMessage = R.string.weekly_schedule_error_remove_exception_failed
+                            errorMessage = application.getString(R.string.weekly_schedule_error_remove_exception_failed)
                         ) 
                     }
                 }
@@ -237,7 +258,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = R.string.student_detail_error_unexpected
+                            errorMessage = application.getString(R.string.student_detail_error_unexpected)
                         )
                     }
                     return@launch
@@ -249,12 +270,19 @@ class WeeklyScheduleViewModel @Inject constructor(
                 
                 when (saveStudentUseCase(uid, updatedStudent)) {
                     is Result.Success<*> -> {
+                        val scheduled = NotificationHelper.scheduleClassEndNotification(
+                            application,
+                            student.name,
+                            durationMinutes.toLong()
+                        )
+                        
                         dismissDialog()
                         loadWeeklySchedule() 
                         _state.update {
                             it.copy(
                                 isLoading = false,
-                                successMessage = Pair(R.string.student_detail_success_class_started, priceToAdd)
+                                successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd.toString()),
+                                permissionNeeded = !scheduled
                             )
                         }
                     }
@@ -262,13 +290,17 @@ class WeeklyScheduleViewModel @Inject constructor(
                         _state.update {
                             it.copy(
                                 isLoading = false,
-                                errorMessage = R.string.student_detail_error_update_balance_failed
+                                errorMessage = application.getString(R.string.student_detail_error_update_balance_failed)
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    fun clearPermissionNeeded() {
+        _state.update { it.copy(permissionNeeded = false) }
     }
 
     fun clearFeedback() {
@@ -327,7 +359,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                      loadWeeklySchedule()
                      _state.update {
                          it.copy(
-                             successMessage = R.string.student_detail_success_extra_class_added
+                             successMessage = application.getString(R.string.student_detail_success_extra_class_added)
                          )
                      }
                  }
@@ -335,7 +367,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                      _state.update {
                          it.copy(
                              isLoading = false,
-                             errorMessage = R.string.student_detail_error_save_failed
+                             errorMessage = application.getString(R.string.student_detail_error_save_failed)
                          )
                      }
                  }

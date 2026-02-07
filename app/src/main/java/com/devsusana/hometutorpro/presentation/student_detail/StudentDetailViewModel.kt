@@ -1,6 +1,7 @@
 package com.devsusana.hometutorpro.presentation.student_detail
 
 import android.net.Uri
+import android.app.Application
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -48,7 +49,8 @@ class StudentDetailViewModel @Inject constructor(
     private val deleteSharedResourceUseCase: IDeleteSharedResourceUseCase,
     private val getAllSchedulesUseCase: IGetAllSchedulesUseCase,
     private val getSchedulesUseCase: IGetSchedulesUseCase,
-    private val saveScheduleExceptionUseCase: com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
+    private val saveScheduleExceptionUseCase: com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase,
+    private val application: Application
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(StudentDetailState())
@@ -125,7 +127,7 @@ class StudentDetailViewModel @Inject constructor(
 
             if (student == null) {
                 _state.value = _state.value.copy(
-                    errorMessage = R.string.student_detail_error_unexpected
+                    errorMessage = application.getString(R.string.student_detail_error_unexpected)
                 )
                 return@launch
             }
@@ -134,7 +136,7 @@ class StudentDetailViewModel @Inject constructor(
                 val newBalance = state.balanceInput.toDoubleOrNull()
                 if (newBalance == null) {
                     _state.value = _state.value.copy(
-                        errorMessage = R.string.student_detail_error_invalid_balance
+                        errorMessage = application.getString(R.string.student_detail_error_invalid_balance)
                     )
                     return@launch
                 }
@@ -143,21 +145,21 @@ class StudentDetailViewModel @Inject constructor(
             
             if (student.name.isBlank()) {
                 _state.value = _state.value.copy(
-                    errorMessage = R.string.student_detail_error_name_required
+                    errorMessage = application.getString(R.string.student_detail_error_name_required)
                 )
                 return@launch
             }
             
             if (student.pricePerHour <= 0) {
                 _state.value = _state.value.copy(
-                    errorMessage = R.string.student_detail_error_invalid_price
+                    errorMessage = application.getString(R.string.student_detail_error_invalid_price)
                 )
                 return@launch
             }
             
             if (student.pendingBalance < -10000 || student.pendingBalance > 100000) {
                 _state.value = _state.value.copy(
-                    errorMessage = R.string.student_detail_error_invalid_balance
+                    errorMessage = application.getString(R.string.student_detail_error_invalid_balance)
                 )
                 return@launch
             }
@@ -191,7 +193,7 @@ class StudentDetailViewModel @Inject constructor(
                             student = updatedStudent,
                             isStudentSaved = true,
                             isLoading = false,
-                            errorMessage = R.string.student_detail_error_save_schedules_failed,
+                            errorMessage = application.getString(R.string.student_detail_error_save_schedules_failed),
                             pendingSchedules = failedSchedules 
                         )
                     } else {
@@ -199,16 +201,16 @@ class StudentDetailViewModel @Inject constructor(
                             student = updatedStudent,
                             isStudentSaved = true,
                             isLoading = false,
-                            successMessage = R.string.student_detail_success_student_saved,
+                            successMessage = application.getString(R.string.student_detail_success_student_saved),
                             pendingSchedules = emptyList() 
                         )
                     }
                 }
                 is Result.Error<*> -> {
                     _state.value = _state.value.copy(
-                        error = R.string.student_detail_error_unexpected,
+                        error = application.getString(R.string.student_detail_error_unexpected),
                         isLoading = false,
-                        errorMessage = R.string.student_detail_error_save_failed
+                        errorMessage = application.getString(R.string.student_detail_error_save_failed)
                     )
                 }
             }
@@ -225,13 +227,13 @@ class StudentDetailViewModel @Inject constructor(
                         _state.value = _state.value.copy(
                             isStudentDeleted = true,
                             isLoading = false,
-                            successMessage = R.string.student_detail_success_student_deleted
+                            successMessage = application.getString(R.string.student_detail_success_student_deleted)
                         )
                     }
                     is Result.Error<*> -> {
                         _state.value = _state.value.copy(
                             isLoading = false,
-                            errorMessage = R.string.student_detail_error_delete_failed
+                            errorMessage = application.getString(R.string.student_detail_error_delete_failed)
                         )
                     }
                 }
@@ -255,14 +257,14 @@ class StudentDetailViewModel @Inject constructor(
                             student = updatedStudent,
                             isPaymentRegistered = true,
                             isLoading = false,
-                            successMessage = Pair(R.string.student_detail_success_payment_registered, amount)
+                            successMessage = application.getString(R.string.student_detail_success_payment_registered, amount.toString())
                         )
                     }
                     is Result.Error<*> -> {
                         _state.value = _state.value.copy(
-                            error = R.string.student_detail_error_unexpected,
+                            error = application.getString(R.string.student_detail_error_unexpected),
                             isLoading = false,
-                            errorMessage = R.string.student_detail_error_payment_failed
+                            errorMessage = application.getString(R.string.student_detail_error_payment_failed)
                         )
                     }
                 }
@@ -284,13 +286,13 @@ class StudentDetailViewModel @Inject constructor(
                     _state.value = _state.value.copy(
                         student = updatedStudent,
                         isLoading = false,
-                        successMessage = Pair(R.string.student_detail_success_class_started, priceToAdd)
+                        successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd.toString())
                     )
                 }
                 is Result.Error<*> -> {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = R.string.student_detail_error_update_balance_failed
+                        errorMessage = application.getString(R.string.student_detail_error_update_balance_failed)
                     )
                 }
             }
@@ -311,7 +313,7 @@ class StudentDetailViewModel @Inject constructor(
                 
                 if (localConflict) {
                      _state.value = _state.value.copy(
-                        errorMessage = R.string.student_detail_error_schedule_conflict_time_slot
+                        errorMessage = application.getString(R.string.student_detail_error_schedule_conflict_time_slot)
                     )
                     return@launch
                 }
@@ -325,7 +327,7 @@ class StudentDetailViewModel @Inject constructor(
 
                     if (dbConflict) {
                         _state.value = _state.value.copy(
-                            errorMessage = R.string.student_detail_error_schedule_conflict
+                            errorMessage = application.getString(R.string.student_detail_error_schedule_conflict)
                         )
                         return@launch
                     }
@@ -342,7 +344,7 @@ class StudentDetailViewModel @Inject constructor(
                 currentPending.add(pendingSchedule)
                 _state.value = _state.value.copy(
                     pendingSchedules = currentPending,
-                    successMessage = R.string.student_detail_success_schedule_saved
+                    successMessage = application.getString(R.string.student_detail_success_schedule_saved)
                 )
                 return@launch
             }
@@ -353,16 +355,16 @@ class StudentDetailViewModel @Inject constructor(
                 is Result.Success -> {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        successMessage = R.string.student_detail_success_schedule_saved
+                        successMessage = application.getString(R.string.student_detail_success_schedule_saved)
                     )
                 }
                 is Result.Error -> {
                     val errorMsg = when (val error = result.error) {
                         is DomainError.ConflictingStudent ->
-                            Pair(R.string.student_detail_error_schedule_conflict_student, arrayOf(error.studentName, error.time))
+                            application.getString(R.string.student_detail_error_schedule_conflict_student, error.studentName, error.time)
                         DomainError.ScheduleConflict ->
-                            R.string.student_detail_error_schedule_conflict
-                        else -> R.string.student_detail_error_schedule_failed
+                            application.getString(R.string.student_detail_error_schedule_conflict)
+                        else -> application.getString(R.string.student_detail_error_schedule_failed)
                     }
                     _state.value = _state.value.copy(
                         isLoading = false,
@@ -395,7 +397,7 @@ class StudentDetailViewModel @Inject constructor(
                 
                 _state.value = _state.value.copy(
                     pendingSchedules = list,
-                    successMessage = R.string.student_detail_success_schedule_deleted
+                    successMessage = application.getString(R.string.student_detail_success_schedule_deleted)
                 )
                 return@launch
             }
@@ -406,13 +408,13 @@ class StudentDetailViewModel @Inject constructor(
                 is Result.Success -> {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        successMessage = R.string.student_detail_success_schedule_deleted
+                        successMessage = application.getString(R.string.student_detail_success_schedule_deleted)
                     )
                 }
                 is Result.Error -> {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = R.string.student_detail_error_schedule_delete_failed
+                        errorMessage = application.getString(R.string.student_detail_error_schedule_delete_failed)
                     )
                 }
             }
@@ -468,7 +470,7 @@ class StudentDetailViewModel @Inject constructor(
             
             if (fileName.isBlank()) {
                 _state.value = _state.value.copy(
-                    errorMessage = R.string.student_detail_error_no_file_selected
+                    errorMessage = application.getString(R.string.student_detail_error_no_file_selected)
                 )
                 return@launch
             }
@@ -492,13 +494,13 @@ class StudentDetailViewModel @Inject constructor(
                         selectedFileUri = null,
                         selectedFileName = "",
                         shareNotes = "",
-                        successMessage = R.string.student_detail_success_resource_shared
+                        successMessage = application.getString(R.string.student_detail_success_resource_shared)
                     )
                 }
                 is Result.Error -> {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = R.string.student_detail_error_share_failed
+                        errorMessage = application.getString(R.string.student_detail_error_share_failed)
                     )
                 }
             }
@@ -514,13 +516,13 @@ class StudentDetailViewModel @Inject constructor(
                 is Result.Success -> {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        successMessage = R.string.student_detail_success_resource_deleted
+                        successMessage = application.getString(R.string.student_detail_success_resource_deleted)
                     )
                 }
                 is Result.Error -> {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = R.string.student_detail_error_delete_resource_failed
+                        errorMessage = application.getString(R.string.student_detail_error_delete_resource_failed)
                     )
                 }
             }
@@ -555,7 +557,7 @@ class StudentDetailViewModel @Inject constructor(
             0 -> { 
                 if (student.name.isBlank()) {
                     _state.value = currentState.copy(
-                        errorMessage = R.string.student_detail_error_name_required
+                        errorMessage = application.getString(R.string.student_detail_error_name_required)
                     )
                     return
                 }
@@ -574,7 +576,7 @@ class StudentDetailViewModel @Inject constructor(
             
             if (bulkSchedules.isEmpty()) {
                 _state.value = _state.value.copy(
-                    errorMessage = R.string.bulk_schedule_error_empty
+                    errorMessage = application.getString(R.string.bulk_schedule_error_empty)
                 )
                 return@launch
             }
@@ -590,7 +592,7 @@ class StudentDetailViewModel @Inject constructor(
                 if (!timeRegex.matches(entry.startTime) || !timeRegex.matches(entry.endTime)) {
                     updatedBulkSchedules.add(
                         entry.copy(
-                            error = android.content.res.Resources.getSystem().getString(
+                            error = application.getString(
                                 R.string.bulk_schedule_error_invalid_time,
                                 index + 1
                             )
@@ -646,7 +648,7 @@ class StudentDetailViewModel @Inject constructor(
                     _state.value = _state.value.copy(
                         bulkSchedules = validatedBulkSchedules,
                         bulkScheduleSaving = false,
-                        errorMessage = R.string.student_detail_error_schedule_conflict
+                        errorMessage = application.getString(R.string.student_detail_error_schedule_conflict)
                     )
                     return@launch
                 }
@@ -661,7 +663,7 @@ class StudentDetailViewModel @Inject constructor(
                     isBulkScheduleMode = false,
                     bulkSchedules = emptyList(),
                     pendingSchedules = _state.value.pendingSchedules + schedules,
-                    successMessage = R.string.student_detail_pending_schedules_added
+                    successMessage = application.getString(R.string.student_detail_pending_schedules_added)
                 )
                 return@launch
             }
@@ -674,12 +676,12 @@ class StudentDetailViewModel @Inject constructor(
                         savedCount++
                     }
                     is Result.Error -> {
-                        val errorMsg: Any = when (val error = result.error) {
+                        val errorMsg = when (val error = result.error) {
                             is DomainError.ConflictingStudent ->
-                                Pair(R.string.student_detail_error_schedule_conflict_student, arrayOf(error.studentName, error.time))
+                                application.getString(R.string.student_detail_error_schedule_conflict_student, error.studentName, error.time)
                             DomainError.ScheduleConflict ->
-                                R.string.student_detail_error_schedule_conflict_time_slot
-                            else -> R.string.student_detail_error_unknown
+                                application.getString(R.string.student_detail_error_schedule_conflict_time_slot)
+                            else -> application.getString(R.string.student_detail_error_unknown)
                         }
                         
                         val updatedEntry = bulkSchedules[index].copy(error = "Error")
@@ -700,7 +702,7 @@ class StudentDetailViewModel @Inject constructor(
                 bulkScheduleSaving = false,
                 isBulkScheduleMode = false,
                 bulkSchedules = emptyList(),
-                successMessage = Pair(R.string.bulk_schedule_success, savedCount)
+                successMessage = application.getString(R.string.bulk_schedule_success, savedCount)
             )
         }
     }
@@ -735,13 +737,13 @@ class StudentDetailViewModel @Inject constructor(
                      _state.value = _state.value.copy(
                          isLoading = false,
                          showExtraClassDialog = false,
-                         successMessage = R.string.student_detail_success_extra_class_added
+                         successMessage = application.getString(R.string.student_detail_success_extra_class_added)
                      )
                  }
                  is Result.Error -> {
                      _state.value = _state.value.copy(
                          isLoading = false,
-                         errorMessage = R.string.student_detail_error_save_failed
+                         errorMessage = application.getString(R.string.student_detail_error_save_failed)
                      )
                  }
              }

@@ -13,8 +13,9 @@ class UpdateProfileUseCase @Inject constructor(
         name: String, 
         email: String, 
         workingStartTime: String, 
-        workingEndTime: String
+        workingEndTime: String,
+        notes: String
     ): Result<Unit, DomainError> {
-        return authRepository.updateProfile(name, email, workingStartTime, workingEndTime)
+        return authRepository.updateProfile(name, email, workingStartTime, workingEndTime, notes)
     }
 }

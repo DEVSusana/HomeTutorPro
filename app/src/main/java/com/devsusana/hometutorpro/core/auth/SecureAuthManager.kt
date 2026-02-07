@@ -94,18 +94,48 @@ class SecureAuthManager(context: Context) {
         sharedPreferences.edit().putString(KEY_WORKING_START_TIME, time).apply()
     }
 
-    fun updateWorkingEndTime(time: String) {
-        sharedPreferences.edit().putString(KEY_WORKING_END_TIME, time).apply()
+        fun updateWorkingEndTime(time: String) {
+
+            sharedPreferences.edit().putString(KEY_WORKING_END_TIME, time).apply()
+
+        }
+
+    
+
+        fun getNotes(): String = sharedPreferences.getString(KEY_NOTES, "") ?: ""
+
+    
+
+        fun updateNotes(notes: String) {
+
+            sharedPreferences.edit().putString(KEY_NOTES, notes).apply()
+
+        }
+
+    
+
+        companion object {
+
+            private const val PREFS_NAME = "secure_auth_prefs"
+
+            private const val KEY_EMAIL = "email"
+
+            private const val KEY_PASSWORD = "password"
+
+            private const val KEY_NAME = "name"
+
+            private const val KEY_USER_ID = "user_id"
+
+            private const val KEY_IS_LOGGED_IN = "is_logged_in"
+
+            private const val KEY_WORKING_START_TIME = "working_start_time"
+
+            private const val KEY_WORKING_END_TIME = "working_end_time"
+
+            private const val KEY_NOTES = "notes"
+
+        }
+
     }
 
-    companion object {
-        private const val PREFS_NAME = "secure_auth_prefs"
-        private const val KEY_EMAIL = "email"
-        private const val KEY_PASSWORD = "password"
-        private const val KEY_NAME = "name"
-        private const val KEY_USER_ID = "user_id"
-        private const val KEY_IS_LOGGED_IN = "is_logged_in"
-        private const val KEY_WORKING_START_TIME = "working_start_time"
-        private const val KEY_WORKING_END_TIME = "working_end_time"
-    }
-}
+    

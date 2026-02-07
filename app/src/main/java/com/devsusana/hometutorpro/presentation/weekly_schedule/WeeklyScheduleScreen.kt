@@ -68,6 +68,21 @@ fun WeeklyScheduleScreen(
 
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val exactAlarmMessage = stringResource(R.string.notification_exact_alarm_permission)
+
+    LaunchedEffect(state.permissionNeeded) {
+        if (state.permissionNeeded) {
+            val result = snackbarHostState.showSnackbar(
+                message = exactAlarmMessage,
+                actionLabel = context.getString(R.string.settings),
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                NotificationHelper.openExactAlarmSettings(context)
+            }
+            viewModel.clearPermissionNeeded()
+        }
+    }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -93,29 +108,6 @@ fun WeeklyScheduleScreen(
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                    }
-
-                    val scheduled = NotificationHelper.scheduleClassEndNotification(
-                        context, 
-                        studentName, 
-                        duration.toLong()
-                    )
-
-                    if (!scheduled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        coroutineScope.launch {
-                            val result = snackbarHostState.showSnackbar(
-                                message = context.getString(R.string.notification_permission_needed),
-                                actionLabel = context.getString(R.string.settings),
-                                duration = SnackbarDuration.Long
-                            )
-                            if (result == SnackbarResult.ActionPerformed) {
-                                val intent = Intent(
-                                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                                    Uri.parse("package:${context.packageName}")
-                                )
-                                context.startActivity(intent)
-                            }
                         }
                     }
                     
@@ -172,12 +164,14 @@ fun WeeklyScheduleScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             if (state.isLoading) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
@@ -187,17 +181,13 @@ fun WeeklyScheduleScreen(
                     MonthlyScheduleView(
                         schedulesByDay = state.schedulesByDay,
                         onScheduleClick = viewModel::onScheduleClick,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else if (isGridView) {
                     WeeklyScheduleGrid(
                         schedulesByDay = state.schedulesByDay,
                         onScheduleClick = viewModel::onScheduleClick,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     WeeklyScheduleList(
@@ -205,7 +195,6 @@ fun WeeklyScheduleScreen(
                         onScheduleClick = { viewModel.onScheduleClick(it) },
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(padding)
                             .padding(16.dp)
                     )
                 }
@@ -239,28 +228,20 @@ fun WeeklyScheduleScreen(
             }
         }
     }
-    if (state.successMessage != null) {
+    val successMessage = state.successMessage
+    if (successMessage != null) {
         FeedbackDialog(
             isSuccess = true,
-            message = {
-                when (val message = state.successMessage) {
-                    is Int -> Text(stringResource(id = message))
-                    is String -> Text(message)
-                }
-            },
+            message = { Text(successMessage) },
             onDismiss = viewModel::clearFeedback
         )
     }
 
-    if (state.errorMessage != null) {
+    val errorMessage = state.errorMessage
+    if (errorMessage != null) {
         FeedbackDialog(
             isSuccess = false,
-            message = {
-                when (val message = state.errorMessage) {
-                    is Int -> Text(stringResource(id = message))
-                    is String -> Text(message)
-                }
-            },
+            message = { Text(errorMessage) },
             onDismiss = viewModel::clearFeedback
         )
     }

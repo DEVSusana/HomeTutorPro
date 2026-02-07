@@ -23,6 +23,7 @@ class SettingsManager @Inject constructor(
         val VIEW_MODE_KEY = booleanPreferencesKey("is_grid_view")
         val DEBUG_PREMIUM_KEY = booleanPreferencesKey("debug_premium")
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
+        val CLASS_END_NOTIFICATIONS_KEY = booleanPreferencesKey("class_end_notifications")
         
         const val LANGUAGE_ENGLISH = "en"
         const val LANGUAGE_SPANISH = "es"
@@ -79,9 +80,36 @@ class SettingsManager @Inject constructor(
         ThemeMode.fromString(value)
     }
 
-    suspend fun setThemeMode(mode: ThemeMode) {
-        context.dataStore.edit { preferences ->
-            preferences[THEME_MODE_KEY] = mode.name
+        suspend fun setThemeMode(mode: ThemeMode) {
+
+            context.dataStore.edit { preferences ->
+
+                preferences[THEME_MODE_KEY] = mode.name
+
+            }
+
         }
+
+    
+
+        val classEndNotificationsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+
+            preferences[CLASS_END_NOTIFICATIONS_KEY] ?: true
+
+        }
+
+    
+
+        suspend fun setClassEndNotifications(enabled: Boolean) {
+
+            context.dataStore.edit { preferences ->
+
+                preferences[CLASS_END_NOTIFICATIONS_KEY] = enabled
+
+            }
+
+        }
+
     }
-}
+
+    
