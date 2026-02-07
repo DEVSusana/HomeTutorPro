@@ -49,10 +49,16 @@ android {
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 
 dependencies {
