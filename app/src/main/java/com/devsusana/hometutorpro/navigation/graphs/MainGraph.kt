@@ -32,7 +32,14 @@ fun NavGraphBuilder.mainGraph(navController: NavController) {
         DashboardScreen(
             onNavigateToStudents = { navController.navigate(Route.StudentList) },
             onNavigateToResources = { navController.navigate(Route.Resources) },
-            onAddStudent = { navController.navigate(Route.StudentDetail("new")) }
+            onAddStudent = { navController.navigate(Route.StudentDetail("new")) },
+            onNavigateToNotes = { navController.navigate(Route.Notes) }
+        )
+    }
+
+    composable<Route.Notes> {
+        com.devsusana.hometutorpro.presentation.notes.NotesScreen(
+            onNavigateBack = { navController.popBackStack() }
         )
     }
 
