@@ -1,22 +1,22 @@
 package com.devsusana.hometutorpro.domain.core
 
 sealed class DomainError {
-    object NetworkError : DomainError()
-    object UnknownError : DomainError()
-    object StudentNotFound : DomainError()
-    object ScheduleConflict : DomainError()
+    data object NetworkError : DomainError()
+    data object UnknownError : DomainError()
+    data object StudentNotFound : DomainError()
+    data object ScheduleConflict : DomainError()
     data class ConflictingStudent(val studentName: String, val time: String) : DomainError()
-    object Unknown : DomainError()
+    data object Unknown : DomainError()
     
     // Authentication errors
-    object InvalidEmail : DomainError()
-    object InvalidPassword : DomainError()
-    object InvalidName : DomainError()
-    object InvalidCredentials : DomainError()
-    object UserNotFound : DomainError()
-    object UserAlreadyExists : DomainError()
+    data object InvalidEmail : DomainError()
+    data object InvalidPassword : DomainError()
+    data object InvalidName : DomainError()
+    data object InvalidCredentials : DomainError()
+    data object UserNotFound : DomainError()
+    data object UserAlreadyExists : DomainError()
     
     // Resource errors
-    object FileNotFound : DomainError()
-    object ResourceNotFound : DomainError()
+    data object FileNotFound : DomainError()
+    data object ResourceNotFound : DomainError()
 }
