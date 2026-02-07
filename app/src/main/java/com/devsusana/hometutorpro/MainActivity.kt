@@ -18,30 +18,33 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 import android.content.Context
+import com.devsusana.hometutorpro.core.settings.SettingsManager
+import com.devsusana.hometutorpro.data.util.DuplicateCleanupUtil
+import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @javax.inject.Inject
-    lateinit var settingsManager: com.devsusana.hometutorpro.core.settings.SettingsManager
+    lateinit var settingsManager: SettingsManager
     
     @javax.inject.Inject
-    lateinit var duplicateCleanupUtil: com.devsusana.hometutorpro.data.util.DuplicateCleanupUtil
+    lateinit var duplicateCleanupUtil: DuplicateCleanupUtil
 
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(com.devsusana.hometutorpro.presentation.utils.LocaleHelper.onAttach(newBase))
+        super.attachBaseContext(LocaleHelper.onAttach(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Block screenshots and screen recording for privacy protection
-        window.setFlags(
-            android.view.WindowManager.LayoutParams.FLAG_SECURE,
-            android.view.WindowManager.LayoutParams.FLAG_SECURE
-        )
+//        window.setFlags(
+//            android.view.WindowManager.LayoutParams.FLAG_SECURE,
+//            android.view.WindowManager.LayoutParams.FLAG_SECURE
+//        )
 
-        NotificationHelper.createNotificationChannel(this) // Create notification channel
+        NotificationHelper.createNotificationChannel(this)
         
         // Request notification permission on Android 13+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -70,7 +73,7 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             val themeMode by settingsManager.themeModeFlow.collectAsState(
-                initial = com.devsusana.hometutorpro.core.settings.SettingsManager.ThemeMode.SYSTEM
+                initial = SettingsManager.ThemeMode.SYSTEM
             )
             
             HomeTutorProTheme(themeMode = themeMode) {
