@@ -21,14 +21,15 @@ import android.content.Context
 import com.devsusana.hometutorpro.core.settings.SettingsManager
 import com.devsusana.hometutorpro.data.util.DuplicateCleanupUtil
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @javax.inject.Inject
+    @Inject
     lateinit var settingsManager: SettingsManager
     
-    @javax.inject.Inject
+    @Inject
     lateinit var duplicateCleanupUtil: DuplicateCleanupUtil
 
     override fun attachBaseContext(newBase: Context) {
