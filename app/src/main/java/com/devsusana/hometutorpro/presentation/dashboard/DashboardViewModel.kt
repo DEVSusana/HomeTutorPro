@@ -1,5 +1,6 @@
 package com.devsusana.hometutorpro.presentation.dashboard
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.devsusana.hometutorpro.R
@@ -32,6 +33,8 @@ import java.time.LocalTime
 import java.time.ZoneId
 import javax.inject.Inject
 
+import com.devsusana.hometutorpro.core.utils.NotificationHelper
+
 data class DashboardState(
     val activeStudentsCount: Int = 0,
     val todayPendingClassesCount: Int = 0,
@@ -43,8 +46,9 @@ data class DashboardState(
     val showExceptionDialog: Boolean = false,
     val selectedSchedule: WeeklyScheduleItem.Regular? = null,
     val allSchedules: List<WeeklyScheduleItem.Regular> = emptyList(),
-    val successMessage: Any? = null,
-    val errorMessage: Any? = null 
+    val successMessage: String? = null,
+    val errorMessage: String? = null,
+    val permissionNeeded: Boolean = false
 )
 
 @HiltViewModel
@@ -56,7 +60,8 @@ class DashboardViewModel @Inject constructor(
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val getStudentByIdUseCase: IGetStudentByIdUseCase,
-    private val saveStudentUseCase: ISaveStudentUseCase
+    private val saveStudentUseCase: ISaveStudentUseCase,
+    private val application: Application
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
@@ -107,6 +112,24 @@ class DashboardViewModel @Inject constructor(
                                 allOccurrences.add(occurrence)
                             }
                             currentDate = currentDate.plusDays(1)
+                        }
+                    }
+                }
+
+                // Add standalone extra classes
+                exceptionsMap.values.flatten().filter { it.type == ExceptionType.EXTRA && it.originalScheduleId == "EXTRA" }.forEach { extraException ->
+                    val student = students.find { it.id == extraException.studentId }
+                    if (student != null && student.isActive) {
+                        val extraDate = java.time.Instant.ofEpochMilli(extraException.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                        if (!extraDate.isBefore(startOfWeek) && !extraDate.isAfter(endOfWeek)) {
+                            val dummySchedule = com.devsusana.hometutorpro.domain.entities.Schedule(
+                                id = "EXTRA_${extraException.id}",
+                                studentId = student.id,
+                                dayOfWeek = extraDate.dayOfWeek,
+                                startTime = extraException.newStartTime,
+                                endTime = extraException.newEndTime
+                            )
+                            allOccurrences.add(WeeklyScheduleItem.Regular(dummySchedule, student, extraException, extraDate))
                         }
                     }
                 }
@@ -203,12 +226,12 @@ class DashboardViewModel @Inject constructor(
                 is Result.Success -> {
                     dismissDialog()
                     loadDashboardData() 
-                    _state.update { it.copy(successMessage = R.string.weekly_schedule_success_exception_saved) }
+                    _state.update { it.copy(successMessage = application.getString(R.string.weekly_schedule_success_exception_saved)) }
                 }
                 is Result.Error -> {
                     val errorMsg = when (result.error) {
-                        DomainError.ScheduleConflict -> R.string.weekly_schedule_error_schedule_conflict
-                        else -> R.string.weekly_schedule_error_exception_failed
+                        DomainError.ScheduleConflict -> application.getString(R.string.weekly_schedule_error_schedule_conflict)
+                        else -> application.getString(R.string.weekly_schedule_error_exception_failed)
                     }
                     _state.update { it.copy(isLoading = false, errorMessage = errorMsg) }
                 }
@@ -223,10 +246,10 @@ class DashboardViewModel @Inject constructor(
              when (deleteScheduleExceptionUseCase(uid, studentId, exceptionId)) {
                  is Result.Success -> {
                      loadDashboardData()
-                     _state.update { it.copy(successMessage = R.string.weekly_schedule_success_exception_removed) }
+                     _state.update { it.copy(successMessage = application.getString(R.string.weekly_schedule_success_exception_removed)) }
                  }
                  is Result.Error -> {
-                     _state.update { it.copy(isLoading = false, errorMessage = R.string.weekly_schedule_error_remove_exception_failed) }
+                     _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.weekly_schedule_error_remove_exception_failed)) }
                  }
              }
         }
@@ -239,7 +262,7 @@ class DashboardViewModel @Inject constructor(
             
             getStudentByIdUseCase(uid, studentId).first().let { student ->
                 if (student == null) {
-                    _state.update { it.copy(isLoading = false, errorMessage = R.string.student_detail_error_unexpected) }
+                    _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.student_detail_error_unexpected)) }
                     return@launch
                 }
                 
@@ -249,21 +272,32 @@ class DashboardViewModel @Inject constructor(
                 
                 when (saveStudentUseCase(uid, updatedStudent)) {
                     is Result.Success<*> -> {
+                        val scheduled = NotificationHelper.scheduleClassEndNotification(
+                            application,
+                            student.name,
+                            durationMinutes.toLong()
+                        )
+                        
                         dismissDialog()
                         loadDashboardData()
                         _state.update {
                              it.copy(
                                  isLoading = false,
-                                 successMessage = Pair(R.string.student_detail_success_class_started, priceToAdd)
+                                 successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd.toString()),
+                                 permissionNeeded = !scheduled
                              )
                         }
                     }
                     is Result.Error<*> -> {
-                        _state.update { it.copy(isLoading = false, errorMessage = R.string.student_detail_error_update_balance_failed) }
+                        _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.student_detail_error_update_balance_failed)) }
                     }
                 }
             }
         }
+    }
+
+    fun clearPermissionNeeded() {
+        _state.update { it.copy(permissionNeeded = false) }
     }
     
     fun addExtraClass(studentId: String, dateMillis: Long, startTime: String, endTime: String) {
@@ -273,7 +307,7 @@ class DashboardViewModel @Inject constructor(
             
             getStudentByIdUseCase(uid, studentId).first().let { student ->
                 if (student == null) {
-                    _state.update { it.copy(isLoading = false, errorMessage = R.string.student_detail_error_unexpected) }
+                    _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.student_detail_error_unexpected)) }
                     return@launch
                 }
                 
@@ -282,10 +316,30 @@ class DashboardViewModel @Inject constructor(
                 val durationMinutes = java.time.Duration.between(start, end).toMinutes().toInt()
                 
                 if (durationMinutes <= 0) {
-                    _state.update { it.copy(isLoading = false, errorMessage = R.string.student_detail_error_unexpected) }
+                    _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.student_detail_error_unexpected)) }
+                    return@launch
+                }
+
+                // 1. Save as a ScheduleException so it appears in the counts and schedule
+                val extraClass = ScheduleException(
+                    id = java.util.UUID.randomUUID().toString(),
+                    studentId = student.id,
+                    date = dateMillis,
+                    type = ExceptionType.EXTRA,
+                    originalScheduleId = "EXTRA",
+                    newStartTime = startTime,
+                    newEndTime = endTime,
+                    reason = "Extra Class"
+                )
+
+                val saveExceptionResult = saveScheduleExceptionUseCase(uid, studentId, extraClass)
+                
+                if (saveExceptionResult is Result.Error) {
+                    _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.student_detail_error_save_failed)) }
                     return@launch
                 }
                 
+                // 2. Update student balance
                 val priceToAdd = (durationMinutes / 60.0) * student.pricePerHour
                 val newBalance = student.pendingBalance + priceToAdd
                 val updatedStudent = student.copy(pendingBalance = newBalance)
@@ -297,12 +351,12 @@ class DashboardViewModel @Inject constructor(
                         _state.update {
                              it.copy(
                                  isLoading = false,
-                                 successMessage = R.string.student_detail_success_extra_class_added
+                                 successMessage = application.getString(R.string.student_detail_success_extra_class_added)
                              )
                         }
                     }
                     is Result.Error<*> -> {
-                        _state.update { it.copy(isLoading = false, errorMessage = R.string.student_detail_error_update_balance_failed) }
+                        _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.student_detail_error_update_balance_failed)) }
                     }
                 }
             }

@@ -237,8 +237,7 @@ fun PersonalInfoTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .defaultMinSize(minHeight = 150.dp)
-                    .testTag("notes_field")
-                    .verticalScroll(rememberScrollState()),
+                    .testTag("notes_field"),
                 placeholder = { Text(stringResource(R.string.student_detail_notes_hint)) },
                 leadingIcon = { 
                     Icon(

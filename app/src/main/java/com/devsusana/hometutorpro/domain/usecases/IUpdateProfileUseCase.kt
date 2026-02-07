@@ -8,6 +8,7 @@ interface IUpdateProfileUseCase {
         name: String, 
         email: String, 
         workingStartTime: String, 
-        workingEndTime: String
+        workingEndTime: String,
+        notes: String
     ): Result<Unit, DomainError>
 }

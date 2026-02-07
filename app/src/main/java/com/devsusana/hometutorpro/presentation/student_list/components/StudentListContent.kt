@@ -86,6 +86,7 @@ fun StudentListContent(
                 )
             } else {
                 LazyColumn(
+                    modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(
                         top = 8.dp,
                         bottom = 80.dp, // Space for FAB

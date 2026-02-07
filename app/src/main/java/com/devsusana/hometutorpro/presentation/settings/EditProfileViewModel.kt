@@ -32,7 +32,8 @@ class EditProfileViewModel @Inject constructor(
                             name = currentUser.displayName ?: "",
                             email = currentUser.email ?: "",
                             workingStartTime = currentUser.workingStartTime,
-                            workingEndTime = currentUser.workingEndTime
+                            workingEndTime = currentUser.workingEndTime,
+                            notes = currentUser.notes
                         )
                     }
                 }
@@ -77,7 +78,8 @@ class EditProfileViewModel @Inject constructor(
                 state.value.name, 
                 state.value.email,
                 state.value.workingStartTime,
-                state.value.workingEndTime
+                state.value.workingEndTime,
+                state.value.notes
             )
             
             if (profileResult is Result.Error) {

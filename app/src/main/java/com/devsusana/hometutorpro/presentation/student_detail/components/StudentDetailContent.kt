@@ -88,27 +88,13 @@ fun StudentDetailContent(
         }
     }
 
-    if (state.successMessage != null || state.errorMessage != null) {
+    val successMsg = state.successMessage
+    val errorMsg = state.errorMessage
+    if (successMsg != null || errorMsg != null) {
         FeedbackDialog(
-            isSuccess = state.successMessage != null,
+            isSuccess = successMsg != null,
             message = {
-                val message = state.successMessage ?: state.errorMessage
-                when (message) {
-                    is Int -> Text(stringResource(id = message))
-                    is Pair<*, *> -> {
-                        val (resId, arg) = message
-                        if (resId is Int) {
-                             if (arg is Array<*>) {
-                                 @Suppress("UNCHECKED_CAST")
-                                 val args = arg as Array<Any>
-                                 Text(stringResource(id = resId, *args))
-                             } else if (arg != null) {
-                                 Text(stringResource(id = resId, arg))
-                             }
-                        }
-                    }
-                    is String -> Text(message)
-                }
+                Text(text = successMsg ?: errorMsg ?: "")
             },
             onDismiss = onClearFeedback
         )
@@ -343,46 +329,52 @@ fun StudentDetailContent(
                         }
                     }
                     
-                    when (state.currentTab) {
-                        0 -> PersonalInfoTab(
-                            student = student,
-                            isEditMode = isEditMode,
-                            isNewStudent = isNewStudent,
-                            context = context,
-                            onStudentChange = onStudentChange
-                        )
-                        1 -> SchedulesTab(
-                            student = student,
-                            state = state,
-                            isNewStudent = isNewStudent,
-                            onBulkScheduleModeToggle = onBulkScheduleModeToggle,
-                            onBulkSchedulesChange = onBulkSchedulesChange,
-                            onSaveBulkSchedules = onSaveBulkSchedules,
-                            onDeleteSchedule = onDeleteSchedule
-                        )
-                        2 -> FinanceTab(
-                            student = student,
-                            state = state,
-                            isEditMode = isEditMode,
-                            isNewStudent = isNewStudent,
-                            onStudentChange = onStudentChange,
-                            onBalanceChange = onBalanceChange,
-                            onBalanceEditToggle = onBalanceEditToggle,
-                            onPriceChange = onPriceChange,
-                            onPaymentClick = { 
-                                selectedPaymentType = PaymentType.EFFECTIVE 
-                                showPaymentDialog = true
-                            },
-                            onStartClassClick = { showStartClassDialog = true },
-                            onAddExtraClassClick = onShowExtraClassDialog
-                        )
-                        3 -> ResourcesTab(
-                            student = student,
-                            isNewStudent = isNewStudent,
-                            sharedResources = state.sharedResources,
-                            onSelectFileClick = { filePickerLauncher.launch("*/*") },
-                            onDeleteResource = onDeleteSharedResource
-                        )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        when (state.currentTab) {
+                            0 -> PersonalInfoTab(
+                                student = student,
+                                isEditMode = isEditMode,
+                                isNewStudent = isNewStudent,
+                                context = context,
+                                onStudentChange = onStudentChange
+                            )
+                            1 -> SchedulesTab(
+                                student = student,
+                                state = state,
+                                isNewStudent = isNewStudent,
+                                onBulkScheduleModeToggle = onBulkScheduleModeToggle,
+                                onBulkSchedulesChange = onBulkSchedulesChange,
+                                onSaveBulkSchedules = onSaveBulkSchedules,
+                                onDeleteSchedule = onDeleteSchedule
+                            )
+                            2 -> FinanceTab(
+                                student = student,
+                                state = state,
+                                isEditMode = isEditMode,
+                                isNewStudent = isNewStudent,
+                                onStudentChange = onStudentChange,
+                                onBalanceChange = onBalanceChange,
+                                onBalanceEditToggle = onBalanceEditToggle,
+                                onPriceChange = onPriceChange,
+                                onPaymentClick = { 
+                                    selectedPaymentType = PaymentType.EFFECTIVE 
+                                    showPaymentDialog = true
+                                },
+                                onStartClassClick = { showStartClassDialog = true },
+                                onAddExtraClassClick = onShowExtraClassDialog
+                            )
+                            3 -> ResourcesTab(
+                                student = student,
+                                isNewStudent = isNewStudent,
+                                sharedResources = state.sharedResources,
+                                onSelectFileClick = { filePickerLauncher.launch("*/*") },
+                                onDeleteResource = onDeleteSharedResource
+                            )
+                        }
                     }
                 }
             }
