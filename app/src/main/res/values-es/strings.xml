@@ -95,7 +95,7 @@
     <string name="student_detail_color">Color:</string>
     <string name="student_detail_navigate_to_address">Navegar a la Dirección (Google Maps)</string>
     <string name="student_detail_schedule">Horario</string>
-    <string name="student_detail_pending_balance">Saldo Pendiente: %s €</string>
+    <string name="student_detail_pending_balance">Saldo Pendiente: %.2f €</string>
     <string name="student_detail_pending_balance_label">Saldo Pendiente</string>
     <string name="student_detail_edit_balance">Editar Saldo</string>
     <string name="student_detail_last_payment">Último Pago: %s</string>
