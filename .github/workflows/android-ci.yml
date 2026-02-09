@@ -44,11 +44,11 @@ jobs:
       run: ./gradlew testDebugUnitTest jacocoTestReport --stacktrace --no-daemon --info
     
     # - name: Upload lint results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: lint-results
-        path: app/build/reports/lint-results-debug.html
+    #   uses: actions/upload-artifact@v4
+    #   if: always()
+    #   with:
+    #     name: lint-results
+    #     path: app/build/reports/lint-results-debug.html
     
     - name: Upload test results
       uses: actions/upload-artifact@v4

@@ -1,5 +1,6 @@
 package com.devsusana.hometutorpro.presentation.student_detail.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
@@ -19,98 +20,44 @@ import java.time.format.DateTimeFormatter
  * Dialog for selecting class duration when starting a class.
  * Uses TimePicker for selecting start and end time.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StartClassDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
-    var startTime by remember { mutableStateOf(LocalTime.now()) }
-    var endTime by remember { mutableStateOf(LocalTime.now().plusHours(1)) }
-    
-    var showStartTimePicker by remember { mutableStateOf(false) }
-    var showEndTimePicker by remember { mutableStateOf(false) }
-
-    if (showStartTimePicker) {
-        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
-            initialTime = startTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-            onDismiss = { showStartTimePicker = false },
-            onTimeSelected = { 
-                startTime = LocalTime.parse(it)
-                endTime = startTime.plusHours(1)
-                showStartTimePicker = false
-            }
-        )
-    }
-
-    if (showEndTimePicker) {
-        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
-            initialTime = endTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-            onDismiss = { showEndTimePicker = false },
-            onTimeSelected = { 
-               endTime = LocalTime.parse(it)
-               showEndTimePicker = false
-            }
-        )
-    }
+    var selectedDuration by remember { mutableIntStateOf(60) }
+    val durations = listOf(30, 45, 60, 90, 120)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.start_class_dialog_title)) },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column {
                 Text(stringResource(id = R.string.start_class_dialog_text))
-                
-                // Time Selectors ROW
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Start Time
-                    OutlinedButton(
-                        onClick = { showStartTimePicker = true },
-                        modifier = Modifier.weight(1f),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                Spacer(modifier = Modifier.height(10.dp))
+                durations.forEach { duration ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable { selectedDuration = duration }
                     ) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(startTime.format(DateTimeFormatter.ofPattern("HH:mm")))
+                        RadioButton(
+                            selected = (selectedDuration == duration),
+                            onClick = { selectedDuration = duration }
+                        )
+                        Text(
+                            text = stringResource(id = R.string.start_class_dialog_duration, duration),
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
                     }
-                    
-                    // End Time
-                    OutlinedButton(
-                        onClick = { showEndTimePicker = true },
-                        modifier = Modifier.weight(1f),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(endTime.format(DateTimeFormatter.ofPattern("HH:mm")))
-                    }
-                }
-                
-                // Display calculated duration
-                val durationMinutes = java.time.Duration.between(startTime, endTime).toMinutes().toInt()
-                if (durationMinutes > 0) {
-                    Text(
-                        text = stringResource(id = R.string.start_class_dialog_duration, durationMinutes),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { 
-                    val durationMinutes = java.time.Duration.between(startTime, endTime).toMinutes().toInt()
-                    if (durationMinutes > 0) {
-                        onConfirm(durationMinutes) 
-                    }
-                }
+                onClick = { onConfirm(selectedDuration) }
             ) {
                 Text(stringResource(id = R.string.start_class_dialog_start))
             }
