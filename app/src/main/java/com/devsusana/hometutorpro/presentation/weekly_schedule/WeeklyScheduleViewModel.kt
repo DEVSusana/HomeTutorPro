@@ -281,7 +281,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                         _state.update {
                             it.copy(
                                 isLoading = false,
-                                successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd.toString()),
+                                successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd),
                                 permissionNeeded = !scheduled
                             )
                         }

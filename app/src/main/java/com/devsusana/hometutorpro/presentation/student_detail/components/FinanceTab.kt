@@ -90,7 +90,7 @@ fun FinanceTab(
                                 )
                             } else {
                                 Text(
-                                    text = stringResource(id = R.string.student_detail_pending_balance, student.pendingBalance.toString()),
+                                    text = stringResource(id = R.string.student_detail_pending_balance, student.pendingBalance),
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold
                                 )

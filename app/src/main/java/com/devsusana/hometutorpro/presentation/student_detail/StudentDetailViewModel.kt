@@ -257,7 +257,7 @@ class StudentDetailViewModel @Inject constructor(
                             student = updatedStudent,
                             isPaymentRegistered = true,
                             isLoading = false,
-                            successMessage = application.getString(R.string.student_detail_success_payment_registered, amount.toString())
+                            successMessage = application.getString(R.string.student_detail_success_payment_registered, amount)
                         )
                     }
                     is Result.Error<*> -> {
@@ -286,7 +286,7 @@ class StudentDetailViewModel @Inject constructor(
                     _state.value = _state.value.copy(
                         student = updatedStudent,
                         isLoading = false,
-                        successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd.toString())
+                        successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd)
                     )
                 }
                 is Result.Error<*> -> {

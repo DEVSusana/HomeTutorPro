@@ -99,7 +99,7 @@
     <string name="student_detail_color">Color:</string>
     <string name="student_detail_navigate_to_address">Navigate to Address (Google Maps)</string>
     <string name="student_detail_schedule">Schedule</string>
-    <string name="student_detail_pending_balance">Pending Balance: €%s</string>
+    <string name="student_detail_pending_balance">Pending Balance: €%.2f</string>
     <string name="student_detail_pending_balance_label">Pending Balance</string>
     <string name="student_detail_edit_balance">Edit Balance</string>
     <string name="student_detail_last_payment">Last Payment: %s</string>
