@@ -20,6 +20,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.Student
 import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
+import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailEvent
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -34,13 +35,9 @@ fun FinanceTab(
     state: StudentDetailState,
     isEditMode: Boolean,
     isNewStudent: Boolean,
-    onStudentChange: (Student) -> Unit,
-    onBalanceChange: (String) -> Unit,
-    onBalanceEditToggle: () -> Unit,
-    onPriceChange: (String) -> Unit,
-    onPaymentClick: (PaymentType) -> Unit,
+    onEvent: (StudentDetailEvent) -> Unit,
+    onPaymentClick: () -> Unit,
     onStartClassClick: () -> Unit,
-    onAddExtraClassClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -57,7 +54,7 @@ fun FinanceTab(
         ) {
             OutlinedTextField(
                 value = state.priceInput,
-                onValueChange = { onPriceChange(it) },
+                onValueChange = { onEvent(StudentDetailEvent.PriceChange(it)) },
                 label = { Text(stringResource(id = R.string.student_detail_price_per_hour)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("price_field"),
@@ -83,20 +80,20 @@ fun FinanceTab(
                             if (state.isBalanceEditable) {
                                 OutlinedTextField(
                                     value = state.balanceInput,
-                                    onValueChange = { onBalanceChange(it) },
+                                    onValueChange = { onEvent(StudentDetailEvent.BalanceChange(it)) },
                                     label = { Text(stringResource(id = R.string.student_detail_pending_balance_label)) },
                                     modifier = Modifier.weight(1f),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                                 )
                             } else {
                                 Text(
-                                    text = stringResource(id = R.string.student_detail_pending_balance, student.pendingBalance.toString()),
+                                    text = stringResource(id = R.string.student_detail_pending_balance, student.pendingBalance),
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                             if (isEditMode) {
-                                IconButton(onClick = { onBalanceEditToggle() }) {
+                                IconButton(onClick = { onEvent(StudentDetailEvent.ToggleBalanceEdit) }) {
                                     Icon(
                                         Icons.Default.Edit,
                                         contentDescription = stringResource(id = R.string.student_detail_edit_balance),
@@ -122,7 +119,7 @@ fun FinanceTab(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Button(
-                    onClick = { onPaymentClick(PaymentType.EFFECTIVE) },
+                    onClick = onPaymentClick,
                     enabled = student.pendingBalance > 0,
                     modifier = Modifier.fillMaxWidth().testTag("register_payment_button"),
                     colors = ButtonDefaults.buttonColors(
@@ -152,7 +149,7 @@ fun FinanceTab(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Button(
-                    onClick = onAddExtraClassClick,
+                    onClick = { onEvent(StudentDetailEvent.ShowExtraClassDialog) },
                     modifier = Modifier.fillMaxWidth().testTag("add_extra_class_button"),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                 ) {
@@ -189,13 +186,9 @@ private fun FinanceTabWithBalancePreview() {
             state = StudentDetailState(student = mockStudent),
             isEditMode = false,
             isNewStudent = false,
-            onStudentChange = {},
-            onBalanceChange = {},
-            onBalanceEditToggle = {},
-            onPriceChange = {},
+            onEvent = {},
             onPaymentClick = {},
-            onStartClassClick = {},
-            onAddExtraClassClick = {}
+            onStartClassClick = {}
         )
     }
 }
@@ -220,13 +213,9 @@ private fun FinanceTabNoBalancePreview() {
             state = StudentDetailState(student = mockStudent),
             isEditMode = false,
             isNewStudent = false,
-            onStudentChange = {},
-            onBalanceChange = {},
-            onBalanceEditToggle = {},
-            onPriceChange = {},
+            onEvent = {},
             onPaymentClick = {},
-            onStartClassClick = {},
-            onAddExtraClassClick = {}
+            onStartClassClick = {}
         )
     }
 }
@@ -251,13 +240,9 @@ private fun FinanceTabEditModePreview() {
             state = StudentDetailState(student = mockStudent, isBalanceEditable = true, balanceInput = "150.0"),
             isEditMode = true,
             isNewStudent = false,
-            onStudentChange = {},
-            onBalanceChange = {},
-            onBalanceEditToggle = {},
-            onPriceChange = {},
+            onEvent = {},
             onPaymentClick = {},
-            onStartClassClick = {},
-            onAddExtraClassClick = {}
+            onStartClassClick = {}
         )
     }
 }

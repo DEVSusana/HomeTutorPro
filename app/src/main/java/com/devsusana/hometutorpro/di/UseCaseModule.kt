@@ -114,4 +114,10 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindUpdatePasswordUseCase(impl: UpdatePasswordUseCase): IUpdatePasswordUseCase
+
+    @Binds
+    abstract fun bindValidateStudentUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.ValidateStudentUseCase): IValidateStudentUseCase
+
+    @Binds
+    abstract fun bindCheckScheduleConflictUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CheckScheduleConflictUseCase): ICheckScheduleConflictUseCase
 }

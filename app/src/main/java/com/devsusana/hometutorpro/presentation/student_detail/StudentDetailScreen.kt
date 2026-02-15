@@ -28,29 +28,7 @@ fun StudentDetailScreen(
 
     StudentDetailContent(
         state = state,
-        onStudentChange = viewModel::onStudentChange,
-        onSaveStudent = viewModel::saveStudent,
-        onDeleteStudent = viewModel::deleteStudent,
-        onDeleteSchedule = viewModel::deleteSchedule,
-        onRegisterPayment = viewModel::registerPayment,
-        onBulkScheduleModeToggle = viewModel::onBulkScheduleModeToggle,
-        onBulkSchedulesChange = viewModel::onBulkSchedulesChange,
-        onSaveBulkSchedules = viewModel::saveBulkSchedules,
-        onStartClass = viewModel::startClass,
-        onBack = onBack,
-        onClearFeedback = viewModel::clearFeedback,
-        onFileSelected = viewModel::onFileSelected,
-        onShareResource = viewModel::shareResource,
-        onDeleteSharedResource = viewModel::deleteSharedResource,
-        onShareDialogDismiss = viewModel::onShareDialogDismiss,
-        onShareNotesChange = viewModel::onShareNotesChange,
-        onBalanceChange = viewModel::onBalanceChange,
-        onBalanceEditToggle = viewModel::onBalanceEditToggle,
-        onTabChange = viewModel::onTabChange,
-        onPriceChange = viewModel::onPriceChange,
-        onContinue = viewModel::continueToNextStep,
-        onShowExtraClassDialog = viewModel::showExtraClassDialog,
-        onHideExtraClassDialog = viewModel::hideExtraClassDialog,
-        onSaveExtraClass = viewModel::saveExtraClass
+        onEvent = viewModel::onEvent,
+        onBack = onBack
     )
 }

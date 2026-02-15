@@ -87,7 +87,8 @@ class DashboardViewModelTest {
             saveScheduleExceptionUseCase,
             deleteScheduleExceptionUseCase,
             getStudentByIdUseCase,
-            saveStudentUseCase
+            saveStudentUseCase,
+            mockk(relaxed = true)
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -123,7 +124,8 @@ class DashboardViewModelTest {
                 saveScheduleExceptionUseCase,
                 deleteScheduleExceptionUseCase,
                 getStudentByIdUseCase,
-                saveStudentUseCase
+                saveStudentUseCase,
+                mockk(relaxed = true)
             )
             testDispatcher.scheduler.advanceUntilIdle()
 
