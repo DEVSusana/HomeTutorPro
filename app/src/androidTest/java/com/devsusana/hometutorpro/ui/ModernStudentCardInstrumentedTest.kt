@@ -36,9 +36,8 @@ class ModernStudentCardInstrumentedTest {
             }
         }
 
-        composeTestRule.onNodeWithText("150.00€").assertIsDisplayed()
-        // Further checks for color would require custom matchers or checking internal implementation,
-        // which is often brittle. Asserting text presence is usually sufficient for UI tests.
+        val expectedText = "%.2f€".format(150.0)
+        composeTestRule.onNodeWithText(expectedText).assertIsDisplayed()
     }
 
     @Test
@@ -56,7 +55,8 @@ class ModernStudentCardInstrumentedTest {
             }
         }
 
-        composeTestRule.onNodeWithText("-50.00€").assertIsDisplayed()
+        val expectedText = "%.2f€".format(-50.0)
+        composeTestRule.onNodeWithText(expectedText).assertIsDisplayed()
     }
 
     @Test
@@ -91,7 +91,12 @@ class ModernStudentCardInstrumentedTest {
                 ModernStudentCard(student = student, onClick = {})
             }
         }
-        composeTestRule.onNodeWithText("75.00€").assertIsDisplayed()
-        composeTestRule.onNodeWithText("INACTIVE").assertIsDisplayed()
+        val expectedText = "%.2f€".format(75.0)
+        composeTestRule.onNodeWithText(expectedText).assertIsDisplayed()
+        
+        // Use localized string to avoid failures in non-English locales
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val inactiveText = context.getString(com.devsusana.hometutorpro.R.string.student_status_inactive).uppercase()
+        composeTestRule.onNodeWithText(inactiveText).assertIsDisplayed()
     }
 }

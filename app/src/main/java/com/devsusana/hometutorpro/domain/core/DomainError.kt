@@ -19,4 +19,9 @@ sealed class DomainError {
     // Resource errors
     data object FileNotFound : DomainError()
     data object ResourceNotFound : DomainError()
+
+    // Validation errors
+    data object StudentNameRequired : DomainError()
+    data object InvalidPrice : DomainError()
+    data object InvalidBalance : DomainError()
 }

@@ -1,37 +1,40 @@
 package com.devsusana.hometutorpro.presentation.student_detail
 
-import android.net.Uri
 import android.app.Application
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.devsusana.hometutorpro.R
-import com.devsusana.hometutorpro.domain.entities.PaymentType
-import com.devsusana.hometutorpro.domain.entities.ShareMethod
+import com.devsusana.hometutorpro.domain.core.DomainError
+import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.entities.ExceptionType
+import com.devsusana.hometutorpro.domain.entities.Schedule
+import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.entities.SharedResource
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.usecases.ICheckScheduleConflictUseCase
+import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleUseCase
+import com.devsusana.hometutorpro.domain.usecases.IDeleteSharedResourceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IDeleteStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetSchedulesUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
-import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleUseCase
-import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveSharedResourceUseCase
-import com.devsusana.hometutorpro.domain.usecases.IDeleteSharedResourceUseCase
-import com.devsusana.hometutorpro.domain.core.Result
-import com.devsusana.hometutorpro.domain.core.DomainError
-import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetSchedulesUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IValidateStudentUseCase
+import com.devsusana.hometutorpro.presentation.student_detail.components.BulkScheduleEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.firstOrNull
-import com.devsusana.hometutorpro.presentation.student_detail.components.BulkScheduleEntry
-import com.devsusana.hometutorpro.domain.entities.Schedule
+import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -49,7 +52,9 @@ class StudentDetailViewModel @Inject constructor(
     private val deleteSharedResourceUseCase: IDeleteSharedResourceUseCase,
     private val getAllSchedulesUseCase: IGetAllSchedulesUseCase,
     private val getSchedulesUseCase: IGetSchedulesUseCase,
-    private val saveScheduleExceptionUseCase: com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase,
+    private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
+    private val validateStudentUseCase: IValidateStudentUseCase,
+    private val checkScheduleConflictUseCase: ICheckScheduleConflictUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -59,6 +64,10 @@ class StudentDetailViewModel @Inject constructor(
     private val studentId: String? = savedStateHandle["studentId"]
 
     init {
+        initialize()
+    }
+
+    private fun initialize() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
             getCurrentUserUseCase().collect { user ->
@@ -67,7 +76,7 @@ class StudentDetailViewModel @Inject constructor(
                         getStudentByIdUseCase(user.uid, studentId).collect { student ->
                             if (student != null) {
                                 _state.value = _state.value.copy(
-                                    student = student, 
+                                    student = student,
                                     isLoading = false,
                                     priceInput = if (student.pricePerHour > 0) student.pricePerHour.toString() else ""
                                 )
@@ -90,28 +99,49 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    fun onStudentChange(student: Student) {
-        _state.value = _state.value.copy(student = student)
+    fun onEvent(event: StudentDetailEvent) {
+        when (event) {
+            is StudentDetailEvent.StudentChange -> _state.value = _state.value.copy(student = event.student)
+            StudentDetailEvent.SaveStudent -> saveStudent()
+            StudentDetailEvent.DeleteStudent -> deleteStudent()
+            is StudentDetailEvent.PriceChange -> onPriceChange(event.input)
+            is StudentDetailEvent.BalanceChange -> _state.value = _state.value.copy(balanceInput = event.input)
+            StudentDetailEvent.ToggleBalanceEdit -> onBalanceEditToggle()
+            is StudentDetailEvent.RegisterPayment -> registerPayment(event.amount, event.type)
+            is StudentDetailEvent.StartClass -> startClass(event.durationMinutes)
+            is StudentDetailEvent.SaveSchedule -> saveSchedule(event.schedule)
+            is StudentDetailEvent.DeleteSchedule -> deleteSchedule(event.scheduleId)
+            StudentDetailEvent.ClearFeedback -> _state.value = _state.value.copy(successMessage = null, errorMessage = null)
+            is StudentDetailEvent.FileSelected -> onFileSelected(event)
+            is StudentDetailEvent.ShareResource -> shareResource(event)
+            is StudentDetailEvent.DeleteSharedResource -> deleteSharedResource(event.resourceId)
+            StudentDetailEvent.DismissShareDialog -> onShareDialogDismiss()
+            is StudentDetailEvent.ShareNotesChange -> _state.value = _state.value.copy(shareNotes = event.notes)
+            is StudentDetailEvent.TabChange -> _state.value = _state.value.copy(currentTab = event.index)
+            StudentDetailEvent.ContinueToNextStep -> continueToNextStep()
+            StudentDetailEvent.ToggleBulkScheduleMode -> onBulkScheduleModeToggle()
+            is StudentDetailEvent.BulkSchedulesChange -> _state.value = _state.value.copy(bulkSchedules = event.schedules)
+            StudentDetailEvent.SaveBulkSchedules -> saveBulkSchedules()
+            StudentDetailEvent.ShowExtraClassDialog -> _state.value = _state.value.copy(showExtraClassDialog = true)
+            StudentDetailEvent.HideExtraClassDialog -> _state.value = _state.value.copy(showExtraClassDialog = false)
+            is StudentDetailEvent.SaveExtraClass -> saveExtraClass(event.date, event.startTime, event.endTime)
+        }
     }
 
-    fun onPriceChange(input: String) {
+    private fun onPriceChange(input: String) {
         val regex = Regex("^\\d*\\.?\\d*$")
         if (!regex.matches(input) && input.isNotEmpty()) return
 
         val student = _state.value.student ?: return
         val price = input.toDoubleOrNull() ?: 0.0
-        
+
         _state.value = _state.value.copy(
             priceInput = input,
             student = student.copy(pricePerHour = price)
         )
     }
 
-    fun onBalanceChange(balance: String) {
-        _state.value = _state.value.copy(balanceInput = balance)
-    }
-
-    fun onBalanceEditToggle() {
+    private fun onBalanceEditToggle() {
         val isEditing = !_state.value.isBalanceEditable
         val currentBalance = _state.value.student?.pendingBalance ?: 0.0
         _state.value = _state.value.copy(
@@ -120,91 +150,47 @@ class StudentDetailViewModel @Inject constructor(
         )
     }
 
-    fun saveStudent() {
+    private fun saveStudent() {
         viewModelScope.launch {
             val state = _state.value
             var student = state.student
 
             if (student == null) {
-                _state.value = _state.value.copy(
-                    errorMessage = application.getString(R.string.student_detail_error_unexpected)
-                )
+                _state.value = _state.value.copy(errorMessage = application.getString(R.string.student_detail_error_unexpected))
                 return@launch
             }
 
             if (state.isBalanceEditable) {
                 val newBalance = state.balanceInput.toDoubleOrNull()
                 if (newBalance == null) {
-                    _state.value = _state.value.copy(
-                        errorMessage = application.getString(R.string.student_detail_error_invalid_balance)
-                    )
+                    _state.value = _state.value.copy(errorMessage = application.getString(R.string.student_detail_error_invalid_balance))
                     return@launch
                 }
                 student = student.copy(pendingBalance = newBalance)
             }
-            
-            if (student.name.isBlank()) {
-                _state.value = _state.value.copy(
-                    errorMessage = application.getString(R.string.student_detail_error_name_required)
-                )
-                return@launch
+
+            // Domain Validation
+            when (val validationResult = validateStudentUseCase(student)) {
+                is Result.Error -> {
+                    val errorMsg = when (validationResult.error) {
+                        DomainError.StudentNameRequired -> application.getString(R.string.student_detail_error_name_required)
+                        DomainError.InvalidPrice -> application.getString(R.string.student_detail_error_invalid_price)
+                        DomainError.InvalidBalance -> application.getString(R.string.student_detail_error_invalid_balance)
+                        else -> application.getString(R.string.student_detail_error_unexpected)
+                    }
+                    _state.value = _state.value.copy(errorMessage = errorMsg)
+                    return@launch
+                }
+                is Result.Success -> Unit
             }
-            
-            if (student.pricePerHour <= 0) {
-                _state.value = _state.value.copy(
-                    errorMessage = application.getString(R.string.student_detail_error_invalid_price)
-                )
-                return@launch
-            }
-            
-            if (student.pendingBalance < -10000 || student.pendingBalance > 100000) {
-                _state.value = _state.value.copy(
-                    errorMessage = application.getString(R.string.student_detail_error_invalid_balance)
-                )
-                return@launch
-            }
-            
+
             _state.value = _state.value.copy(isLoading = true)
-            
+
             when (val result = saveStudentUseCase(student.professorId, student)) {
                 is Result.Success -> {
                     val newId = result.data
                     val updatedStudent = student.copy(id = newId)
-                    
-                    val pendingSchedules = state.pendingSchedules
-                    val failedSchedules = mutableListOf<Schedule>()
-                    var hasConflicts = false
-                    
-                    if (pendingSchedules.isNotEmpty()) {
-                        pendingSchedules.forEach { schedule ->
-                           when (saveScheduleUseCase(student.professorId, newId, schedule)) {
-                               is Result.Success -> {
-                               }
-                               is Result.Error -> {
-                                   hasConflicts = true
-                                   failedSchedules.add(schedule)
-                               }
-                           }
-                        }
-                    }
-
-                    if (hasConflicts) {
-                         _state.value = _state.value.copy(
-                            student = updatedStudent,
-                            isStudentSaved = true,
-                            isLoading = false,
-                            errorMessage = application.getString(R.string.student_detail_error_save_schedules_failed),
-                            pendingSchedules = failedSchedules 
-                        )
-                    } else {
-                        _state.value = _state.value.copy(
-                            student = updatedStudent,
-                            isStudentSaved = true,
-                            isLoading = false,
-                            successMessage = application.getString(R.string.student_detail_success_student_saved),
-                            pendingSchedules = emptyList() 
-                        )
-                    }
+                    savePendingSchedules(updatedStudent)
                 }
                 is Result.Error<*> -> {
                     _state.value = _state.value.copy(
@@ -217,7 +203,43 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    fun deleteStudent() {
+    private suspend fun savePendingSchedules(student: Student) {
+        val pendingSchedules = _state.value.pendingSchedules
+        val failedSchedules = mutableListOf<Schedule>()
+        var hasConflicts = false
+
+        if (pendingSchedules.isNotEmpty()) {
+            pendingSchedules.forEach { schedule ->
+                when (saveScheduleUseCase(student.professorId, student.id, schedule)) {
+                    is Result.Success -> {}
+                    is Result.Error -> {
+                        hasConflicts = true
+                        failedSchedules.add(schedule)
+                    }
+                }
+            }
+        }
+
+        if (hasConflicts) {
+            _state.value = _state.value.copy(
+                student = student,
+                isStudentSaved = true,
+                isLoading = false,
+                errorMessage = application.getString(R.string.student_detail_error_save_schedules_failed),
+                pendingSchedules = failedSchedules
+            )
+        } else {
+            _state.value = _state.value.copy(
+                student = student,
+                isStudentSaved = true,
+                isLoading = false,
+                successMessage = application.getString(R.string.student_detail_success_student_saved),
+                pendingSchedules = emptyList()
+            )
+        }
+    }
+
+    private fun deleteStudent() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
             val student = _state.value.student
@@ -241,7 +263,7 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    fun registerPayment(amount: Double, paymentType: PaymentType) {
+    private fun registerPayment(amount: Double, paymentType: com.devsusana.hometutorpro.domain.entities.PaymentType) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
             val student = _state.value.student
@@ -272,15 +294,15 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    fun startClass(durationMinutes: Int) {
+    private fun startClass(durationMinutes: Int) {
         viewModelScope.launch {
             val student = _state.value.student ?: return@launch
             _state.value = _state.value.copy(isLoading = true)
-            
+
             val priceToAdd = (durationMinutes / 60.0) * student.pricePerHour
             val newBalance = student.pendingBalance + priceToAdd
             val updatedStudent = student.copy(pendingBalance = newBalance)
-            
+
             when (saveStudentUseCase(student.professorId, updatedStudent)) {
                 is Result.Success<*> -> {
                     _state.value = _state.value.copy(
@@ -298,59 +320,18 @@ class StudentDetailViewModel @Inject constructor(
             }
         }
     }
-    
-    fun saveSchedule(schedule: Schedule) {
+
+    private fun saveSchedule(schedule: Schedule) {
         viewModelScope.launch {
             val student = _state.value.student ?: return@launch
-            
+
             if (student.id.isEmpty() || student.id == "new") {
-                val currentPending = _state.value.pendingSchedules.toMutableList()
-                
-                 val localConflict = currentPending.any { existing ->
-                    existing.dayOfWeek == schedule.dayOfWeek && 
-                    areTimesOverlapping(existing.startTime, existing.endTime, schedule.startTime, schedule.endTime)
-                }
-                
-                if (localConflict) {
-                     _state.value = _state.value.copy(
-                        errorMessage = application.getString(R.string.student_detail_error_schedule_conflict_time_slot)
-                    )
-                    return@launch
-                }
-
-                try {
-                    val allSchedules = getAllSchedulesUseCase(student.professorId).firstOrNull() ?: emptyList()
-                    val dbConflict = allSchedules.any { existing ->
-                        existing.dayOfWeek == schedule.dayOfWeek &&
-                        areTimesOverlapping(existing.startTime, existing.endTime, schedule.startTime, schedule.endTime)
-                    }
-
-                    if (dbConflict) {
-                        _state.value = _state.value.copy(
-                            errorMessage = application.getString(R.string.student_detail_error_schedule_conflict)
-                        )
-                        return@launch
-                    }
-                } catch (e: Exception) {
-                    // Ignore DB check if it fails
-                }
-                
-                val pendingSchedule = if (schedule.id.isEmpty()) {
-                    schedule.copy(id = java.util.UUID.randomUUID().toString())
-                } else {
-                    schedule
-                }
-                
-                currentPending.add(pendingSchedule)
-                _state.value = _state.value.copy(
-                    pendingSchedules = currentPending,
-                    successMessage = application.getString(R.string.student_detail_success_schedule_saved)
-                )
+                handleNewStudentSchedule(schedule, student)
                 return@launch
             }
-            
+
             _state.value = _state.value.copy(isLoading = true)
-            
+
             when (val result = saveScheduleUseCase(student.professorId, student.id, schedule)) {
                 is Result.Success -> {
                     _state.value = _state.value.copy(
@@ -359,51 +340,72 @@ class StudentDetailViewModel @Inject constructor(
                     )
                 }
                 is Result.Error -> {
-                    val errorMsg = when (val error = result.error) {
-                        is DomainError.ConflictingStudent ->
-                            application.getString(R.string.student_detail_error_schedule_conflict_student, error.studentName, error.time)
-                        DomainError.ScheduleConflict ->
-                            application.getString(R.string.student_detail_error_schedule_conflict)
-                        else -> application.getString(R.string.student_detail_error_schedule_failed)
-                    }
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        errorMessage = errorMsg
-                    )
+                    handleScheduleError(result.error)
                 }
             }
         }
     }
-    
-    private fun areTimesOverlapping(start1: String, end1: String, start2: String, end2: String): Boolean {
-        return try {
-            val s1 = start1.replace(":", "").toInt()
-            val e1 = end1.replace(":", "").toInt()
-            val s2 = start2.replace(":", "").toInt()
-            val e2 = end2.replace(":", "").toInt()
-            
-            maxOf(s1, s2) < minOf(e1, e2)
-        } catch (e: Exception) {
-            false
+
+    private suspend fun handleNewStudentSchedule(schedule: Schedule, student: Student) {
+        val currentPending = _state.value.pendingSchedules.toMutableList()
+
+        if (checkScheduleConflictUseCase(schedule, currentPending)) {
+            _state.value = _state.value.copy(errorMessage = application.getString(R.string.student_detail_error_schedule_conflict_time_slot))
+            return
         }
+
+        try {
+            val allSchedules = getAllSchedulesUseCase(student.professorId).firstOrNull() ?: emptyList()
+            if (checkScheduleConflictUseCase(schedule, allSchedules)) {
+                _state.value = _state.value.copy(errorMessage = application.getString(R.string.student_detail_error_schedule_conflict))
+                return
+            }
+        } catch (e: Exception) {
+            // Ignore DB check if it fails
+        }
+
+        val pendingSchedule = if (schedule.id.isEmpty()) {
+            schedule.copy(id = UUID.randomUUID().toString())
+        } else {
+            schedule
+        }
+
+        currentPending.add(pendingSchedule)
+        _state.value = _state.value.copy(
+            pendingSchedules = currentPending,
+            successMessage = application.getString(R.string.student_detail_success_schedule_saved)
+        )
     }
 
-    fun deleteSchedule(scheduleId: String) {
+    private fun handleScheduleError(error: DomainError) {
+        val errorMsg = when (error) {
+            is DomainError.ConflictingStudent ->
+                application.getString(R.string.student_detail_error_schedule_conflict_student, error.studentName, error.time)
+            DomainError.ScheduleConflict ->
+                application.getString(R.string.student_detail_error_schedule_conflict)
+            else -> application.getString(R.string.student_detail_error_schedule_failed)
+        }
+        _state.value = _state.value.copy(
+            isLoading = false,
+            errorMessage = errorMsg
+        )
+    }
+
+    private fun deleteSchedule(scheduleId: String) {
         viewModelScope.launch {
             val student = _state.value.student ?: return@launch
-            
+
             if (student.id.isEmpty() || student.id == "new") {
-                val list = _state.value.pendingSchedules.filterNot { it.id.toString() == scheduleId }
-                
+                val list = _state.value.pendingSchedules.filterNot { it.id == scheduleId }
                 _state.value = _state.value.copy(
                     pendingSchedules = list,
                     successMessage = application.getString(R.string.student_detail_success_schedule_deleted)
                 )
                 return@launch
             }
-            
+
             _state.value = _state.value.copy(isLoading = true)
-            
+
             when (deleteScheduleUseCase(student.professorId, student.id, scheduleId)) {
                 is Result.Success -> {
                     _state.value = _state.value.copy(
@@ -421,10 +423,6 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    fun clearFeedback() {
-        _state.value = _state.value.copy(successMessage = null, errorMessage = null)
-    }
-    
     private fun loadSchedules(professorId: String, studentId: String) {
         viewModelScope.launch {
             getSchedulesUseCase(professorId, studentId).collect { schedules ->
@@ -432,7 +430,7 @@ class StudentDetailViewModel @Inject constructor(
             }
         }
     }
-    
+
     private fun loadSharedResources(professorId: String, studentId: String) {
         viewModelScope.launch {
             getSharedResourcesUseCase(professorId, studentId).collect { resources ->
@@ -440,16 +438,16 @@ class StudentDetailViewModel @Inject constructor(
             }
         }
     }
-    
-    fun onFileSelected(uri: Uri, fileName: String, fileType: String, fileSizeBytes: Long) {
+
+    private fun onFileSelected(event: StudentDetailEvent.FileSelected) {
         _state.value = _state.value.copy(
-            selectedFileUri = uri,
-            selectedFileName = fileName,
+            selectedFileUri = event.uri,
+            selectedFileName = event.name,
             showShareDialog = true
         )
     }
-    
-    fun onShareDialogDismiss() {
+
+    private fun onShareDialogDismiss() {
         _state.value = _state.value.copy(
             showShareDialog = false,
             selectedFileUri = null,
@@ -457,35 +455,29 @@ class StudentDetailViewModel @Inject constructor(
             shareNotes = ""
         )
     }
-    
-    fun onShareNotesChange(notes: String) {
-        _state.value = _state.value.copy(shareNotes = notes)
-    }
-    
-    fun shareResource(method: ShareMethod, fileType: String, fileSizeBytes: Long) {
+
+    private fun shareResource(event: StudentDetailEvent.ShareResource) {
         viewModelScope.launch {
             val student = _state.value.student ?: return@launch
             val fileName = _state.value.selectedFileName
             val notes = _state.value.shareNotes
-            
+
             if (fileName.isBlank()) {
-                _state.value = _state.value.copy(
-                    errorMessage = application.getString(R.string.student_detail_error_no_file_selected)
-                )
+                _state.value = _state.value.copy(errorMessage = application.getString(R.string.student_detail_error_no_file_selected))
                 return@launch
             }
-            
+
             _state.value = _state.value.copy(isLoading = true)
-            
+
             val sharedResource = SharedResource(
                 studentId = student.id,
                 fileName = fileName,
-                fileType = fileType,
-                fileSizeBytes = fileSizeBytes,
-                sharedVia = method,
+                fileType = event.fileType,
+                fileSizeBytes = event.size,
+                sharedVia = event.method,
                 notes = notes
             )
-            
+
             when (saveSharedResourceUseCase(student.professorId, sharedResource)) {
                 is Result.Success -> {
                     _state.value = _state.value.copy(
@@ -506,12 +498,12 @@ class StudentDetailViewModel @Inject constructor(
             }
         }
     }
-    
-    fun deleteSharedResource(resourceId: String) {
+
+    private fun deleteSharedResource(resourceId: String) {
         viewModelScope.launch {
             val student = _state.value.student ?: return@launch
             _state.value = _state.value.copy(isLoading = true)
-            
+
             when (deleteSharedResourceUseCase(student.professorId, resourceId)) {
                 is Result.Success -> {
                     _state.value = _state.value.copy(
@@ -528,80 +520,57 @@ class StudentDetailViewModel @Inject constructor(
             }
         }
     }
-    
-    fun onTabChange(tabIndex: Int) {
-        _state.value = _state.value.copy(currentTab = tabIndex)
-    }
-    
-    fun onBulkScheduleModeToggle() {
+
+    private fun onBulkScheduleModeToggle() {
         val isEntering = !_state.value.isBulkScheduleMode
         _state.value = _state.value.copy(
             isBulkScheduleMode = isEntering,
-            bulkSchedules = if (isEntering) {
-                listOf(BulkScheduleEntry(id = 1))
-            } else {
-                emptyList()
-            }
+            bulkSchedules = if (isEntering) listOf(BulkScheduleEntry(id = 1)) else emptyList()
         )
     }
-    
-    fun onBulkSchedulesChange(schedules: List<BulkScheduleEntry>) {
-        _state.value = _state.value.copy(bulkSchedules = schedules)
-    }
 
-    fun continueToNextStep() {
+    private fun continueToNextStep() {
         val currentState = _state.value
         val student = currentState.student ?: return
 
         when (currentState.currentTab) {
-            0 -> { 
+            0 -> {
                 if (student.name.isBlank()) {
-                    _state.value = currentState.copy(
-                        errorMessage = application.getString(R.string.student_detail_error_name_required)
-                    )
+                    _state.value = currentState.copy(errorMessage = application.getString(R.string.student_detail_error_name_required))
                     return
                 }
                 _state.value = currentState.copy(currentTab = 1)
             }
-            1 -> { 
+            1 -> {
                 _state.value = currentState.copy(currentTab = 2)
             }
         }
     }
-    
-    fun saveBulkSchedules() {
+
+    private fun saveBulkSchedules() {
         viewModelScope.launch {
             val student = _state.value.student ?: return@launch
             val bulkSchedules = _state.value.bulkSchedules
-            
+
             if (bulkSchedules.isEmpty()) {
-                _state.value = _state.value.copy(
-                    errorMessage = application.getString(R.string.bulk_schedule_error_empty)
-                )
+                _state.value = _state.value.copy(errorMessage = application.getString(R.string.bulk_schedule_error_empty))
                 return@launch
             }
-            
+
             _state.value = _state.value.copy(bulkScheduleSaving = true)
-            
+
             val schedules = mutableListOf<Schedule>()
             val updatedBulkSchedules = mutableListOf<BulkScheduleEntry>()
             var hasErrors = false
-            
+
             bulkSchedules.forEachIndexed { index, entry ->
                 val timeRegex = Regex("^([01]?[0-9]|2[0-3]):[0-5][0-9]$")
                 if (!timeRegex.matches(entry.startTime) || !timeRegex.matches(entry.endTime)) {
-                    updatedBulkSchedules.add(
-                        entry.copy(
-                            error = application.getString(
-                                R.string.bulk_schedule_error_invalid_time,
-                                index + 1
-                            )
-                        )
-                    )
+                    updatedBulkSchedules.add(entry.copy(error = application.getString(R.string.bulk_schedule_error_invalid_time, index + 1)))
                     hasErrors = true
                 } else {
                     val schedule = Schedule(
-                        id = java.util.UUID.randomUUID().toString(),
+                        id = UUID.randomUUID().toString(),
                         studentId = student.id,
                         dayOfWeek = entry.dayOfWeek,
                         startTime = entry.startTime,
@@ -611,15 +580,13 @@ class StudentDetailViewModel @Inject constructor(
                     updatedBulkSchedules.add(entry.copy(error = null))
                 }
             }
-            
+
             if (hasErrors) {
-                _state.value = _state.value.copy(
-                    bulkSchedules = updatedBulkSchedules,
-                    bulkScheduleSaving = false
-                )
+                _state.value = _state.value.copy(bulkSchedules = updatedBulkSchedules, bulkScheduleSaving = false)
                 return@launch
             }
 
+            // Conflict Checking using Domain Use Case
             try {
                 val dbSchedules = getAllSchedulesUseCase(student.professorId).firstOrNull() ?: emptyList()
                 val pendingSchedules = _state.value.pendingSchedules
@@ -628,15 +595,8 @@ class StudentDetailViewModel @Inject constructor(
                 val validatedBulkSchedules = updatedBulkSchedules.toMutableList()
 
                 schedules.forEachIndexed { index, newSchedule ->
-                    val dbConflict = dbSchedules.any { existing ->
-                        existing.dayOfWeek == newSchedule.dayOfWeek &&
-                        areTimesOverlapping(existing.startTime, existing.endTime, newSchedule.startTime, newSchedule.endTime)
-                    }
-
-                    val pendingConflict = pendingSchedules.any { existing ->
-                        existing.dayOfWeek == newSchedule.dayOfWeek &&
-                        areTimesOverlapping(existing.startTime, existing.endTime, newSchedule.startTime, newSchedule.endTime)
-                    }
+                    val dbConflict = checkScheduleConflictUseCase(newSchedule, dbSchedules)
+                    val pendingConflict = checkScheduleConflictUseCase(newSchedule, pendingSchedules)
 
                     if (dbConflict || pendingConflict) {
                         conflictFound = true
@@ -655,7 +615,7 @@ class StudentDetailViewModel @Inject constructor(
 
             } catch (e: Exception) {
             }
-            
+
             val isNewStudent = student.id.isEmpty() || student.id == "new"
             if (isNewStudent) {
                 _state.value = _state.value.copy(
@@ -668,26 +628,21 @@ class StudentDetailViewModel @Inject constructor(
                 return@launch
             }
 
+            // Save to DB
             var savedCount = 0
-            
             for ((index, schedule) in schedules.withIndex()) {
                 when (val result = saveScheduleUseCase(student.professorId, student.id, schedule)) {
-                    is Result.Success -> {
-                        savedCount++
-                    }
+                    is Result.Success -> savedCount++
                     is Result.Error -> {
                         val errorMsg = when (val error = result.error) {
-                            is DomainError.ConflictingStudent ->
-                                application.getString(R.string.student_detail_error_schedule_conflict_student, error.studentName, error.time)
-                            DomainError.ScheduleConflict ->
-                                application.getString(R.string.student_detail_error_schedule_conflict_time_slot)
+                            is DomainError.ConflictingStudent -> application.getString(R.string.student_detail_error_schedule_conflict_student, error.studentName, error.time)
+                            DomainError.ScheduleConflict -> application.getString(R.string.student_detail_error_schedule_conflict_time_slot)
                             else -> application.getString(R.string.student_detail_error_unknown)
                         }
-                        
                         val updatedEntry = bulkSchedules[index].copy(error = "Error")
                         val newBulkSchedules = bulkSchedules.toMutableList()
                         newBulkSchedules[index] = updatedEntry
-                        
+
                         _state.value = _state.value.copy(
                             bulkSchedules = newBulkSchedules,
                             bulkScheduleSaving = false,
@@ -697,7 +652,7 @@ class StudentDetailViewModel @Inject constructor(
                     }
                 }
             }
-            
+
             _state.value = _state.value.copy(
                 bulkScheduleSaving = false,
                 isBulkScheduleMode = false,
@@ -707,46 +662,37 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    fun showExtraClassDialog() {
-        _state.value = _state.value.copy(showExtraClassDialog = true)
-    }
-
-    fun hideExtraClassDialog() {
-        _state.value = _state.value.copy(showExtraClassDialog = false)
-    }
-
-    fun saveExtraClass(date: Long, startTime: String, endTime: String) {
+    private fun saveExtraClass(date: Long, startTime: String, endTime: String) {
         viewModelScope.launch {
-             val student = _state.value.student ?: return@launch
-             
-             _state.value = _state.value.copy(isLoading = true)
+            val student = _state.value.student ?: return@launch
+            _state.value = _state.value.copy(isLoading = true)
 
-             val extraClass = com.devsusana.hometutorpro.domain.entities.ScheduleException(
-                 id = java.util.UUID.randomUUID().toString(),
-                 studentId = student.id,
-                 date = date,
-                 type = com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA,
-                 originalScheduleId = "EXTRA", // Marker for extra class
-                 newStartTime = startTime,
-                 newEndTime = endTime,
-                 reason = "Extra Class"
-             )
+            val extraClass = ScheduleException(
+                id = UUID.randomUUID().toString(),
+                studentId = student.id,
+                date = date,
+                type = ExceptionType.EXTRA,
+                originalScheduleId = "EXTRA",
+                newStartTime = startTime,
+                newEndTime = endTime,
+                reason = "Extra Class"
+            )
 
-             when (saveScheduleExceptionUseCase(student.professorId, student.id, extraClass)) {
-                 is Result.Success -> {
-                     _state.value = _state.value.copy(
-                         isLoading = false,
-                         showExtraClassDialog = false,
-                         successMessage = application.getString(R.string.student_detail_success_extra_class_added)
-                     )
-                 }
-                 is Result.Error -> {
-                     _state.value = _state.value.copy(
-                         isLoading = false,
-                         errorMessage = application.getString(R.string.student_detail_error_save_failed)
-                     )
-                 }
-             }
+            when (saveScheduleExceptionUseCase(student.professorId, student.id, extraClass)) {
+                is Result.Success -> {
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        showExtraClassDialog = false,
+                        successMessage = application.getString(R.string.student_detail_success_extra_class_added)
+                    )
+                }
+                is Result.Error -> {
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        errorMessage = application.getString(R.string.student_detail_error_save_failed)
+                    )
+                }
+            }
         }
     }
 }
