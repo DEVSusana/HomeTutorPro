@@ -28,11 +28,14 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * Unit tests for AuthRepositoryImpl
  * Tests authentication logic, user management, and error handling
  */
+@RunWith(RobolectricTestRunner::class)
 class AuthRepositoryImplTest {
 
     private lateinit var repository: AuthRepositoryImpl
@@ -203,7 +206,7 @@ class AuthRepositoryImplTest {
         val mockAuthResult = mockk<AuthResult>()
         every { mockAuthResult.user } returns mockFirebaseUser
 
-        coEvery { firebaseAuth.createUserWithEmailAndPassword(any(), any()) } returns Tasks.forResult(mockAuthResult)
+        every { firebaseAuth.createUserWithEmailAndPassword(any(), any()) } returns Tasks.forResult(mockAuthResult)
 
         // Mock AuthManager methods for user creation and saving
         every { authManager.validateEmail(email) } returns true
@@ -230,14 +233,11 @@ class AuthRepositoryImplTest {
             workingEndTime = "23:00",
             notes = ""
         )
-        if (expectedUser != actualUser) {
-            org.junit.Assert.fail("User object mismatch:\nExpected: $expectedUser\nActual: $actualUser")
-        }
+        
+        assertEquals(expectedUser, actualUser)
         
         // Verify currentUser is updated
         assertEquals(expectedUser, repository.currentUser.first())
-
-        verify { authManager.saveCredentials(email, password, name, userId) }
 
         verify { authManager.saveCredentials(email, password, name, userId) }
     }
