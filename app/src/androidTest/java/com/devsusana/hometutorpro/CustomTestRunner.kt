@@ -19,16 +19,16 @@ class CustomTestRunner : AndroidJUnitRunner() {
     override fun onCreate(arguments: android.os.Bundle?) {
         super.onCreate(arguments)
         
-        // Initialize WorkManager for instrumentation tests
+        // Initialize WorkManager for instrumentation tests only if not already initialized
+        // This prevents IllegalStateException: WorkManager is already initialized
         val context = targetContext.applicationContext
-        val config = Configuration.Builder()
-            .setMinimumLoggingLevel(android.util.Log.DEBUG)
-            .build()
-        
         try {
+            val config = Configuration.Builder()
+                .setMinimumLoggingLevel(android.util.Log.DEBUG)
+                .build()
             WorkManager.initialize(context, config)
-        } catch (e: IllegalStateException) {
-            // WorkManager already initialized, ignore
+        } catch (e: Exception) {
+            android.util.Log.w("CustomTestRunner", "WorkManager already initialized or failed to initialize: ${e.message}")
         }
     }
 }

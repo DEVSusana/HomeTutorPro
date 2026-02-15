@@ -20,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailEvent
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 
 /**
@@ -31,7 +32,7 @@ fun PersonalInfoTab(
     isEditMode: Boolean,
     isNewStudent: Boolean,
     context: Context,
-    onStudentChange: (Student) -> Unit,
+    onEvent: (StudentDetailEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -69,7 +70,7 @@ fun PersonalInfoTab(
                     }
                     Switch(
                         checked = student.isActive,
-                        onCheckedChange = { onStudentChange(student.copy(isActive = it)) },
+                        onCheckedChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(isActive = it))) },
                         modifier = Modifier.testTag("active_status_switch")
                     )
                 }
@@ -78,7 +79,7 @@ fun PersonalInfoTab(
 
             OutlinedTextField(
                 value = student.name,
-                onValueChange = { onStudentChange(student.copy(name = it)) },
+                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(name = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_student_name)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("name_field"),
@@ -97,7 +98,7 @@ fun PersonalInfoTab(
                 value = if (student.age > 0) student.age.toString() else "",
                 onValueChange = {
                     val age = it.toIntOrNull() ?: 0
-                    onStudentChange(student.copy(age = age))
+                    onEvent(StudentDetailEvent.StudentChange(student.copy(age = age)))
                 },
                 label = { Text(stringResource(id = R.string.student_detail_age)) },
                 enabled = isEditMode,
@@ -115,7 +116,7 @@ fun PersonalInfoTab(
 
             OutlinedTextField(
                 value = student.address,
-                onValueChange = { onStudentChange(student.copy(address = it)) },
+                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(address = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_address)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("address_field"),
@@ -151,7 +152,7 @@ fun PersonalInfoTab(
 
             OutlinedTextField(
                 value = student.educationalAttention,
-                onValueChange = { onStudentChange(student.copy(educationalAttention = it)) },
+                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(educationalAttention = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_special_needs)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("educational_attention_field"),
@@ -166,7 +167,7 @@ fun PersonalInfoTab(
         ) {
             OutlinedTextField(
                 value = student.parentPhones,
-                onValueChange = { onStudentChange(student.copy(parentPhones = it)) },
+                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(parentPhones = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_parent_phone)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("parent_phones_field"),
@@ -177,7 +178,7 @@ fun PersonalInfoTab(
 
             OutlinedTextField(
                 value = student.studentPhone,
-                onValueChange = { onStudentChange(student.copy(studentPhone = it)) },
+                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(studentPhone = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_student_phone)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("student_phone_field"),
@@ -189,7 +190,7 @@ fun PersonalInfoTab(
             student.studentEmail?.let {
                 OutlinedTextField(
                     value = it,
-                    onValueChange = { onStudentChange(student.copy(studentEmail = it)) },
+                    onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(studentEmail = it))) },
                     label = { Text(stringResource(id = R.string.student_detail_student_email)) },
                     enabled = isEditMode,
                     modifier = Modifier.fillMaxWidth().testTag("student_email_field"),
@@ -205,7 +206,7 @@ fun PersonalInfoTab(
         ) {
             OutlinedTextField(
                 value = student.course,
-                onValueChange = { onStudentChange(student.copy(course = it)) },
+                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(course = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_course)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("course_field"),
@@ -216,7 +217,7 @@ fun PersonalInfoTab(
 
             OutlinedTextField(
                 value = student.subjects,
-                onValueChange = { onStudentChange(student.copy(subjects = it)) },
+                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(subjects = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_subjects)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("subjects_field"),
@@ -231,7 +232,7 @@ fun PersonalInfoTab(
         ) {
             OutlinedTextField(
                 value = student.notes,
-                onValueChange = { onStudentChange(student.copy(notes = it)) },
+                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(notes = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_notes)) },
                 readOnly = !isEditMode,
                 modifier = Modifier
@@ -289,7 +290,7 @@ private fun PersonalInfoTabEditPreview() {
             isEditMode = true,
             isNewStudent = false,
             context = LocalContext.current,
-            onStudentChange = {}
+            onEvent = {}
         )
     }
 }
@@ -320,7 +321,7 @@ private fun PersonalInfoTabViewPreview() {
             isEditMode = false,
             isNewStudent = false,
             context = LocalContext.current,
-            onStudentChange = {}
+            onEvent = {}
         )
     }
 }
