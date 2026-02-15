@@ -19,6 +19,7 @@ import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.entities.ShareMethod
 import com.devsusana.hometutorpro.domain.entities.SharedResource
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailEvent
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 
 /**
@@ -30,7 +31,7 @@ fun ResourcesTab(
     isNewStudent: Boolean,
     sharedResources: List<SharedResource>,
     onSelectFileClick: () -> Unit,
-    onDeleteResource: (String) -> Unit,
+    onEvent: (StudentDetailEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -80,7 +81,7 @@ fun ResourcesTab(
 
                 SharedResourcesList(
                     sharedResources = sharedResources,
-                    onDeleteResource = onDeleteResource,
+                    onDeleteResource = { onEvent(StudentDetailEvent.DeleteSharedResource(it)) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -111,7 +112,7 @@ private fun ResourcesTabNewStudentPreview() {
             isNewStudent = true,
             sharedResources = emptyList(),
             onSelectFileClick = {},
-            onDeleteResource = {}
+            onEvent = {}
         )
     }
 }
@@ -159,7 +160,7 @@ private fun ResourcesTabWithResourcesPreview() {
             isNewStudent = false,
             sharedResources = mockResources,
             onSelectFileClick = {},
-            onDeleteResource = {}
+            onEvent = {}
         )
     }
 }
@@ -184,7 +185,7 @@ private fun ResourcesTabNoResourcesPreview() {
             isNewStudent = false,
             sharedResources = emptyList(),
             onSelectFileClick = {},
-            onDeleteResource = {}
+            onEvent = {}
         )
     }
 }

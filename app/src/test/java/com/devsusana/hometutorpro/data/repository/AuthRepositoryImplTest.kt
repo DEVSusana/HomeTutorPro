@@ -212,6 +212,7 @@ class AuthRepositoryImplTest {
         every { authManager.saveCredentials(email, password, name, userId) } returns userId
         every { authManager.getWorkingStartTime() } returns "08:00"
         every { authManager.getWorkingEndTime() } returns "23:00"
+        every { authManager.getNotes() } returns ""
 
         repository = createRepository(backgroundScope)
 
@@ -226,7 +227,8 @@ class AuthRepositoryImplTest {
             email = email,
             displayName = name,
             workingStartTime = "08:00",
-            workingEndTime = "23:00"
+            workingEndTime = "23:00",
+            notes = ""
         )
         if (expectedUser != actualUser) {
             org.junit.Assert.fail("User object mismatch:\nExpected: $expectedUser\nActual: $actualUser")

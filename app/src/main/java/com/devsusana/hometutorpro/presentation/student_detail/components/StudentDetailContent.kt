@@ -27,10 +27,10 @@ import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.core.utils.FilePickerHelper
 import com.devsusana.hometutorpro.core.utils.NotificationHelper
 import com.devsusana.hometutorpro.domain.entities.PaymentType
-import com.devsusana.hometutorpro.domain.entities.ShareMethod
 import com.devsusana.hometutorpro.domain.entities.Student
 import com.devsusana.hometutorpro.presentation.components.FeedbackDialog
 import com.devsusana.hometutorpro.presentation.components.PaymentDialog
+import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailEvent
 import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 import kotlinx.coroutines.launch
@@ -39,31 +39,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun StudentDetailContent(
     state: StudentDetailState,
-    onStudentChange: (Student) -> Unit,
-    onSaveStudent: () -> Unit,
-    onDeleteStudent: () -> Unit,
-    onDeleteSchedule: (String) -> Unit,
-    onRegisterPayment: (Double, PaymentType) -> Unit,
-    onBulkScheduleModeToggle: () -> Unit,
-    onBulkSchedulesChange: (List<BulkScheduleEntry>) -> Unit,
-    onSaveBulkSchedules: () -> Unit,
-    onStartClass: (Int) -> Unit,
-    onBack: () -> Unit,
-    onClearFeedback: () -> Unit,
-    onFileSelected: (Uri, String, String, Long) -> Unit,
-    onShareResource: (ShareMethod, String, Long) -> Unit,
-    onDeleteSharedResource: (String) -> Unit,
-    onShareDialogDismiss: () -> Unit,
-    onShareNotesChange: (String) -> Unit,
-    onBalanceChange: (String) -> Unit,
-    onBalanceEditToggle: () -> Unit,
-    onTabChange: (Int) -> Unit,
-    onPriceChange: (String) -> Unit,
-    onContinue: () -> Unit,
-    // Extra Class Dialog Callbacks
-    onShowExtraClassDialog: () -> Unit,
-    onHideExtraClassDialog: () -> Unit,
-    onSaveExtraClass: (Long, String, String) -> Unit
+    onEvent: (StudentDetailEvent) -> Unit,
+    onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val student = state.student
@@ -83,7 +60,7 @@ fun StudentDetailContent(
         uri?.let {
             val fileInfo = FilePickerHelper.getFileInfo(context, it)
             fileInfo?.let { info ->
-                onFileSelected(info.uri, info.name, info.type, info.sizeBytes)
+                onEvent(StudentDetailEvent.FileSelected(info.uri, info.name, info.type, info.sizeBytes))
             }
         }
     }
@@ -96,7 +73,7 @@ fun StudentDetailContent(
             message = {
                 Text(text = successMsg ?: errorMsg ?: "")
             },
-            onDismiss = onClearFeedback
+            onDismiss = { onEvent(StudentDetailEvent.ClearFeedback) }
         )
     }
     
@@ -108,14 +85,14 @@ fun StudentDetailContent(
             fileType = "",
             fileSizeBytes = 0L,
             notes = state.shareNotes,
-            onNotesChange = onShareNotesChange,
+            onNotesChange = { onEvent(StudentDetailEvent.ShareNotesChange(it)) },
             onShare = { method ->
                 val fileInfo = FilePickerHelper.getFileInfo(context, state.selectedFileUri)
                 fileInfo?.let {
-                    onShareResource(method, it.type, it.sizeBytes)
+                    onEvent(StudentDetailEvent.ShareResource(method, it.type, it.sizeBytes))
                 }
             },
-            onDismiss = onShareDialogDismiss
+            onDismiss = { onEvent(StudentDetailEvent.DismissShareDialog) }
         )
     }
 
@@ -124,7 +101,7 @@ fun StudentDetailContent(
             defaultAmount = student.pricePerHour,
             onDismiss = { showPaymentDialog = false },
             onConfirm = { amount ->
-                onRegisterPayment(amount, selectedPaymentType!!)
+                onEvent(StudentDetailEvent.RegisterPayment(amount, selectedPaymentType!!))
                 showPaymentDialog = false
             }
         )
@@ -171,7 +148,7 @@ fun StudentDetailContent(
                     }
                 }
                 
-                onStartClass(duration)
+                onEvent(StudentDetailEvent.StartClass(duration))
                 showStartClassDialog = false
             }
         )
@@ -179,8 +156,8 @@ fun StudentDetailContent(
 
     if (state.showExtraClassDialog) {
         AddExtraClassDialog(
-            onDismiss = onHideExtraClassDialog,
-            onConfirm = onSaveExtraClass
+            onDismiss = { onEvent(StudentDetailEvent.HideExtraClassDialog) },
+            onConfirm = { date, start, end -> onEvent(StudentDetailEvent.SaveExtraClass(date, start, end)) }
         )
     }
 
@@ -208,7 +185,13 @@ fun StudentDetailContent(
                             )
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         },
         bottomBar = {
@@ -221,13 +204,13 @@ fun StudentDetailContent(
                         Button(
                             onClick = {
                                 if (isNewStudent && state.currentTab < 2) {
-                                    onContinue()
+                                    onEvent(StudentDetailEvent.ContinueToNextStep)
                                 } else {
-                                    onSaveStudent()
+                                    onEvent(StudentDetailEvent.SaveStudent)
                                     if (!isNewStudent) {
                                         isLocalEditMode = false
                                         if(state.isBalanceEditable) {
-                                            onBalanceEditToggle()
+                                            onEvent(StudentDetailEvent.ToggleBalanceEdit)
                                         }
                                     }
                                 }
@@ -267,7 +250,7 @@ fun StudentDetailContent(
                                     confirmButton = {
                                         TextButton(
                                             onClick = {
-                                                onDeleteStudent()
+                                                onEvent(StudentDetailEvent.DeleteStudent)
                                                 showDeleteDialog = false
                                             },
                                             modifier = Modifier.testTag("confirm_delete_button")
@@ -317,7 +300,7 @@ fun StudentDetailContent(
                         tabs.forEachIndexed { index, title ->
                             Tab(
                                 selected = state.currentTab == index,
-                                onClick = { onTabChange(index) },
+                                onClick = { onEvent(StudentDetailEvent.TabChange(index)) },
                                 text = { 
                                     Text(
                                         text = title,
@@ -340,39 +323,32 @@ fun StudentDetailContent(
                                 isEditMode = isEditMode,
                                 isNewStudent = isNewStudent,
                                 context = context,
-                                onStudentChange = onStudentChange
+                                onEvent = onEvent
                             )
                             1 -> SchedulesTab(
                                 student = student,
                                 state = state,
                                 isNewStudent = isNewStudent,
-                                onBulkScheduleModeToggle = onBulkScheduleModeToggle,
-                                onBulkSchedulesChange = onBulkSchedulesChange,
-                                onSaveBulkSchedules = onSaveBulkSchedules,
-                                onDeleteSchedule = onDeleteSchedule
+                                onEvent = onEvent
                             )
                             2 -> FinanceTab(
                                 student = student,
                                 state = state,
                                 isEditMode = isEditMode,
                                 isNewStudent = isNewStudent,
-                                onStudentChange = onStudentChange,
-                                onBalanceChange = onBalanceChange,
-                                onBalanceEditToggle = onBalanceEditToggle,
-                                onPriceChange = onPriceChange,
+                                onEvent = onEvent,
                                 onPaymentClick = { 
                                     selectedPaymentType = PaymentType.EFFECTIVE 
                                     showPaymentDialog = true
                                 },
-                                onStartClassClick = { showStartClassDialog = true },
-                                onAddExtraClassClick = onShowExtraClassDialog
+                                onStartClassClick = { showStartClassDialog = true }
                             )
                             3 -> ResourcesTab(
                                 student = student,
                                 isNewStudent = isNewStudent,
                                 sharedResources = state.sharedResources,
                                 onSelectFileClick = { filePickerLauncher.launch("*/*") },
-                                onDeleteResource = onDeleteSharedResource
+                                onEvent = onEvent
                             )
                         }
                     }
@@ -396,30 +372,8 @@ private fun StudentDetailContentNewStudentPreview() {
     HomeTutorProTheme {
         StudentDetailContent(
             state = StudentDetailState(student = Student(id = "new")),
-            onStudentChange = {},
-            onSaveStudent = {},
-            onDeleteStudent = {},
-            onDeleteSchedule = {},
-            onRegisterPayment = { _, _ -> },
-            onBulkScheduleModeToggle = {},
-            onBulkSchedulesChange = {},
-            onSaveBulkSchedules = {},
-            onStartClass = {},
-            onBack = {},
-            onClearFeedback = {},
-            onFileSelected = { _, _, _, _ -> },
-            onShareResource = { _, _, _ -> },
-            onDeleteSharedResource = {},
-            onShareDialogDismiss = {},
-            onShareNotesChange = {},
-            onBalanceChange = {},
-            onBalanceEditToggle = {},
-            onTabChange = {},
-            onPriceChange = {},
-            onContinue = {},
-            onShowExtraClassDialog = {},
-            onHideExtraClassDialog = {},
-            onSaveExtraClass = { _, _, _ -> }
+            onEvent = {},
+            onBack = {}
         )
     }
 }
@@ -444,30 +398,8 @@ private fun StudentDetailContentViewStudentPreview() {
     HomeTutorProTheme {
         StudentDetailContent(
             state = StudentDetailState(student = mockStudent),
-            onStudentChange = {},
-            onSaveStudent = {},
-            onDeleteStudent = {},
-            onDeleteSchedule = {},
-            onRegisterPayment = { _, _ -> },
-            onBulkScheduleModeToggle = {},
-            onBulkSchedulesChange = {},
-            onSaveBulkSchedules = {},
-            onStartClass = {},
-            onBack = {},
-            onClearFeedback = {},
-            onFileSelected = { _, _, _, _ -> },
-            onShareResource = { _, _, _ -> },
-            onDeleteSharedResource = {},
-            onShareDialogDismiss = {},
-            onShareNotesChange = {},
-            onBalanceChange = {},
-            onBalanceEditToggle = {},
-            onTabChange = {},
-            onPriceChange = {},
-            onContinue = {},
-            onShowExtraClassDialog = {},
-            onHideExtraClassDialog = {},
-            onSaveExtraClass = { _, _, _ -> }
+            onEvent = {},
+            onBack = {}
         )
     }
 }
@@ -478,30 +410,8 @@ private fun StudentDetailContentLoadingPreview() {
     HomeTutorProTheme {
         StudentDetailContent(
             state = StudentDetailState(isLoading = true),
-            onStudentChange = {},
-            onSaveStudent = {},
-            onDeleteStudent = {},
-            onDeleteSchedule = {},
-            onRegisterPayment = { _, _ -> },
-            onBulkScheduleModeToggle = {},
-            onBulkSchedulesChange = {},
-            onSaveBulkSchedules = {},
-            onStartClass = {},
-            onBack = {},
-            onClearFeedback = {},
-            onFileSelected = { _, _, _, _ -> },
-            onShareResource = { _, _, _ -> },
-            onDeleteSharedResource = {},
-            onShareDialogDismiss = {},
-            onShareNotesChange = {},
-            onBalanceChange = {},
-            onBalanceEditToggle = {},
-            onTabChange = {},
-            onPriceChange = {},
-            onContinue = {},
-            onShowExtraClassDialog = {},
-            onHideExtraClassDialog = {},
-            onSaveExtraClass = { _, _, _ -> }
+            onEvent = {},
+            onBack = {}
         )
     }
 }
@@ -512,30 +422,8 @@ private fun StudentDetailContentNotFoundPreview() {
     HomeTutorProTheme {
         StudentDetailContent(
             state = StudentDetailState(student = null),
-            onStudentChange = {},
-            onSaveStudent = {},
-            onDeleteStudent = {},
-            onDeleteSchedule = {},
-            onRegisterPayment = { _, _ -> },
-            onBulkScheduleModeToggle = {},
-            onBulkSchedulesChange = {},
-            onSaveBulkSchedules = {},
-            onStartClass = {},
-            onBack = {},
-            onClearFeedback = {},
-            onFileSelected = { _, _, _, _ -> },
-            onShareResource = { _, _, _ -> },
-            onDeleteSharedResource = {},
-            onShareDialogDismiss = {},
-            onShareNotesChange = {},
-            onBalanceChange = {},
-            onBalanceEditToggle = {},
-            onTabChange = {},
-            onPriceChange = {},
-            onContinue = {},
-            onShowExtraClassDialog = {},
-            onHideExtraClassDialog = {},
-            onSaveExtraClass = { _, _, _ -> }
+            onEvent = {},
+            onBack = {}
         )
     }
 }

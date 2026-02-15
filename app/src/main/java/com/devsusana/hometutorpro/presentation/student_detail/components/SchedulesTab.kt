@@ -23,6 +23,7 @@ import java.util.Locale
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.entities.Student
 import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
+import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailEvent
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 
 /**
@@ -33,19 +34,16 @@ fun SchedulesTab(
     student: Student,
     state: StudentDetailState,
     isNewStudent: Boolean,
-    onBulkScheduleModeToggle: () -> Unit,
-    onBulkSchedulesChange: (List<BulkScheduleEntry>) -> Unit,
-    onSaveBulkSchedules: () -> Unit,
-    onDeleteSchedule: (String) -> Unit,
+    onEvent: (StudentDetailEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (state.isBulkScheduleMode) {
         BulkScheduleCreation(
             studentId = student.id,
             schedules = state.bulkSchedules,
-            onSchedulesChange = onBulkSchedulesChange,
-            onSaveAll = onSaveBulkSchedules,
-            onCancel = onBulkScheduleModeToggle,
+            onSchedulesChange = { onEvent(StudentDetailEvent.BulkSchedulesChange(it)) },
+            onSaveAll = { onEvent(StudentDetailEvent.SaveBulkSchedules) },
+            onCancel = { onEvent(StudentDetailEvent.ToggleBulkScheduleMode) },
             isLoading = state.bulkScheduleSaving
         )
     } else {
@@ -58,7 +56,7 @@ fun SchedulesTab(
         ) {
             // Button to add schedules (always visible now)
             Button(
-                onClick = onBulkScheduleModeToggle,
+                onClick = { onEvent(StudentDetailEvent.ToggleBulkScheduleMode) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("create_schedules_button"),
@@ -92,7 +90,7 @@ fun SchedulesTab(
                 schedulesToShow.forEach { schedule ->
                     ScheduleItem(
                         schedule = schedule,
-                        onDelete = { onDeleteSchedule(schedule.id) }
+                        onDelete = { onEvent(StudentDetailEvent.DeleteSchedule(schedule.id)) }
                     )
                 }
             } else {
@@ -196,10 +194,7 @@ private fun SchedulesTabNewStudentPreview() {
             student = mockStudent,
             state = StudentDetailState(student = mockStudent),
             isNewStudent = true,
-            onBulkScheduleModeToggle = {},
-            onBulkSchedulesChange = {},
-            onSaveBulkSchedules = {},
-            onDeleteSchedule = {}
+            onEvent = {}
         )
     }
 }
@@ -223,10 +218,7 @@ private fun SchedulesTabExistingStudentPreview() {
             student = mockStudent,
             state = StudentDetailState(student = mockStudent, isBulkScheduleMode = false),
             isNewStudent = false,
-            onBulkScheduleModeToggle = {},
-            onBulkSchedulesChange = {},
-            onSaveBulkSchedules = {},
-            onDeleteSchedule = {}
+            onEvent = {}
         )
     }
 }

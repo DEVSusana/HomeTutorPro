@@ -40,6 +40,7 @@ class WeeklyScheduleViewModelTest {
     private lateinit var deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
     private lateinit var saveStudentUseCase: ISaveStudentUseCase
+    private lateinit var application: android.app.Application
     private lateinit var viewModel: WeeklyScheduleViewModel
 
     private val testDispatcher = StandardTestDispatcher()
@@ -55,6 +56,7 @@ class WeeklyScheduleViewModelTest {
         deleteScheduleExceptionUseCase = mockk()
         getStudentByIdUseCase = mockk()
         saveStudentUseCase = mockk()
+        application = mockk(relaxed = true)
     }
 
     @After
@@ -90,7 +92,8 @@ class WeeklyScheduleViewModelTest {
             getScheduleExceptionsUseCase,
             saveScheduleExceptionUseCase,
             deleteScheduleExceptionUseCase,
-            saveStudentUseCase
+            saveStudentUseCase,
+            application
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
