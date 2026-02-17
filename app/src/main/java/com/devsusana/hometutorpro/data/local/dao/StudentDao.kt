@@ -15,6 +15,9 @@ interface StudentDao {
     @Query("SELECT * FROM students WHERE pendingDelete = 0 ORDER BY name ASC")
     fun getAllStudents(): Flow<List<StudentEntity>>
 
+    @Query("SELECT * FROM students ORDER BY id ASC")
+    suspend fun getAllStudentsOnce(): List<StudentEntity>
+
     @Query("SELECT * FROM students WHERE id = :studentId AND pendingDelete = 0")
     fun getStudentById(studentId: Long): Flow<StudentEntity?>
 

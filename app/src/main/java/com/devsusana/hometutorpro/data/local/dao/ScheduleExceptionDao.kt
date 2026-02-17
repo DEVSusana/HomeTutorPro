@@ -18,6 +18,9 @@ interface ScheduleExceptionDao {
     @Query("SELECT * FROM schedule_exceptions WHERE pendingDelete = 0 ORDER BY exceptionDate DESC")
     fun getAllExceptions(): Flow<List<ScheduleExceptionEntity>>
 
+    @Query("SELECT * FROM schedule_exceptions ORDER BY id ASC")
+    suspend fun getAllExceptionsOnce(): List<ScheduleExceptionEntity>
+
     @Query("SELECT * FROM schedule_exceptions WHERE cloudId = :cloudId AND pendingDelete = 0")
     suspend fun getExceptionByCloudId(cloudId: String): ScheduleExceptionEntity?
 

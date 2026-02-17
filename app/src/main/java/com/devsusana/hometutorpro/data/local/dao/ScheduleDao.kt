@@ -15,8 +15,34 @@ interface ScheduleDao {
     @Query("SELECT * FROM schedules WHERE studentId = :studentId AND pendingDelete = 0 ORDER BY dayOfWeek, startTime")
     fun getSchedulesByStudentId(studentId: Long): Flow<List<ScheduleEntity>>
 
+    @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM schedules 
+            WHERE dayOfWeek = :dayOfWeek 
+            AND pendingDelete = 0 
+            AND (:id IS NULL OR id != :id)
+            AND (:startTime < endTime AND :endTime > startTime)
+        )
+    """)
+    suspend fun hasConflict(dayOfWeek: Int, startTime: String, endTime: String, id: Long? = null): Boolean
+
+    @Query("""
+        SELECT s.*, st.name as studentName 
+        FROM schedules s
+        JOIN students st ON s.studentId = st.id
+        WHERE s.dayOfWeek = :dayOfWeek 
+        AND s.pendingDelete = 0 
+        AND (:id IS NULL OR s.id != :id)
+        AND (:startTime < s.endTime AND :endTime > s.startTime)
+        LIMIT 1
+    """)
+    suspend fun getConflictingSchedule(dayOfWeek: Int, startTime: String, endTime: String, id: Long? = null): ScheduleEntity?
+
     @Query("SELECT * FROM schedules WHERE pendingDelete = 0 ORDER BY dayOfWeek, startTime")
     fun getAllSchedules(): Flow<List<ScheduleEntity>>
+
+    @Query("SELECT * FROM schedules ORDER BY id ASC")
+    suspend fun getAllSchedulesOnce(): List<ScheduleEntity>
 
     @Query("SELECT * FROM schedules WHERE cloudId = :cloudId AND pendingDelete = 0")
     suspend fun getScheduleByCloudId(cloudId: String): ScheduleEntity?

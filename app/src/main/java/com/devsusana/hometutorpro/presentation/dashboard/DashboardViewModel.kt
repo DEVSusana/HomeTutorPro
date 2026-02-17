@@ -47,8 +47,7 @@ data class DashboardState(
     val selectedSchedule: WeeklyScheduleItem.Regular? = null,
     val allSchedules: List<WeeklyScheduleItem.Regular> = emptyList(),
     val successMessage: String? = null,
-    val errorMessage: String? = null,
-    val permissionNeeded: Boolean = false
+    val errorMessage: String? = null
 )
 
 @HiltViewModel
@@ -283,8 +282,7 @@ class DashboardViewModel @Inject constructor(
                         _state.update {
                              it.copy(
                                  isLoading = false,
-                                 successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd),
-                                 permissionNeeded = !scheduled
+                                 successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd)
                              )
                         }
                     }
@@ -296,9 +294,6 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun clearPermissionNeeded() {
-        _state.update { it.copy(permissionNeeded = false) }
-    }
     
     fun addExtraClass(studentId: String, dateMillis: Long, startTime: String, endTime: String) {
         viewModelScope.launch {

@@ -20,7 +20,7 @@ import android.content.Context
         SharedResourceEntity::class,
         SyncMetadataEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(AppTypeConverters::class)
@@ -54,6 +54,117 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // 1. Handle missing columns in students (if any, safely)
+                val cursor = database.query("PRAGMA table_info(students)")
+                val columns = mutableListOf<String>()
+                while (cursor.moveToNext()) {
+                    val nameIndex = cursor.getColumnIndex("name")
+                    if (nameIndex != -1) {
+                        columns.add(cursor.getString(nameIndex))
+                    }
+                }
+                cursor.close()
+
+                if (!columns.contains("studentEmail")) {
+                    database.execSQL("ALTER TABLE students ADD COLUMN studentEmail TEXT")
+                }
+                if (!columns.contains("color")) {
+                    database.execSQL("ALTER TABLE students ADD COLUMN color INTEGER")
+                }
+                if (!columns.contains("isActive")) {
+                    database.execSQL("ALTER TABLE students ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1")
+                }
+                if (!columns.contains("lastClassDate")) {
+                    database.execSQL("ALTER TABLE students ADD COLUMN lastClassDate INTEGER")
+                }
+
+                // 2. Migrate schedules (TEXT -> INTEGER for dayOfWeek)
+                database.execSQL("ALTER TABLE schedules RENAME TO schedules_old")
+                database.execSQL("""
+                    CREATE TABLE schedules (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        cloudId TEXT,
+                        studentId INTEGER NOT NULL,
+                        dayOfWeek INTEGER NOT NULL,
+                        startTime TEXT NOT NULL,
+                        endTime TEXT NOT NULL,
+                        isCompleted INTEGER NOT NULL DEFAULT 0,
+                        completedDate INTEGER,
+                        syncStatus TEXT NOT NULL,
+                        lastModifiedTimestamp INTEGER NOT NULL,
+                        pendingDelete INTEGER NOT NULL,
+                        FOREIGN KEY(studentId) REFERENCES students(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                
+                database.execSQL("""
+                    INSERT INTO schedules (id, cloudId, studentId, dayOfWeek, startTime, endTime, isCompleted, completedDate, syncStatus, lastModifiedTimestamp, pendingDelete)
+                    SELECT id, cloudId, studentId, 
+                    CASE dayOfWeek 
+                        WHEN 'MONDAY' THEN 1 
+                        WHEN 'TUESDAY' THEN 2 
+                        WHEN 'WEDNESDAY' THEN 3 
+                        WHEN 'THURSDAY' THEN 4 
+                        WHEN 'FRIDAY' THEN 5 
+                        WHEN 'SATURDAY' THEN 6 
+                        WHEN 'SUNDAY' THEN 7 
+                        ELSE 1 
+                    END, 
+                    startTime, endTime, isCompleted, completedDate, syncStatus, lastModifiedTimestamp, pendingDelete 
+                    FROM schedules_old
+                """.trimIndent())
+                database.execSQL("DROP TABLE schedules_old")
+                database.execSQL("CREATE INDEX index_schedules_studentId ON schedules(studentId)")
+                database.execSQL("CREATE INDEX index_schedules_cloudId ON schedules(cloudId)")
+                database.execSQL("CREATE INDEX index_schedules_syncStatus ON schedules(syncStatus)")
+
+                // 3. Migrate schedule_exceptions (TEXT -> INTEGER for newDayOfWeek)
+                database.execSQL("ALTER TABLE schedule_exceptions RENAME TO schedule_exceptions_old")
+                database.execSQL("""
+                    CREATE TABLE schedule_exceptions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        cloudId TEXT,
+                        studentId INTEGER NOT NULL,
+                        originalScheduleId TEXT NOT NULL,
+                        exceptionDate INTEGER NOT NULL,
+                        reason TEXT NOT NULL,
+                        isCancelled INTEGER NOT NULL,
+                        newStartTime TEXT,
+                        newEndTime TEXT,
+                        newDayOfWeek INTEGER,
+                        syncStatus TEXT NOT NULL,
+                        lastModifiedTimestamp INTEGER NOT NULL,
+                        pendingDelete INTEGER NOT NULL,
+                        FOREIGN KEY(studentId) REFERENCES students(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                
+                database.execSQL("""
+                    INSERT INTO schedule_exceptions (id, cloudId, studentId, originalScheduleId, exceptionDate, reason, isCancelled, newStartTime, newEndTime, newDayOfWeek, syncStatus, lastModifiedTimestamp, pendingDelete)
+                    SELECT id, cloudId, studentId, originalScheduleId, exceptionDate, reason, isCancelled, newStartTime, newEndTime,
+                    CASE newDayOfWeek 
+                        WHEN 'MONDAY' THEN 1 
+                        WHEN 'TUESDAY' THEN 2 
+                        WHEN 'WEDNESDAY' THEN 3 
+                        WHEN 'THURSDAY' THEN 4 
+                        WHEN 'FRIDAY' THEN 5 
+                        WHEN 'SATURDAY' THEN 6 
+                        WHEN 'SUNDAY' THEN 7 
+                        ELSE NULL 
+                    END, 
+                    syncStatus, lastModifiedTimestamp, pendingDelete 
+                    FROM schedule_exceptions_old
+                """.trimIndent())
+                database.execSQL("DROP TABLE schedule_exceptions_old")
+                database.execSQL("CREATE INDEX index_schedule_exceptions_studentId ON schedule_exceptions(studentId)")
+                database.execSQL("CREATE INDEX index_schedule_exceptions_exceptionDate ON schedule_exceptions(exceptionDate)")
+                database.execSQL("CREATE INDEX index_schedule_exceptions_cloudId ON schedule_exceptions(cloudId)")
+                database.execSQL("CREATE INDEX index_schedule_exceptions_syncStatus ON schedule_exceptions(syncStatus)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val factory = SupportFactoryHelper.createFactory(context)
@@ -64,8 +175,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DATABASE_NAME
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .build()
                 INSTANCE = instance
                 instance

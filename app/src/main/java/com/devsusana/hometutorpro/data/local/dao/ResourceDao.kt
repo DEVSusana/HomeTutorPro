@@ -15,6 +15,9 @@ interface ResourceDao {
     @Query("SELECT * FROM resources WHERE pendingDelete = 0 ORDER BY uploadDate DESC")
     fun getAllResources(): Flow<List<ResourceEntity>>
 
+    @Query("SELECT * FROM resources ORDER BY id ASC")
+    suspend fun getAllResourcesOnce(): List<ResourceEntity>
+
     @Query("SELECT * FROM resources WHERE id = :resourceId AND pendingDelete = 0")
     fun getResourceById(resourceId: Long): Flow<ResourceEntity?>
 

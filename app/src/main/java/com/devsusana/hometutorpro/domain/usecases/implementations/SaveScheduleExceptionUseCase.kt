@@ -22,8 +22,9 @@ class SaveScheduleExceptionUseCase @Inject constructor(
         studentId: String,
         exception: ScheduleException
     ): Result<Unit, DomainError> {
-        // Only check for conflicts if it's a RESCHEDULED exception
-        if (exception.type == ExceptionType.RESCHEDULED && exception.newStartTime.isNotEmpty() && exception.newEndTime.isNotEmpty()) {
+        // Check for conflicts if it's a RESCHEDULED exception or an EXTRA class
+        if ((exception.type == ExceptionType.RESCHEDULED || exception.type == ExceptionType.EXTRA) 
+            && exception.newStartTime.isNotEmpty() && exception.newEndTime.isNotEmpty()) {
             // 1. Get all students
             val students = studentRepository.getStudents(professorId).first()
             

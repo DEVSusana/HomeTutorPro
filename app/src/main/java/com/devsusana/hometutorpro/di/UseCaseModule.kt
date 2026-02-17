@@ -120,4 +120,7 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindCheckScheduleConflictUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CheckScheduleConflictUseCase): ICheckScheduleConflictUseCase
+
+    @Binds
+    abstract fun bindSaveBulkSchedulesUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SaveBulkSchedulesUseCase): ISaveBulkSchedulesUseCase
 }

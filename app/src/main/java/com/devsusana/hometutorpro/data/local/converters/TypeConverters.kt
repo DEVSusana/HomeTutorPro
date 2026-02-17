@@ -11,13 +11,13 @@ import java.time.DayOfWeek
 class TypeConverters {
 
     @TypeConverter
-    fun fromDayOfWeek(value: DayOfWeek?): String? {
-        return value?.name
+    fun fromDayOfWeek(value: DayOfWeek?): Int? {
+        return value?.value
     }
 
     @TypeConverter
-    fun toDayOfWeek(value: String?): DayOfWeek? {
-        return value?.let { DayOfWeek.valueOf(it) }
+    fun toDayOfWeek(value: Int?): DayOfWeek? {
+        return value?.let { DayOfWeek.of(it) }
     }
 
     @TypeConverter

@@ -25,6 +25,7 @@ interface StudentRepository {
     fun getSchedules(professorId: String, studentId: String): Flow<List<Schedule>>
     fun getAllSchedules(professorId: String): Flow<List<Schedule>>
     suspend fun saveSchedule(professorId: String, studentId: String, schedule: Schedule): Result<Unit, DomainError>
+    suspend fun getConflictingSchedule(dayOfWeek: Int, startTime: String, endTime: String, scheduleId: String? = null): Schedule?
     suspend fun deleteSchedule(professorId: String, studentId: String, scheduleId: String): Result<Unit, DomainError>
     suspend fun toggleScheduleCompletion(professorId: String, scheduleId: String): Result<Unit, DomainError>
     suspend fun deleteStudent(professorId: String, studentId: String): Result<Unit, DomainError>

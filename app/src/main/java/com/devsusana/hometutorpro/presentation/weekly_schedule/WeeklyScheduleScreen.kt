@@ -68,21 +68,6 @@ fun WeeklyScheduleScreen(
 
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    val exactAlarmMessage = stringResource(R.string.notification_exact_alarm_permission)
-
-    LaunchedEffect(state.permissionNeeded) {
-        if (state.permissionNeeded) {
-            val result = snackbarHostState.showSnackbar(
-                message = exactAlarmMessage,
-                actionLabel = context.getString(R.string.settings),
-                duration = SnackbarDuration.Long
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                NotificationHelper.openExactAlarmSettings(context)
-            }
-            viewModel.clearPermissionNeeded()
-        }
-    }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),

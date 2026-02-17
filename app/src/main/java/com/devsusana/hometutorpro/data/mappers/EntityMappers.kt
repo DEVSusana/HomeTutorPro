@@ -58,7 +58,7 @@ fun Student.toEntity(existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.
 }
 
 // Schedule Mappers
-fun ScheduleEntity.toDomain(): Schedule {
+fun ScheduleEntity.toDomain(studentName: String? = null): Schedule {
     return Schedule(
         id = id.toString(),
         studentId = studentId.toString(),
@@ -66,7 +66,8 @@ fun ScheduleEntity.toDomain(): Schedule {
         startTime = startTime,
         endTime = endTime,
         isCompleted = isCompleted,
-        completedDate = completedDate
+        completedDate = completedDate,
+        studentName = studentName
     )
 }
 
