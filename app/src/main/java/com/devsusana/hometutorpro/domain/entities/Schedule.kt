@@ -12,5 +12,6 @@ data class Schedule(
     val startTime: String = "09:00", // Format: HH:mm
     val endTime: String = "10:00", // Format: HH:mm
     val isCompleted: Boolean = false,
-    val completedDate: Long? = null // Timestamp when class was marked as completed
+    val completedDate: Long? = null,
+    val studentName: String? = null
 )

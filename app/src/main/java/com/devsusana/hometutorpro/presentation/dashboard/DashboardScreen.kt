@@ -56,21 +56,6 @@ fun DashboardScreen(
     val today = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault()))
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val exactAlarmMessage = stringResource(R.string.notification_exact_alarm_permission)
-
-    LaunchedEffect(state.permissionNeeded) {
-        if (state.permissionNeeded) {
-            val result = snackbarHostState.showSnackbar(
-                message = exactAlarmMessage,
-                actionLabel = context.getString(R.string.settings),
-                duration = SnackbarDuration.Long
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                NotificationHelper.openExactAlarmSettings(context)
-            }
-            viewModel.clearPermissionNeeded()
-        }
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },

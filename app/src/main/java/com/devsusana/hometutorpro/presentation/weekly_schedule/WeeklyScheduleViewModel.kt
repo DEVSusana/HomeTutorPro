@@ -281,8 +281,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                         _state.update {
                             it.copy(
                                 isLoading = false,
-                                successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd),
-                                permissionNeeded = !scheduled
+                                successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd)
                             )
                         }
                     }
@@ -299,9 +298,6 @@ class WeeklyScheduleViewModel @Inject constructor(
         }
     }
 
-    fun clearPermissionNeeded() {
-        _state.update { it.copy(permissionNeeded = false) }
-    }
 
     fun clearFeedback() {
         _state.update { it.copy(successMessage = null, errorMessage = null) }

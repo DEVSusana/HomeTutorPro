@@ -39,5 +39,8 @@ data class StudentDetailState(
     val schedules: List<com.devsusana.hometutorpro.domain.entities.Schedule> = emptyList(),
 
     // Extra Class Dialog
-    val showExtraClassDialog: Boolean = false
+    val showExtraClassDialog: Boolean = false,
+
+    // Start Class Dialog
+    val showStartClassDialog: Boolean = false
 )

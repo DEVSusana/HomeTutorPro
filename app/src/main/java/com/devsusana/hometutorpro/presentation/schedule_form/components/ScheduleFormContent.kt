@@ -21,6 +21,8 @@ import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.presentation.schedule.ScheduleFormState
 import com.devsusana.hometutorpro.presentation.components.TimePickerDialog
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
+import com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils
+import java.time.DayOfWeek
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +114,7 @@ fun ScheduleFormContent(
                             expanded = expanded,
                             onDismissRequest = { expanded = false }
                         ) {
-                            DayOfWeek.entries.forEach { day ->
+                            DayOfWeek.values().forEach { day ->
                                 DropdownMenuItem(
                                     text = { Text(DayOfWeekUtils.getLocalizedName(day)) },
                                     onClick = {

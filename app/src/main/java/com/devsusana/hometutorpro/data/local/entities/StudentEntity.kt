@@ -3,11 +3,13 @@ package com.devsusana.hometutorpro.data.local.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Room entity for Student.
  * Unified version with sync fields for offline-first architecture.
  */
+@Serializable
 @Entity(
     tableName = "students",
     indices = [

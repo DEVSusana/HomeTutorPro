@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+import java.text.Collator
+import java.util.Locale
+
 /**
  * Hybrid implementation of StudentRepository for Premium flavor.
  * Uses Room as the single source of truth for the UI (offline-first).
@@ -40,8 +43,12 @@ class StudentRepositoryImpl @Inject constructor(
 ) : StudentRepository {
 
     override fun getStudents(professorId: String): Flow<List<Student>> {
+        val collator = Collator.getInstance(Locale("es", "ES")).apply {
+            strength = Collator.PRIMARY // Ignore accents and case
+        }
         return studentDao.getAllStudents().map { entities ->
             entities.map { it.toDomain() }
+                .sortedWith { s1, s2 -> collator.compare(s1.name, s2.name) }
         }
     }
 
@@ -143,6 +150,18 @@ class StudentRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 Result.Error(DomainError.Unknown)
             }
+        }
+    }
+
+    override suspend fun getConflictingSchedule(
+        dayOfWeek: Int,
+        startTime: String,
+        endTime: String,
+        scheduleId: String?
+    ): Schedule? {
+        return withContext(Dispatchers.IO) {
+            val sId = scheduleId?.toLongOrNull()
+            scheduleDao.getConflictingSchedule(dayOfWeek, startTime, endTime, sId)?.toDomain()
         }
     }
 

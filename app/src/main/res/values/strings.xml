@@ -466,6 +466,9 @@
     <string name="notification_permission_title">Notifications Permission</string>
     <string name="notification_permission_desc">Allow notifications to receive class end alarms with sound</string>
     <string name="notification_exact_alarm_permission">The app needs permission to schedule exact alarms for classes. Please enable it in system settings.</string>
+    <string name="permission_alarm_title">Exact Alarms Needed</string>
+    <string name="permission_alarm_description">To notify you exactly when a class ends, HomeTutorPro needs permission to schedule exact alarms. Please enable this in the next screen.</string>
+    <string name="permission_button_settings">Open Settings</string>
 
     <string name="nav_schedule">Schedule</string>
     <string name="nav_students">Students</string>
@@ -503,4 +506,12 @@
     <string name="weekly_schedule_free_day">Free Day!</string>
     <string name="weekly_schedule_enjoy_free_time">Enjoy your free time!</string>
     <string name="weekly_schedule_free_slot">Free</string>
+
+    <!-- Backup & Restore -->
+    <string name="settings_backup_title">Backup &amp; Restore</string>
+    <string name="settings_backup_desc">Protect your data from app reinstalls</string>
+    <string name="settings_backup_export">Export Backup</string>
+    <string name="settings_backup_import">Import Backup</string>
+    <string name="settings_backup_success">Backup operation successful!</string>
+    <string name="settings_backup_error">Operation failed: %s</string>
 </resources>

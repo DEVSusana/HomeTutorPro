@@ -1,6 +1,8 @@
 package com.devsusana.hometutorpro.presentation.student_list
 
 import com.devsusana.hometutorpro.domain.entities.Student
+import java.text.Collator
+import java.util.Locale
 
 enum class StudentFilter {
     ALL,
@@ -44,7 +46,12 @@ data class StudentListState(
             
             // Apply sorting
             result = when (sortBy) {
-                StudentSortOption.NAME -> result.sortedBy { it.name }
+                StudentSortOption.NAME -> {
+                    val collator = Collator.getInstance(Locale("es", "ES")).apply {
+                        strength = Collator.PRIMARY
+                    }
+                    result.sortedWith { s1, s2 -> collator.compare(s1.name, s2.name) }
+                }
                 StudentSortOption.BALANCE -> result.sortedByDescending { it.pendingBalance }
                 StudentSortOption.LAST_CLASS -> result.sortedByDescending { it.lastClassDate ?: 0L }
             }

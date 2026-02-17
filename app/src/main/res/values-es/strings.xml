@@ -500,4 +500,12 @@
     <string name="weekly_schedule_free_day">¡Día Libre!</string>
     <string name="weekly_schedule_enjoy_free_time">¡Disfruta de tu tiempo libre!</string>
     <string name="weekly_schedule_free_slot">Libre</string>
+
+    <!-- Backup & Restore -->
+    <string name="settings_backup_title">Copia de Seguridad</string>
+    <string name="settings_backup_desc">Protege tus datos ante reinstalaciones</string>
+    <string name="settings_backup_export">Exportar Copia</string>
+    <string name="settings_backup_import">Importar Copia</string>
+    <string name="settings_backup_success">¡Operación completada con éxito!</string>
+    <string name="settings_backup_error">Fallo en la operación: %s</string>
 </resources>

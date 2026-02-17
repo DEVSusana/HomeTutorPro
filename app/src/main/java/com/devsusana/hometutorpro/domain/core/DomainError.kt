@@ -24,4 +24,5 @@ sealed class DomainError {
     data object StudentNameRequired : DomainError()
     data object InvalidPrice : DomainError()
     data object InvalidBalance : DomainError()
+    data object InvalidAmount : DomainError()
 }

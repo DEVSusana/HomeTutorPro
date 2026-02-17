@@ -4,11 +4,13 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Room entity for ScheduleException in premium flavor.
  * Includes sync fields for offline-first architecture.
  */
+@Serializable
 @Entity(
     tableName = "schedule_exceptions",
     foreignKeys = [
