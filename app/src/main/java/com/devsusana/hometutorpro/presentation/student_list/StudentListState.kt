@@ -1,6 +1,6 @@
 package com.devsusana.hometutorpro.presentation.student_list
 
-import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import java.text.Collator
 import java.util.Locale
 
@@ -19,13 +19,13 @@ enum class StudentSortOption {
 
 data class StudentListState(
     val isLoading: Boolean = false,
-    val students: List<Student> = emptyList(),
+    val students: List<StudentSummary> = emptyList(),
     val error: String? = null,
     val searchQuery: String = "",
     val selectedFilter: StudentFilter = StudentFilter.ALL,
     val sortBy: StudentSortOption = StudentSortOption.NAME
 ) {
-    val filteredAndSortedStudents: List<Student>
+    val filteredAndSortedStudents: List<StudentSummary>
         get() {
             var result = students
             

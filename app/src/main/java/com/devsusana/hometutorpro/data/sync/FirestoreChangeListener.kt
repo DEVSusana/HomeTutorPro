@@ -3,6 +3,8 @@ package com.devsusana.hometutorpro.data.sync
 import com.devsusana.hometutorpro.data.local.dao.StudentDao
 import com.devsusana.hometutorpro.data.local.entities.StudentEntity
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
+import com.devsusana.hometutorpro.data.mappers.toStudentEntity
+import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
@@ -21,7 +23,8 @@ import javax.inject.Singleton
 class FirestoreChangeListener @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val studentDao: StudentDao,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val secureAuthManager: SecureAuthManager
 ) {
     private var listenerRegistration: ListenerRegistration? = null
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -41,10 +44,10 @@ class FirestoreChangeListener @Inject constructor(
                     when (change.type) {
                         DocumentChange.Type.ADDED,
                         DocumentChange.Type.MODIFIED -> {
-                            val student = change.document.toStudentEntity()
+                            val student = change.document.toStudentEntity(secureAuthManager, professorId)
                             scope.launch {
                                 // Check if we have a local version
-                                val localStudent = studentDao.getStudentByCloudId(change.document.id)
+                                val localStudent = studentDao.getStudentByCloudId(change.document.id, professorId)
                                 
                                 // Only update if remote is newer or we don't have it
                                 // This prevents overwriting local changes that haven't synced yet
@@ -63,7 +66,7 @@ class FirestoreChangeListener @Inject constructor(
                         DocumentChange.Type.REMOVED -> {
                             scope.launch {
                                 // Verify it's not a local pending delete that triggered this
-                                val localStudent = studentDao.getStudentByCloudId(change.document.id)
+                                val localStudent = studentDao.getStudentByCloudId(change.document.id, professorId)
                                 if (localStudent != null && localStudent.syncStatus != SyncStatus.PENDING_DELETE) {
                                     studentDao.deleteStudent(localStudent)
                                 }
@@ -77,26 +80,5 @@ class FirestoreChangeListener @Inject constructor(
     fun stopListening() {
         listenerRegistration?.remove()
         listenerRegistration = null
-    }
-
-    private fun com.google.firebase.firestore.DocumentSnapshot.toStudentEntity(): StudentEntity {
-        return StudentEntity(
-            cloudId = id,
-            name = getString("name") ?: "",
-            age = getLong("age")?.toInt() ?: 0,
-            address = getString("address") ?: "",
-            parentPhones = getString("parentPhones") ?: "",
-            studentPhone = getString("studentPhone") ?: "",
-            studentEmail = getString("studentEmail") ?: "",
-            subjects = getString("subjects") ?: "",
-            course = getString("course") ?: "",
-            pricePerHour = getDouble("pricePerHour") ?: 0.0,
-            pendingBalance = getDouble("pendingBalance") ?: 0.0,
-            educationalAttention = getString("educationalAttention") ?: "",
-            lastPaymentDate = getLong("lastPaymentDate"),
-            color = getLong("color")?.toInt(),
-            lastModifiedTimestamp = getLong("lastModified") ?: System.currentTimeMillis(),
-            syncStatus = SyncStatus.SYNCED
-        )
     }
 }

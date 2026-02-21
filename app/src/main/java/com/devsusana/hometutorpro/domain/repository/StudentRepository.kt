@@ -5,14 +5,19 @@ import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Firestore Repository Interface
- * Handles CRUD (Create, Read, Update) logic and nested data structures.
+ * Repository interface for student data operations.
+ *
+ * **Note on `professorId`**: This parameter exists in all methods for API contract stability
+ * and future multi-tenancy support. The current local-first Room implementation uses device-scoped
+ * storage and does not filter by `professorId`. When multi-user support is added, implementations
+ * will use `professorId` to scope data queries.
  */
 interface StudentRepository {
-    fun getStudents(professorId: String): Flow<List<Student>>
+    fun getStudents(professorId: String): Flow<List<StudentSummary>>
     fun getStudentById(professorId: String, studentId: String): Flow<Student?>
     suspend fun saveStudent(professorId: String, student: Student): Result<String, DomainError>
     suspend fun registerPayment(

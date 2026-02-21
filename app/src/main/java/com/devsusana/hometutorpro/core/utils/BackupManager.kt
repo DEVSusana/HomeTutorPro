@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.devsusana.hometutorpro.data.local.AppDatabase
 import com.devsusana.hometutorpro.data.models.AppBackup
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -15,7 +16,8 @@ import javax.inject.Singleton
 
 @Singleton
 class BackupManager @Inject constructor(
-    private val database: AppDatabase
+    private val database: AppDatabase,
+    private val auth: FirebaseAuth
 ) {
     private val json = Json {
         prettyPrint = true
@@ -24,12 +26,13 @@ class BackupManager @Inject constructor(
     }
 
     suspend fun createBackup(): String = withContext(Dispatchers.IO) {
+        val professorId = auth.currentUser?.uid ?: ""
         val backup = AppBackup(
             version = 1,
-            students = database.studentDao().getAllStudentsOnce(),
-            schedules = database.scheduleDao().getAllSchedulesOnce(),
-            exceptions = database.scheduleExceptionDao().getAllExceptionsOnce(),
-            resources = database.resourceDao().getAllResourcesOnce()
+            students = database.studentDao().getAllStudentsOnce(professorId),
+            schedules = database.scheduleDao().getAllSchedulesOnce(professorId),
+            exceptions = database.scheduleExceptionDao().getAllExceptionsOnce(professorId),
+            resources = database.resourceDao().getAllResourcesOnce(professorId)
         )
         json.encodeToString(backup)
     }

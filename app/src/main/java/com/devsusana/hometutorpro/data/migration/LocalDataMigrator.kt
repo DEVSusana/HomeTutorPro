@@ -33,7 +33,7 @@ class LocalDataMigrator @Inject constructor(
         
         // For this implementation, we'll fetch all and filter
         // In a real app, we'd add a specific DAO query
-        val students = studentDao.getStudentsBySyncStatus(SyncStatus.SYNCED) // Default might be SYNCED but cloudId null
+        val students = studentDao.getStudentsBySyncStatus(professorId, SyncStatus.SYNCED) // Default might be SYNCED but cloudId null
             .filter { it.cloudId == null }
             
         students.forEach { student ->
@@ -77,7 +77,7 @@ class LocalDataMigrator @Inject constructor(
         // Let's assume we added `getSchedulesByStudentIdSync` or similar.
         // Or we can use `getSchedulesBySyncStatus` and filter.
         
-        val schedules = scheduleDao.getSchedulesBySyncStatus(SyncStatus.SYNCED)
+        val schedules = scheduleDao.getSchedulesBySyncStatus(professorId, SyncStatus.SYNCED)
             .filter { it.studentId == localStudentId && it.cloudId == null }
 
         schedules.forEach { schedule ->
@@ -100,7 +100,7 @@ class LocalDataMigrator @Inject constructor(
     }
 
     private suspend fun migrateExceptionsForStudent(professorId: String, localStudentId: Long, cloudStudentId: String) {
-        val exceptions = exceptionDao.getExceptionsBySyncStatus(SyncStatus.SYNCED)
+        val exceptions = exceptionDao.getExceptionsBySyncStatus(professorId, SyncStatus.SYNCED)
             .filter { it.studentId == localStudentId && it.cloudId == null }
 
         exceptions.forEach { exception ->
@@ -127,7 +127,7 @@ class LocalDataMigrator @Inject constructor(
     suspend fun migrateResources() {
         val professorId = auth.currentUser?.uid ?: return
         
-        val resources = resourceDao.getResourcesBySyncStatus(SyncStatus.SYNCED)
+        val resources = resourceDao.getResourcesBySyncStatus(professorId, SyncStatus.SYNCED)
             .filter { it.cloudId == null }
 
         resources.forEach { resource ->

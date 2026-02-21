@@ -11,7 +11,9 @@ enum class ExceptionType {
 data class ScheduleException(
     val id: String = "",
     val studentId: String = "",
-    val date: Long = 0L, // Timestamp of the specific occurrence
+    val professorId: String = "",
+    val date: Long = 0L,
+ // Timestamp of the specific occurrence
     val type: ExceptionType = ExceptionType.CANCELLED,
     val originalScheduleId: String = "", // Reference to regular schedule
     val newStartTime: String = "09:00", // For rescheduled classes

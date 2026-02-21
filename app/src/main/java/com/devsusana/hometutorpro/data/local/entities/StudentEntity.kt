@@ -15,12 +15,16 @@ import kotlinx.serialization.Serializable
     indices = [
         Index(value = ["name"]),
         Index(value = ["cloudId"], unique = true),
-        Index(value = ["syncStatus"])
+        Index(value = ["syncStatus"]),
+        Index(value = ["professorId"])
     ]
 )
 data class StudentEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    
+    // Multi-user security
+    val professorId: String,
     
     // Firestore document ID (null for new local-only entities)
     val cloudId: String? = null,

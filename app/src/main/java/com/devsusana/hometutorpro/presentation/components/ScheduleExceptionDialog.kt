@@ -358,11 +358,12 @@ fun ScheduleExceptionDialog(
         dismissButton = {
             Row {
                 // Delete button if exception exists
-                if (item.exception != null && onDelete != null) {
+                val existingException = item.exception
+                if (existingException != null && onDelete != null) {
                     TextButton(
                         onClick = {
                             onDelete(
-                                item.exception.id,
+                                existingException.id,
                                 item.student.id
                             )
                             onDismiss()

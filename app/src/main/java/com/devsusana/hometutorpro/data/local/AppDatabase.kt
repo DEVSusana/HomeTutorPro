@@ -20,7 +20,7 @@ import android.content.Context
         SharedResourceEntity::class,
         SyncMetadataEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(AppTypeConverters::class)
@@ -165,6 +165,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : androidx.room.migration.Migration(7, 8) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add professorId to all relevant tables for multi-user isolation
+                database.execSQL("ALTER TABLE students ADD COLUMN professorId TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE schedules ADD COLUMN professorId TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE schedule_exceptions ADD COLUMN professorId TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE resources ADD COLUMN professorId TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE shared_resources ADD COLUMN professorId TEXT NOT NULL DEFAULT ''")
+                
+                // Add indices for professorId for query performance
+                database.execSQL("CREATE INDEX index_students_professorId ON students(professorId)")
+                database.execSQL("CREATE INDEX index_schedules_professorId ON schedules(professorId)")
+                database.execSQL("CREATE INDEX index_schedule_exceptions_professorId ON schedule_exceptions(professorId)")
+                database.execSQL("CREATE INDEX index_resources_professorId ON resources(professorId)")
+                database.execSQL("CREATE INDEX index_shared_resources_professorId ON shared_resources(professorId)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val factory = SupportFactoryHelper.createFactory(context)
@@ -175,7 +193,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DATABASE_NAME
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .build()
                 INSTANCE = instance
                 instance

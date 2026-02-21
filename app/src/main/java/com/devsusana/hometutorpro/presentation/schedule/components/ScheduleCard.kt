@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.Schedule
-import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleItem
 import com.devsusana.hometutorpro.presentation.utils.ColorUtils
 import java.time.DayOfWeek
@@ -157,10 +157,15 @@ fun ScheduleCardPreview() {
         startTime = "10:00",
         endTime = "11:00"
     )
-    val mockStudent = Student(
+    val mockStudent = StudentSummary(
         id = "1",
         name = "Susana",
-        course = "Kotlin"
+        subjects = "Kotlin",
+        color = null,
+        pendingBalance = 0.0,
+        pricePerHour = 20.0,
+        isActive = true,
+        lastClassDate = null
     )
     com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme {
         ScheduleCard(

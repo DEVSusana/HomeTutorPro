@@ -19,12 +19,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
-import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.presentation.utils.ColorUtils
 
 @Composable
 fun ModernStudentCard(
-    student: Student,
+    student: StudentSummary,
     onClick: () -> Unit
 ) {
     val studentColor = student.color?.let { Color(it) }
@@ -73,7 +73,7 @@ fun ModernStudentCard(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Student info - Name and Address
+            // Student info - Name and Subjects
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = student.name.ifEmpty { stringResource(id = R.string.student_list_unnamed_student) },
@@ -82,11 +82,11 @@ fun ModernStudentCard(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (student.isActive) 1f else 0.6f)
                 )
                 
-                // Show address if available
-                if (student.address.isNotEmpty()) {
+                // Show subjects if available
+                if (student.subjects.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = student.address,
+                        text = student.subjects,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (student.isActive) 1f else 0.6f),
                         maxLines = 1,
@@ -164,14 +164,15 @@ fun ModernStudentCard(
 fun ActiveStudentCardPreview() {
     com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme {
         ModernStudentCard(
-            student = Student(
+            student = StudentSummary(
                 id = "1", 
                 name = "Susana Gonzalez", 
-                age = 25, 
-                course = "Kotlin", 
+                subjects = "Kotlin", 
                 pendingBalance = 150.0, 
-                studentEmail = "susana@email.com",
-                isActive = true
+                pricePerHour = 20.0,
+                isActive = true,
+                color = null,
+                lastClassDate = null
             ), 
             onClick = {}
         )
@@ -183,14 +184,15 @@ fun ActiveStudentCardPreview() {
 fun InactiveStudentCardPreview() {
     com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme {
         ModernStudentCard(
-            student = Student(
+            student = StudentSummary(
                 id = "2", 
                 name = "John Doe", 
-                age = 30, 
-                course = "Android", 
+                subjects = "Android", 
                 pendingBalance = 0.0,  
-                studentEmail = "john@email.com",
-                isActive = false
+                pricePerHour = 15.0,
+                isActive = false,
+                color = null,
+                lastClassDate = null
             ), 
             onClick = {}
         )
