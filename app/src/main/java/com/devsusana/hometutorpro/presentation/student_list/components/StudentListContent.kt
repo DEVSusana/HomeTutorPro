@@ -14,7 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
-import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.presentation.student_list.StudentFilter
 import com.devsusana.hometutorpro.presentation.student_list.StudentListState
 import com.devsusana.hometutorpro.presentation.student_list.StudentSortOption
@@ -125,8 +125,8 @@ fun StudentListContentPreviewEmpty() {
 @Composable
 fun StudentListContentPreviewWithStudents() {
     val students = listOf(
-        Student(id = "1", name = "Susana Gonzalez", age = 25, course = "Kotlin", pendingBalance = 150.0, studentEmail = "susana@email.com"),
-        Student(id = "2", name = "John Doe", age = 30, course = "Android", pendingBalance = 0.0,  studentEmail = "john@email.com")
+        StudentSummary(id = "1", name = "Susana Gonzalez", subjects = "Kotlin", pendingBalance = 150.0, pricePerHour = 20.0, isActive = true, color = null, lastClassDate = null),
+        StudentSummary(id = "2", name = "John Doe", subjects = "Android", pendingBalance = 0.0, pricePerHour = 15.0, isActive = true, color = null, lastClassDate = null)
     )
     HomeTutorProTheme {
         StudentListContent(

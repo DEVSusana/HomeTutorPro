@@ -84,12 +84,17 @@ class StudentFinanceDelegate @Inject constructor(
         scope: CoroutineScope
     ) {
         scope.launch {
-            val amountToAdd = (duration.toDouble() / 60.0) * pricePerHour
+            if (duration <= 0) {
+                state.value = state.value.copy(errorMessage = application.getString(R.string.student_detail_error_unexpected))
+                return@launch
+            }
+
+            val currentStudent = state.value.student ?: return@launch
+            // Use DB-sourced pricePerHour from the student entity, NOT the event parameter
+            val verifiedPrice = currentStudent.pricePerHour
+            val amountToAdd = (duration.toDouble() / 60.0) * verifiedPrice
             state.value = state.value.copy(isLoading = true)
 
-            // Simplification: We update balance via registerPayment with 0 or a dedicated negative payment if needed,
-            // but here the app logic seems to just update the student balance.
-            val currentStudent = state.value.student ?: return@launch
             val updatedStudent = currentStudent.copy(
                 pendingBalance = currentStudent.pendingBalance + amountToAdd,
                 lastClassDate = System.currentTimeMillis()

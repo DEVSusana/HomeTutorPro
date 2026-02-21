@@ -2,6 +2,7 @@ package com.devsusana.hometutorpro.di
 
 import com.devsusana.hometutorpro.data.repository.*
 import com.devsusana.hometutorpro.domain.repository.*
+import com.devsusana.hometutorpro.data.remote.FirestoreRemoteDataSource
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -41,4 +42,10 @@ abstract class RepositoryModule {
     abstract fun bindSubscriptionRepository(
         subscriptionRepositoryImpl: SubscriptionRepositoryImpl
     ): SubscriptionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRemoteDataSource(
+        firestoreRemoteDataSource: FirestoreRemoteDataSource
+    ): RemoteDataSource
 }

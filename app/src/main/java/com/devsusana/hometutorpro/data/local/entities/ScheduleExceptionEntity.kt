@@ -25,12 +25,16 @@ import kotlinx.serialization.Serializable
         Index(value = ["studentId"]),
         Index(value = ["exceptionDate"]),
         Index(value = ["cloudId"]),
-        Index(value = ["syncStatus"])
+        Index(value = ["syncStatus"]),
+        Index(value = ["professorId"])
     ]
 )
 data class ScheduleExceptionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    
+    // Multi-user security
+    val professorId: String,
     
     // Firestore document ID
     val cloudId: String? = null,

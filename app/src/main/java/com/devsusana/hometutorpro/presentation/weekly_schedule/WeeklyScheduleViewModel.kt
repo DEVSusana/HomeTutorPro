@@ -15,6 +15,8 @@ import com.devsusana.hometutorpro.domain.usecases.IGetScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
+import com.devsusana.hometutorpro.domain.entities.ScheduleType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
@@ -41,6 +43,7 @@ class WeeklyScheduleViewModel @Inject constructor(
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
+    private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -69,50 +72,20 @@ class WeeklyScheduleViewModel @Inject constructor(
                 val startOfWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 val endOfWeek = startOfWeek.plusDays(6)
                 
-                val allRegularSchedules = mutableListOf<WeeklyScheduleItem.Regular>()
-                val exceptionsMap = mutableMapOf<String, MutableList<ScheduleException>>()
-                
+                val allExceptions = mutableListOf<com.devsusana.hometutorpro.domain.entities.ScheduleException>()
                 students.filter { it.id.isNotEmpty() }.forEach { student ->
-                    getScheduleExceptionsUseCase(user.uid, student.id).first().forEach { exception ->
-                        val key = "${student.id}_${exception.originalScheduleId}_${exception.date}"
-                        exceptionsMap.getOrPut(key) { mutableListOf() }.add(exception)
-                    }
-                }
-                
-                schedules.forEach { schedule ->
-                    val student = students.find { it.id == schedule.studentId }
-                    if (student != null && student.isActive) {
-                        var currentDate = startOfWeek
-                        while (!currentDate.isAfter(endOfWeek)) {
-                            if (currentDate.dayOfWeek == schedule.dayOfWeek) {
-                                val dateTimestamp = currentDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                                val key = "${student.id}_${schedule.id}_$dateTimestamp"
-                                val exception = exceptionsMap[key]?.firstOrNull()
-                                
-                                allRegularSchedules.add(WeeklyScheduleItem.Regular(schedule, student, exception, currentDate))
-                            }
-                            currentDate = currentDate.plusDays(1)
-                        }
-                    }
+                    allExceptions.addAll(getScheduleExceptionsUseCase(user.uid, student.id).first())
                 }
 
-                // Add standalone extra classes
-                exceptionsMap.values.flatten().filter { it.type == com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA && it.originalScheduleId == "EXTRA" }.forEach { extraException ->
-                    val student = students.find { it.id == extraException.studentId }
-                    if (student != null && student.isActive) {
-                        val extraDate = java.time.Instant.ofEpochMilli(extraException.date).atZone(ZoneId.systemDefault()).toLocalDate()
-                        if (!extraDate.isBefore(startOfWeek) && !extraDate.isAfter(endOfWeek)) {
-                            val dummySchedule = com.devsusana.hometutorpro.domain.entities.Schedule(
-                                id = "EXTRA_${extraException.id}",
-                                studentId = student.id,
-                                dayOfWeek = extraDate.dayOfWeek,
-                                startTime = extraException.newStartTime,
-                                endTime = extraException.newEndTime
-                            )
-                            allRegularSchedules.add(WeeklyScheduleItem.Regular(dummySchedule, student, extraException, extraDate))
-                        }
-                    }
-                }
+                val occurrences = generateCalendarOccurrencesUseCase(
+                    students = students,
+                    schedules = schedules,
+                    exceptions = allExceptions,
+                    startDate = startOfWeek,
+                    endDate = endOfWeek
+                )
+
+                val allRegularSchedules = occurrences.map { WeeklyScheduleItem.Regular(it) }
                 
                 // Generate full day items including free slots
                 val groupedByDay = mutableMapOf<DayOfWeek, List<WeeklyScheduleItem>>()
@@ -343,7 +316,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                  studentId = studentId,
                  date = date,
                  type = com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA,
-                 originalScheduleId = "EXTRA", // Marker for extra class
+                 originalScheduleId = ScheduleType.EXTRA_ID, // Marker for extra class
                  newStartTime = startTime,
                  newEndTime = endTime,
                  reason = "Extra Class"

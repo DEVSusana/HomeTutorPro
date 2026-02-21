@@ -11,6 +11,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import com.devsusana.hometutorpro.core.settings.SettingsManager
 
 private val DarkColorScheme = darkColorScheme(
     primary = Indigo80,
@@ -54,15 +55,15 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun HomeTutorProTheme(
-    themeMode: com.devsusana.hometutorpro.core.settings.SettingsManager.ThemeMode = com.devsusana.hometutorpro.core.settings.SettingsManager.ThemeMode.SYSTEM,
+    themeMode: SettingsManager.ThemeMode = SettingsManager.ThemeMode.SYSTEM,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val darkTheme = when (themeMode) {
-        com.devsusana.hometutorpro.core.settings.SettingsManager.ThemeMode.LIGHT -> false
-        com.devsusana.hometutorpro.core.settings.SettingsManager.ThemeMode.DARK -> true
-        com.devsusana.hometutorpro.core.settings.SettingsManager.ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        SettingsManager.ThemeMode.LIGHT -> false
+        SettingsManager.ThemeMode.DARK -> true
+        SettingsManager.ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
     
     val colorScheme = when {

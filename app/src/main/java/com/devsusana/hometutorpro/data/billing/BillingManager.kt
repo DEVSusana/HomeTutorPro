@@ -85,9 +85,9 @@ class BillingManager @Inject constructor(
     private fun processPurchases(purchases: List<Purchase>) {
         var hasPremium = false
         for (purchase in purchases) {
-            if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-                // Check if it's our premium product
-                // For now, assume any subscription is premium
+            if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                purchase.products.contains(PREMIUM_PRODUCT_ID)
+            ) {
                 hasPremium = true
             }
         }
@@ -140,10 +140,13 @@ class BillingManager @Inject constructor(
                     first = list.get(0) as? ProductDetails
                 }
                 onResult(first)
-                onResult(first)
             } else {
                 onResult(null)
             }
         }
+    }
+
+    companion object {
+        private const val PREMIUM_PRODUCT_ID = "hometutorpro_premium"
     }
 }

@@ -55,26 +55,6 @@ class LoginViewModel @Inject constructor(
                 return@launch
             }
             
-            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                _state.update { 
-                    it.copy(
-                        error = R.string.login_error_invalid_email,
-                        errorMessage = R.string.login_error_invalid_email
-                    ) 
-                }
-                return@launch
-            }
-            
-            if (password.length < 6) {
-                _state.update { 
-                    it.copy(
-                        error = R.string.login_error_password_too_short,
-                        errorMessage = R.string.login_error_password_too_short
-                    ) 
-                }
-                return@launch
-            }
-            
             _state.update { it.copy(isLoading = true, error = null, errorMessage = null) }
             
             when (loginUseCase(email, password)) {
