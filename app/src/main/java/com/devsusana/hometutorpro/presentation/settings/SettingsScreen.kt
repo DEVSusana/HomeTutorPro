@@ -31,6 +31,7 @@ import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.devsusana.hometutorpro.presentation.components.FeedbackDialog
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +46,7 @@ fun SettingsScreen(
     
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     // Backup File Launchers
     val createDocumentLauncher = rememberLauncherForActivityResult(
@@ -225,10 +227,12 @@ fun SettingsScreen(
                 Column {
                     TextButton(
                         onClick = {
-                            viewModel.onLanguageChange(SettingsManager.LANGUAGE_ENGLISH)
-                            LocaleHelper.setLocale(context as android.app.Activity, "en")
-                            (context as android.app.Activity).recreate()
-                            showLanguageDialog = false
+                            scope.launch {
+                                viewModel.setLanguageSync(SettingsManager.LANGUAGE_ENGLISH)
+                                LocaleHelper.setLocale(context as android.app.Activity, "en")
+                                (context as android.app.Activity).recreate()
+                                showLanguageDialog = false
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -242,10 +246,12 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick = {
-                            viewModel.onLanguageChange(SettingsManager.LANGUAGE_SPANISH)
-                            LocaleHelper.setLocale(context as android.app.Activity, "es")
-                            (context as android.app.Activity).recreate()
-                            showLanguageDialog = false
+                            scope.launch {
+                                viewModel.setLanguageSync(SettingsManager.LANGUAGE_SPANISH)
+                                LocaleHelper.setLocale(context as android.app.Activity, "es")
+                                (context as android.app.Activity).recreate()
+                                showLanguageDialog = false
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

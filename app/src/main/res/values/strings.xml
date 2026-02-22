@@ -393,7 +393,7 @@
     <string name="schedule_exception_reason_optional">Reason (optional)</string>
     <string name="schedule_exception_save">Save</string>
     <string name="schedule_exception_remove">Remove Exception</string>
-    <string name="schedule_exception_cancel_button">Cancel</string>
+    <string name="schedule_exception_cancel_button">Close</string>
 
     <!-- Payment Dialog -->
     <string name="payment_error_invalid_amount">Invalid amount</string>
