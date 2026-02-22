@@ -12,6 +12,7 @@ import java.time.DayOfWeek
 fun StudentEntity.toDomain(): Student {
     return Student(
         id = id.toString(),
+        professorId = professorId,
         name = name,
         age = age,
         address = address,
@@ -31,9 +32,23 @@ fun StudentEntity.toDomain(): Student {
     )
 }
 
+fun StudentSummaryEntity.toDomain(): StudentSummary {
+    return StudentSummary(
+        id = id.toString(),
+        name = name,
+        subjects = subjects,
+        color = color,
+        pendingBalance = pendingBalance,
+        pricePerHour = pricePerHour,
+        isActive = isActive,
+        lastClassDate = lastClassDate
+    )
+}
+
 fun Student.toEntity(existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): StudentEntity {
     return StudentEntity(
         id = existingId,
+        professorId = professorId,
         cloudId = null,
         name = name,
         age = age,
@@ -58,22 +73,44 @@ fun Student.toEntity(existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.
 }
 
 // Schedule Mappers
-fun ScheduleEntity.toDomain(): Schedule {
+fun ScheduleEntity.toDomain(studentName: String? = null): Schedule {
     return Schedule(
         id = id.toString(),
         studentId = studentId.toString(),
+        professorId = professorId,
         dayOfWeek = dayOfWeek,
         startTime = startTime,
         endTime = endTime,
         isCompleted = isCompleted,
-        completedDate = completedDate
+        completedDate = completedDate,
+        studentName = studentName
     )
 }
 
-fun Schedule.toEntity(studentId: Long, existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): ScheduleEntity {
+fun ScheduleWithStudent.toDomain(): Schedule {
+    return Schedule(
+        id = schedule.id.toString(),
+        studentId = schedule.studentId.toString(),
+        professorId = schedule.professorId,
+        dayOfWeek = schedule.dayOfWeek,
+        startTime = schedule.startTime,
+        endTime = schedule.endTime,
+        isCompleted = schedule.isCompleted,
+        completedDate = schedule.completedDate,
+        studentName = studentName,
+        studentSubjects = studentSubjects,
+        studentColor = studentColor,
+        studentIsActive = studentIsActive,
+        studentPendingBalance = studentPendingBalance,
+        studentPricePerHour = studentPricePerHour
+    )
+}
+
+fun Schedule.toEntity(studentId: Long, professorId: String, existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): ScheduleEntity {
     return ScheduleEntity(
         id = existingId,
         studentId = studentId,
+        professorId = professorId,
         cloudId = null,
         dayOfWeek = dayOfWeek,
         startTime = startTime,
@@ -91,6 +128,7 @@ fun ScheduleExceptionEntity.toDomain(): ScheduleException {
     return ScheduleException(
         id = id.toString(),
         studentId = studentId.toString(),
+        professorId = professorId,
         date = exceptionDate,
         type = if (isCancelled) ExceptionType.CANCELLED else ExceptionType.RESCHEDULED,
         originalScheduleId = originalScheduleId,
@@ -101,10 +139,11 @@ fun ScheduleExceptionEntity.toDomain(): ScheduleException {
     )
 }
 
-fun ScheduleException.toEntity(studentId: Long, existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): ScheduleExceptionEntity {
+fun ScheduleException.toEntity(studentId: Long, professorId: String, existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): ScheduleExceptionEntity {
     return ScheduleExceptionEntity(
         id = existingId,
         studentId = studentId,
+        professorId = professorId,
         cloudId = null,
         originalScheduleId = originalScheduleId,
         exceptionDate = date,
@@ -123,7 +162,7 @@ fun ScheduleException.toEntity(studentId: Long, existingId: Long = 0L, syncStatu
 fun ResourceEntity.toDomain(): Resource {
     return Resource(
         id = id.toString(),
-        professorId = "", // Not stored in entity, managed at repository level
+        professorId = professorId,
         name = name,
         url = cloudStoragePath ?: localFilePath,
         type = fileType,
@@ -134,6 +173,7 @@ fun ResourceEntity.toDomain(): Resource {
 fun Resource.toEntity(existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): ResourceEntity {
     return ResourceEntity(
         id = existingId,
+        professorId = professorId,
         cloudId = null,
         name = name,
         localFilePath = url, // Store URL in localFilePath for now
@@ -151,6 +191,7 @@ fun SharedResourceEntity.toDomain(): SharedResource {
     return SharedResource(
         id = id.toString(),
         studentId = studentId.toString(),
+        professorId = professorId,
         fileName = fileName,
         fileType = fileType,
         fileSizeBytes = fileSizeBytes,
@@ -164,10 +205,11 @@ fun SharedResourceEntity.toDomain(): SharedResource {
     )
 }
 
-fun SharedResource.toEntity(existingId: Long = 0L, studentId: Long, syncStatus: SyncStatus = SyncStatus.SYNCED): SharedResourceEntity {
+fun SharedResource.toEntity(existingId: Long = 0L, studentId: Long, professorId: String, syncStatus: SyncStatus = SyncStatus.SYNCED): SharedResourceEntity {
     return SharedResourceEntity(
         id = existingId,
         studentId = studentId,
+        professorId = professorId,
         cloudId = null,
         fileName = fileName,
         fileType = fileType,

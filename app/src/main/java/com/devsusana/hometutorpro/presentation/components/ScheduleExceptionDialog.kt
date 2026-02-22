@@ -30,8 +30,8 @@ fun ScheduleExceptionDialog(
     onStartClass: ((String, String) -> Unit)? = null, // studentId, studentName
     onAddExtraClass: ((String) -> Unit)? = null // studentId
 ) {
-    var exceptionType by remember { 
-        mutableStateOf(item.exception?.type ?: ExceptionType.CANCELLED) 
+    var exceptionType: ExceptionType? by remember { 
+        mutableStateOf(item.exception?.type) 
     }
     var newDayOfWeek by remember {
         mutableStateOf(item.exception?.newDayOfWeek ?: item.schedule.dayOfWeek)
@@ -341,7 +341,7 @@ fun ScheduleExceptionDialog(
                         id = item.exception?.id ?: "",
                         studentId = item.student.id,
                         date = dateTimestamp,
-                        type = exceptionType,
+                        type = exceptionType ?: ExceptionType.CANCELLED, // Fallback, but button is disabled if null
                         originalScheduleId = item.schedule.id,
                         newStartTime = if (exceptionType == ExceptionType.RESCHEDULED) newStartTime else "",
                         newEndTime = if (exceptionType == ExceptionType.RESCHEDULED) newEndTime else "",
@@ -350,7 +350,7 @@ fun ScheduleExceptionDialog(
                     )
                     onSave(exception)
                 },
-                enabled = !hasConflict || exceptionType == ExceptionType.CANCELLED
+                enabled = exceptionType != null && (!hasConflict || exceptionType == ExceptionType.CANCELLED)
             ) {
                 Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_save))
             }
@@ -358,11 +358,12 @@ fun ScheduleExceptionDialog(
         dismissButton = {
             Row {
                 // Delete button if exception exists
-                if (item.exception != null && onDelete != null) {
+                val existingException = item.exception
+                if (existingException != null && onDelete != null) {
                     TextButton(
                         onClick = {
                             onDelete(
-                                item.exception.id,
+                                existingException.id,
                                 item.student.id
                             )
                             onDismiss()

@@ -9,6 +9,7 @@ import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import com.devsusana.hometutorpro.data.mappers.toDomain
 import com.devsusana.hometutorpro.data.mappers.toEntity
 import com.devsusana.hometutorpro.data.sync.SyncScheduler
+import com.devsusana.hometutorpro.data.util.toRoomId
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.Resource
@@ -39,7 +40,7 @@ class ResourceRepositoryImpl @Inject constructor(
 ) : ResourceRepository {
 
     override fun getResources(professorId: String): Flow<List<Resource>> {
-        return resourceDao.getAllResources().map { entities ->
+        return resourceDao.getAllResources(professorId).map { entities ->
             entities.map { it.toDomain() }
         }
     }
@@ -47,6 +48,7 @@ class ResourceRepositoryImpl @Inject constructor(
     override suspend fun uploadResource(
         professorId: String,
         name: String,
+        fileType: String,
         fileUri: String
     ): Result<Unit, DomainError> {
         return withContext(Dispatchers.IO) {
@@ -68,9 +70,10 @@ class ResourceRepositoryImpl @Inject constructor(
 
                 // 2. Save to Room with PENDING status
                 val entity = ResourceEntity(
+                    professorId = professorId,
                     name = name,
                     localFilePath = file.absolutePath,
-                    fileType = contentResolver.getType(uri) ?: "application/octet-stream",
+                    fileType = fileType,
                     uploadDate = System.currentTimeMillis(),
                     syncStatus = SyncStatus.PENDING_UPLOAD,
                     cloudId = null,
@@ -91,10 +94,10 @@ class ResourceRepositoryImpl @Inject constructor(
     override suspend fun deleteResource(professorId: String, resourceId: String): Result<Unit, DomainError> {
         return withContext(Dispatchers.IO) {
             try {
-                val id = resourceId.toLongOrNull() ?: return@withContext Result.Error(DomainError.ResourceNotFound)
+                val id = resourceId.toRoomId() ?: return@withContext Result.Error(DomainError.ResourceNotFound)
                 
                 // 1. Mark for deletion in Room
-                resourceDao.markForDeletion(id)
+                resourceDao.markForDeletion(id, professorId)
                 
                 // 2. Schedule sync
                 syncScheduler.scheduleSyncNow()
@@ -107,10 +110,10 @@ class ResourceRepositoryImpl @Inject constructor(
     }
 
     // Shared resources methods
-    // Shared resources methods
     override fun getSharedResources(professorId: String?, studentId: String): Flow<List<SharedResource>> {
-        val id = studentId.toLongOrNull() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
-        return sharedResourceDao.getSharedResourcesByStudent(id).map { entities ->
+        val pId = professorId ?: ""
+        val id = studentId.toRoomId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        return sharedResourceDao.getSharedResourcesByStudent(id, pId).map { entities ->
             entities.map { it.toDomain() }
         }
     }
@@ -118,13 +121,15 @@ class ResourceRepositoryImpl @Inject constructor(
     override suspend fun saveSharedResource(professorId: String?, resource: SharedResource): Result<Unit, DomainError> {
         return withContext(Dispatchers.IO) {
             try {
-                val sId = resource.studentId.toLongOrNull() ?: return@withContext Result.Error(DomainError.StudentNotFound)
-                val existingId = if (resource.id.isNotEmpty()) resource.id.toLongOrNull() ?: 0L else 0L
+                val pId = professorId ?: resource.professorId
+                val sId = resource.studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
+                val existingId = if (resource.id.isNotEmpty()) resource.id.toRoomId() ?: 0L else 0L
                 
                 sharedResourceDao.insertSharedResource(
                     resource.toEntity(
                         existingId = existingId,
                         studentId = sId,
+                        professorId = pId,
                         syncStatus = SyncStatus.PENDING_UPLOAD
                     )
                 )
@@ -140,8 +145,9 @@ class ResourceRepositoryImpl @Inject constructor(
     override suspend fun deleteSharedResource(professorId: String?, resourceId: String): Result<Unit, DomainError> {
         return withContext(Dispatchers.IO) {
             try {
-                val id = resourceId.toLongOrNull() ?: return@withContext Result.Error(DomainError.ResourceNotFound)
-                sharedResourceDao.markForDeletion(id)
+                val pId = professorId ?: ""
+                val id = resourceId.toRoomId() ?: return@withContext Result.Error(DomainError.ResourceNotFound)
+                sharedResourceDao.markForDeletion(id, pId)
                 syncScheduler.scheduleSyncNow()
                 Result.Success(Unit)
             } catch (e: Exception) {
@@ -151,15 +157,17 @@ class ResourceRepositoryImpl @Inject constructor(
     }
 
     override fun getSharedResourcesByType(professorId: String?, studentId: String, fileType: String): Flow<List<SharedResource>> {
-        val id = studentId.toLongOrNull() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
-        return sharedResourceDao.getSharedResourcesByType(id, fileType).map { entities ->
+        val pId = professorId ?: ""
+        val id = studentId.toRoomId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        return sharedResourceDao.getSharedResourcesByType(id, pId, fileType).map { entities ->
             entities.map { it.toDomain() }
         }
     }
 
     override fun getSharedResourcesByMethod(professorId: String?, studentId: String, method: ShareMethod): Flow<List<SharedResource>> {
-        val id = studentId.toLongOrNull() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
-        return sharedResourceDao.getSharedResourcesByMethod(id, method.name).map { entities ->
+        val pId = professorId ?: ""
+        val id = studentId.toRoomId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        return sharedResourceDao.getSharedResourcesByMethod(id, pId, method.name).map { entities ->
             entities.map { it.toDomain() }
         }
     }

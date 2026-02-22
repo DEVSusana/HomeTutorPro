@@ -15,10 +15,6 @@ class SubscriptionRepositoryImpl @Inject constructor(
 
     override val isPremium: StateFlow<Boolean> = billingManager.isPremium
 
-    override suspend fun setPremium(isPremium: Boolean) {
-        // No-op, managed by BillingManager
-    }
-
     override suspend fun checkSubscriptionStatus() {
         billingManager.queryPurchases()
     }

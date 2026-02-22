@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ResourceRepository {
     fun getResources(professorId: String): Flow<List<Resource>>
-    suspend fun uploadResource(professorId: String, name: String, fileUri: String): Result<Unit, DomainError>
+    suspend fun uploadResource(professorId: String, name: String, fileType: String, fileUri: String): Result<Unit, DomainError>
     suspend fun deleteResource(professorId: String, resourceId: String): Result<Unit, DomainError>
     
     // Shared resources methods

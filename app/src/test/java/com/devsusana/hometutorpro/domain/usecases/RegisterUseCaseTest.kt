@@ -56,7 +56,7 @@ class RegisterUseCaseTest {
         val email = "test@example.com"
         val password = "password123"
         val name = "Test User"
-        val error = DomainError.UnknownError
+        val error = DomainError.Unknown
         
         coEvery { authRepository.register(email, password, name) } returns Result.Error(error)
 

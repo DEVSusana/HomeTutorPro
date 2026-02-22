@@ -10,7 +10,9 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +28,11 @@ import com.devsusana.hometutorpro.presentation.settings.components.SettingsItem
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsSectionTitle
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.devsusana.hometutorpro.presentation.components.FeedbackDialog
+import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -39,9 +46,26 @@ fun SettingsScreen(
     
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
-    
-    // Premium state placeholder
-    val isPremium = false 
+    val scope = rememberCoroutineScope()
+
+    // Backup File Launchers
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            viewModel.exportBackup { json ->
+                context.contentResolver.openOutputStream(it)?.use { output ->
+                    output.write(json.toByteArray())
+                }
+            }
+        }
+    }
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { viewModel.importBackup(it) }
+    }
     
     Scaffold(
         topBar = {
@@ -66,6 +90,31 @@ fun SettingsScreen(
                 onClick = onEditProfileClick
             )
             
+            HorizontalDivider()
+
+            // Backup Section
+            SettingsSectionTitle(stringResource(R.string.settings_backup_title))
+            
+            SettingsItem(
+                icon = Icons.Default.Save,
+                title = stringResource(R.string.settings_backup_export),
+                subtitle = stringResource(R.string.settings_backup_desc),
+                onClick = { 
+                    val fileName = "hometutor_backup_${System.currentTimeMillis()}.json"
+                    createDocumentLauncher.launch(fileName)
+                }
+            )
+
+            SettingsItem(
+                icon = Icons.Default.UploadFile,
+                title = stringResource(R.string.settings_backup_import),
+                onClick = { openDocumentLauncher.launch(arrayOf("application/json", "application/octet-stream")) }
+            )
+
+            if (state.isBackupLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+
             HorizontalDivider()
             
             // Notifications Section
@@ -178,9 +227,12 @@ fun SettingsScreen(
                 Column {
                     TextButton(
                         onClick = {
-                            viewModel.onLanguageChange(SettingsManager.LANGUAGE_ENGLISH)
-                            LocaleHelper.setLocale(context as android.app.Activity, "en")
-                            showLanguageDialog = false
+                            scope.launch {
+                                viewModel.setLanguageSync(SettingsManager.LANGUAGE_ENGLISH)
+                                LocaleHelper.setLocale(context as android.app.Activity, "en")
+                                (context as android.app.Activity).recreate()
+                                showLanguageDialog = false
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -194,9 +246,12 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick = {
-                            viewModel.onLanguageChange(SettingsManager.LANGUAGE_SPANISH)
-                            LocaleHelper.setLocale(context as android.app.Activity, "es")
-                            showLanguageDialog = false
+                            scope.launch {
+                                viewModel.setLanguageSync(SettingsManager.LANGUAGE_SPANISH)
+                                LocaleHelper.setLocale(context as android.app.Activity, "es")
+                                (context as android.app.Activity).recreate()
+                                showLanguageDialog = false
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -296,6 +351,15 @@ fun SettingsScreen(
                     Text(stringResource(R.string.language_cancel))
                 }
             }
+        )
+    }
+
+    // Backup Feedback
+    if (state.backupMessage != null) {
+        FeedbackDialog(
+            isSuccess = state.isBackupSuccess,
+            message = { Text(state.backupMessage!!) },
+            onDismiss = { viewModel.dismissBackupMessage() }
         )
     }
 }

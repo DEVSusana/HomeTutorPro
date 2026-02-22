@@ -16,6 +16,8 @@ import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
+import com.devsusana.hometutorpro.domain.entities.ScheduleType
 import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +36,9 @@ import java.time.ZoneId
 import javax.inject.Inject
 
 import com.devsusana.hometutorpro.core.utils.NotificationHelper
+import androidx.compose.runtime.Immutable
 
+@Immutable
 data class DashboardState(
     val activeStudentsCount: Int = 0,
     val todayPendingClassesCount: Int = 0,
@@ -47,8 +51,7 @@ data class DashboardState(
     val selectedSchedule: WeeklyScheduleItem.Regular? = null,
     val allSchedules: List<WeeklyScheduleItem.Regular> = emptyList(),
     val successMessage: String? = null,
-    val errorMessage: String? = null,
-    val permissionNeeded: Boolean = false
+    val errorMessage: String? = null
 )
 
 @HiltViewModel
@@ -61,6 +64,7 @@ class DashboardViewModel @Inject constructor(
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val getStudentByIdUseCase: IGetStudentByIdUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
+    private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -88,51 +92,20 @@ class DashboardViewModel @Inject constructor(
                 val startOfWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 val endOfWeek = startOfWeek.plusDays(13) 
                 
-                val exceptionsMap = mutableMapOf<String, MutableList<ScheduleException>>()
+                val allExceptions = mutableListOf<com.devsusana.hometutorpro.domain.entities.ScheduleException>()
                 students.filter { it.id.isNotEmpty() }.forEach { student ->
-                    getScheduleExceptionsUseCase(user.uid, student.id).first().forEach { exception ->
-                        val key = "${student.id}_${exception.originalScheduleId}_${exception.date}"
-                        exceptionsMap.getOrPut(key) { mutableListOf() }.add(exception)
-                    }
+                    allExceptions.addAll(getScheduleExceptionsUseCase(user.uid, student.id).first())
                 }
 
-                val allOccurrences = mutableListOf<WeeklyScheduleItem.Regular>()
-                
-                schedules.forEach { schedule ->
-                    val student = students.find { it.id == schedule.studentId }
-                    if (student != null && student.isActive) {
-                        var currentDate = startOfWeek
-                        while (!currentDate.isAfter(endOfWeek)) {
-                            if (currentDate.dayOfWeek == schedule.dayOfWeek) {
-                                val dateTimestamp = currentDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                                val key = "${student.id}_${schedule.id}_$dateTimestamp"
-                                val exception = exceptionsMap[key]?.firstOrNull()
-                                
-                                val occurrence = WeeklyScheduleItem.Regular(schedule, student, exception, currentDate)
-                                allOccurrences.add(occurrence)
-                            }
-                            currentDate = currentDate.plusDays(1)
-                        }
-                    }
-                }
+                val occurrences = generateCalendarOccurrencesUseCase(
+                    students = students,
+                    schedules = schedules,
+                    exceptions = allExceptions,
+                    startDate = startOfWeek,
+                    endDate = endOfWeek
+                )
 
-                // Add standalone extra classes
-                exceptionsMap.values.flatten().filter { it.type == ExceptionType.EXTRA && it.originalScheduleId == "EXTRA" }.forEach { extraException ->
-                    val student = students.find { it.id == extraException.studentId }
-                    if (student != null && student.isActive) {
-                        val extraDate = java.time.Instant.ofEpochMilli(extraException.date).atZone(ZoneId.systemDefault()).toLocalDate()
-                        if (!extraDate.isBefore(startOfWeek) && !extraDate.isAfter(endOfWeek)) {
-                            val dummySchedule = com.devsusana.hometutorpro.domain.entities.Schedule(
-                                id = "EXTRA_${extraException.id}",
-                                studentId = student.id,
-                                dayOfWeek = extraDate.dayOfWeek,
-                                startTime = extraException.newStartTime,
-                                endTime = extraException.newEndTime
-                            )
-                            allOccurrences.add(WeeklyScheduleItem.Regular(dummySchedule, student, extraException, extraDate))
-                        }
-                    }
-                }
+                val allOccurrences = occurrences.map { WeeklyScheduleItem.Regular(it) }
 
                 val activeCount = students.count { it.isActive }
                 val pendingIncome = students.sumOf { it.pendingBalance }
@@ -283,8 +256,7 @@ class DashboardViewModel @Inject constructor(
                         _state.update {
                              it.copy(
                                  isLoading = false,
-                                 successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd),
-                                 permissionNeeded = !scheduled
+                                 successMessage = application.getString(R.string.student_detail_success_class_started, priceToAdd)
                              )
                         }
                     }
@@ -296,11 +268,8 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun clearPermissionNeeded() {
-        _state.update { it.copy(permissionNeeded = false) }
-    }
     
-    fun addExtraClass(studentId: String, dateMillis: Long, startTime: String, endTime: String) {
+    fun addExtraClass(studentId: String, dateMillis: Long, startTime: String, endTime: String, dayOfWeek: DayOfWeek) {
         viewModelScope.launch {
             val uid = getCurrentUserUseCase().value?.uid ?: return@launch
             _state.update { it.copy(isLoading = true) }
@@ -326,9 +295,10 @@ class DashboardViewModel @Inject constructor(
                     studentId = student.id,
                     date = dateMillis,
                     type = ExceptionType.EXTRA,
-                    originalScheduleId = "EXTRA",
+                    originalScheduleId = ScheduleType.EXTRA_ID,
                     newStartTime = startTime,
                     newEndTime = endTime,
+                    newDayOfWeek = dayOfWeek,
                     reason = "Extra Class"
                 )
 

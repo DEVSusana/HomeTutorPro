@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.DayOfWeek
 import java.time.format.DateTimeFormatter
 import java.time.ZoneId
 import androidx.compose.foundation.clickable
@@ -22,11 +23,14 @@ import com.devsusana.hometutorpro.R
 @Composable
 fun AddExtraClassDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Long, String, String) -> Unit
+    onConfirm: (Long, String, String, DayOfWeek) -> Unit
 ) {
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedDayOfWeek by remember { mutableStateOf(selectedDate.dayOfWeek) }
     var startTime by remember { mutableStateOf(LocalTime.of(16, 0)) }
     var endTime by remember { mutableStateOf(LocalTime.of(17, 0)) }
+    
+    var dayDropdownExpanded by remember { mutableStateOf(false) }
     
     var showDatePicker by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
@@ -41,9 +45,11 @@ fun AddExtraClassDialog(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let {
-                        selectedDate = java.time.Instant.ofEpochMilli(it)
+                        val newDate = java.time.Instant.ofEpochMilli(it)
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
+                        selectedDate = newDate
+                        selectedDayOfWeek = newDate.dayOfWeek
                     }
                     showDatePicker = false
                 }) {
@@ -112,6 +118,38 @@ fun AddExtraClassDialog(
                     )
                 }
 
+                // Day of Week Selector
+                ExposedDropdownMenuBox(
+                    expanded = dayDropdownExpanded,
+                    onExpandedChange = { dayDropdownExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils.getLocalizedName(selectedDayOfWeek),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(R.string.schedule_exception_day_of_week)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dayDropdownExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = dayDropdownExpanded,
+                        onDismissRequest = { dayDropdownExpanded = false }
+                    ) {
+                        DayOfWeek.values().forEach { day ->
+                            DropdownMenuItem(
+                                text = { Text(com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils.getLocalizedName(day)) },
+                                onClick = {
+                                    selectedDayOfWeek = day
+                                    dayDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 // Time Selectors ROW
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +184,7 @@ fun AddExtraClassDialog(
                 val epochMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 val startStr = startTime.format(DateTimeFormatter.ofPattern("HH:mm"))
                 val endStr = endTime.format(DateTimeFormatter.ofPattern("HH:mm"))
-                onConfirm(epochMillis, startStr, endStr)
+                onConfirm(epochMillis, startStr, endStr, selectedDayOfWeek)
             }) {
                 Text(stringResource(R.string.save))
             }

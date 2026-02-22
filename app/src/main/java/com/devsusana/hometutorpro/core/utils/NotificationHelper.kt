@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 
 object NotificationHelper {
 
-    private const val CHANNEL_ID = "CLASS_END_CHANNEL"
+    private const val CHANNEL_ID = "CLASS_END_CHANNEL_V2"
     private const val NOTIFICATION_ID = 101
 
     fun createNotificationChannel(context: Context) {
@@ -19,19 +19,17 @@ object NotificationHelper {
             val name = context.getString(com.devsusana.hometutorpro.R.string.notification_channel_name)
             val descriptionText = context.getString(com.devsusana.hometutorpro.R.string.notification_channel_description)
             val importance = NotificationManager.IMPORTANCE_HIGH
-            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: 
+                          RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             
             val notificationManager: NotificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             
-            // Delete old channel to ensure importance and sound updates are applied
-            notificationManager.deleteNotificationChannel(CHANNEL_ID)
-
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
                 enableVibration(true)
                 setSound(soundUri, AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build())
             }
@@ -72,13 +70,12 @@ object NotificationHelper {
         val triggerTime = System.currentTimeMillis() + (durationMinutes * 60 * 1000)
         android.util.Log.d("NotificationHelper", "Trigger time: $triggerTime (in ${durationMinutes} minutes)")
         
-        // On Android 12+ (API 31+), use setExact since we verified permission above
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            android.util.Log.d("NotificationHelper", "Using setExact (Android 12+)")
-            alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+        // Use setExactAndAllowWhileIdle to ensure it triggers even in Doze mode
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            android.util.Log.d("NotificationHelper", "Using setExactAndAllowWhileIdle")
+            alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
         } else {
-            // For Android 11 and below, setExact works without special permission
-            android.util.Log.d("NotificationHelper", "Using setExact (Android 11 and below)")
+            android.util.Log.d("NotificationHelper", "Using setExact")
             alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
         }
         
@@ -102,15 +99,18 @@ object NotificationHelper {
     fun showClassEndNotification(context: Context, studentName: String) {
         android.util.Log.d("NotificationHelper", "showClassEndNotification called for: $studentName")
         
-        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: 
+                      RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(context.getString(com.devsusana.hometutorpro.R.string.notification_title))
             .setContentText(context.getString(com.devsusana.hometutorpro.R.string.notification_text, studentName))
             .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setSound(soundUri)
+            .setFullScreenIntent(null, true) // Increases chance of showing even if locked
             .setDefaults(NotificationCompat.DEFAULT_ALL)
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

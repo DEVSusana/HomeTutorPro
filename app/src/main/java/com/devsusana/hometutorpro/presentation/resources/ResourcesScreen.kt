@@ -42,9 +42,13 @@ fun ResourcesScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            // Simple name extraction or default
-            val name = "${defaultNamePrefix}${System.currentTimeMillis()}"
-            viewModel.uploadResource(it, name)
+            val fileInfo = com.devsusana.hometutorpro.core.utils.FilePickerHelper.getFileInfo(context, it)
+            if (fileInfo != null) {
+                viewModel.uploadResource(it, fileInfo.name, fileInfo.type)
+            } else {
+                val name = "${defaultNamePrefix}${System.currentTimeMillis()}"
+                viewModel.uploadResource(it, name, "application/octet-stream")
+            }
         }
     }
 

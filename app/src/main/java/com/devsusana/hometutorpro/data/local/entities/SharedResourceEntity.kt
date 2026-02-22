@@ -23,12 +23,16 @@ import androidx.room.PrimaryKey
         Index("studentId"),
         Index("sharedAt"),
         Index("cloudId"),
-        Index("syncStatus")
+        Index("syncStatus"),
+        Index("professorId")
     ]
 )
 data class SharedResourceEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    
+    // Multi-user security
+    val professorId: String,
     
     // Firestore document ID
     val cloudId: String? = null,

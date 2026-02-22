@@ -6,6 +6,7 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.DeleteSchedule
 import com.devsusana.hometutorpro.domain.usecases.implementations.DeleteScheduleUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.DeleteStudentUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetCurrentUserUseCase
+import com.devsusana.hometutorpro.domain.usecases.implementations.GenerateCalendarOccurrencesUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetResourcesUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetAllSchedulesUseCase
@@ -120,4 +121,10 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindCheckScheduleConflictUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CheckScheduleConflictUseCase): ICheckScheduleConflictUseCase
+
+    @Binds
+    abstract fun bindSaveBulkSchedulesUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SaveBulkSchedulesUseCase): ISaveBulkSchedulesUseCase
+
+    @Binds
+    abstract fun bindGenerateCalendarOccurrencesUseCase(impl: GenerateCalendarOccurrencesUseCase): IGenerateCalendarOccurrencesUseCase
 }

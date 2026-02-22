@@ -12,12 +12,17 @@ import javax.inject.Inject
  * Emits progress updates as it proceeds through migration steps.
  */
 class MigrateDataFromLocalUseCase @Inject constructor(
-    private val localDataMigrator: LocalDataMigrator
+    private val localDataMigrator: LocalDataMigrator,
+    private val rescueOrphanedDataUseCase: RescueOrphanedDataUseCase
 ) : IMigrateDataFromLocalUseCase {
     override operator fun invoke(): Flow<MigrationProgress> = flow {
         emit(MigrationProgress.Started)
         
         try {
+            // 0. Rescue orphaned data (from migration 7->8 issue)
+            // emit(MigrationProgress.Preparing) // State does not exist
+            rescueOrphanedDataUseCase()
+
             // 1. Migrate students (and their schedules/exceptions)
             emit(MigrationProgress.MigratingStudents)
             localDataMigrator.migrateStudents()
