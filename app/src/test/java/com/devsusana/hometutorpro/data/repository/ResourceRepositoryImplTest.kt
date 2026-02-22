@@ -46,12 +46,16 @@ class ResourceRepositoryImplTest {
         val fileUri = "content://test/uri"
 
         val contentResolver = mockk<ContentResolver>()
-        val inputStream = mockk<InputStream>(relaxed = true)
+        val inputStream = java.io.ByteArrayInputStream("dummy content".toByteArray())
         val filesDir = File(System.getProperty("java.io.tmpdir")) // mock files dir
 
+        mockkStatic(Uri::class)
+        val uriMock = mockk<Uri>()
+        every { Uri.parse(any()) } returns uriMock
+        
         every { context.contentResolver } returns contentResolver
         every { context.filesDir } returns filesDir
-        every { contentResolver.openInputStream(any()) } returns inputStream
+        every { contentResolver.openInputStream(uriMock) } returns inputStream
         
         coEvery { resourceDao.insertResource(any()) } returns 1L
         every { syncScheduler.scheduleSyncNow() } just Runs
@@ -60,6 +64,7 @@ class ResourceRepositoryImplTest {
         val result = repository.uploadResource(professorId, name, fileType, fileUri)
 
         // Then
+        unmockkStatic(Uri::class)
         assertTrue(result is Result.Success)
         
         val slot = slot<ResourceEntity>()

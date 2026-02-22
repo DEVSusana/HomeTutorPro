@@ -388,7 +388,7 @@
     <string name="schedule_exception_reason_optional">Motivo (opcional)</string>
     <string name="schedule_exception_save">Guardar</string>
     <string name="schedule_exception_remove">Eliminar excepción</string>
-    <string name="schedule_exception_cancel_button">Cancelar</string>
+    <string name="schedule_exception_cancel_button">Cerrar</string>
 
     <!-- Payment Dialog -->
     <string name="payment_error_invalid_amount">Cantidad inválida</string>

@@ -64,6 +64,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    suspend fun setLanguageSync(language: String) {
+        settingsManager.setLanguage(language)
+    }
+
     fun onThemeModeChange(mode: SettingsManager.ThemeMode) {
         viewModelScope.launch {
             settingsManager.setThemeMode(mode)
