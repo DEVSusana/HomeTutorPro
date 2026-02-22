@@ -5,14 +5,19 @@ import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Firestore Repository Interface
- * Handles CRUD (Create, Read, Update) logic and nested data structures.
+ * Repository interface for student data operations.
+ *
+ * **Note on `professorId`**: This parameter exists in all methods for API contract stability
+ * and future multi-tenancy support. The current local-first Room implementation uses device-scoped
+ * storage and does not filter by `professorId`. When multi-user support is added, implementations
+ * will use `professorId` to scope data queries.
  */
 interface StudentRepository {
-    fun getStudents(professorId: String): Flow<List<Student>>
+    fun getStudents(professorId: String): Flow<List<StudentSummary>>
     fun getStudentById(professorId: String, studentId: String): Flow<Student?>
     suspend fun saveStudent(professorId: String, student: Student): Result<String, DomainError>
     suspend fun registerPayment(
@@ -25,7 +30,10 @@ interface StudentRepository {
     fun getSchedules(professorId: String, studentId: String): Flow<List<Schedule>>
     fun getAllSchedules(professorId: String): Flow<List<Schedule>>
     suspend fun saveSchedule(professorId: String, studentId: String, schedule: Schedule): Result<Unit, DomainError>
+    suspend fun getConflictingSchedule(dayOfWeek: Int, startTime: String, endTime: String, scheduleId: String? = null): Schedule?
     suspend fun deleteSchedule(professorId: String, studentId: String, scheduleId: String): Result<Unit, DomainError>
     suspend fun toggleScheduleCompletion(professorId: String, scheduleId: String): Result<Unit, DomainError>
     suspend fun deleteStudent(professorId: String, studentId: String): Result<Unit, DomainError>
+
+    suspend fun rescueOrphanedData(professorId: String): Result<Unit, DomainError>
 }

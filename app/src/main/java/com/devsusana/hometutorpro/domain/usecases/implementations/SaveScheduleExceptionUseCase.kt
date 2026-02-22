@@ -22,8 +22,9 @@ class SaveScheduleExceptionUseCase @Inject constructor(
         studentId: String,
         exception: ScheduleException
     ): Result<Unit, DomainError> {
-        // Only check for conflicts if it's a RESCHEDULED exception
-        if (exception.type == ExceptionType.RESCHEDULED && exception.newStartTime.isNotEmpty() && exception.newEndTime.isNotEmpty()) {
+        // Check for conflicts if it's a RESCHEDULED exception or an EXTRA class
+        if ((exception.type == ExceptionType.RESCHEDULED || exception.type == ExceptionType.EXTRA) 
+            && exception.newStartTime.isNotEmpty() && exception.newEndTime.isNotEmpty()) {
             // 1. Get all students
             val students = studentRepository.getStudents(professorId).first()
             
@@ -59,6 +60,21 @@ class SaveScheduleExceptionUseCase @Inject constructor(
     }
 
     private fun isTimeOverlap(start1: String, end1: String, start2: String, end2: String): Boolean {
-        return start1 < end2 && start2 < end1
+        return try {
+            val s1 = timeToMinutes(start1)
+            val e1 = timeToMinutes(end1)
+            val s2 = timeToMinutes(start2)
+            val e2 = timeToMinutes(end2)
+            
+            // Check if ranges overlap (Strict overlap: one starts before the other ends)
+            s1 < e2 && s2 < e1
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    private fun timeToMinutes(time: String): Int {
+        val parts = time.split(":")
+        return parts[0].toInt() * 60 + parts[1].toInt()
     }
 }

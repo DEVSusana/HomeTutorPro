@@ -51,13 +51,10 @@ class AuthRepositoryImpl @Inject constructor(
         firebaseAuth.addAuthStateListener { auth ->
             val firebaseUser = auth.currentUser
             if (firebaseUser != null) {
-                _currentUser.value = User(
-                    uid = firebaseUser.uid,
-                    email = firebaseUser.email ?: "",
-                    displayName = firebaseUser.displayName ?: "",
-                    workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime(),
-                    notes = authManager.getNotes()
+                _currentUser.value = buildUser(
+                    firebaseUser.uid,
+                    firebaseUser.email ?: "",
+                    firebaseUser.displayName ?: ""
                 )
                 
                 if (billingManager.isPremium.value) {
@@ -85,14 +82,7 @@ class AuthRepositoryImpl @Inject constructor(
             val name = authManager.getUserName()
             val email = authManager.getEmail()
             if (userId != null && name != null && email != null) {
-                _currentUser.value = User(
-                    uid = userId, 
-                    email = email, 
-                    displayName = name,
-                    workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime(),
-                    notes = authManager.getNotes()
-                )
+                _currentUser.value = buildUser(userId, email, name)
             } else {
                 _currentUser.value = null
             }
@@ -102,18 +92,12 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun login(email: String, password: String): Result<User, DomainError> {
+        var firebaseError: Exception? = null
         try {
             val result = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = result.user
             if (user != null) {
-                val domainUser = User(
-                    uid = user.uid,
-                    email = user.email ?: "",
-                    displayName = user.displayName ?: "",
-                    workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime(),
-                    notes = authManager.getNotes()
-                )
+                val domainUser = buildUser(user.uid, user.email ?: "", user.displayName ?: "")
                 _currentUser.value = domainUser
                 
                 // Save locally for offline fallback
@@ -131,7 +115,15 @@ class AuthRepositoryImpl @Inject constructor(
                 
                 return Result.Success(domainUser)
             }
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
+            // Firebase explicitly rejected the credentials — do NOT fall through to local
+            return Result.Error(DomainError.InvalidCredentials)
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidUserException) {
+            // User account disabled or deleted in Firebase — do NOT fall through
+            return Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
+            // Network error or other transient failure — try local fallback
+            firebaseError = e
         }
 
         return try {
@@ -142,14 +134,7 @@ class AuthRepositoryImpl @Inject constructor(
                 val userId = authManager.getUserId() ?: return Result.Error(DomainError.UserNotFound)
                 val name = authManager.getUserName() ?: return Result.Error(DomainError.UserNotFound)
                 
-                val user = User(
-                    uid = userId, 
-                    email = email, 
-                    displayName = name,
-                    workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime(),
-                    notes = authManager.getNotes()
-                )
+                val user = buildUser(userId, email, name)
                 _currentUser.value = user
                 Result.Success(user)
             } else {
@@ -177,24 +162,18 @@ class AuthRepositoryImpl @Inject constructor(
                     .build()
                 firebaseUser.updateProfile(profileUpdates).await()
                 
-                // 3. Save locally as fallback/offline with Firebase UID
+                // Save locally as fallback/offline with Firebase UID
                 authManager.saveCredentials(email, password, name, firebaseUser.uid)
                 
-                val domainUser = User(
-                    uid = firebaseUser.uid,
-                    email = firebaseUser.email ?: "",
-                    displayName = name,
-                    workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime(),
-                    notes = authManager.getNotes()
-                )
+                val domainUser = buildUser(firebaseUser.uid, firebaseUser.email ?: "", name)
                 _currentUser.value = domainUser
                 Result.Success(domainUser)
             } else {
                 Result.Error(DomainError.Unknown)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
-            login(email, password)
+            // Explicit error: do NOT silently login
+            Result.Error(DomainError.UserAlreadyExists)
         } catch (e: Exception) {
             Result.Error(DomainError.Unknown)
         }
@@ -284,23 +263,31 @@ class AuthRepositoryImpl @Inject constructor(
                     .build()
                 user.updateProfile(profileUpdates).await()
                 
-                val domainUser = User(
-                    uid = user.uid, 
-                    email = user.email ?: "", 
-                    displayName = name,
-                    workingStartTime = authManager.getWorkingStartTime(),
-                    workingEndTime = authManager.getWorkingEndTime(),
-                    notes = authManager.getNotes()
-                )
+                val domainUser = buildUser(user.uid, user.email ?: "", name)
                 _currentUser.value = domainUser
                 Result.Success(domainUser)
             } else {
                 Result.Error(DomainError.Unknown)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
-            login(email, password)
+            Result.Error(DomainError.UserAlreadyExists)
         } catch (e: Exception) {
             Result.Error(DomainError.Unknown)
         }
+    }
+
+    /**
+     * Single factory for constructing [User] from auth manager state.
+     * Eliminates 6× duplication of User construction.
+     */
+    private fun buildUser(uid: String, email: String, displayName: String): User {
+        return User(
+            uid = uid,
+            email = email,
+            displayName = displayName,
+            workingStartTime = authManager.getWorkingStartTime(),
+            workingEndTime = authManager.getWorkingEndTime(),
+            notes = authManager.getNotes()
+        )
     }
 }

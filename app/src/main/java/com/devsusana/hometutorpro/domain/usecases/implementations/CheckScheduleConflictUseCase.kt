@@ -19,10 +19,10 @@ class CheckScheduleConflictUseCase @Inject constructor() : ICheckScheduleConflic
 
     private fun areTimesOverlapping(start1: String, end1: String, start2: String, end2: String): Boolean {
         return try {
-            val s1 = parseTime(start1)
-            val e1 = parseTime(end1)
-            val s2 = parseTime(start2)
-            val e2 = parseTime(end2)
+            val s1 = timeToMinutes(start1)
+            val e1 = timeToMinutes(end1)
+            val s2 = timeToMinutes(start2)
+            val e2 = timeToMinutes(end2)
             
             max(s1, s2) < min(e1, e2)
         } catch (e: Exception) {
@@ -30,7 +30,8 @@ class CheckScheduleConflictUseCase @Inject constructor() : ICheckScheduleConflic
         }
     }
 
-    private fun parseTime(time: String): Int {
-        return time.replace(":", "").toInt()
+    private fun timeToMinutes(time: String): Int {
+        val parts = time.split(":")
+        return parts[0].toInt() * 60 + parts[1].toInt()
     }
 }

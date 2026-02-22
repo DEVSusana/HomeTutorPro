@@ -9,6 +9,7 @@ import java.util.UUID
 data class SharedResource(
     val id: String = UUID.randomUUID().toString(),
     val studentId: String,
+    val professorId: String = "",
     val fileName: String,
     val fileType: String, // "pdf", "image", "document", "text", etc.
     val fileSizeBytes: Long,

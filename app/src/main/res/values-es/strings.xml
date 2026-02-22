@@ -388,7 +388,7 @@
     <string name="schedule_exception_reason_optional">Motivo (opcional)</string>
     <string name="schedule_exception_save">Guardar</string>
     <string name="schedule_exception_remove">Eliminar excepción</string>
-    <string name="schedule_exception_cancel_button">Cancelar</string>
+    <string name="schedule_exception_cancel_button">Cerrar</string>
 
     <!-- Payment Dialog -->
     <string name="payment_error_invalid_amount">Cantidad inválida</string>
@@ -485,6 +485,9 @@
     <string name="notification_permission_title">Permiso de Notificaciones</string>
     <string name="notification_permission_desc">Permite notificaciones para recibir alarmas de fin de clase con sonido</string>
     <string name="notification_exact_alarm_permission">La aplicación necesita permiso para programar alarmas exactas para las clases. Por favor, actívalo en los ajustes del sistema.</string>
+    <string name="permission_alarm_title">Alarmas exactas</string>
+    <string name="permission_alarm_description">Para notificarte cuando finalice la clase, HomeTutorPro necesita permiso para programar alarmas exactas. Por favor activalas en la siguiente pantalla</string>
+    <string name="permission_button_settings">Abrir ajustes</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_schedule">Horario</string>
@@ -500,4 +503,13 @@
     <string name="weekly_schedule_free_day">¡Día Libre!</string>
     <string name="weekly_schedule_enjoy_free_time">¡Disfruta de tu tiempo libre!</string>
     <string name="weekly_schedule_free_slot">Libre</string>
+
+    <!-- Backup & Restore -->
+    <string name="settings_backup_title">Copia de Seguridad</string>
+    <string name="settings_backup_desc">Protege tus datos ante reinstalaciones</string>
+    <string name="settings_backup_export">Exportar Copia</string>
+    <string name="settings_backup_import">Importar Copia</string>
+    <string name="settings_backup_success">¡Operación completada con éxito!</string>
+    <string name="settings_backup_error">Fallo en la operación: %s</string>
+    <string name="manage_your_students_efficiently">Gestiona tus alumnos de forma eficiente.</string>
 </resources>

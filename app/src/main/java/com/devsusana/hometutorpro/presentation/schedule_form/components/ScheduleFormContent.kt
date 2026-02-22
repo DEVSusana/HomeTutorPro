@@ -19,9 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.presentation.schedule.ScheduleFormState
+import com.devsusana.hometutorpro.presentation.components.TimePickerDialog
+import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 import com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils
 import java.time.DayOfWeek
-import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +34,31 @@ fun ScheduleFormContent(
     onSaveSchedule: () -> Unit,
     onBack: () -> Unit
 ) {
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+
+    if (showStartTimePicker) {
+        TimePickerDialog(
+            initialTime = state.schedule.startTime,
+            onDismiss = { showStartTimePicker = false },
+            onTimeSelected = {
+                onStartTimeChange(it)
+                showStartTimePicker = false
+            }
+        )
+    }
+
+    if (showEndTimePicker) {
+        TimePickerDialog(
+            initialTime = state.schedule.endTime,
+            onDismiss = { showEndTimePicker = false },
+            onTimeSelected = {
+                onEndTimeChange(it)
+                showEndTimePicker = false
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,7 +114,7 @@ fun ScheduleFormContent(
                             expanded = expanded,
                             onDismissRequest = { expanded = false }
                         ) {
-                            DayOfWeek.entries.forEach { day ->
+                            DayOfWeek.values().forEach { day ->
                                 DropdownMenuItem(
                                     text = { Text(DayOfWeekUtils.getLocalizedName(day)) },
                                     onClick = {
@@ -105,13 +131,24 @@ fun ScheduleFormContent(
                     // Start Time
                     OutlinedTextField(
                         value = state.schedule.startTime,
-                        onValueChange = { onStartTimeChange(it) },
+                        onValueChange = { },
+                        readOnly = true,
                         label = { Text(stringResource(R.string.start_time)) },
                         leadingIcon = { Icon(Icons.Default.AccessTime, contentDescription = stringResource(R.string.cd_time_icon)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("start_time_field"),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            .also { interactionSource ->
+                                LaunchedEffect(interactionSource) {
+                                    interactionSource.interactions.collect {
+                                        if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                                            showStartTimePicker = true
+                                        }
+                                    }
+                                }
+                            }
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -119,13 +156,24 @@ fun ScheduleFormContent(
                     // End Time
                     OutlinedTextField(
                         value = state.schedule.endTime,
-                        onValueChange = { onEndTimeChange(it) },
+                        onValueChange = { },
+                        readOnly = true,
                         label = { Text(stringResource(R.string.end_time)) },
                         leadingIcon = { Icon(Icons.Default.AccessTime, contentDescription = stringResource(R.string.cd_time_icon)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("end_time_field"),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            .also { interactionSource ->
+                                LaunchedEffect(interactionSource) {
+                                    interactionSource.interactions.collect {
+                                        if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                                            showEndTimePicker = true
+                                        }
+                                    }
+                                }
+                            }
                     )
 
                     Spacer(modifier = Modifier.height(32.dp))

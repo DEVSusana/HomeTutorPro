@@ -1,6 +1,7 @@
 package com.devsusana.hometutorpro.data.util
 
 import com.devsusana.hometutorpro.data.local.dao.StudentDao
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
@@ -9,14 +10,16 @@ import javax.inject.Inject
  * This can happen if sync runs multiple times or if there were issues with cloudId matching.
  */
 class DuplicateCleanupUtil @Inject constructor(
-    private val studentDao: StudentDao
+    private val studentDao: StudentDao,
+    private val auth: FirebaseAuth
 ) {
     /**
      * Removes duplicate students keeping only the one with the most recent lastModifiedTimestamp.
      * Duplicates are identified by having the same cloudId.
      */
     suspend fun removeDuplicateStudents() {
-        val allStudents = studentDao.getAllStudents().first()
+        val professorId = auth.currentUser?.uid ?: return
+        val allStudents = studentDao.getAllStudents(professorId).first()
         
         // Group by cloudId
         val grouped = allStudents.groupBy { it.cloudId }
@@ -40,7 +43,8 @@ class DuplicateCleanupUtil @Inject constructor(
      * This handles cases where local-only students might have been duplicated.
      */
     suspend fun removeLocalDuplicates() {
-        val allStudents = studentDao.getAllStudents().first()
+        val professorId = auth.currentUser?.uid ?: return
+        val allStudents = studentDao.getAllStudents(professorId).first()
         
         // Group by name (case-insensitive)
         val grouped = allStudents.groupBy { it.name.trim().lowercase() }

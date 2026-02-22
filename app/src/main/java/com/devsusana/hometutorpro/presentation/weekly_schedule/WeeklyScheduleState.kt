@@ -1,23 +1,31 @@
 package com.devsusana.hometutorpro.presentation.weekly_schedule
 
 import com.devsusana.hometutorpro.domain.entities.Schedule
-import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.entities.ScheduleException
+import com.devsusana.hometutorpro.domain.entities.CalendarOccurrence
 import java.time.DayOfWeek
+import androidx.compose.runtime.Immutable
 
+@Immutable
 sealed class WeeklyScheduleItem {
     abstract val startTime: String
     abstract val endTime: String
     abstract val date: java.time.LocalDate
 
     data class Regular(
-        val schedule: Schedule,
-        val student: Student,
-        val exception: ScheduleException? = null,
-        override val date: java.time.LocalDate
+        val occurrence: CalendarOccurrence
     ) : WeeklyScheduleItem() {
-        override val startTime: String = exception?.newStartTime?.takeIf { it.isNotEmpty() } ?: schedule.startTime
-        override val endTime: String = exception?.newEndTime?.takeIf { it.isNotEmpty() } ?: schedule.endTime
+        val schedule: Schedule get() = occurrence.schedule
+        val student: StudentSummary get() = occurrence.student
+        val exception: ScheduleException? get() = occurrence.exception
+        override val date: java.time.LocalDate get() = occurrence.date
+        override val startTime: String get() = occurrence.startTime
+        override val endTime: String get() = occurrence.endTime
+        
+        // Secondary constructor for backward compatibility during refactor
+        constructor(schedule: Schedule, student: StudentSummary, exception: ScheduleException? = null, date: java.time.LocalDate) 
+            : this(CalendarOccurrence(schedule, student, exception, date))
     }
 
     data class FreeSlot(
@@ -27,6 +35,7 @@ sealed class WeeklyScheduleItem {
     ) : WeeklyScheduleItem()
 }
 
+@Immutable
 data class WeeklyScheduleState(
     val schedulesByDay: Map<DayOfWeek, List<WeeklyScheduleItem>> = emptyMap(),
     val isLoading: Boolean = false,
@@ -36,6 +45,5 @@ data class WeeklyScheduleState(
     val successMessage: String? = null,
     val errorMessage: String? = null,
     val showExtraClassDialog: Boolean = false,
-    val selectedStudentIdForExtraClass: String? = null,
-    val permissionNeeded: Boolean = false
+    val selectedStudentIdForExtraClass: String? = null
 )

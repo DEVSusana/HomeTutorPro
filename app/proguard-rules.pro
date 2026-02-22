@@ -29,6 +29,24 @@
 }
 
 # ============================================================================
+# SECURITY HARDENING: Ofuscación agresiva de lógica crítica
+# ============================================================================
+
+# Renombrar todo lo que no sea estrictamente necesario para Hilt o Room
+-keep class com.devsusana.hometutorpro.core.auth.SecureAuthManager { 
+    public <init>(...);
+}
+
+-keep class com.devsusana.hometutorpro.data.billing.** { 
+    public <init>(...);
+}
+
+# Evitar que Frida encuentre fácilmente los métodos de validación
+-keepclassmembers class * {
+    @androidx.annotation.Keep <methods>;
+}
+
+# ============================================================================
 # Firebase
 # ============================================================================
 

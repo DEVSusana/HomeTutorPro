@@ -3,22 +3,28 @@ package com.devsusana.hometutorpro.data.local.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Room entity for Student.
  * Unified version with sync fields for offline-first architecture.
  */
+@Serializable
 @Entity(
     tableName = "students",
     indices = [
         Index(value = ["name"]),
         Index(value = ["cloudId"], unique = true),
-        Index(value = ["syncStatus"])
+        Index(value = ["syncStatus"]),
+        Index(value = ["professorId"])
     ]
 )
 data class StudentEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    
+    // Multi-user security
+    val professorId: String,
     
     // Firestore document ID (null for new local-only entities)
     val cloudId: String? = null,

@@ -83,11 +83,12 @@ class ResourceViewModelTest {
         val uri = mockk<Uri>()
         val uriString = "content://test/file"
         val resourceName = "Test File"
+        val fileType = "pdf"
 
         every { uri.toString() } returns uriString
         every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
         every { getResourcesUseCase(userId) } returns flowOf(emptyList())
-        coEvery { uploadResourceUseCase(userId, resourceName, uriString) } returns Result.Success(Unit)
+        coEvery { uploadResourceUseCase(userId, resourceName, fileType, uriString) } returns Result.Success(Unit)
 
         viewModel = ResourceViewModel(
             getResourcesUseCase,
@@ -98,11 +99,11 @@ class ResourceViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         // When
-        viewModel.uploadResource(uri, resourceName)
+        viewModel.uploadResource(uri, resourceName, fileType)
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        coVerify { uploadResourceUseCase(userId, resourceName, uriString) }
+        coVerify { uploadResourceUseCase(userId, resourceName, fileType, uriString) }
         assertEquals(com.devsusana.hometutorpro.R.string.resources_success_upload, viewModel.state.value.successMessage)
     }
 }

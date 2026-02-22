@@ -23,8 +23,8 @@ import java.time.DayOfWeek
 data class BulkScheduleEntry(
     val id: Int,
     val dayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
-    val startTime: String = "",
-    val endTime: String = "",
+    val startTime: String = "09:00",
+    val endTime: String = "10:00",
     val error: String? = null
 )
 
@@ -180,7 +180,7 @@ private fun ScheduleEntryCard(
     
     if (showStartTimePicker) {
         com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
-            initialTime = schedule.startTime.ifEmpty { "09:00" },
+            initialTime = schedule.startTime,
             onDismiss = { showStartTimePicker = false },
             onTimeSelected = { 
                 onScheduleChange(schedule.copy(startTime = it))
@@ -191,7 +191,7 @@ private fun ScheduleEntryCard(
     
     if (showEndTimePicker) {
         com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
-            initialTime = schedule.endTime.ifEmpty { "10:00" },
+            initialTime = schedule.endTime,
             onDismiss = { showEndTimePicker = false },
             onTimeSelected = { 
                 onScheduleChange(schedule.copy(endTime = it))
@@ -297,7 +297,7 @@ private fun ScheduleEntryCard(
                     ) {
                         Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(schedule.startTime.ifEmpty { stringResource(R.string.start_time_placeholder) })
+                        Text(schedule.startTime)
                     }
                  }
 
@@ -317,7 +317,7 @@ private fun ScheduleEntryCard(
                     ) {
                         Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(schedule.endTime.ifEmpty { stringResource(R.string.end_time_placeholder) })
+                        Text(schedule.endTime)
                     }
                 }
             }

@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.presentation.register
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.domain.core.AuthValidator
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.IRegisterUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,13 +55,12 @@ class RegisterViewModel @Inject constructor(
             return
         }
 
-        val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$".toRegex()
-        if (!emailRegex.matches(email)) {
+        if (!AuthValidator.isValidEmail(email)) {
             _state.update { it.copy(error = R.string.register_error_invalid_email, errorMessage = R.string.register_error_invalid_email) }
             return
         }
 
-        if (password.length < 6) {
+        if (!AuthValidator.isValidPassword(password)) {
             _state.update { it.copy(error = R.string.register_error_short_password, errorMessage = R.string.register_error_short_password) }
             return
         }

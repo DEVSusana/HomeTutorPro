@@ -33,7 +33,7 @@ class LoginUseCaseTest {
     fun `invoke returns Error when repository login fails`() = runTest {
         val email = "test@example.com"
         val password = "wrong"
-        val error = DomainError.UnknownError
+        val error = DomainError.Unknown
         coEvery { repository.login(email, password) } returns Result.Error(error)
 
         val result = loginUseCase(email, password)

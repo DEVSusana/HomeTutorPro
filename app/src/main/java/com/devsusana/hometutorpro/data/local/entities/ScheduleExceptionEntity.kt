@@ -4,11 +4,13 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Room entity for ScheduleException in premium flavor.
  * Includes sync fields for offline-first architecture.
  */
+@Serializable
 @Entity(
     tableName = "schedule_exceptions",
     foreignKeys = [
@@ -23,12 +25,16 @@ import androidx.room.PrimaryKey
         Index(value = ["studentId"]),
         Index(value = ["exceptionDate"]),
         Index(value = ["cloudId"]),
-        Index(value = ["syncStatus"])
+        Index(value = ["syncStatus"]),
+        Index(value = ["professorId"])
     ]
 )
 data class ScheduleExceptionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    
+    // Multi-user security
+    val professorId: String,
     
     // Firestore document ID
     val cloudId: String? = null,

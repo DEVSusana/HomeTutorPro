@@ -27,10 +27,8 @@ class SaveScheduleUseCaseTest {
         val professorId = "prof1"
         val studentId = "student1"
         val schedule = Schedule(id = "1", studentId = studentId, dayOfWeek = DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00")
-        val student = Student(id = studentId, name = "Student 1", professorId = professorId)
 
-        every { repository.getStudents(professorId) } returns flowOf(listOf(student))
-        every { repository.getSchedules(professorId, studentId) } returns flowOf(emptyList())
+        coEvery { repository.getConflictingSchedule(any(), any(), any(), any()) } returns null
         coEvery { repository.saveSchedule(professorId, studentId, schedule) } returns Result.Success(Unit)
 
         // When
@@ -47,17 +45,17 @@ class SaveScheduleUseCaseTest {
         val professorId = "prof1"
         val studentId = "student1"
         val schedule = Schedule(id = "2", studentId = studentId, dayOfWeek = DayOfWeek.MONDAY, startTime = "10:30", endTime = "11:30")
-        val existingSchedule = Schedule(id = "1", studentId = studentId, dayOfWeek = DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00")
-        val student = Student(id = studentId, name = "Student 1", professorId = professorId)
+        val conflictingSchedule = Schedule(id = "1", studentId = "other", dayOfWeek = DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00", studentName = "Conflict")
 
-        every { repository.getStudents(professorId) } returns flowOf(listOf(student))
-        every { repository.getSchedules(professorId, studentId) } returns flowOf(listOf(existingSchedule))
+        coEvery { repository.getConflictingSchedule(schedule.dayOfWeek.value, schedule.startTime, schedule.endTime, schedule.id) } returns conflictingSchedule
 
         // When
         val result = useCase(professorId, studentId, schedule)
 
         // Then
         assertTrue(result is Result.Error)
-        assertTrue((result as Result.Error).error is DomainError.ConflictingStudent)
+        val error = (result as Result.Error).error
+        assertTrue(error is DomainError.ConflictingStudent)
+        assertTrue((error as DomainError.ConflictingStudent).studentName == "Conflict")
     }
 }

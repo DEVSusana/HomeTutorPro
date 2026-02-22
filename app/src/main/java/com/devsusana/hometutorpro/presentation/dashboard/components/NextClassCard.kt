@@ -31,7 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.devsusana.hometutorpro.presentation.utils.ColorUtils
 import com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils
 import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleItem
-import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.entities.Schedule
 import java.time.DayOfWeek
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
@@ -131,10 +131,15 @@ fun NextClassCard(
 @Preview(showBackground = true)
 @Composable
 fun NextClassCardPreview() {
-    val mockStudent = Student(
+    val mockStudent = StudentSummary(
         id = "1",
         name = "Maria Garcia",
-        course = "Mathematics"
+        subjects = "Mathematics",
+        color = null,
+        pendingBalance = 0.0,
+        pricePerHour = 20.0,
+        isActive = true,
+        lastClassDate = null
     )
     val mockSchedule = Schedule(
         studentId = "1",
