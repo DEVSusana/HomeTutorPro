@@ -6,6 +6,7 @@ import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.repository.ScheduleExceptionRepository
 import com.devsusana.hometutorpro.domain.repository.StudentRepository
 import com.devsusana.hometutorpro.domain.usecases.implementations.SaveScheduleExceptionUseCase
@@ -44,9 +45,9 @@ class SaveScheduleExceptionUseCaseTest {
             newEndTime = "13:00"
         )
         
-        val student = Student(id = studentId, name = "Student 1", professorId = professorId)
+        val studentSummary = StudentSummary(id = studentId, name = "Student 1", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
 
-        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(student))
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
         every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(emptyList())
         coEvery { repository.saveException(professorId, studentId, exception) } returns Result.Success(Unit)
 
@@ -75,10 +76,10 @@ class SaveScheduleExceptionUseCaseTest {
             newEndTime = "11:30"
         )
         
-        val student = Student(id = studentId, name = "Student 1", professorId = professorId)
+        val studentSummary = StudentSummary(id = studentId, name = "Student 1", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
         val existingSchedule = Schedule(id = "s2", studentId = studentId, dayOfWeek = DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00")
 
-        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(student))
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
         every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(listOf(existingSchedule))
 
         // When

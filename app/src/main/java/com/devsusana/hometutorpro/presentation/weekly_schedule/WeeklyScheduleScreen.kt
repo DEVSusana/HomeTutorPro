@@ -208,7 +208,7 @@ fun WeeklyScheduleScreen(
             if (state.showExtraClassDialog) {
                 com.devsusana.hometutorpro.presentation.student_detail.components.AddExtraClassDialog(
                     onDismiss = viewModel::closeAddExtraClassDialog,
-                    onConfirm = viewModel::saveExtraClass
+                    onConfirm = { date, start, end, dayOfWeek -> viewModel.saveExtraClass(date, start, end, dayOfWeek) }
                 )
             }
         }

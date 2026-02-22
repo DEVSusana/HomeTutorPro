@@ -33,6 +33,7 @@ import androidx.core.content.ContextCompat
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.core.settings.SettingsManager
 import com.devsusana.hometutorpro.data.util.DuplicateCleanupUtil
+import com.devsusana.hometutorpro.domain.usecases.implementations.RescueOrphanedDataUseCase
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
 import javax.inject.Inject
 
@@ -44,6 +45,9 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var duplicateCleanupUtil: DuplicateCleanupUtil
+    
+    @Inject
+    lateinit var rescueOrphanedDataUseCase: RescueOrphanedDataUseCase
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LocaleHelper.onAttach(newBase))
@@ -63,6 +67,10 @@ class MainActivity : ComponentActivity() {
         // Clean up any duplicate students on app startup
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                // 1. Recover data lost in Migration 7->8
+                rescueOrphanedDataUseCase()
+                
+                // 2. Regular cleanup
                 duplicateCleanupUtil.removeDuplicateStudents()
                 duplicateCleanupUtil.removeLocalDuplicates()
             } catch (e: Exception) {

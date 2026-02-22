@@ -304,12 +304,17 @@ class WeeklyScheduleViewModel @Inject constructor(
         }
     }
 
-    fun saveExtraClass(date: Long, startTime: String, endTime: String) {
+    fun saveExtraClass(date: Long, startTime: String, endTime: String, dayOfWeek: DayOfWeek) {
         viewModelScope.launch {
              val uid = getCurrentUserUseCase().value?.uid ?: return@launch
              val studentId = _state.value.selectedStudentIdForExtraClass ?: return@launch
              
              _state.update { it.copy(isLoading = true) }
+
+             // Calculate DayOfWeek from date to ensure visibility
+             val localDate = java.time.Instant.ofEpochMilli(date)
+                 .atZone(ZoneId.systemDefault())
+                 .toLocalDate()
 
              val extraClass = com.devsusana.hometutorpro.domain.entities.ScheduleException(
                  id = java.util.UUID.randomUUID().toString(),
@@ -319,6 +324,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                  originalScheduleId = ScheduleType.EXTRA_ID, // Marker for extra class
                  newStartTime = startTime,
                  newEndTime = endTime,
+                 newDayOfWeek = dayOfWeek, // Explicitly set day of week
                  reason = "Extra Class"
              )
 

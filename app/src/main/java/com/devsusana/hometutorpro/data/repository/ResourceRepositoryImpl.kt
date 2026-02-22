@@ -48,6 +48,7 @@ class ResourceRepositoryImpl @Inject constructor(
     override suspend fun uploadResource(
         professorId: String,
         name: String,
+        fileType: String,
         fileUri: String
     ): Result<Unit, DomainError> {
         return withContext(Dispatchers.IO) {
@@ -72,7 +73,7 @@ class ResourceRepositoryImpl @Inject constructor(
                     professorId = professorId,
                     name = name,
                     localFilePath = file.absolutePath,
-                    fileType = contentResolver.getType(uri) ?: "application/octet-stream",
+                    fileType = fileType,
                     uploadDate = System.currentTimeMillis(),
                     syncStatus = SyncStatus.PENDING_UPLOAD,
                     cloudId = null,

@@ -232,9 +232,9 @@ fun DashboardScreen(
                 showExtraClassDialog = false
                 studentIdForExtraClass = null
             },
-            onConfirm = { dateMillis, startStr, endStr ->
+            onConfirm = { dateMillis, startStr, endStr, dayOfWeek ->
                 studentIdForExtraClass?.let { studentId ->
-                    viewModel.addExtraClass(studentId, dateMillis, startStr, endStr)
+                    viewModel.addExtraClass(studentId, dateMillis, startStr, endStr, dayOfWeek)
                 }
                 showExtraClassDialog = false
                 studentIdForExtraClass = null

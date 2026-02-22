@@ -157,7 +157,7 @@ fun StudentDetailContent(
     if (state.showExtraClassDialog) {
         AddExtraClassDialog(
             onDismiss = { onEvent(StudentDetailEvent.HideExtraClassDialog) },
-            onConfirm = { date, start, end -> onEvent(StudentDetailEvent.SaveExtraClass(date, start, end)) }
+            onConfirm = { date, start, end, dayOfWeek -> onEvent(StudentDetailEvent.SaveExtraClass(date, start, end, dayOfWeek)) }
         )
     }
 

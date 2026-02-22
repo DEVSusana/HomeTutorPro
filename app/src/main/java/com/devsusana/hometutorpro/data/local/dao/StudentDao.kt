@@ -78,4 +78,7 @@ interface StudentDao {
 
     @Query("DELETE FROM students WHERE professorId = :professorId")
     suspend fun deleteAllStudents(professorId: String)
+
+    @Query("UPDATE students SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
+    suspend fun assignOrphanedDataToProfessor(professorId: String)
 }

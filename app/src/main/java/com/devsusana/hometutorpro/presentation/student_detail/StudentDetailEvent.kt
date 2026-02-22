@@ -6,6 +6,7 @@ import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.domain.entities.ShareMethod
 import com.devsusana.hometutorpro.domain.entities.Student
 import com.devsusana.hometutorpro.presentation.student_detail.components.BulkScheduleEntry
+import java.time.DayOfWeek
 
 sealed interface StudentDetailEvent {
     data class StudentChange(val student: Student) : StudentDetailEvent
@@ -39,5 +40,5 @@ sealed interface StudentDetailEvent {
     
     data object ShowExtraClassDialog : StudentDetailEvent
     data object HideExtraClassDialog : StudentDetailEvent
-    data class SaveExtraClass(val date: Long, val startTime: String, val endTime: String) : StudentDetailEvent
+    data class SaveExtraClass(val date: Long, val startTime: String, val endTime: String, val dayOfWeek: DayOfWeek) : StudentDetailEvent
 }

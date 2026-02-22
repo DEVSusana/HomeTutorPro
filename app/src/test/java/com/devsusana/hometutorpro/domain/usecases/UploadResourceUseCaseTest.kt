@@ -21,13 +21,14 @@ class UploadResourceUseCaseTest {
         val professorId = "prof1"
         val name = "Resource 1"
         val uri = "content://file"
-        coEvery { repository.uploadResource(professorId, name, uri) } returns Result.Success(Unit)
+        val fileType = "pdf"
+        coEvery { repository.uploadResource(professorId, name, fileType, uri) } returns Result.Success(Unit)
 
         // When
-        val result = useCase(professorId, name, uri)
+        val result = useCase(professorId, name, fileType, uri)
 
         // Then
         assertTrue(result is Result.Success)
-        coVerify { repository.uploadResource(professorId, name, uri) }
+        coVerify { repository.uploadResource(professorId, name, fileType, uri) }
     }
 }

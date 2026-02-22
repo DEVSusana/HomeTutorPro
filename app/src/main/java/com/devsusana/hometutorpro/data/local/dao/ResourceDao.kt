@@ -54,4 +54,7 @@ interface ResourceDao {
 
     @Query("DELETE FROM resources WHERE professorId = :professorId")
     suspend fun deleteAllResources(professorId: String)
+
+    @Query("UPDATE resources SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
+    suspend fun assignOrphanedDataToProfessor(professorId: String)
 }

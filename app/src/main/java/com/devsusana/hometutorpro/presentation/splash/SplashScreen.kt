@@ -64,14 +64,14 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "HomeTutorPro",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Manage your students efficiently",
+                text = stringResource(R.string.manage_your_students_efficiently),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

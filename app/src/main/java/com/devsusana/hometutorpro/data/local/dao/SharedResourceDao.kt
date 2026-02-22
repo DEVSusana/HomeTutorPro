@@ -53,4 +53,7 @@ interface SharedResourceDao {
 
     @Query("DELETE FROM shared_resources WHERE pendingDelete = 1 AND syncStatus = :syncStatus AND professorId = :professorId")
     suspend fun deleteSyncedPendingDeletes(professorId: String, syncStatus: SyncStatus = SyncStatus.SYNCED)
+
+    @Query("UPDATE shared_resources SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
+    suspend fun assignOrphanedDataToProfessor(professorId: String)
 }
