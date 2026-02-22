@@ -485,6 +485,9 @@
     <string name="notification_permission_title">Permiso de Notificaciones</string>
     <string name="notification_permission_desc">Permite notificaciones para recibir alarmas de fin de clase con sonido</string>
     <string name="notification_exact_alarm_permission">La aplicación necesita permiso para programar alarmas exactas para las clases. Por favor, actívalo en los ajustes del sistema.</string>
+    <string name="permission_alarm_title">Alarmas exactas</string>
+    <string name="permission_alarm_description">Para notificarte cuando finalice la clase, HomeTutorPro necesita permiso para programar alarmas exactas. Por favor activalas en la siguiente pantalla</string>
+    <string name="permission_button_settings">Abrir ajustes</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_schedule">Horario</string>
@@ -508,4 +511,5 @@
     <string name="settings_backup_import">Importar Copia</string>
     <string name="settings_backup_success">¡Operación completada con éxito!</string>
     <string name="settings_backup_error">Fallo en la operación: %s</string>
+    <string name="manage_your_students_efficiently">Gestiona tus alumnos de forma eficiente.</string>
 </resources>

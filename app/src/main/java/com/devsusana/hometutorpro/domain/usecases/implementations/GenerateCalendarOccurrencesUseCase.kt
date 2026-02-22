@@ -58,20 +58,25 @@ class GenerateCalendarOccurrencesUseCase @Inject constructor() : IGenerateCalend
             }
         }
 
-        // 2. Add extra classes (standalone exceptions)
-        exceptions.filter { it.type == ExceptionType.EXTRA && it.originalScheduleId == ScheduleType.EXTRA_ID }.forEach { extraException ->
-            val student = students.find { it.id == extraException.studentId }
+        // 2. Add extra classes and rescheduled classes (standalone exceptions)
+        exceptions.filter { 
+            (it.type == ExceptionType.EXTRA && it.originalScheduleId == ScheduleType.EXTRA_ID) ||
+            (it.type == ExceptionType.RESCHEDULED && it.newStartTime.isNotEmpty() && it.newEndTime.isNotEmpty())
+        }.forEach { exception ->
+            val student = students.find { it.id == exception.studentId }
             if (student != null && student.isActive) {
-                val extraDate = Instant.ofEpochMilli(extraException.date).atZone(ZoneId.systemDefault()).toLocalDate()
-                if (!extraDate.isBefore(startDate) && !extraDate.isAfter(endDate)) {
+                // Ensure date conversion is consistent with saving logic
+                val excDate = Instant.ofEpochMilli(exception.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                
+                if (!excDate.isBefore(startDate) && !excDate.isAfter(endDate)) {
                     val dummySchedule = Schedule(
-                        id = "${ScheduleType.EXTRA_ID}_${extraException.id}",
+                        id = if (exception.type == ExceptionType.EXTRA) "${ScheduleType.EXTRA_ID}_${exception.id}" else "RESCHEDULED_${exception.id}",
                         studentId = student.id,
-                        dayOfWeek = extraDate.dayOfWeek,
-                        startTime = extraException.newStartTime,
-                        endTime = extraException.newEndTime
+                        dayOfWeek = exception.newDayOfWeek ?: excDate.dayOfWeek, // Prefer explicitly saved day
+                        startTime = exception.newStartTime,
+                        endTime = exception.newEndTime
                     )
-                    allOccurrences.add(CalendarOccurrence(dummySchedule, student, extraException, extraDate))
+                    allOccurrences.add(CalendarOccurrence(dummySchedule, student, exception, excDate))
                 }
             }
         }

@@ -9,7 +9,7 @@ import javax.inject.Inject
 
 class UploadResourceUseCase @Inject constructor(private val repository: ResourceRepository) :
     IUploadResourceUseCase {
-    override suspend operator fun invoke(professorId: String, name: String, fileUri: String): Result<Unit, DomainError> {
-        return repository.uploadResource(professorId, name, fileUri)
+    override suspend operator fun invoke(professorId: String, name: String, fileType: String, fileUri: String): Result<Unit, DomainError> {
+        return repository.uploadResource(professorId, name, fileType, fileUri)
     }
 }

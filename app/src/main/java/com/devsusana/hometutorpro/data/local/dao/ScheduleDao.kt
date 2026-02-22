@@ -112,4 +112,7 @@ interface ScheduleDao {
 
     @Query("DELETE FROM schedules WHERE professorId = :professorId")
     suspend fun deleteAllSchedules(professorId: String)
+
+    @Query("UPDATE schedules SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
+    suspend fun assignOrphanedDataToProfessor(professorId: String)
 }

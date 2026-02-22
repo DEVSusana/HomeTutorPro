@@ -269,7 +269,7 @@ class DashboardViewModel @Inject constructor(
     }
 
     
-    fun addExtraClass(studentId: String, dateMillis: Long, startTime: String, endTime: String) {
+    fun addExtraClass(studentId: String, dateMillis: Long, startTime: String, endTime: String, dayOfWeek: DayOfWeek) {
         viewModelScope.launch {
             val uid = getCurrentUserUseCase().value?.uid ?: return@launch
             _state.update { it.copy(isLoading = true) }
@@ -298,6 +298,7 @@ class DashboardViewModel @Inject constructor(
                     originalScheduleId = ScheduleType.EXTRA_ID,
                     newStartTime = startTime,
                     newEndTime = endTime,
+                    newDayOfWeek = dayOfWeek,
                     reason = "Extra Class"
                 )
 

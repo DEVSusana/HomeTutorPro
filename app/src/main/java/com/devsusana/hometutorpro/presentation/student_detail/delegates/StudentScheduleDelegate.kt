@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.util.UUID
+import java.time.DayOfWeek
 import javax.inject.Inject
 
 class StudentScheduleDelegate @Inject constructor(
@@ -195,20 +196,27 @@ class StudentScheduleDelegate @Inject constructor(
         date: Long,
         startTime: String,
         endTime: String,
+        dayOfWeek: DayOfWeek,
         state: MutableStateFlow<StudentDetailState>,
         scope: CoroutineScope
     ) {
         scope.launch {
             state.value = state.value.copy(isLoading = true)
 
+            // Ensure date is handled correctly with timezone
+            val localDate = java.time.Instant.ofEpochMilli(date)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate()
+
             val extraClass = ScheduleException(
                 id = UUID.randomUUID().toString(),
                 studentId = studentId,
                 date = date,
                 type = ExceptionType.EXTRA,
-                originalScheduleId = "EXTRA",
+                originalScheduleId = com.devsusana.hometutorpro.domain.entities.ScheduleType.EXTRA_ID,
                 newStartTime = startTime,
                 newEndTime = endTime,
+                newDayOfWeek = dayOfWeek, // Explicitly set day of week
                 reason = "Extra Class"
             )
 

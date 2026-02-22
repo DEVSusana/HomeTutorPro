@@ -4,6 +4,7 @@ import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.time.DayOfWeek
 
 interface IStudentScheduleDelegate {
     fun loadSchedules(
@@ -49,6 +50,7 @@ interface IStudentScheduleDelegate {
         date: Long,
         startTime: String,
         endTime: String,
+        dayOfWeek: DayOfWeek,
         state: MutableStateFlow<StudentDetailState>,
         scope: CoroutineScope
     )

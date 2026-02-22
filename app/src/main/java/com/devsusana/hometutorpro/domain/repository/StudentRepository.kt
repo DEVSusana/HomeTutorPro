@@ -34,4 +34,6 @@ interface StudentRepository {
     suspend fun deleteSchedule(professorId: String, studentId: String, scheduleId: String): Result<Unit, DomainError>
     suspend fun toggleScheduleCompletion(professorId: String, scheduleId: String): Result<Unit, DomainError>
     suspend fun deleteStudent(professorId: String, studentId: String): Result<Unit, DomainError>
+
+    suspend fun rescueOrphanedData(professorId: String): Result<Unit, DomainError>
 }

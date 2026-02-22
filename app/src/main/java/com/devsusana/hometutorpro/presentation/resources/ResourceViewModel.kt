@@ -53,11 +53,11 @@ class ResourceViewModel @Inject constructor(
         }
     }
 
-    fun uploadResource(uri: Uri, name: String) {
+    fun uploadResource(uri: Uri, name: String, fileType: String) {
         val uid = professorId ?: return
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
-            val result = uploadResourceUseCase(uid, name, uri.toString())
+            val result = uploadResourceUseCase(uid, name, fileType, uri.toString())
             when (result) {
                 is Result.Success -> {
                     // Reload handled by Flow

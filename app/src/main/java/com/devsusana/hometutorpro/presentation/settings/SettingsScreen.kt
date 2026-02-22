@@ -227,6 +227,7 @@ fun SettingsScreen(
                         onClick = {
                             viewModel.onLanguageChange(SettingsManager.LANGUAGE_ENGLISH)
                             LocaleHelper.setLocale(context as android.app.Activity, "en")
+                            (context as android.app.Activity).recreate()
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -243,6 +244,7 @@ fun SettingsScreen(
                         onClick = {
                             viewModel.onLanguageChange(SettingsManager.LANGUAGE_SPANISH)
                             LocaleHelper.setLocale(context as android.app.Activity, "es")
+                            (context as android.app.Activity).recreate()
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()

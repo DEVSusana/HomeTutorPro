@@ -103,7 +103,7 @@ class StudentDetailViewModel @Inject constructor(
             StudentDetailEvent.SaveBulkSchedules -> scheduleDelegate.saveBulkSchedules(student.professorId, student.id, _state, viewModelScope)
             StudentDetailEvent.ShowExtraClassDialog -> _state.value = _state.value.copy(showExtraClassDialog = true)
             StudentDetailEvent.HideExtraClassDialog -> _state.value = _state.value.copy(showExtraClassDialog = false)
-            is StudentDetailEvent.SaveExtraClass -> scheduleDelegate.saveExtraClass(student.professorId, student.id, event.date, event.startTime, event.endTime, _state, viewModelScope)
+            is StudentDetailEvent.SaveExtraClass -> scheduleDelegate.saveExtraClass(student.professorId, student.id, event.date, event.startTime, event.endTime, event.dayOfWeek, _state, viewModelScope)
         }
     }
 

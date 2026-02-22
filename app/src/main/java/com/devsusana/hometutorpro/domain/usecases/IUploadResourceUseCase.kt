@@ -4,5 +4,5 @@ import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 
 interface IUploadResourceUseCase {
-    suspend operator fun invoke(professorId: String, name: String, fileUri: String): Result<Unit, DomainError>
+    suspend operator fun invoke(professorId: String, name: String, fileType: String, fileUri: String): Result<Unit, DomainError>
 }

@@ -39,6 +39,7 @@ class StudentRepositoryImpl @Inject constructor(
     private val studentDao: StudentDao,
     private val scheduleDao: ScheduleDao,
     private val scheduleExceptionDao: ScheduleExceptionDao,
+    private val resourceDao: com.devsusana.hometutorpro.data.local.dao.ResourceDao,
     private val sharedResourceDao: SharedResourceDao,
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
@@ -233,6 +234,22 @@ class StudentRepositoryImpl @Inject constructor(
                 studentDao.markForDeletion(id, professorId)
                 
                 syncScheduler.scheduleSyncNow()
+                
+                Result.Success(Unit)
+            } catch (e: Exception) {
+                Result.Error(DomainError.Unknown)
+            }
+        }
+    }
+
+    override suspend fun rescueOrphanedData(professorId: String): Result<Unit, DomainError> {
+        return withContext(Dispatchers.IO) {
+            try {
+                studentDao.assignOrphanedDataToProfessor(professorId)
+                scheduleDao.assignOrphanedDataToProfessor(professorId)
+                scheduleExceptionDao.assignOrphanedDataToProfessor(professorId)
+                resourceDao.assignOrphanedDataToProfessor(professorId)
+                sharedResourceDao.assignOrphanedDataToProfessor(professorId)
                 
                 Result.Success(Unit)
             } catch (e: Exception) {

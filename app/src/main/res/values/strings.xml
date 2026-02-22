@@ -273,7 +273,7 @@
     <string name="cd_success_icon">Success icon</string>
     <string name="cd_error_icon">Error icon</string>
     <string name="cd_warning_icon">Warning icon</string>
-    <string name="cd_app_icon">App Icon</string>
+    <string name="cd_app_icon" translatable="false">App Icon</string>
     <string name="cd_menu">Menu</string>
     <string name="icon_warning">⚠️</string>
 
@@ -514,4 +514,5 @@
     <string name="settings_backup_import">Import Backup</string>
     <string name="settings_backup_success">Backup operation successful!</string>
     <string name="settings_backup_error">Operation failed: %s</string>
+    <string name="manage_your_students_efficiently">Manage your students efficiently</string>
 </resources>
