@@ -10,6 +10,9 @@ import javax.inject.Inject
  * Implementation of use case for retrieving shared resources.
  * Delegates to ResourceRepository.
  */
+/**
+ * Use case implementation for getsharedresources operations.
+ */
 class GetSharedResourcesUseCase @Inject constructor(
     private val resourceRepository: ResourceRepository
 ) : IGetSharedResourcesUseCase {

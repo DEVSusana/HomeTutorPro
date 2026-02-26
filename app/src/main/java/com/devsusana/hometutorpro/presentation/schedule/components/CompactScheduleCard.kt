@@ -9,6 +9,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -18,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.domain.entities.StudentSummary
+import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleItem
 import com.devsusana.hometutorpro.presentation.utils.ColorUtils
 import java.time.DayOfWeek
@@ -35,10 +41,34 @@ fun CompactScheduleCard(
         ?: ColorUtils.getStudentColor(item.student.id)
 
     val displayStartTime = item.startTime
+    val contentDescription = when {
+        isCancelled -> stringResource(
+            R.string.cd_schedule_item_cancelled,
+            item.student.name,
+            item.startTime,
+            item.endTime
+        )
+        isRescheduled -> stringResource(
+            R.string.cd_schedule_item_rescheduled,
+            item.student.name,
+            item.startTime,
+            item.endTime
+        )
+        else -> stringResource(
+            R.string.cd_schedule_item,
+            item.student.name,
+            item.startTime,
+            item.endTime
+        )
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                this.contentDescription = contentDescription
+            }
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = if (isCancelled) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) else studentColor.copy(alpha = 0.2f)

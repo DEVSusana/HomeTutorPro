@@ -1,6 +1,6 @@
 package com.devsusana.hometutorpro.domain.usecases
 
-import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.repository.StudentRepository
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetStudentsUseCase
 import io.mockk.every
@@ -22,8 +22,8 @@ class GetStudentsUseCaseTest {
         // Given
         val professorId = "prof1"
         val students = listOf(
-            Student(id = "1", name = "Student 1", professorId = professorId),
-            Student(id = "2", name = "Student 2", professorId = professorId)
+            StudentSummary(id = "1", name = "Student 1", subjects = "Math", color = null, pendingBalance = 0.0, pricePerHour = 20.0, isActive = true, lastClassDate = null),
+            StudentSummary(id = "2", name = "Student 2", subjects = "Physics", color = null, pendingBalance = 0.0, pricePerHour = 25.0, isActive = true, lastClassDate = null)
         )
         every { repository.getStudents(professorId) } returns flowOf(students)
 
@@ -45,7 +45,7 @@ class GetStudentsUseCaseTest {
         val result = useCase(professorId).first()
 
         // Then
-        assertEquals(emptyList<Student>(), result)
+        assertEquals(emptyList<StudentSummary>(), result)
         verify { repository.getStudents(professorId) }
     }
 }

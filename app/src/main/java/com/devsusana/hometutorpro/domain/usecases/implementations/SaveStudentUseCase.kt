@@ -8,6 +8,9 @@ import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
 
 import javax.inject.Inject
 
+/**
+ * Default implementation of [ISaveStudentUseCase].
+ */
 class SaveStudentUseCase @Inject constructor(private val repository: StudentRepository) :
     ISaveStudentUseCase {
     override suspend operator fun invoke(professorId: String, student: Student): Result<String, DomainError> = repository.saveStudent(professorId, student)

@@ -1,22 +1,10 @@
 package com.devsusana.hometutorpro.presentation.student_detail
 
 import androidx.lifecycle.SavedStateHandle
-import com.devsusana.hometutorpro.domain.core.Result
-import com.devsusana.hometutorpro.domain.entities.Student
-import com.devsusana.hometutorpro.domain.entities.User
-import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleUseCase
-import com.devsusana.hometutorpro.domain.usecases.IDeleteStudentUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
-import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
-import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleUseCase
-import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
-import com.devsusana.hometutorpro.domain.usecases.ISaveSharedResourceUseCase
-import com.devsusana.hometutorpro.domain.usecases.IDeleteSharedResourceUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetSchedulesUseCase
-import com.devsusana.hometutorpro.domain.usecases.IValidateStudentUseCase
-import com.devsusana.hometutorpro.domain.usecases.ICheckScheduleConflictUseCase
+import com.devsusana.hometutorpro.domain.core.*
+import com.devsusana.hometutorpro.domain.entities.*
+import com.devsusana.hometutorpro.domain.usecases.*
+import com.devsusana.hometutorpro.presentation.student_detail.delegates.*
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -45,18 +33,23 @@ class StudentDetailViewModelTest {
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
     private lateinit var saveStudentUseCase: ISaveStudentUseCase
     private lateinit var deleteStudentUseCase: IDeleteStudentUseCase
-    private lateinit var registerPaymentUseCase: IRegisterPaymentUseCase
     private lateinit var getCurrentUserUseCase: IGetCurrentUserUseCase
+    private lateinit var validateStudentUseCase: IValidateStudentUseCase
     private lateinit var saveScheduleUseCase: ISaveScheduleUseCase
+    private lateinit var getSchedulesUseCase: IGetSchedulesUseCase
     private lateinit var deleteScheduleUseCase: IDeleteScheduleUseCase
+    private lateinit var toggleScheduleCompletionUseCase: IToggleScheduleCompletionUseCase
+    private lateinit var saveBulkSchedulesUseCase: ISaveBulkSchedulesUseCase
+    private lateinit var saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase
+    private lateinit var getAllSchedulesUseCase: IGetAllSchedulesUseCase
+    private lateinit var checkScheduleConflictUseCase: ICheckScheduleConflictUseCase
+    private lateinit var registerPaymentUseCase: IRegisterPaymentUseCase
     private lateinit var getSharedResourcesUseCase: IGetSharedResourcesUseCase
     private lateinit var saveSharedResourceUseCase: ISaveSharedResourceUseCase
     private lateinit var deleteSharedResourceUseCase: IDeleteSharedResourceUseCase
-    private lateinit var getAllSchedulesUseCase: com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
-    private lateinit var getSchedulesUseCase: IGetSchedulesUseCase
-    private lateinit var saveScheduleExceptionUseCase: com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
-    private lateinit var validateStudentUseCase: IValidateStudentUseCase
-    private lateinit var checkScheduleConflictUseCase: ICheckScheduleConflictUseCase
+    private lateinit var financeDelegate: IStudentFinanceDelegate
+    private lateinit var scheduleDelegate: IStudentScheduleDelegate
+    private lateinit var resourceDelegate: IStudentResourceDelegate
     private lateinit var application: android.app.Application
     private lateinit var viewModel: StudentDetailViewModel
 
@@ -69,24 +62,31 @@ class StudentDetailViewModelTest {
         getStudentByIdUseCase = mockk()
         saveStudentUseCase = mockk()
         deleteStudentUseCase = mockk()
-        registerPaymentUseCase = mockk()
         getCurrentUserUseCase = mockk()
         saveScheduleUseCase = mockk()
-        deleteScheduleUseCase = mockk()
-        getSharedResourcesUseCase = mockk()
-        saveSharedResourceUseCase = mockk()
-        deleteSharedResourceUseCase = mockk()
-        getAllSchedulesUseCase = mockk()
-        getSchedulesUseCase = mockk()
-        saveScheduleExceptionUseCase = mockk()
         validateStudentUseCase = mockk()
-        checkScheduleConflictUseCase = mockk()
+        getSchedulesUseCase = mockk(relaxed = true)
+        deleteScheduleUseCase = mockk(relaxed = true)
+        toggleScheduleCompletionUseCase = mockk(relaxed = true)
+        saveBulkSchedulesUseCase = mockk(relaxed = true)
+        saveScheduleExceptionUseCase = mockk(relaxed = true)
+        getAllSchedulesUseCase = mockk(relaxed = true)
+        checkScheduleConflictUseCase = mockk(relaxed = true)
+        registerPaymentUseCase = mockk(relaxed = true)
+        getSharedResourcesUseCase = mockk(relaxed = true)
+        saveSharedResourceUseCase = mockk(relaxed = true)
+        deleteSharedResourceUseCase = mockk(relaxed = true)
         application = mockk(relaxed = true)
-        
-        every { getSchedulesUseCase(any(), any()) } returns flowOf(emptyList())
-        every { getAllSchedulesUseCase(any()) } returns flowOf(emptyList())
+
+        // Mock getString to return the resource ID as a string for verification
+        every { application.getString(any()) } answers { it.invocation.args[0].toString() }
+        every { application.getString(any(), *anyVararg()) } answers { it.invocation.args[0].toString() }
+
+        financeDelegate = StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application)
+        scheduleDelegate = StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application)
+        resourceDelegate = StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application)
+
         coEvery { validateStudentUseCase(any()) } returns com.devsusana.hometutorpro.domain.core.Result.Success(Unit)
-        every { checkScheduleConflictUseCase(any(), any()) } returns false
     }
 
     @After
@@ -113,18 +113,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            financeDelegate,
+            scheduleDelegate,
+            resourceDelegate,
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -149,18 +143,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -170,43 +158,45 @@ class StudentDetailViewModelTest {
         assertEquals("", viewModel.state.value.student?.id)
     }
 
-    // TODO: Fix async test - mock configuration issue with coroutines
-    // @Test
-    // fun `saveStudent should call use case and update state on success`() = runTest {
-    //     // Given
-    //     val userId = "user123"
-    //     val student = Student(id = "new", name = "New Student", professorId = userId)
-    //     val user = User(uid = userId, email = "test@test.com", displayName = "Test User")
+    @Test
+    fun `saveStudent should call use case and update state on success`() = runTest {
+        // Given
+        val userId = "user123"
+        val student = Student(id = "new", name = "New Student", professorId = userId)
+        val user = User(uid = userId, email = "test@test.com", displayName = "Test User")
 
-    //     every { savedStateHandle.get<String>("studentId") } returns "new"
-    //     every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
-    //     coEvery { saveStudentUseCase(userId, any()) } returns Result.Success(Unit)
+        every { savedStateHandle.get<String>("studentId") } returns "new"
+        every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
+        coEvery { saveStudentUseCase(userId, any()) } returns Result.Success("new_id")
 
-    //     viewModel = StudentDetailViewModel(
-    //         savedStateHandle,
-    //         getStudentByIdUseCase,
-    //         saveStudentUseCase,
-    //         deleteStudentUseCase,
-    //         registerPaymentUseCase,
-    //         getCurrentUserUseCase,
-    //         saveScheduleUseCase,
-    //         deleteScheduleUseCase
-    //     )
-    //     testDispatcher.scheduler.advanceUntilIdle()
+        viewModel = StudentDetailViewModel(
+            savedStateHandle,
+            getStudentByIdUseCase,
+            saveStudentUseCase,
+            deleteStudentUseCase,
+            getCurrentUserUseCase,
+            validateStudentUseCase,
+            saveScheduleUseCase,
+            financeDelegate,
+            scheduleDelegate,
+            resourceDelegate,
+            application
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
         
-    //     // Set student state manually as if user typed it
-    //     viewModel.onEvent(StudentDetailEvent.StudentChange(student))
+        // Set student state manually as if user typed it
+        viewModel.onEvent(StudentDetailEvent.StudentChange(student))
 
-    //     // When
-    //     viewModel.onEvent(StudentDetailEvent.SaveStudent)
-    //     testDispatcher.scheduler.advanceUntilIdle()
+        // When
+        viewModel.onEvent(StudentDetailEvent.SaveStudent)
+        testDispatcher.scheduler.advanceUntilIdle()
 
-    //     // Then
-    //     coVerify { saveStudentUseCase(userId, student) }
-    //     assertTrue(viewModel.state.value.isStudentSaved)
-    //     assertEquals(com.devsusana.hometutorpro.R.string.student_detail_success_student_saved, viewModel.state.value.successMessage)
-    // }
-    @Ignore("TODO: Fix coroutine synchronization issue")
+        // Then
+        coVerify { saveStudentUseCase(userId, any()) }
+        assertTrue(viewModel.state.value.isStudentSaved)
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_success_student_saved.toString(), viewModel.state.value.successMessage)
+    }
+
     @Test
     fun `startClass should calculate price correctly for 60 minutes`() = runTest {
         // Given
@@ -225,18 +215,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -249,10 +233,9 @@ class StudentDetailViewModelTest {
         // Should add 20.0 (1 hour)
         val expectedBalance = 20.0
         coVerify { saveStudentUseCase(userId, match { it.pendingBalance == expectedBalance }) }
-        assertEquals(Pair(com.devsusana.hometutorpro.R.string.student_detail_success_class_started, 20.0), viewModel.state.value.successMessage)
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_success_class_started.toString(), viewModel.state.value.successMessage)
     }
 
-    @Ignore("TODO: Fix coroutine synchronization issue")
     @Test
     fun `startClass should calculate price correctly for 90 minutes`() = runTest {
         // Given
@@ -271,18 +254,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -295,8 +272,9 @@ class StudentDetailViewModelTest {
         // Should add 30.0 (1.5 hours * 20.0)
         val expectedBalance = 30.0
         coVerify { saveStudentUseCase(userId, match { it.pendingBalance == expectedBalance }) }
-        assertEquals(Pair(com.devsusana.hometutorpro.R.string.student_detail_success_class_started, 30.0), viewModel.state.value.successMessage)
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_success_class_started.toString(), viewModel.state.value.successMessage)
     }
+
     @Test
     fun `onPriceChange should update priceInput and student price`() = runTest {
         // Given
@@ -312,18 +290,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -336,7 +308,6 @@ class StudentDetailViewModelTest {
         assertEquals(25.5, viewModel.state.value.student?.pricePerHour)
     }
 
-    @Ignore("TODO: Fix coroutine synchronization issue")
     @Test
     fun `continueToNextStep should validate name and move to tab 1`() = runTest {
         // Given
@@ -352,18 +323,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -375,7 +340,7 @@ class StudentDetailViewModelTest {
         viewModel.onEvent(StudentDetailEvent.ContinueToNextStep)
         
         // Then - should error
-        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_error_name_required, viewModel.state.value.errorMessage)
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_error_name_required.toString(), viewModel.state.value.errorMessage)
         
         // When - name is set
         viewModel.onEvent(StudentDetailEvent.StudentChange(viewModel.state.value.student!!.copy(name = "Susana")))
@@ -400,18 +365,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -445,23 +404,24 @@ class StudentDetailViewModelTest {
         // Mock the conflict check to return true
         every { checkScheduleConflictUseCase(any(), any()) } returns true
         
+        // Mock conflict result from use case
+        coEvery { saveBulkSchedulesUseCase(any(), any(), any(), any()) } returns com.devsusana.hometutorpro.domain.entities.BulkScheduleResult(
+            isSuccessful = false,
+            processedSchedules = emptyList(),
+            errors = mapOf(0 to DomainError.ScheduleConflict)
+        )
+
         viewModel = StudentDetailViewModel(
             savedStateHandle,
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -482,13 +442,10 @@ class StudentDetailViewModelTest {
         // Then
         assertTrue(viewModel.state.value.pendingSchedules.isEmpty())
         // In the test, application.getString(R.string.student_detail_error_schedule_conflict) returns the stringified ID
-        // as per common mock setups, or we can just verify it's not null.
-        // Given our mock 'application', let's just ensure it received the correct call.
-        verify { application.getString(com.devsusana.hometutorpro.R.string.student_detail_error_schedule_conflict) }
-        assertEquals("Conflict", viewModel.state.value.bulkSchedules.first().error)
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_error_schedule_conflict.toString(), viewModel.state.value.bulkSchedules.first().error)
         assertFalse(viewModel.state.value.bulkScheduleSaving)
     }
-    @Ignore("TODO: Fix coroutine synchronization issue")
+
     @Test
     fun `saveBulkSchedules should stash schedules when student is new`() = runTest {
         // Given
@@ -499,29 +456,31 @@ class StudentDetailViewModelTest {
         every { savedStateHandle.get<String>("studentId") } returns studentId
         every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
         
+        // Mock success for bulk save
+        val mockProcessedSchedule = Schedule(id = "processed_1", studentId = "new", dayOfWeek = java.time.DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00")
+        coEvery { saveBulkSchedulesUseCase(any(), any(), any(), any()) } returns com.devsusana.hometutorpro.domain.entities.BulkScheduleResult(
+            isSuccessful = true,
+            processedSchedules = listOf(mockProcessedSchedule)
+        )
+
         viewModel = StudentDetailViewModel(
             savedStateHandle,
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
         
         val bulkSchedule = com.devsusana.hometutorpro.presentation.student_detail.components.BulkScheduleEntry(
             id = 1,
+            dayOfWeek = java.time.DayOfWeek.MONDAY,
             startTime = "10:00",
             endTime = "11:00"
         )
@@ -536,9 +495,9 @@ class StudentDetailViewModelTest {
         
         // Then
         assertEquals(1, viewModel.state.value.pendingSchedules.size)
-        // Verify saveScheduleUseCase was NOT called
+        // Verify saveScheduleUseCase was NOT called (it's stashed)
         coVerify(exactly = 0) { saveScheduleUseCase(any(), any(), any()) }
-        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_pending_schedules_added, viewModel.state.value.successMessage)
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_pending_schedules_added.toString(), viewModel.state.value.successMessage)
     }
 
     @Test
@@ -554,23 +513,24 @@ class StudentDetailViewModelTest {
         coEvery { saveStudentUseCase(userId, any()) } returns Result.Success("new_student_id")
         coEvery { saveScheduleUseCase(userId, "new_student_id", any()) } returns Result.Success(Unit)
         
+        // Mock successful bulk save to populate pendingSchedules
+        val mockProcessedSchedule = Schedule(id = "processed_1", studentId = "new", dayOfWeek = java.time.DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00")
+        coEvery { saveBulkSchedulesUseCase(any(), any(), any(), any()) } returns com.devsusana.hometutorpro.domain.entities.BulkScheduleResult(
+            isSuccessful = true,
+            processedSchedules = listOf(mockProcessedSchedule)
+        )
+
         viewModel = StudentDetailViewModel(
             savedStateHandle,
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -598,7 +558,6 @@ class StudentDetailViewModelTest {
         assertTrue(viewModel.state.value.pendingSchedules.isEmpty())
     }
 
-    @Ignore("TODO: Fix coroutine synchronization issue")
     @Test
     fun `saveStudent should report error when stashed schedules have conflict`() = runTest {
         // Given
@@ -613,23 +572,24 @@ class StudentDetailViewModelTest {
         // Simulate conflict error when saving schedule
         coEvery { saveScheduleUseCase(userId, "new_student_id", any()) } returns Result.Error(com.devsusana.hometutorpro.domain.core.DomainError.Unknown)
         
+        // Mock successful bulk save to populate pendingSchedules
+        val mockProcessedSchedule = Schedule(id = "processed_1", studentId = "new", dayOfWeek = java.time.DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00")
+        coEvery { saveBulkSchedulesUseCase(any(), any(), any(), any()) } returns com.devsusana.hometutorpro.domain.entities.BulkScheduleResult(
+            isSuccessful = true,
+            processedSchedules = listOf(mockProcessedSchedule)
+        )
+
         viewModel = StudentDetailViewModel(
             savedStateHandle,
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -637,6 +597,7 @@ class StudentDetailViewModelTest {
         // Add pending schedule
         val bulkSchedule = com.devsusana.hometutorpro.presentation.student_detail.components.BulkScheduleEntry(
             id = 1,
+            dayOfWeek = java.time.DayOfWeek.MONDAY,
             startTime = "10:00",
             endTime = "11:00"
         )
@@ -654,12 +615,8 @@ class StudentDetailViewModelTest {
         coVerify { saveStudentUseCase(userId, any()) }
         coVerify { saveScheduleUseCase(userId, "new_student_id", any()) }
         
-        // Should indicate student is saved (ID updated) but flow not finished (isStudentSaved remains true but error present)
-        // Wait, typical pattern: if error, stick around. 
-        // In our implementation: isStudentSaved=true but errorMessage is set. 
-        // Let's verify expectations based on implementation:
         assertTrue(viewModel.state.value.isStudentSaved)
-        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_error_save_schedules_failed, viewModel.state.value.errorMessage)
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_error_save_schedules_failed.toString(), viewModel.state.value.errorMessage)
         assertEquals("new_student_id", viewModel.state.value.student?.id)
         assertEquals(1, viewModel.state.value.pendingSchedules.size) // Schedule remains pending
     }
@@ -679,18 +636,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -709,7 +660,7 @@ class StudentDetailViewModelTest {
         // Should remain 25.5
         assertEquals("25.5", viewModel.state.value.priceInput)
     }
-    @Ignore("TODO: Fix coroutine synchronization issue")
+
     @Test
     fun `saveSchedule should add to pending list when student is new`() = runTest {
         // Given
@@ -725,18 +676,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -756,16 +701,14 @@ class StudentDetailViewModelTest {
         
         // Then
         assertEquals(1, viewModel.state.value.pendingSchedules.size)
-        assertEquals(1, viewModel.state.value.pendingSchedules.size)
         val savedSchedule = viewModel.state.value.pendingSchedules.first()
         assertEquals(schedule.startTime, savedSchedule.startTime)
         assertEquals(schedule.endTime, savedSchedule.endTime)
         assertEquals(schedule.dayOfWeek, savedSchedule.dayOfWeek)
         coVerify(exactly = 0) { saveScheduleUseCase(any(), any(), any()) }
-        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_success_schedule_saved, viewModel.state.value.successMessage)
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_success_schedule_saved.toString(), viewModel.state.value.successMessage)
     }
 
-    @Ignore("TODO: Fix coroutine synchronization issue")
     @Test
     fun `deleteSchedule should remove from pending list when student is new`() = runTest {
         // Given
@@ -781,18 +724,12 @@ class StudentDetailViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             deleteStudentUseCase,
-            registerPaymentUseCase,
             getCurrentUserUseCase,
-            saveScheduleUseCase,
-            deleteScheduleUseCase,
-            getSharedResourcesUseCase,
-            saveSharedResourceUseCase,
-            deleteSharedResourceUseCase,
-            getAllSchedulesUseCase,
-            getSchedulesUseCase,
-            saveScheduleExceptionUseCase,
             validateStudentUseCase,
-            checkScheduleConflictUseCase,
+            saveScheduleUseCase,
+            StudentFinanceDelegate(registerPaymentUseCase, saveStudentUseCase, application),
+            StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
+            StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -814,7 +751,7 @@ class StudentDetailViewModelTest {
         
         // Then
         assertTrue(viewModel.state.value.pendingSchedules.isEmpty())
-        coVerify(exactly = 0) { deleteScheduleUseCase(any(), any(), any()) }
-        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_success_schedule_deleted, viewModel.state.value.successMessage)
+        coVerify(exactly = 0) { deleteScheduleUseCase(any<String>(), any<String>(), any<String>()) }
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_success_schedule_deleted.toString(), viewModel.state.value.successMessage)
     }
 }

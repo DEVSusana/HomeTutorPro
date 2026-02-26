@@ -47,7 +47,7 @@ class ResourceRepositoryImplTest {
 
         val contentResolver = mockk<ContentResolver>()
         val inputStream = java.io.ByteArrayInputStream("dummy content".toByteArray())
-        val filesDir = File(System.getProperty("java.io.tmpdir")) // mock files dir
+        val filesDir = File(requireNotNull(System.getProperty("java.io.tmpdir"))) // mock files dir
 
         mockkStatic(Uri::class)
         val uriMock = mockk<Uri>()

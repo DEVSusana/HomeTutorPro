@@ -71,11 +71,12 @@ Implementar rigurosamente la **Arquitectura Limpia (Clean Architecture)** con **
 
 ---
 
-## 5. Diseño de Layout en Compose: Uso Prioritario de ConstraintLayout
+## 5. Diseño de Layout en Compose: Reglas Recomendadas y Claras
 
-* **`ConstraintLayout` para Composables de Alto Nivel:** Para todos los `Composable`s de tipo `Screen` y `Content`, y cualquier `Composable` que gestione un diseño complejo con múltiples elementos alineados o restricciones mutuas, **es obligatorio utilizar `ConstraintLayout`**.
-    * Esto garantiza layouts flexibles, adaptables y un rendimiento óptimo al evitar anidamientos profundos.
-* **`Row`, `Column`, `Box`:** Pueden utilizarse para componentes más pequeños, diseños lineales simples o para agrupar elementos dentro de un `ConstraintLayout` más grande, pero NO para la estructuración principal de una pantalla o un `Content` complejo.
+* **Uso de `ConstraintLayout`:** Recomendado para pantallas o `Content` complejos con múltiples relaciones, alineaciones cruzadas o dependencias visuales. No es obligatorio si un layout simple se resuelve mejor con `Row`, `Column` o `Box` sin anidamiento excesivo.
+* **Uso de `Row`, `Column`, `Box`:** Válidos y preferibles para layouts simples o jerárquicos que se leen claramente. Evitar anidamiento profundo; si el layout empieza a ser difícil de mantener, considerar `ConstraintLayout`.
+* **Eficiencia de árbol UI:** Priorizar jerarquías planas, `Lazy*` cuando corresponda y evitar contenedores innecesarios.
+* **State hoisting en Compose:** Los `Content` deben ser stateless siempre que sea razonable. El estado UI de pantalla vive en el `Screen` y usa `rememberSaveable` cuando el estado deba sobrevivir a recreaciones.
 
 ---
 

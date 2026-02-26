@@ -138,6 +138,11 @@
     <string name="student_detail_notes_hint">Add notes, observations, progress...</string>
     <string name="student_detail_add_extra_class">Add Extra Class</string>
     <string name="student_detail_success_extra_class_added">Extra class added successfully!</string>
+    <string name="schedule_exception_reason_extra_class">Extra Class</string>
+    <string name="currency_format">%.2f€</string>
+    <string name="date_time_format">dd/MM/yyyy HH:mm</string>
+    <string name="google_maps_package">com.google.android.apps.maps</string>
+    <string name="schedule_time_range_format">%1$s - %2$s</string>
     
     <!-- Resource Sharing -->
     <string name="student_detail_share_resources">Share Resources</string>
@@ -275,6 +280,21 @@
     <string name="cd_warning_icon">Warning icon</string>
     <string name="cd_app_icon" translatable="false">App Icon</string>
     <string name="cd_menu">Menu</string>
+    <string name="cd_info_icon">Info icon</string>
+    <string name="cd_no_students_icon">No students icon</string>
+    <string name="cd_no_results_icon">No results icon</string>
+    <string name="cd_quick_action_button">%1$s. %2$s</string>
+    <string name="cd_dashboard_stat">%1$s: %2$s</string>
+    <string name="cd_settings_item">%1$s. %2$s</string>
+    <string name="cd_resource_item">%1$s, %2$s</string>
+    <string name="cd_select_date">Seleccionar fecha, %1$s</string>
+    <string name="cd_schedule_item">%1$s, %2$s a %3$s</string>
+    <string name="cd_schedule_item_cancelled">Clase cancelada: %1$s, %2$s a %3$s</string>
+    <string name="cd_schedule_item_rescheduled">Clase reprogramada: %1$s, %2$s a %3$s</string>
+    <string name="cd_state_on">On</string>
+    <string name="cd_state_off">Off</string>
+    <string name="cd_state_selected">Selected</string>
+    <string name="cd_state_not_selected">Not selected</string>
     <string name="icon_warning">⚠️</string>
 
     <!-- Menu -->
@@ -425,7 +445,9 @@
     <string name="edit_profile_password">New Password (optional)</string>
     <string name="edit_profile_save">Save Changes</string>
     <string name="edit_profile_success">Profile updated successfully!</string>
+    <string name="edit_profile_email_verify_notice">Profile updated. Please verify the new email to complete the change.</string>
     <string name="edit_profile_error">Failed to update profile</string>
+    <string name="edit_profile_password_error">Failed to update password</string>
     <string name="edit_profile_working_hours">Working Hours</string>
     <string name="edit_profile_working_start">Start: %s</string>
     <string name="edit_profile_working_end">End: %s</string>
@@ -448,6 +470,15 @@
 
     <string name="dashboard_action_notes">My Notes</string>
     <string name="dashboard_action_notes_subtitle">Manage personal tasks and ideas</string>
+    <string name="dashboard_default_user_name">Professor</string>
+
+    <!-- Migration -->
+    <string name="migration_error_message">Error: %s</string>
+
+    <!-- Backup -->
+    <string name="settings_backup_ready">Backup ready to save</string>
+    <string name="settings_restore_success">Data restored successfully</string>
+    <string name="settings_restore_error">Restore error: %s</string>
 
     <!-- Notes Screen -->
     <string name="notes_title">My Notes</string>
@@ -503,8 +534,10 @@
     <string name="student_list_no_results">No results found</string>
     <string name="student_list_no_students">No students found</string>
     <string name="student_list_clear_search">Clear search</string>
-    <string name="weekly_schedule_free_day">Free Day!</string>
-    <string name="weekly_schedule_enjoy_free_time">Enjoy your free time!</string>
+    <string name="weekly_schedule_free_day">No hay clases programadas</string>
+    <string name="weekly_schedule_enjoy_free_time">Estás libre hoy</string>
+    <string name="cd_select_start_time">Seleccionar hora de inicio, %1$s</string>
+    <string name="cd_select_end_time">Seleccionar hora de fin, %1$s</string>
     <string name="weekly_schedule_free_slot">Free</string>
 
     <!-- Backup & Restore -->
@@ -515,4 +548,27 @@
     <string name="settings_backup_success">Backup operation successful!</string>
     <string name="settings_backup_error">Operation failed: %s</string>
     <string name="manage_your_students_efficiently">Manage your students efficiently</string>
+
+    <!-- Migration Screen -->
+    <string name="migration_title">Data Migration</string>
+    <string name="migration_ready_message">Ready to migrate your local data to the cloud.</string>
+    <string name="migration_start">Start Migration</string>
+    <string name="migration_retry">Retry</string>
+    <string name="migration_msg_starting">Starting migration…</string>
+    <string name="migration_msg_registering">Registering user…</string>
+    <string name="migration_msg_students">Migrating students…</string>
+    <string name="migration_msg_schedules">Migrating schedules…</string>
+    <string name="migration_msg_resources">Migrating resources…</string>
+    <string name="migration_msg_cleanup">Cleaning up…</string>
+    <string name="migration_msg_complete">Migration complete!</string>
+    <string name="migration_msg_error">Error occurred</string>
+    <string name="migration_msg_ready">Ready</string>
+
+    <!-- Premium Purchase Screen -->
+    <string name="premium_upgrade_title">Upgrade to Premium</string>
+    <string name="premium_unlock_potential">Unlock Full Potential</string>
+    <string name="premium_benefits_desc">Get access to Cloud Sync, Multi-device support, and more!</string>
+    <string name="premium_subscribe_button">Subscribe for %s</string>
+    <string name="premium_error_not_found">Product details not found. Please check your internet connection or try again later.</string>
+    <string name="premium_go_back">Go Back</string>
 </resources>

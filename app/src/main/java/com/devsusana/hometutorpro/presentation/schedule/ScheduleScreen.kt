@@ -1,11 +1,11 @@
 package com.devsusana.hometutorpro.presentation.schedule
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.presentation.components.FeedbackDialog
 import com.devsusana.hometutorpro.presentation.schedule.components.ScheduleListContent
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun ScheduleScreen(
@@ -13,7 +13,7 @@ fun ScheduleScreen(
     onAddScheduleClick: () -> Unit,
     onBack: () -> Unit
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     ScheduleListContent(
         state = state,

@@ -7,6 +7,9 @@ import com.devsusana.hometutorpro.domain.usecases.IUploadResourceUseCase
 
 import javax.inject.Inject
 
+/**
+ * Default implementation of [IUploadResourceUseCase].
+ */
 class UploadResourceUseCase @Inject constructor(private val repository: ResourceRepository) :
     IUploadResourceUseCase {
     override suspend operator fun invoke(professorId: String, name: String, fileType: String, fileUri: String): Result<Unit, DomainError> {

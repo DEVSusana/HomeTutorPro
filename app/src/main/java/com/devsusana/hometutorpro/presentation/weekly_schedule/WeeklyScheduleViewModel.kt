@@ -17,9 +17,11 @@ import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
 import com.devsusana.hometutorpro.domain.entities.ScheduleType
+import com.devsusana.hometutorpro.domain.usecases.implementations.CleanupDuplicatesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +36,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class WeeklyScheduleViewModel @Inject constructor(
     private val getCurrentUserUseCase: IGetCurrentUserUseCase,
     private val getStudentsUseCase: IGetStudentsUseCase,
@@ -44,6 +47,7 @@ class WeeklyScheduleViewModel @Inject constructor(
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
     private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
+    private val cleanupDuplicatesUseCase: CleanupDuplicatesUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -56,6 +60,9 @@ class WeeklyScheduleViewModel @Inject constructor(
 
     private fun loadWeeklySchedule() {
         viewModelScope.launch {
+            // Clean up existing duplicates first
+            cleanupDuplicatesUseCase()
+            
             _state.update { it.copy(isLoading = true) }
             
             val minDelayJob = launch { kotlinx.coroutines.delay(300) }
@@ -87,49 +94,15 @@ class WeeklyScheduleViewModel @Inject constructor(
 
                 val allRegularSchedules = occurrences.map { WeeklyScheduleItem.Regular(it) }
                 
-                // Generate full day items including free slots
                 val groupedByDay = mutableMapOf<DayOfWeek, List<WeeklyScheduleItem>>()
-                
+
                 for (day in DayOfWeek.entries) {
-                    val dateForDay = startOfWeek.plusDays(day.ordinal.toLong() - DayOfWeek.MONDAY.ordinal.toLong())
-                    val daySchedules = allRegularSchedules.filter { 
-                        (it.exception?.newDayOfWeek ?: it.schedule.dayOfWeek) == day 
-                    }.sortedBy { timeToMinutes(it.startTime) }
+                    val daySchedules = allRegularSchedules
+                        .filter { (it.exception?.newDayOfWeek ?: it.schedule.dayOfWeek) == day }
+                        .sortedBy { it.startTime }
 
-                    val fullDayItems = mutableListOf<WeeklyScheduleItem>()
-                    var currentMinute = timeToMinutes(user.workingStartTime)
-                    val endMinute = timeToMinutes(user.workingEndTime)
-
-                    for (item in daySchedules) {
-                        val itemStart = timeToMinutes(item.startTime)
-                        val itemEnd = timeToMinutes(item.endTime)
-
-                        // Add free slots before this item
-                        while (currentMinute + 60 <= itemStart) {
-                            fullDayItems.add(WeeklyScheduleItem.FreeSlot(
-                                startTime = minutesToTime(currentMinute),
-                                endTime = minutesToTime(currentMinute + 60),
-                                date = dateForDay
-                            ))
-                            currentMinute += 60
-                        }
-                        
-                        fullDayItems.add(item)
-                        currentMinute = maxOf(currentMinute, itemEnd)
-                    }
-
-                    // Add free slots after last item
-                    while (currentMinute + 60 <= endMinute) {
-                        fullDayItems.add(WeeklyScheduleItem.FreeSlot(
-                            startTime = minutesToTime(currentMinute),
-                            endTime = minutesToTime(currentMinute + 60),
-                            date = dateForDay
-                        ))
-                        currentMinute += 60
-                    }
-
-                    if (fullDayItems.isNotEmpty()) {
-                        groupedByDay[day] = fullDayItems
+                    if (daySchedules.isNotEmpty()) {
+                        groupedByDay[day] = daySchedules
                     }
                 }
                 
@@ -163,6 +136,8 @@ class WeeklyScheduleViewModel @Inject constructor(
     }
 
     fun saveException(exception: ScheduleException) {
+        if (_state.value.isLoading) return // Prevent multiple clicks
+        
         viewModelScope.launch {
             val uid = getCurrentUserUseCase().value?.uid ?: return@launch
             val studentId = _state.value.selectedSchedule?.student?.id ?: return@launch
@@ -276,15 +251,6 @@ class WeeklyScheduleViewModel @Inject constructor(
         _state.update { it.copy(successMessage = null, errorMessage = null) }
     }
     
-    private fun timeToMinutes(time: String): Int {
-        return try {
-            val parts = time.split(":")
-            parts[0].toInt() * 60 + parts[1].toInt()
-        } catch (e: Exception) {
-            0 
-        }
-    }
-
     fun openAddExtraClassDialog(studentId: String) {
         _state.update { 
             it.copy(
@@ -350,9 +316,4 @@ class WeeklyScheduleViewModel @Inject constructor(
         }
     }
 
-    private fun minutesToTime(minutes: Int): String {
-        val h = minutes / 60
-        val m = minutes % 60
-        return "%02d:%02d".format(h, m)
-    }
 }

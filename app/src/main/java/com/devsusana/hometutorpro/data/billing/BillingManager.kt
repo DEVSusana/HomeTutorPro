@@ -5,6 +5,8 @@ import android.content.Context
 import com.android.billingclient.api.*
 import com.android.billingclient.api.PendingPurchasesParams
 import com.devsusana.hometutorpro.BuildConfig
+import com.devsusana.hometutorpro.core.billing.PremiumBillingService
+import com.devsusana.hometutorpro.core.billing.PremiumProduct
 import com.devsusana.hometutorpro.core.settings.SettingsManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -14,30 +16,32 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
 @Singleton
 class BillingManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val settingsManager: SettingsManager
-) : PurchasesUpdatedListener {
+) : PurchasesUpdatedListener, PremiumBillingService {
 
     private val _realPremium = MutableStateFlow(false)
     private val _isPremium = MutableStateFlow(false)
-    val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
+    override val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
 
     private val billingClient = BillingClient.newBuilder(context)
         .setListener(this)
         .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .build()
 
+    private var lastProductDetails: ProductDetails? = null
+
     init {
         startConnection()
         // Combine real premium status with debug preference
         CoroutineScope(Dispatchers.Main).launch {
-            // TODO: Uncomment this block to re-enable Premium features
-            /*
             combine(_realPremium, settingsManager.isDebugPremiumFlow) { real, debug ->
                 if (BuildConfig.DEBUG) {
                     // In DEBUG, strict control via toggle to allow testing non-premium state
@@ -49,9 +53,6 @@ class BillingManager @Inject constructor(
             }.collect { combined ->
                 _isPremium.value = combined
             }
-            */
-            // Force non-premium state for now
-            _isPremium.value = false
         }
     }
 
@@ -100,20 +101,18 @@ class BillingManager @Inject constructor(
         }
     }
 
-    fun launchPurchaseFlow(activity: Activity, productDetails: ProductDetails) {
+    private fun launchPurchaseFlow(activity: Activity, productDetails: ProductDetails) {
         val flowParams = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(
                 listOf(
                     BillingFlowParams.ProductDetailsParams.newBuilder()
                         .setProductDetails(productDetails)
-                        .setOfferToken(productDetails.subscriptionOfferDetails?.let { 
-                            var token = ""
-                            val list = it as? java.util.List<*>
-                            if (list != null && !list.isEmpty()) {
-                                token = (list.get(0) as? ProductDetails.SubscriptionOfferDetails)?.offerToken ?: ""
-                            }
-                            token
-                        } ?: "")
+                        .setOfferToken(
+                            productDetails.subscriptionOfferDetails
+                                ?.firstOrNull()
+                                ?.offerToken
+                                .orEmpty()
+                        )
                         .build()
                 )
             )
@@ -121,7 +120,7 @@ class BillingManager @Inject constructor(
         billingClient.launchBillingFlow(activity, flowParams)
     }
 
-    fun queryProductDetails(productId: String, onResult: (ProductDetails?) -> Unit) {
+    private fun queryProductDetails(productId: String, onResult: (ProductDetails?) -> Unit) {
         val productList = listOf(
             QueryProductDetailsParams.Product.newBuilder()
                 .setProductId(productId)
@@ -134,16 +133,39 @@ class BillingManager @Inject constructor(
 
         billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                var first: ProductDetails? = null
-                val list = productDetailsList as? java.util.List<*>
-                if (list != null && !list.isEmpty()) {
-                    first = list.get(0) as? ProductDetails
-                }
-                onResult(first)
+                onResult(productDetailsList.firstOrNull())
             } else {
                 onResult(null)
             }
         }
+    }
+
+    override suspend fun getPremiumProduct(): PremiumProduct? {
+        return suspendCancellableCoroutine { continuation ->
+            queryProductDetails(PREMIUM_PRODUCT_ID) { details ->
+                if (!continuation.isActive) return@queryProductDetails
+                lastProductDetails = details
+                val result = details?.let {
+                    val price = it.subscriptionOfferDetails
+                        ?.firstOrNull()
+                        ?.pricingPhases
+                        ?.pricingPhaseList
+                        ?.firstOrNull()
+                        ?.formattedPrice
+                        ?: ""
+                    PremiumProduct(
+                        productId = PREMIUM_PRODUCT_ID,
+                        formattedPrice = price
+                    )
+                }
+                continuation.resume(result)
+            }
+        }
+    }
+
+    override fun launchPremiumPurchase(activity: Activity) {
+        val details = lastProductDetails ?: return
+        launchPurchaseFlow(activity, details)
     }
 
     companion object {

@@ -1,6 +1,7 @@
 package com.devsusana.hometutorpro.presentation.student_list
 
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
@@ -51,8 +52,8 @@ class StudentListViewModelTest {
         val userId = "user123"
         val user = User(uid = userId, email = "test@test.com", displayName = "Test User")
         val students = listOf(
-            Student(id = "1", name = "Student 1", professorId = userId),
-            Student(id = "2", name = "Student 2", professorId = userId)
+            StudentSummary(id = "1", name = "Student 1", subjects = "Math", color = null, pendingBalance = 0.0, pricePerHour = 20.0, isActive = true, lastClassDate = null),
+            StudentSummary(id = "2", name = "Student 2", subjects = "Physics", color = null, pendingBalance = 0.0, pricePerHour = 20.0, isActive = true, lastClassDate = null)
         )
 
         every { authRepository.currentUser } returns MutableStateFlow(user)
@@ -77,7 +78,7 @@ class StudentListViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        assertEquals(emptyList<Student>(), viewModel.state.value.students)
+        assertEquals(emptyList<StudentSummary>(), viewModel.state.value.students)
         verify(exactly = 0) { getStudentsUseCase(any()) }
     }
 

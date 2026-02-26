@@ -10,6 +10,9 @@ import com.devsusana.hometutorpro.domain.usecases.ISaveBulkSchedulesUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleUseCase
 import javax.inject.Inject
 
+/**
+ * Use case implementation for savebulkschedules operations.
+ */
 class SaveBulkSchedulesUseCase @Inject constructor(
     private val saveScheduleUseCase: ISaveScheduleUseCase,
     private val checkScheduleConflictUseCase: ICheckScheduleConflictUseCase,

@@ -19,6 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.BuildConfig
@@ -32,8 +35,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.devsusana.hometutorpro.presentation.components.FeedbackDialog
 import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onLogoutClick: () -> Unit,
@@ -42,10 +45,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val state by viewModel.state.collectAsState()
-    
-    var showLanguageDialog by remember { mutableStateOf(false) }
-    var showThemeDialog by remember { mutableStateOf(false) }
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
     // Backup File Launchers
@@ -66,7 +66,52 @@ fun SettingsScreen(
     ) { uri ->
         uri?.let { viewModel.importBackup(it) }
     }
-    
+
+    SettingsContent(
+        state = state,
+        onEditProfileClick = onEditProfileClick,
+        onExportBackup = {
+            val fileName = "hometutor_backup_${System.currentTimeMillis()}.json"
+            createDocumentLauncher.launch(fileName)
+        },
+        onImportBackup = {
+            openDocumentLauncher.launch(arrayOf("application/json", "application/octet-stream"))
+        },
+        onClassEndNotificationsToggle = viewModel::onClassEndNotificationsToggle,
+        onShowTestNotification = viewModel::showTestNotification,
+        onLanguageChange = { lang ->
+            scope.launch {
+                viewModel.setLanguageSync(lang)
+                val activity = context as? android.app.Activity ?: return@launch
+                LocaleHelper.setLocale(activity, lang)
+                activity.recreate()
+            }
+        },
+        onThemeModeChange = viewModel::onThemeModeChange,
+        onDebugPremiumToggle = viewModel::onDebugPremiumToggle,
+        onLogoutClick = onLogoutClick,
+        onDismissBackupMessage = viewModel::dismissBackupMessage
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsContent(
+    state: SettingsState,
+    onEditProfileClick: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
+    onClassEndNotificationsToggle: (Boolean) -> Unit,
+    onShowTestNotification: () -> Unit,
+    onLanguageChange: (String) -> Unit,
+    onThemeModeChange: (SettingsManager.ThemeMode) -> Unit,
+    onDebugPremiumToggle: (Boolean) -> Unit,
+    onLogoutClick: () -> Unit,
+    onDismissBackupMessage: () -> Unit
+) {
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -99,16 +144,13 @@ fun SettingsScreen(
                 icon = Icons.Default.Save,
                 title = stringResource(R.string.settings_backup_export),
                 subtitle = stringResource(R.string.settings_backup_desc),
-                onClick = { 
-                    val fileName = "hometutor_backup_${System.currentTimeMillis()}.json"
-                    createDocumentLauncher.launch(fileName)
-                }
+                onClick = onExportBackup
             )
 
             SettingsItem(
                 icon = Icons.Default.UploadFile,
                 title = stringResource(R.string.settings_backup_import),
-                onClick = { openDocumentLauncher.launch(arrayOf("application/json", "application/octet-stream")) }
+                onClick = onImportBackup
             )
 
             if (state.isBackupLoading) {
@@ -124,18 +166,27 @@ fun SettingsScreen(
                 icon = Icons.Default.Notifications,
                 title = stringResource(R.string.settings_class_end_notifications),
                 subtitle = stringResource(R.string.settings_class_end_notifications_desc),
-                onClick = { viewModel.onClassEndNotificationsToggle(!state.classEndNotificationsEnabled) },
+                onClick = { onClassEndNotificationsToggle(!state.classEndNotificationsEnabled) },
                 trailing = {
+                    val stateOnDescription = stringResource(R.string.cd_state_on)
+                    val stateOffDescription = stringResource(R.string.cd_state_off)
                     Switch(
                         checked = state.classEndNotificationsEnabled,
-                        onCheckedChange = { viewModel.onClassEndNotificationsToggle(it) }
+                        onCheckedChange = { onClassEndNotificationsToggle(it) },
+                        modifier = Modifier.semantics {
+                            stateDescription = if (state.classEndNotificationsEnabled) {
+                                stateOnDescription
+                            } else {
+                                stateOffDescription
+                            }
+                        }
                     )
                 }
             )
 
             // Test Notification Button
             TextButton(
-                onClick = { viewModel.showTestNotification() },
+                onClick = onShowTestNotification,
                 modifier = Modifier.padding(start = 56.dp)
             ) {
                 Text(stringResource(R.string.settings_test_alarm))
@@ -178,11 +229,20 @@ fun SettingsScreen(
                     icon = Icons.Default.BugReport,
                     title = stringResource(R.string.settings_debug_premium),
                     subtitle = if (state.isDebugPremium) "ON" else "OFF",
-                    onClick = { viewModel.onDebugPremiumToggle(!state.isDebugPremium) },
+                    onClick = { onDebugPremiumToggle(!state.isDebugPremium) },
                     trailing = {
+                        val stateOnDescription = stringResource(R.string.cd_state_on)
+                        val stateOffDescription = stringResource(R.string.cd_state_off)
                         Switch(
                             checked = state.isDebugPremium,
-                            onCheckedChange = { viewModel.onDebugPremiumToggle(it) }
+                            onCheckedChange = { onDebugPremiumToggle(it) },
+                            modifier = Modifier.semantics {
+                                stateDescription = if (state.isDebugPremium) {
+                                    stateOnDescription
+                                } else {
+                                    stateOffDescription
+                                }
+                            }
                         )
                     }
                 )
@@ -227,12 +287,8 @@ fun SettingsScreen(
                 Column {
                     TextButton(
                         onClick = {
-                            scope.launch {
-                                viewModel.setLanguageSync(SettingsManager.LANGUAGE_ENGLISH)
-                                LocaleHelper.setLocale(context as android.app.Activity, "en")
-                                (context as android.app.Activity).recreate()
-                                showLanguageDialog = false
-                            }
+                            onLanguageChange(SettingsManager.LANGUAGE_ENGLISH)
+                            showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -246,12 +302,8 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick = {
-                            scope.launch {
-                                viewModel.setLanguageSync(SettingsManager.LANGUAGE_SPANISH)
-                                LocaleHelper.setLocale(context as android.app.Activity, "es")
-                                (context as android.app.Activity).recreate()
-                                showLanguageDialog = false
-                            }
+                            onLanguageChange(SettingsManager.LANGUAGE_SPANISH)
+                            showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -289,7 +341,7 @@ fun SettingsScreen(
                         RadioButton(
                             selected = state.themeMode == SettingsManager.ThemeMode.LIGHT,
                             onClick = {
-                                viewModel.onThemeModeChange(SettingsManager.ThemeMode.LIGHT)
+                                onThemeModeChange(SettingsManager.ThemeMode.LIGHT)
                                 showThemeDialog = false
                             }
                         )
@@ -311,7 +363,7 @@ fun SettingsScreen(
                         RadioButton(
                             selected = state.themeMode == SettingsManager.ThemeMode.DARK,
                             onClick = {
-                                viewModel.onThemeModeChange(SettingsManager.ThemeMode.DARK)
+                                onThemeModeChange(SettingsManager.ThemeMode.DARK)
                                 showThemeDialog = false
                             }
                         )
@@ -333,7 +385,7 @@ fun SettingsScreen(
                         RadioButton(
                             selected = state.themeMode == SettingsManager.ThemeMode.SYSTEM,
                             onClick = {
-                                viewModel.onThemeModeChange(SettingsManager.ThemeMode.SYSTEM)
+                                onThemeModeChange(SettingsManager.ThemeMode.SYSTEM)
                                 showThemeDialog = false
                             }
                         )
@@ -355,11 +407,34 @@ fun SettingsScreen(
     }
 
     // Backup Feedback
-    if (state.backupMessage != null) {
+    state.backupMessage?.let { message ->
         FeedbackDialog(
             isSuccess = state.isBackupSuccess,
-            message = { Text(state.backupMessage!!) },
-            onDismiss = { viewModel.dismissBackupMessage() }
+            message = { Text(message) },
+            onDismiss = onDismissBackupMessage
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SettingsContentPreview() {
+    com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme {
+        SettingsContent(
+            state = SettingsState(
+                language = "en",
+                themeMode = SettingsManager.ThemeMode.SYSTEM
+            ),
+            onEditProfileClick = {},
+            onExportBackup = {},
+            onImportBackup = {},
+            onClassEndNotificationsToggle = {},
+            onShowTestNotification = {},
+            onLanguageChange = {},
+            onThemeModeChange = {},
+            onDebugPremiumToggle = {},
+            onLogoutClick = {},
+            onDismissBackupMessage = {}
         )
     }
 }

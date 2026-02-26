@@ -12,6 +12,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils
 import com.devsusana.hometutorpro.presentation.schedule.components.CompactScheduleCard
@@ -65,7 +67,8 @@ fun WeeklyScheduleGrid(
                             color = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier
                                 .padding(4.dp)
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .semantics { heading() },
                             textAlign = TextAlign.Center
                         )
                     }

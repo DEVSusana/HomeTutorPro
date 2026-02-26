@@ -21,11 +21,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EuroSymbol
+import androidx.compose.ui.res.stringResource
+import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 
 @Composable
@@ -36,8 +40,17 @@ fun DashboardStatCard(
     color: Color,
     modifier: Modifier = Modifier
 ) {
+    val contentDescription = stringResource(
+        R.string.cd_dashboard_stat,
+        title,
+        value
+    )
     Card(
-        modifier = modifier.height(110.dp),
+        modifier = modifier
+            .height(110.dp)
+            .semantics(mergeDescendants = true) {
+                this.contentDescription = contentDescription
+            },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp),

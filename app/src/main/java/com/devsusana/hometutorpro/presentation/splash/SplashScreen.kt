@@ -3,7 +3,13 @@ package com.devsusana.hometutorpro.presentation.splash
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,9 +21,11 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 import kotlinx.coroutines.delay
 
 @Composable
@@ -34,11 +42,11 @@ fun SplashScreen(
             animationSpec = tween(
                 durationMillis = 800,
                 easing = {
-                    it // Default easing
+                    it
                 }
             )
         )
-        delay(700) // Show splash for 1.5 seconds (800ms animation + 700ms delay)
+        delay(700)
         if (viewModel.isUserLoggedIn()) {
             onNavigateToHome()
         } else {
@@ -46,6 +54,11 @@ fun SplashScreen(
         }
     }
 
+    SplashContent(scale = scale.value)
+}
+
+@Composable
+private fun SplashContent(scale: Float) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -59,10 +72,10 @@ fun SplashScreen(
                 contentDescription = stringResource(R.string.cd_app_icon),
                 modifier = Modifier
                     .size(120.dp)
-                    .scale(scale.value)
+                    .scale(scale)
             )
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displayMedium,
@@ -76,5 +89,13 @@ fun SplashScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Preview(showBackground = true, name = "Splash Content")
+@Composable
+private fun SplashContentPreview() {
+    HomeTutorProTheme {
+        SplashContent(scale = 1f)
     }
 }

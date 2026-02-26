@@ -7,6 +7,9 @@ import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
+/**
+ * Default implementation of [IGetCurrentUserUseCase].
+ */
 class GetCurrentUserUseCase @Inject constructor(private val repository: AuthRepository) :
     IGetCurrentUserUseCase {
     override operator fun invoke(): StateFlow<User?> = repository.currentUser

@@ -15,20 +15,10 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 
-@Suppress("DEPRECATION")
-class SecureAuthManager(context: Context) {
-
-    private val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-
-    private val sharedPreferences: SharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        PREFS_NAME,
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+class SecureAuthManager(
+    private val sharedPreferences: SharedPreferences,
+    private val cryptographyProvider: CryptographyProvider = AndroidCryptographyProvider()
+) {
 
     fun saveCredentials(email: String, password: String, name: String, userId: String? = null): String {
         val idToSave = userId ?: UUID.randomUUID().toString()
@@ -126,49 +116,58 @@ class SecureAuthManager(context: Context) {
                 sharedPreferences.edit().putString(KEY_NOTES, notes).apply()
             }
         
-            fun encryptPII(text: String?): String {
-                if (text.isNullOrEmpty()) return ""
-                return try {
-                    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                                val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-                                val secretKey = keyStore.getKey(MasterKey.DEFAULT_MASTER_KEY_ALIAS, null) as SecretKey
-                                
-                                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-                    
-                    val iv = cipher.iv
-                    val encryptedBytes = cipher.doFinal(text.toByteArray(Charsets.UTF_8))
-                    
-                    val combined = ByteArray(iv.size + encryptedBytes.size)
-                    System.arraycopy(iv, 0, combined, 0, iv.size)
-                    System.arraycopy(encryptedBytes, 0, combined, iv.size, encryptedBytes.size)
-                    
-                    Base64.encodeToString(combined, Base64.NO_WRAP)
-                } catch (e: Exception) {
-                    text
-                }
+    fun encryptPII(text: String?): String = cryptographyProvider.encrypt(text)
+
+    fun decryptPII(encrypted: String?): String = cryptographyProvider.decrypt(encrypted)
+
+    /**
+     * Default implementation using AndroidKeyStore and AES/GCM.
+     */
+    private class AndroidCryptographyProvider : CryptographyProvider {
+        override fun encrypt(text: String?): String {
+            if (text.isNullOrEmpty()) return ""
+            return try {
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                val secretKey = keyStore.getKey(MasterKey.DEFAULT_MASTER_KEY_ALIAS, null) as SecretKey
+                
+                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+                
+                val iv = cipher.iv
+                val encryptedBytes = cipher.doFinal(text.toByteArray(Charsets.UTF_8))
+                
+                val combined = ByteArray(iv.size + encryptedBytes.size)
+                System.arraycopy(iv, 0, combined, 0, iv.size)
+                System.arraycopy(encryptedBytes, 0, combined, iv.size, encryptedBytes.size)
+                
+                Base64.encodeToString(combined, Base64.NO_WRAP)
+            } catch (e: Exception) {
+                text
             }
-        
-            fun decryptPII(encrypted: String?): String {
-                if (encrypted.isNullOrEmpty()) return ""
-                return try {
-                    val combined = Base64.decode(encrypted, Base64.NO_WRAP)
-                    if (combined.size < 12) return encrypted // Not encrypted or invalid
-        
-                    val iv = combined.sliceArray(0 until 12)
-                    val encryptedBytes = combined.sliceArray(12 until combined.size)
-                    
-                    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                    val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-                    val secretKey = keyStore.getKey(MasterKey.DEFAULT_MASTER_KEY_ALIAS, null) as SecretKey
-                    
-                    val spec = GCMParameterSpec(128, iv)
-                    cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
-                    
-                    String(cipher.doFinal(encryptedBytes), Charsets.UTF_8)
-                } catch (e: Exception) {
-                    encrypted
-                }
+        }
+
+        override fun decrypt(encrypted: String?): String {
+            if (encrypted.isNullOrEmpty()) return ""
+            return try {
+                val combined = Base64.decode(encrypted, Base64.NO_WRAP)
+                if (combined.size < 12) return encrypted // Not encrypted or invalid
+
+                val iv = combined.sliceArray(0 until 12)
+                val encryptedBytes = combined.sliceArray(12 until combined.size)
+                
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                val secretKey = keyStore.getKey(MasterKey.DEFAULT_MASTER_KEY_ALIAS, null) as SecretKey
+                
+                val spec = GCMParameterSpec(128, iv)
+                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
+                
+                String(cipher.doFinal(encryptedBytes), Charsets.UTF_8)
+            } catch (e: Exception) {
+                encrypted
             }
+        }
+    }
         
             private fun generateSalt(): String {
         

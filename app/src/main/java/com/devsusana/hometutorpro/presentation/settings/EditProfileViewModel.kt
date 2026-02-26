@@ -2,11 +2,12 @@ package com.devsusana.hometutorpro.presentation.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
 import com.devsusana.hometutorpro.domain.usecases.IUpdatePasswordUseCase
 import com.devsusana.hometutorpro.domain.usecases.IUpdateProfileUseCase
+import com.devsusana.hometutorpro.R
+import android.app.Application
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -17,7 +18,8 @@ import javax.inject.Inject
 class EditProfileViewModel @Inject constructor(
     private val getCurrentUserUseCase: IGetCurrentUserUseCase,
     private val updateProfileUseCase: IUpdateProfileUseCase,
-    private val updatePasswordUseCase: IUpdatePasswordUseCase
+    private val updatePasswordUseCase: IUpdatePasswordUseCase,
+    private val application: Application
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(EditProfileState())
@@ -31,6 +33,7 @@ class EditProfileViewModel @Inject constructor(
                         s.copy(
                             name = currentUser.displayName ?: "",
                             email = currentUser.email ?: "",
+                            originalEmail = currentUser.email ?: "",
                             workingStartTime = currentUser.workingStartTime,
                             workingEndTime = currentUser.workingEndTime,
                             notes = currentUser.notes
@@ -83,23 +86,29 @@ class EditProfileViewModel @Inject constructor(
             )
             
             if (profileResult is Result.Error) {
-                _state.update { it.copy(isLoading = false, errorMessage = "Error updating profile") }
+                _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.edit_profile_error)) }
                 return@launch
             }
 
             // 2. Update Password if provided
             if (state.value.password.isNotEmpty()) {
-                val passwordResult = updatePasswordUseCase(state.value.password)
+                    val passwordResult = updatePasswordUseCase(state.value.password)
                 if (passwordResult is Result.Error) {
-                    _state.update { it.copy(isLoading = false, errorMessage = "Error updating password") }
+                    _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.edit_profile_password_error)) }
                     return@launch
                 }
             }
 
             _state.update { 
+                val emailChanged = it.email.isNotBlank() && it.email != it.originalEmail
+                val message = if (emailChanged) {
+                    R.string.edit_profile_email_verify_notice
+                } else {
+                    R.string.edit_profile_success
+                }
                 it.copy(
                     isLoading = false, 
-                    successMessage = "Profile updated successfully!",
+                    successMessage = application.getString(message),
                     errorMessage = null 
                 ) 
             }

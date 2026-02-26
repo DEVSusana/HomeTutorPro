@@ -6,6 +6,9 @@ import com.devsusana.hometutorpro.domain.usecases.IGetScheduleExceptionsUseCase
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
+/**
+ * Use case implementation for getscheduleexceptions operations.
+ */
 class GetScheduleExceptionsUseCase @Inject constructor(
     private val repository: ScheduleExceptionRepository
 ) : IGetScheduleExceptionsUseCase {

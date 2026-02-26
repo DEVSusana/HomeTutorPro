@@ -6,6 +6,9 @@ import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
+/**
+ * Use case implementation for getallschedules operations.
+ */
 class GetAllSchedulesUseCase @Inject constructor(
     private val repository: StudentRepository
 ) : IGetAllSchedulesUseCase {

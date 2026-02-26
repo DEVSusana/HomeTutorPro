@@ -50,7 +50,7 @@ fun ResourcesTab(
             ) {
                 Icon(
                     imageVector = Icons.Default.UploadFile,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_upload_icon),
                     modifier = Modifier
                         .size(64.dp)
                         .padding(bottom = 16.dp),

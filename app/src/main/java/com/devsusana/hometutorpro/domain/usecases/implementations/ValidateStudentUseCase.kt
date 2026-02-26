@@ -6,6 +6,9 @@ import com.devsusana.hometutorpro.domain.entities.Student
 import com.devsusana.hometutorpro.domain.usecases.IValidateStudentUseCase
 import javax.inject.Inject
 
+/**
+ * Default implementation of [IValidateStudentUseCase].
+ */
 class ValidateStudentUseCase @Inject constructor() : IValidateStudentUseCase {
     override operator fun invoke(student: Student): Result<Unit, DomainError> {
         if (student.name.isBlank()) {

@@ -9,6 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selectableGroup
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
@@ -32,20 +37,37 @@ fun StartClassDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.start_class_dialog_title)) },
         text = {
-            Column {
+            Column(
+                modifier = Modifier.semantics { selectableGroup() }
+            ) {
                 Text(stringResource(id = R.string.start_class_dialog_text))
                 Spacer(modifier = Modifier.height(10.dp))
                 durations.forEach { duration ->
+                    val isSelected = selectedDuration == duration
+                    val selectedStateDescription = stringResource(R.string.cd_state_selected)
+                    val notSelectedStateDescription = stringResource(R.string.cd_state_not_selected)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
-                            .clickable { selectedDuration = duration }
+                            .heightIn(min = 48.dp)
+                            .selectable(
+                                selected = isSelected,
+                                onClick = { selectedDuration = duration },
+                                role = Role.RadioButton
+                            )
+                            .semantics {
+                                stateDescription = if (isSelected) {
+                                    selectedStateDescription
+                                } else {
+                                    notSelectedStateDescription
+                                }
+                            }
                     ) {
                         RadioButton(
-                            selected = (selectedDuration == duration),
-                            onClick = { selectedDuration = duration }
+                            selected = isSelected,
+                            onClick = null
                         )
                         Text(
                             text = stringResource(id = R.string.start_class_dialog_duration, duration),

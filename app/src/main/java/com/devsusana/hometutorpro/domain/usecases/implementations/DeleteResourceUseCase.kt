@@ -7,6 +7,9 @@ import com.devsusana.hometutorpro.domain.usecases.IDeleteResourceUseCase
 
 import javax.inject.Inject
 
+/**
+ * Default implementation of [IDeleteResourceUseCase].
+ */
 class DeleteResourceUseCase @Inject constructor(private val repository: ResourceRepository) :
     IDeleteResourceUseCase {
     override suspend operator fun invoke(professorId: String, resourceId: String): Result<Unit, DomainError> {
