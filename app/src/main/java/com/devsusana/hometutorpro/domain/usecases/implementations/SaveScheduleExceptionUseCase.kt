@@ -35,7 +35,6 @@ class SaveScheduleExceptionUseCase @Inject constructor(
             val existingExceptions = repository.getExceptions(professorId, studentId).first()
             val alreadyExists = existingExceptions.find { 
                 it.originalScheduleId == exception.originalScheduleId && 
-                it.type == exception.type &&
                 Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() == exceptionDate
             }
             
