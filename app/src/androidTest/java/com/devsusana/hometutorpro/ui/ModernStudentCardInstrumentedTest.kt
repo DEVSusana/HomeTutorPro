@@ -8,7 +8,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.assert
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.presentation.student_list.components.ModernStudentCard
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 import org.junit.Rule
@@ -23,11 +23,15 @@ class ModernStudentCardInstrumentedTest {
 
     @Test
     fun modernStudentCard_displaysPositiveBalanceCorrectly() {
-        val student = Student(
+        val student = StudentSummary(
             id = "1",
             name = "John Doe",
+            subjects = "Math",
+            color = null,
             pendingBalance = 150.0,
-            isActive = true
+            pricePerHour = 0.0,
+            isActive = true,
+            lastClassDate = null
         )
 
         composeTestRule.setContent {
@@ -42,11 +46,15 @@ class ModernStudentCardInstrumentedTest {
 
     @Test
     fun modernStudentCard_displaysNegativeBalanceCorrectly() {
-        val student = Student(
+        val student = StudentSummary(
             id = "2",
             name = "Jane Doe",
+            subjects = "Math",
+            color = null,
             pendingBalance = -50.0,
-            isActive = true
+            pricePerHour = 0.0,
+            isActive = true,
+            lastClassDate = null
         )
 
         composeTestRule.setContent {
@@ -61,11 +69,15 @@ class ModernStudentCardInstrumentedTest {
 
     @Test
     fun modernStudentCard_displaysZeroBalanceCheckmarkCorrectly() {
-        val student = Student(
+        val student = StudentSummary(
             id = "3",
             name = "Peter Pan",
+            subjects = "Math",
+            color = null,
             pendingBalance = 0.0,
-            isActive = true
+            pricePerHour = 0.0,
+            isActive = true,
+            lastClassDate = null
         )
 
         composeTestRule.setContent {
@@ -79,11 +91,15 @@ class ModernStudentCardInstrumentedTest {
 
     @Test
     fun modernStudentCard_inactiveStudentWithPositiveBalance() {
-        val student = Student(
+        val student = StudentSummary(
             id = "4",
             name = "Inactive John",
+            subjects = "Math",
+            color = null,
             pendingBalance = 75.0,
-            isActive = false
+            pricePerHour = 0.0,
+            isActive = false,
+            lastClassDate = null
         )
 
         composeTestRule.setContent {

@@ -63,4 +63,14 @@ interface ScheduleExceptionDao {
 
     @Query("UPDATE schedule_exceptions SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
     suspend fun assignOrphanedDataToProfessor(professorId: String)
+
+    @Query("""
+        DELETE FROM schedule_exceptions 
+        WHERE id NOT IN (
+            SELECT MAX(id) 
+            FROM schedule_exceptions 
+            GROUP BY professorId, studentId, originalScheduleId, exceptionDate, type
+        )
+    """)
+    suspend fun deleteDuplicates()
 }

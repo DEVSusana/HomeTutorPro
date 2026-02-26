@@ -17,7 +17,8 @@ import javax.inject.Singleton
 @Singleton
 class BackupManager @Inject constructor(
     private val database: AppDatabase,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val uriReader: IUriReader
 ) {
     private val json = Json {
         prettyPrint = true
@@ -39,25 +40,8 @@ class BackupManager @Inject constructor(
 
     suspend fun restoreBackup(context: Context, uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            val content = readTextFromUri(context, uri)
+            val content = uriReader.readTextFromUri(context, uri)
             val backup = json.decodeFromString<AppBackup>(content)
-            
-            // Perform restoration in a transaction
-            database.runInTransaction {
-                // We don't delete existing data to avoid accidents, 
-                // but you might want to clear tables first depending on requirements.
-                // For a "Restore", clearing is usually expected.
-                
-                // Clear tables (order matters for foreign keys)
-                // database.clearAllTables() // Risky if other tables exist
-                
-                // Manual clear in correct order
-                // Note: We'll use runBlocking or similar if DAOs are suspend, 
-                // but runInTransaction blocks the thread.
-                
-                // Since DAOs are usually suspend, we might need a different approach 
-                // for Room transactions if they are not already handled.
-            }
             
             // Simplified restoration (Room handles transactions better with suspend)
             restoreData(backup)
@@ -81,19 +65,5 @@ class BackupManager @Inject constructor(
             // 4. Resources
             backup.resources.forEach { database.resourceDao().insertResource(it) }
         }
-    }
-
-    private fun readTextFromUri(context: Context, uri: Uri): String {
-        val stringBuilder = StringBuilder()
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            BufferedReader(InputStreamReader(inputStream)).use { reader ->
-                var line: String? = reader.readLine()
-                while (line != null) {
-                    stringBuilder.append(line)
-                    line = reader.readLine()
-                }
-            }
-        }
-        return stringBuilder.toString()
     }
 }

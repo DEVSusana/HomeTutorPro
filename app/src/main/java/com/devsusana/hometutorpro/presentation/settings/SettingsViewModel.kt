@@ -7,6 +7,7 @@ import com.devsusana.hometutorpro.core.settings.SettingsManager
 import com.devsusana.hometutorpro.core.utils.NotificationHelper
 import com.devsusana.hometutorpro.core.utils.BackupManager
 import android.net.Uri
+import com.devsusana.hometutorpro.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -96,9 +97,12 @@ class SettingsViewModel @Inject constructor(
             try {
                 val json = backupManager.createBackup()
                 onResult(json)
-                _backupState.value = false to "Backup listo para guardar"
+                _backupState.value = false to application.getString(R.string.settings_backup_ready)
             } catch (e: Exception) {
-                _backupState.value = false to "Error al crear backup: ${e.message}"
+                _backupState.value = false to application.getString(
+                    R.string.settings_backup_error,
+                    e.message ?: ""
+                )
             }
         }
     }
@@ -108,9 +112,12 @@ class SettingsViewModel @Inject constructor(
             _backupState.value = true to null
             val result = backupManager.restoreBackup(application, uri)
             if (result.isSuccess) {
-                _backupState.value = false to "Datos restaurados con éxito"
+                _backupState.value = false to application.getString(R.string.settings_restore_success)
             } else {
-                _backupState.value = false to "Error al restaurar: ${result.exceptionOrNull()?.message}"
+                _backupState.value = false to application.getString(
+                    R.string.settings_restore_error,
+                    result.exceptionOrNull()?.message ?: ""
+                )
             }
         }
     }

@@ -5,6 +5,9 @@ import com.devsusana.hometutorpro.domain.usecases.IRegisterUseCase
 
 import javax.inject.Inject
 
+/**
+ * Default implementation of [IRegisterUseCase].
+ */
 class RegisterUseCase @Inject constructor(private val repository: AuthRepository) :
     IRegisterUseCase {
     override suspend operator fun invoke(email: String, password: String, name: String) = repository.register(email, password, name)

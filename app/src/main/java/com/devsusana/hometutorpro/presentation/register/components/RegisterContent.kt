@@ -106,7 +106,11 @@ fun RegisterContent(
                         modifier = Modifier.fillMaxWidth().testTag("name_field"),
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = stringResource(R.string.cd_person_icon)) },
                         shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        singleLine = true,
+                        isError = state.error == R.string.register_error_name_empty,
+                        supportingText = if (state.error == R.string.register_error_name_empty) {
+                            { Text(stringResource(R.string.register_error_name_empty)) }
+                        } else null
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -118,7 +122,11 @@ fun RegisterContent(
                         modifier = Modifier.fillMaxWidth().testTag("email_field"),
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = stringResource(R.string.cd_email_icon)) },
                         shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        singleLine = true,
+                        isError = state.error == R.string.register_error_invalid_email,
+                        supportingText = if (state.error == R.string.register_error_invalid_email) {
+                            { Text(stringResource(R.string.register_error_invalid_email)) }
+                        } else null
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -139,7 +147,11 @@ fun RegisterContent(
                         },
                         modifier = Modifier.fillMaxWidth().testTag("password_field"),
                         shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        singleLine = true,
+                        isError = state.error == R.string.register_error_short_password,
+                        supportingText = if (state.error == R.string.register_error_short_password) {
+                            { Text(stringResource(R.string.register_error_short_password)) }
+                        } else null
                     )
                     
                     Spacer(modifier = Modifier.height(24.dp))

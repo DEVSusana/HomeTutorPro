@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -35,24 +38,32 @@ import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 import kotlinx.coroutines.launch
 
+/**
+ * Stateless student detail UI. All state is provided by [state] and UI-only flags/handlers.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentDetailContent(
     state: StudentDetailState,
     onEvent: (StudentDetailEvent) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    isEditMode: Boolean,
+    onToggleEditMode: () -> Unit,
+    onSetEditMode: (Boolean) -> Unit,
+    showPaymentDialog: Boolean,
+    selectedPaymentType: PaymentType?,
+    onPaymentClick: () -> Unit,
+    onDismissPaymentDialog: () -> Unit,
+    showStartClassDialog: Boolean,
+    onStartClassClick: () -> Unit,
+    onDismissStartClassDialog: () -> Unit,
+    showDeleteDialog: Boolean,
+    onShowDeleteDialog: () -> Unit,
+    onDismissDeleteDialog: () -> Unit
 ) {
     val context = LocalContext.current
     val student = state.student
     val isNewStudent = student?.id?.isEmpty() == true || student?.id == "new"
-
-    var isLocalEditMode by remember(student?.id) { mutableStateOf(isNewStudent) }
-    val isEditMode = isLocalEditMode || state.isBalanceEditable
-
-    var showPaymentDialog by remember { mutableStateOf(false) }
-    var selectedPaymentType by remember { mutableStateOf<PaymentType?>(null) }
-
-    var showStartClassDialog by remember { mutableStateOf(false) }
     
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -96,13 +107,14 @@ fun StudentDetailContent(
         )
     }
 
-    if (showPaymentDialog && selectedPaymentType != null && student != null) {
+    val paymentType = selectedPaymentType
+    if (showPaymentDialog && paymentType != null && student != null) {
         PaymentDialog(
             defaultAmount = student.pricePerHour,
-            onDismiss = { showPaymentDialog = false },
+            onDismiss = onDismissPaymentDialog,
             onConfirm = { amount ->
-                onEvent(StudentDetailEvent.RegisterPayment(amount, selectedPaymentType!!))
-                showPaymentDialog = false
+                onEvent(StudentDetailEvent.RegisterPayment(amount, paymentType))
+                onDismissPaymentDialog()
             }
         )
     }
@@ -120,7 +132,7 @@ fun StudentDetailContent(
 
     if (showStartClassDialog) {
         StartClassDialog(
-            onDismiss = { showStartClassDialog = false },
+            onDismiss = onDismissStartClassDialog,
             onConfirm = { duration ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -149,7 +161,7 @@ fun StudentDetailContent(
                 }
                 
                 onEvent(StudentDetailEvent.StartClass(duration))
-                showStartClassDialog = false
+                onDismissStartClassDialog()
             }
         )
     }
@@ -166,7 +178,12 @@ fun StudentDetailContent(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(if (isNewStudent) stringResource(id = R.string.student_detail_new_student) else student?.name ?: "") },
+                title = {
+                    Text(
+                        if (isNewStudent) stringResource(id = R.string.student_detail_new_student) else student?.name ?: "",
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack, modifier = Modifier.testTag("back_button")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.student_detail_back))
@@ -175,7 +192,7 @@ fun StudentDetailContent(
                 actions = {
                     if (!isNewStudent) {
                         IconButton(
-                            onClick = { isLocalEditMode = !isLocalEditMode },
+                            onClick = onToggleEditMode,
                             modifier = Modifier.testTag("edit_button")
                         ) {
                             Icon(
@@ -208,7 +225,7 @@ fun StudentDetailContent(
                                 } else {
                                     onEvent(StudentDetailEvent.SaveStudent)
                                     if (!isNewStudent) {
-                                        isLocalEditMode = false
+                                        onSetEditMode(false)
                                         if(state.isBalanceEditable) {
                                             onEvent(StudentDetailEvent.ToggleBalanceEdit)
                                         }
@@ -232,10 +249,9 @@ fun StudentDetailContent(
 
                         if (!isNewStudent) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            var showDeleteDialog by remember { mutableStateOf(false) }
                             
                             OutlinedButton(
-                                onClick = { showDeleteDialog = true },
+                                onClick = onShowDeleteDialog,
                                 modifier = Modifier.fillMaxWidth().testTag("delete_student_button"),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                             ) {
@@ -244,14 +260,14 @@ fun StudentDetailContent(
 
                             if (showDeleteDialog) {
                                 AlertDialog(
-                                    onDismissRequest = { showDeleteDialog = false },
+                                    onDismissRequest = onDismissDeleteDialog,
                                     title = { Text(stringResource(id = R.string.student_detail_delete_student_dialog_title)) },
                                     text = { Text(stringResource(id = R.string.student_detail_delete_student_dialog_text)) },
                                     confirmButton = {
                                         TextButton(
                                             onClick = {
                                                 onEvent(StudentDetailEvent.DeleteStudent)
-                                                showDeleteDialog = false
+                                                onDismissDeleteDialog()
                                             },
                                             modifier = Modifier.testTag("confirm_delete_button")
                                         ) {
@@ -259,7 +275,7 @@ fun StudentDetailContent(
                                         }
                                     },
                                     dismissButton = {
-                                        TextButton(onClick = { showDeleteDialog = false }) {
+                                        TextButton(onClick = onDismissDeleteDialog) {
                                             Text(stringResource(id = R.string.student_detail_cancel))
                                         }
                                     }
@@ -293,6 +309,8 @@ fun StudentDetailContent(
                         .fillMaxSize()
                         .padding(padding)
                 ) {
+                    val selectedStateDescription = stringResource(R.string.cd_state_selected)
+                    val notSelectedStateDescription = stringResource(R.string.cd_state_not_selected)
                     PrimaryTabRow(
                         selectedTabIndex = state.currentTab,
                         modifier = Modifier.fillMaxWidth()
@@ -307,6 +325,13 @@ fun StudentDetailContent(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     ) 
+                                },
+                                modifier = Modifier.semantics {
+                                    stateDescription = if (state.currentTab == index) {
+                                        selectedStateDescription
+                                    } else {
+                                        notSelectedStateDescription
+                                    }
                                 }
                             )
                         }
@@ -337,11 +362,8 @@ fun StudentDetailContent(
                                 isEditMode = isEditMode,
                                 isNewStudent = isNewStudent,
                                 onEvent = onEvent,
-                                onPaymentClick = { 
-                                    selectedPaymentType = PaymentType.EFFECTIVE 
-                                    showPaymentDialog = true
-                                },
-                                onStartClassClick = { showStartClassDialog = true }
+                                onPaymentClick = onPaymentClick,
+                                onStartClassClick = onStartClassClick
                             )
                             3 -> ResourcesTab(
                                 student = student,
@@ -373,7 +395,20 @@ private fun StudentDetailContentNewStudentPreview() {
         StudentDetailContent(
             state = StudentDetailState(student = Student(id = "new")),
             onEvent = {},
-            onBack = {}
+            onBack = {},
+            isEditMode = true,
+            onToggleEditMode = {},
+            onSetEditMode = {},
+            showPaymentDialog = false,
+            selectedPaymentType = null,
+            onPaymentClick = {},
+            onDismissPaymentDialog = {},
+            showStartClassDialog = false,
+            onStartClassClick = {},
+            onDismissStartClassDialog = {},
+            showDeleteDialog = false,
+            onShowDeleteDialog = {},
+            onDismissDeleteDialog = {}
         )
     }
 }
@@ -399,7 +434,20 @@ private fun StudentDetailContentViewStudentPreview() {
         StudentDetailContent(
             state = StudentDetailState(student = mockStudent),
             onEvent = {},
-            onBack = {}
+            onBack = {},
+            isEditMode = false,
+            onToggleEditMode = {},
+            onSetEditMode = {},
+            showPaymentDialog = false,
+            selectedPaymentType = null,
+            onPaymentClick = {},
+            onDismissPaymentDialog = {},
+            showStartClassDialog = false,
+            onStartClassClick = {},
+            onDismissStartClassDialog = {},
+            showDeleteDialog = false,
+            onShowDeleteDialog = {},
+            onDismissDeleteDialog = {}
         )
     }
 }
@@ -411,7 +459,20 @@ private fun StudentDetailContentLoadingPreview() {
         StudentDetailContent(
             state = StudentDetailState(isLoading = true),
             onEvent = {},
-            onBack = {}
+            onBack = {},
+            isEditMode = false,
+            onToggleEditMode = {},
+            onSetEditMode = {},
+            showPaymentDialog = false,
+            selectedPaymentType = null,
+            onPaymentClick = {},
+            onDismissPaymentDialog = {},
+            showStartClassDialog = false,
+            onStartClassClick = {},
+            onDismissStartClassDialog = {},
+            showDeleteDialog = false,
+            onShowDeleteDialog = {},
+            onDismissDeleteDialog = {}
         )
     }
 }
@@ -423,7 +484,20 @@ private fun StudentDetailContentNotFoundPreview() {
         StudentDetailContent(
             state = StudentDetailState(student = null),
             onEvent = {},
-            onBack = {}
+            onBack = {},
+            isEditMode = false,
+            onToggleEditMode = {},
+            onSetEditMode = {},
+            showPaymentDialog = false,
+            selectedPaymentType = null,
+            onPaymentClick = {},
+            onDismissPaymentDialog = {},
+            showStartClassDialog = false,
+            onStartClassClick = {},
+            onDismissStartClassDialog = {},
+            showDeleteDialog = false,
+            onShowDeleteDialog = {},
+            onDismissDeleteDialog = {}
         )
     }
 }

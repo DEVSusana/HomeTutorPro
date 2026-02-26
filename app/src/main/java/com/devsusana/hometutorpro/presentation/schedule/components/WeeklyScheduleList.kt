@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -63,7 +65,7 @@ fun WeeklyScheduleList(
                     ) {
                         Icon(
                             imageVector = Icons.Default.CalendarToday,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_calendar_icon),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
@@ -72,7 +74,8 @@ fun WeeklyScheduleList(
                             text = DayOfWeekUtils.getLocalizedName(day),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.semantics { heading() }
                         )
                     }
                 }

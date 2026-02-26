@@ -42,9 +42,8 @@ interface ScheduleDao {
     suspend fun hasConflict(dayOfWeek: Int, startTime: String, endTime: String, professorId: String, id: Long? = null): Boolean
 
     @Query("""
-        SELECT s.*, st.name as studentName 
+        SELECT s.* 
         FROM schedules s
-        JOIN students st ON s.studentId = st.id
         WHERE s.dayOfWeek = :dayOfWeek 
         AND s.professorId = :professorId
         AND s.pendingDelete = 0 

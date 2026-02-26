@@ -20,7 +20,7 @@ import android.content.Context
         SharedResourceEntity::class,
         SyncMetadataEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(AppTypeConverters::class)
@@ -183,6 +183,67 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // 1. Rename old table
+                database.execSQL("ALTER TABLE schedule_exceptions RENAME TO schedule_exceptions_old")
+
+                // 2. Create new table (type field instead of isCancelled, and unique index)
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `schedule_exceptions` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                        `professorId` TEXT NOT NULL, 
+                        `cloudId` TEXT, 
+                        `studentId` INTEGER NOT NULL, 
+                        `originalScheduleId` TEXT NOT NULL, 
+                        `exceptionDate` INTEGER NOT NULL, 
+                        `reason` TEXT NOT NULL, 
+                        `type` TEXT NOT NULL, 
+                        `newStartTime` TEXT, 
+                        `newEndTime` TEXT, 
+                        `newDayOfWeek` INTEGER, 
+                        `syncStatus` TEXT NOT NULL, 
+                        `lastModifiedTimestamp` INTEGER NOT NULL, 
+                        `pendingDelete` INTEGER NOT NULL, 
+                        FOREIGN KEY(`studentId`) REFERENCES `students`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE 
+                    )
+                """.trimIndent())
+
+                // 3. Insert data (deduplicating during insert using GROUP BY)
+                // Map isCancelled to type: 1 -> CANCELLED, 0 -> RESCHEDULED (or EXTRA if originalScheduleId is 'EXTRA')
+                database.execSQL("""
+                    INSERT INTO schedule_exceptions (
+                        id, professorId, cloudId, studentId, originalScheduleId, exceptionDate, 
+                        reason, type, newStartTime, newEndTime, newDayOfWeek, 
+                        syncStatus, lastModifiedTimestamp, pendingDelete
+                    )
+                    SELECT 
+                        MAX(id), professorId, MAX(cloudId), studentId, originalScheduleId, exceptionDate, 
+                        MAX(reason), 
+                        CASE 
+                            WHEN isCancelled = 1 THEN 'CANCELLED' 
+                            WHEN originalScheduleId = 'EXTRA' THEN 'EXTRA' 
+                            ELSE 'RESCHEDULED' 
+                        END, 
+                        MAX(newStartTime), MAX(newEndTime), MAX(newDayOfWeek), 
+                        MAX(syncStatus), MAX(lastModifiedTimestamp), MAX(pendingDelete)
+                    FROM schedule_exceptions_old
+                    GROUP BY professorId, originalScheduleId, exceptionDate
+                """.trimIndent())
+
+                // 4. Drop old table
+                database.execSQL("DROP TABLE schedule_exceptions_old")
+
+                // 5. Re-create indices (including the new unique one)
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_exceptions_studentId` ON `schedule_exceptions` (`studentId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_exceptions_exceptionDate` ON `schedule_exceptions` (`exceptionDate`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_exceptions_cloudId` ON `schedule_exceptions` (`cloudId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_exceptions_syncStatus` ON `schedule_exceptions` (`syncStatus`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_exceptions_professorId` ON `schedule_exceptions` (`professorId`)")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_schedule_exceptions_professorId_originalScheduleId_exceptionDate` ON `schedule_exceptions` (`professorId`, `originalScheduleId`, `exceptionDate`)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val factory = SupportFactoryHelper.createFactory(context)
@@ -193,7 +254,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DATABASE_NAME
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build()
                 INSTANCE = instance
                 instance

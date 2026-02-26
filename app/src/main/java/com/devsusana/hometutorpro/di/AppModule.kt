@@ -1,14 +1,8 @@
 package com.devsusana.hometutorpro.di
 
-import com.devsusana.hometutorpro.data.repository.AuthRepositoryImpl
 import android.content.Context
-import com.devsusana.hometutorpro.data.repository.ResourceRepositoryImpl
-import com.devsusana.hometutorpro.data.repository.ScheduleExceptionRepositoryImpl
-import com.devsusana.hometutorpro.data.repository.StudentRepositoryImpl
-import com.devsusana.hometutorpro.domain.repository.AuthRepository
-import com.devsusana.hometutorpro.domain.repository.ResourceRepository
-import com.devsusana.hometutorpro.domain.repository.ScheduleExceptionRepository
-import com.devsusana.hometutorpro.domain.repository.StudentRepository
+import com.devsusana.hometutorpro.core.billing.PremiumBillingService
+import com.devsusana.hometutorpro.data.billing.BillingManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -25,7 +19,13 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class AppModule {
 
-    // Repositories are bound in RepositoryModule.kt
+    @Binds
+    @Singleton
+    abstract fun bindUriReader(uriReader: com.devsusana.hometutorpro.core.utils.UriReader): com.devsusana.hometutorpro.core.utils.IUriReader
+
+    @Binds
+    @Singleton
+    abstract fun bindPremiumBillingService(billingManager: BillingManager): PremiumBillingService
 
     companion object {
         @Provides

@@ -68,4 +68,15 @@ class ScheduleExceptionRepositoryImpl @Inject constructor(
             }
         }
     }
+
+    override suspend fun cleanupDuplicates(): Result<Unit, DomainError> {
+        return withContext(Dispatchers.IO) {
+            try {
+                exceptionDao.deleteDuplicates()
+                Result.Success(Unit)
+            } catch (e: Exception) {
+                Result.Error(DomainError.Unknown)
+            }
+        }
+    }
 }

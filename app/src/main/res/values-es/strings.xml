@@ -138,6 +138,11 @@
     <string name="student_detail_notes_hint">Añade notas, observaciones, progreso...</string>
     <string name="student_detail_add_extra_class">Añadir Clase Extra</string>
     <string name="student_detail_success_extra_class_added">¡Clase extra añadida con éxito!</string>
+    <string name="schedule_exception_reason_extra_class">Clase extra</string>
+    <string name="google_maps_package">com.google.android.apps.maps</string>
+    <string name="schedule_time_range_format">%1$s - %2$s</string>
+    <string name="currency_format">%.2f€</string>
+    <string name="date_time_format">dd/MM/yyyy HH:mm</string>
     
     <!-- Resource Sharing -->
     <string name="student_detail_share_resources">Compartir Recursos</string>
@@ -272,6 +277,21 @@
     <string name="cd_success_icon">Icono de éxito</string>
     <string name="cd_error_icon">Icono de error</string>
     <string name="cd_warning_icon">Icono de advertencia</string>
+    <string name="cd_info_icon">Icono de información</string>
+    <string name="cd_no_students_icon">Icono de sin alumnos</string>
+    <string name="cd_no_results_icon">Icono de sin resultados</string>
+    <string name="cd_quick_action_button">%1$s. %2$s</string>
+    <string name="cd_dashboard_stat">%1$s: %2$s</string>
+    <string name="cd_settings_item">%1$s. %2$s</string>
+    <string name="cd_resource_item">%1$s, %2$s</string>
+    <string name="cd_select_date">Seleccionar fecha, %1$s</string>
+    <string name="cd_schedule_item">%1$s, %2$s a %3$s</string>
+    <string name="cd_schedule_item_cancelled">Clase cancelada: %1$s, %2$s a %3$s</string>
+    <string name="cd_schedule_item_rescheduled">Clase reprogramada: %1$s, %2$s a %3$s</string>
+    <string name="cd_state_on">Activado</string>
+    <string name="cd_state_off">Desactivado</string>
+    <string name="cd_state_selected">Seleccionado</string>
+    <string name="cd_state_not_selected">No seleccionado</string>
 
     <!-- Menu -->
     <string name="menu_language">Language / Idioma</string>
@@ -444,7 +464,9 @@
     <string name="edit_profile_password">Nueva Contraseña (opcional)</string>
     <string name="edit_profile_save">Guardar Cambios</string>
     <string name="edit_profile_success">¡Perfil actualizado con éxito!</string>
+    <string name="edit_profile_email_verify_notice">Perfil actualizado. Confirma el nuevo correo para completar el cambio.</string>
     <string name="edit_profile_error">Error al actualizar el perfil</string>
+    <string name="edit_profile_password_error">Error al actualizar la contraseña</string>
     <string name="edit_profile_working_hours">Horario de Trabajo</string>
     <string name="edit_profile_working_start">Inicio: %s</string>
     <string name="edit_profile_working_end">Fin: %s</string>
@@ -463,6 +485,15 @@
     <string name="dashboard_action_view_students_subtitle">Gestionar perfiles</string>
     <string name="dashboard_action_shared_resources">Recursos Compartidos</string>
     <string name="dashboard_action_shared_resources_subtitle">Subir y compartir</string>
+    <string name="dashboard_default_user_name">Profesor</string>
+
+    <!-- Migration -->
+    <string name="migration_error_message">Error: %s</string>
+
+    <!-- Backup -->
+    <string name="settings_backup_ready">Copia de seguridad lista para guardar</string>
+    <string name="settings_restore_success">Datos restaurados con éxito</string>
+    <string name="settings_restore_error">Error al restaurar: %s</string>
     <string name="dashboard_hello">Hola</string>
 
     <string name="dashboard_action_notes">Mis Notas</string>
@@ -500,8 +531,10 @@
     <string name="student_list_no_students">No se encontraron alumnos</string>
     <string name="student_list_clear_search">Borrar búsqueda</string>
     <string name="student_detail_register_payment">Registrar pago</string>
-    <string name="weekly_schedule_free_day">¡Día Libre!</string>
-    <string name="weekly_schedule_enjoy_free_time">¡Disfruta de tu tiempo libre!</string>
+    <string name="weekly_schedule_free_day">No hay clases programadas</string>
+    <string name="weekly_schedule_enjoy_free_time">Estás libre hoy</string>
+    <string name="cd_select_start_time">Seleccionar hora de inicio, %1$s</string>
+    <string name="cd_select_end_time">Seleccionar hora de fin, %1$s</string>
     <string name="weekly_schedule_free_slot">Libre</string>
 
     <!-- Backup & Restore -->
@@ -511,5 +544,28 @@
     <string name="settings_backup_import">Importar Copia</string>
     <string name="settings_backup_success">¡Operación completada con éxito!</string>
     <string name="settings_backup_error">Fallo en la operación: %s</string>
+
+    <!-- Migration Screen -->
+    <string name="migration_title">Migración de Datos</string>
+    <string name="migration_ready_message">Listo para migrar tus datos locales a la nube.</string>
+    <string name="migration_start">Iniciar Migración</string>
+    <string name="migration_retry">Reintentar</string>
+    <string name="migration_msg_starting">Iniciando migración…</string>
+    <string name="migration_msg_registering">Registrando usuario…</string>
+    <string name="migration_msg_students">Migrando estudiantes…</string>
+    <string name="migration_msg_schedules">Migrando horarios…</string>
+    <string name="migration_msg_resources">Migrando recursos…</string>
+    <string name="migration_msg_cleanup">Limpiando…</string>
+    <string name="migration_msg_complete">¡Migración completada!</string>
+    <string name="migration_msg_error">Ocurrió un error</string>
+    <string name="migration_msg_ready">Listo</string>
+
+    <!-- Premium Purchase Screen -->
+    <string name="premium_upgrade_title">Actualizar a Premium</string>
+    <string name="premium_unlock_potential">Desbloquea todo el potencial</string>
+    <string name="premium_benefits_desc">¡Obtén acceso a la Sincronización en la Nube, soporte para múltiples dispositivos y más!</string>
+    <string name="premium_subscribe_button">Suscribirse por %s</string>
+    <string name="premium_error_not_found">No se encontraron los detalles del producto. Por favor, comprueba tu conexión a internet o inténtalo de nuevo más tarde.</string>
+    <string name="premium_go_back">Volver</string>
     <string name="manage_your_students_efficiently">Gestiona tus alumnos de forma eficiente.</string>
 </resources>

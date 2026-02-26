@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.devsusana.hometutorpro.R
+import kotlin.OptIn
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
@@ -20,6 +21,7 @@ import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUs
 import com.devsusana.hometutorpro.domain.entities.ScheduleType
 import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleItem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -75,12 +77,13 @@ class DashboardViewModel @Inject constructor(
         loadDashboardData()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun loadDashboardData() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
             
             getCurrentUserUseCase().filterNotNull().flatMapLatest { user ->
-                _state.update { it.copy(userName = user.displayName ?: "Professor") }
+                _state.update { it.copy(userName = user.displayName ?: application.getString(R.string.dashboard_default_user_name)) }
                 combine(
                     getStudentsUseCase(user.uid),
                     getAllSchedulesUseCase(user.uid)
@@ -168,7 +171,7 @@ class DashboardViewModel @Inject constructor(
         if (nextToday != null) return nextToday
         
         val future = sorted.filter {
-            it.date?.isAfter(today) == true
+            it.date.isAfter(today)
         }
         
         if (future.isNotEmpty()) return future.first()

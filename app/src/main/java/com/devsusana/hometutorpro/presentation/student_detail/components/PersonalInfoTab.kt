@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -56,6 +58,8 @@ fun PersonalInfoTab(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    val stateOnDescription = stringResource(R.string.cd_state_on)
+                    val stateOffDescription = stringResource(R.string.cd_state_off)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource(R.string.student_detail_active_status),
@@ -71,7 +75,15 @@ fun PersonalInfoTab(
                     Switch(
                         checked = student.isActive,
                         onCheckedChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(isActive = it))) },
-                        modifier = Modifier.testTag("active_status_switch")
+                        modifier = Modifier
+                            .testTag("active_status_switch")
+                            .semantics {
+                                stateDescription = if (student.isActive) {
+                                    stateOnDescription
+                                } else {
+                                    stateOffDescription
+                                }
+                            }
                     )
                 }
                 HorizontalDivider(modifier = Modifier.padding(bottom = 16.dp))
@@ -134,7 +146,7 @@ fun PersonalInfoTab(
                             onClick = {
                                 val gmmIntentUri = Uri.parse("google.navigation:q=" + Uri.encode(student.address))
                                 val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
-                                    setPackage("com.google.android.apps.maps")
+                                    setPackage(context.getString(R.string.google_maps_package))
                                 }
                                 if (mapIntent.resolveActivity(context.packageManager) != null) {
                                     context.startActivity(mapIntent)

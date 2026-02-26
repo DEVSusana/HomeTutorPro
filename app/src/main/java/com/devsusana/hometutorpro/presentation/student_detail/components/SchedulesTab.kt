@@ -109,7 +109,7 @@ fun SchedulesTab(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Info,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_info_icon),
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(24.dp)
                         )
@@ -160,7 +160,7 @@ private fun ScheduleItem(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "${schedule.startTime} - ${schedule.endTime}",
+                    text = stringResource(R.string.schedule_time_range_format, schedule.startTime, schedule.endTime),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }

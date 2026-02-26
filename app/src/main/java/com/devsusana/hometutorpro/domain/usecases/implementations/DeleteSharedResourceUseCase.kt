@@ -10,6 +10,9 @@ import javax.inject.Inject
  * Implementation of use case for deleting shared resource records.
  * Delegates to ResourceRepository.
  */
+/**
+ * Use case implementation for deletesharedresource operations.
+ */
 class DeleteSharedResourceUseCase @Inject constructor(
     private val resourceRepository: ResourceRepository
 ) : IDeleteSharedResourceUseCase {

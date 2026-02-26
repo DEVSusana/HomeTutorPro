@@ -5,6 +5,9 @@ import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.User
 import kotlinx.coroutines.flow.StateFlow
 
+/**
+ * Repository contract for Auth data operations.
+ */
 interface AuthRepository {
     val currentUser: StateFlow<User?>
     suspend fun login(email: String, password: String): Result<User, DomainError>

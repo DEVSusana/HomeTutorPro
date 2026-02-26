@@ -6,6 +6,9 @@ import com.devsusana.hometutorpro.domain.repository.ScheduleExceptionRepository
 import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleExceptionUseCase
 import javax.inject.Inject
 
+/**
+ * Use case implementation for deletescheduleexception operations.
+ */
 class DeleteScheduleExceptionUseCase @Inject constructor(
     private val repository: ScheduleExceptionRepository
 ) : IDeleteScheduleExceptionUseCase {

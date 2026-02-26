@@ -8,6 +8,9 @@ import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
 
 import javax.inject.Inject
 
+/**
+ * Default implementation of [IRegisterPaymentUseCase].
+ */
 class RegisterPaymentUseCase @Inject constructor(private val repository: StudentRepository) :
     IRegisterPaymentUseCase {
     override suspend operator fun invoke(

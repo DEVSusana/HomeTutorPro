@@ -17,6 +17,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleItem
 import com.devsusana.hometutorpro.presentation.utils.ColorUtils
@@ -49,7 +51,9 @@ fun MonthlyScheduleView(
             daysInOrder.forEach { day ->
                 Text(
                     text = DayOfWeekUtils.getShortLocalizedName(day),
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { heading() },
                     textAlign = TextAlign.Center,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodySmall

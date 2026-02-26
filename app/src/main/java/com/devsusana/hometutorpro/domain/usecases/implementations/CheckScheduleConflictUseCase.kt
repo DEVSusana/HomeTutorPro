@@ -6,6 +6,9 @@ import javax.inject.Inject
 import kotlin.math.max
 import kotlin.math.min
 
+/**
+ * Default implementation of [ICheckScheduleConflictUseCase].
+ */
 class CheckScheduleConflictUseCase @Inject constructor() : ICheckScheduleConflictUseCase {
     override operator fun invoke(newSchedule: Schedule, existingSchedules: List<Schedule>): Boolean {
         return existingSchedules.any { existing ->
