@@ -14,3 +14,14 @@
 .cxx
 local.properties
 google-services.json
+# Entorno virtual del agente
+.venv_agente/
+venv/
+.venv/
+
+# Archivos temporales de backup
+*.bak
+
+# Archivos de configuración de Python
+__pycache__/
+*.py[cod]

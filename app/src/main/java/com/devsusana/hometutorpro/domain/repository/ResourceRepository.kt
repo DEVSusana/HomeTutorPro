@@ -7,6 +7,9 @@ import com.devsusana.hometutorpro.domain.entities.SharedResource
 import com.devsusana.hometutorpro.domain.entities.ShareMethod
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Repository contract for Resource data operations.
+ */
 interface ResourceRepository {
     fun getResources(professorId: String): Flow<List<Resource>>
     suspend fun uploadResource(professorId: String, name: String, fileType: String, fileUri: String): Result<Unit, DomainError>

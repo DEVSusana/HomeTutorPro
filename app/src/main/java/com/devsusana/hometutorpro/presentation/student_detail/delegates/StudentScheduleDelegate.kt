@@ -217,7 +217,7 @@ class StudentScheduleDelegate @Inject constructor(
                 newStartTime = startTime,
                 newEndTime = endTime,
                 newDayOfWeek = dayOfWeek, // Explicitly set day of week
-                reason = "Extra Class"
+                reason = application.getString(R.string.schedule_exception_reason_extra_class)
             )
 
             when (saveScheduleExceptionUseCase(professorId, studentId, extraClass)) {

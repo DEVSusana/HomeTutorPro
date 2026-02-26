@@ -32,7 +32,11 @@ fun StudentListEmptyState(
     ) {
         Icon(
             imageVector = if (isSearchActive) Icons.Default.SearchOff else Icons.Default.PeopleOutline,
-            contentDescription = null,
+            contentDescription = if (isSearchActive) {
+                stringResource(R.string.cd_no_results_icon)
+            } else {
+                stringResource(R.string.cd_no_students_icon)
+            },
             modifier = Modifier.size(72.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )

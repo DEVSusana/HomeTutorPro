@@ -21,7 +21,7 @@ fun NavGraphBuilder.authGraph(navController: NavController) {
     composable<Route.Register> {
         RegisterScreen(
             onRegisterSuccess = {
-                navController.navigate(Route.Login) {
+                navController.navigate(Route.Dashboard) {
                     popUpTo(Route.Register) { inclusive = true }
                 }
             },

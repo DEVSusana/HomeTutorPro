@@ -13,6 +13,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -34,13 +38,38 @@ fun ScheduleCard(
 ) {
     val exception = item.exception
     val isRescheduled = exception?.type == ExceptionType.RESCHEDULED
+    val isCancelled = exception?.type == ExceptionType.CANCELLED
     val studentColor = item.student.color?.let { Color(it) }
         ?: ColorUtils.getStudentColor(item.student.id)
+    val contentDescription = when {
+        isCancelled -> stringResource(
+            R.string.cd_schedule_item_cancelled,
+            item.student.name,
+            item.startTime,
+            item.endTime
+        )
+        isRescheduled -> stringResource(
+            R.string.cd_schedule_item_rescheduled,
+            item.student.name,
+            item.startTime,
+            item.endTime
+        )
+        else -> stringResource(
+            R.string.cd_schedule_item,
+            item.student.name,
+            item.startTime,
+            item.endTime
+        )
+    }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp, horizontal = 12.dp)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                this.contentDescription = contentDescription
+            }
             .clickable(onClick = onClick)
             .testTag("schedule_item"),
         elevation = CardDefaults.cardElevation(

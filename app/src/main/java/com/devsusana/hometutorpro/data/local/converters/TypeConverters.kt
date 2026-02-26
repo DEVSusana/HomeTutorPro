@@ -8,6 +8,9 @@ import java.time.DayOfWeek
  * Type converters for Room database to handle non-primitive types.
  * Converts between domain types and database-compatible types.
  */
+/**
+ * Room type converters for local persistence.
+ */
 class TypeConverters {
 
     @TypeConverter

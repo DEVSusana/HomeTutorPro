@@ -6,6 +6,9 @@ import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.IUpdatePasswordUseCase
 import javax.inject.Inject
 
+/**
+ * Use case implementation for updatepassword operations.
+ */
 class UpdatePasswordUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) : IUpdatePasswordUseCase {

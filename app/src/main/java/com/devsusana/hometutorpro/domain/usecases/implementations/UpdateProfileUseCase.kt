@@ -6,6 +6,9 @@ import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.IUpdateProfileUseCase
 import javax.inject.Inject
 
+/**
+ * Use case implementation for updateprofile operations.
+ */
 class UpdateProfileUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) : IUpdateProfileUseCase {

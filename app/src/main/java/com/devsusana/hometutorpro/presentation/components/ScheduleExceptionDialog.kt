@@ -11,6 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.ScheduleException
@@ -43,18 +46,13 @@ fun ScheduleExceptionDialog(
         mutableStateOf(item.exception?.newEndTime ?: item.schedule.endTime) 
     }
     var reason by remember { mutableStateOf(item.exception?.reason ?: "") }
+    var isSaving by remember { mutableStateOf(false) }
     
     // Day selector dropdown state
     var dayDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Calculate the date for this week's occurrence
-    val today = LocalDate.now()
-    val startOfWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-    var currentDate = startOfWeek
-    while (currentDate.dayOfWeek != item.schedule.dayOfWeek) {
-        currentDate = currentDate.plusDays(1)
-    }
-    val dateTimestamp = currentDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    // Use the actual date of the occurrence from the item
+    val dateTimestamp = item.occurrence.date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
     
     // Create a stable key from allSchedules to prevent unnecessary recomposition
     // This key only changes when actual schedule data changes, not when the list reference changes
@@ -64,8 +62,12 @@ fun ScheduleExceptionDialog(
             val day = exception?.newDayOfWeek ?: regularItem.schedule.dayOfWeek
             val start = regularItem.startTime
             val end = regularItem.endTime
-            val cancelled = if (exception?.type == ExceptionType.CANCELLED) "C" else ""
-            "${regularItem.schedule.id}:$day:$start:$end:$cancelled"
+            val status = when (exception?.type) {
+                ExceptionType.CANCELLED -> "C"
+                ExceptionType.RESCHEDULED -> "R"
+                else -> "N"
+            }
+            "${regularItem.schedule.id}:$day:$start:$end:$status"
         }
     }
     
@@ -80,15 +82,21 @@ fun ScheduleExceptionDialog(
                     // Determine effective schedule for the other class
                     val otherException = otherItem.exception
                     
-                    // If cancelled, it doesn't cause a conflict
+                    // If cancelled or rescheduled (meaning it's not at its original time anymore), it doesn't cause a conflict at the ORIGINAL time
+                    // NOTE: CalendarOccurrence already handles providing the NEW time if it's rescheduled.
+                    // But we need to check if the 'otherItem' we are comparing against is a regular schedule that has been moved away.
+                    
+                    val otherDay = otherItem.occurrence.date.dayOfWeek // Use effective day from occurrence
+                    val otherStart = otherItem.startTime
+                    val otherEnd = otherItem.endTime
+                    
+                    // If the other class is cancelled for this date, no conflict
                     if (otherException?.type == ExceptionType.CANCELLED) {
                         false
                     } else {
-                        val otherDay = otherException?.newDayOfWeek ?: otherItem.schedule.dayOfWeek
-                        val otherStart = otherItem.startTime
-                        val otherEnd = otherItem.endTime
-                        
                         // Check if same day and overlapping times
+                        // We use otherItem.occurrence.date to ensure we compare with classes on the same calendar day
+                        item.occurrence.date == otherItem.occurrence.date &&
                         otherDay == newDayOfWeek &&
                         timesOverlap(
                             newStartTime, newEndTime,
@@ -110,10 +118,11 @@ fun ScheduleExceptionDialog(
                 val otherException = otherItem.exception
                 if (otherException?.type == ExceptionType.CANCELLED) return@find false
                 
-                val otherDay = otherException?.newDayOfWeek ?: otherItem.schedule.dayOfWeek
+                val otherDay = otherItem.occurrence.date.dayOfWeek
                 val otherStart = otherItem.startTime
                 val otherEnd = otherItem.endTime
                 
+                item.occurrence.date == otherItem.occurrence.date &&
                 otherDay == newDayOfWeek &&
                 timesOverlap(
                     newStartTime, newEndTime,
@@ -200,15 +209,31 @@ fun ScheduleExceptionDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    val selectedStateDescription = stringResource(com.devsusana.hometutorpro.R.string.cd_state_selected)
+                    val notSelectedStateDescription = stringResource(com.devsusana.hometutorpro.R.string.cd_state_not_selected)
                     FilterChip(
                         selected = exceptionType == ExceptionType.CANCELLED,
                         onClick = { exceptionType = ExceptionType.CANCELLED },
-                        label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_cancel)) }
+                        label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_cancel)) },
+                        modifier = Modifier.semantics {
+                            stateDescription = if (exceptionType == ExceptionType.CANCELLED) {
+                                selectedStateDescription
+                            } else {
+                                notSelectedStateDescription
+                            }
+                        }
                     )
                     FilterChip(
                         selected = exceptionType == ExceptionType.RESCHEDULED,
                         onClick = { exceptionType = ExceptionType.RESCHEDULED },
-                        label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_reschedule)) }
+                        label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_reschedule)) },
+                        modifier = Modifier.semantics {
+                            stateDescription = if (exceptionType == ExceptionType.RESCHEDULED) {
+                                selectedStateDescription
+                            } else {
+                                notSelectedStateDescription
+                            }
+                        }
                     )
                 }
 
@@ -277,10 +302,23 @@ fun ScheduleExceptionDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        val newStartTimeContentDescription = stringResource(
+                            com.devsusana.hometutorpro.R.string.cd_select_start_time,
+                            newStartTime
+                        )
+                        val newEndTimeContentDescription = stringResource(
+                            com.devsusana.hometutorpro.R.string.cd_select_end_time,
+                            newEndTime
+                        )
+
                         // New Start Time
                         OutlinedButton(
                             onClick = { showNewStartTimePicker = true },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = newStartTimeContentDescription
+                                },
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
                         ) {
                             Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -291,7 +329,11 @@ fun ScheduleExceptionDialog(
                         // New End Time
                         OutlinedButton(
                             onClick = { showNewEndTimePicker = true },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = newEndTimeContentDescription
+                                },
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
                         ) {
                             Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -337,6 +379,7 @@ fun ScheduleExceptionDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    isSaving = true
                     val exception = ScheduleException(
                         id = item.exception?.id ?: "",
                         studentId = item.student.id,
@@ -350,9 +393,13 @@ fun ScheduleExceptionDialog(
                     )
                     onSave(exception)
                 },
-                enabled = exceptionType != null && (!hasConflict || exceptionType == ExceptionType.CANCELLED)
+                enabled = !isSaving && exceptionType != null && (!hasConflict || exceptionType == ExceptionType.CANCELLED)
             ) {
-                Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_save))
+                if (isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_save))
+                }
             }
         },
         dismissButton = {

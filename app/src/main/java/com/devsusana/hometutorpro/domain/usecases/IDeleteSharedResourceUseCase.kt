@@ -7,5 +7,11 @@ import com.devsusana.hometutorpro.domain.core.Result
  * Use case for deleting a shared resource record.
  */
 interface IDeleteSharedResourceUseCase {
+    /**
+     * Executes the use case.
+     */
+    /**
+     * Executes the use case.
+     */
     suspend operator fun invoke(professorId: String?, resourceId: String): Result<Unit, DomainError>
 }

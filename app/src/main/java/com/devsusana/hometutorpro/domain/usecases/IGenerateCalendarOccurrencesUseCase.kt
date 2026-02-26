@@ -6,7 +6,16 @@ import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import java.time.LocalDate
 
+/**
+ * Use case contract for GenerateCalendarOccurrences operations.
+ */
 interface IGenerateCalendarOccurrencesUseCase {
+    /**
+     * Executes the use case.
+     */
+    /**
+     * Executes the use case.
+     */
     suspend operator fun invoke(
         students: List<StudentSummary>,
         schedules: List<Schedule>,

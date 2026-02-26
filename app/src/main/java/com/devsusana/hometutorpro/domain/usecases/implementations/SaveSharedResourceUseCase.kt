@@ -11,6 +11,9 @@ import javax.inject.Inject
  * Implementation of use case for saving shared resource records.
  * Delegates to ResourceRepository.
  */
+/**
+ * Use case implementation for savesharedresource operations.
+ */
 class SaveSharedResourceUseCase @Inject constructor(
     private val resourceRepository: ResourceRepository
 ) : ISaveSharedResourceUseCase {

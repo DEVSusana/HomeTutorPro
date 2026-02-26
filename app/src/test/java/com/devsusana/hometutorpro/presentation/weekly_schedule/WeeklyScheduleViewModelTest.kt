@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.presentation.weekly_schedule
 import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
@@ -12,8 +13,9 @@ import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
-import io.mockk.every
-import io.mockk.mockk
+import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
+import com.devsusana.hometutorpro.domain.usecases.implementations.CleanupDuplicatesUseCase
+import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +30,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WeeklyScheduleViewModelTest {
@@ -40,6 +44,8 @@ class WeeklyScheduleViewModelTest {
     private lateinit var deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
     private lateinit var saveStudentUseCase: ISaveStudentUseCase
+    private lateinit var generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase
+    private lateinit var cleanupDuplicatesUseCase: CleanupDuplicatesUseCase
     private lateinit var application: android.app.Application
     private lateinit var viewModel: WeeklyScheduleViewModel
 
@@ -56,6 +62,8 @@ class WeeklyScheduleViewModelTest {
         deleteScheduleExceptionUseCase = mockk()
         getStudentByIdUseCase = mockk()
         saveStudentUseCase = mockk()
+        generateCalendarOccurrencesUseCase = mockk(relaxed = true)
+        cleanupDuplicatesUseCase = mockk(relaxed = true)
         application = mockk(relaxed = true)
     }
 
@@ -78,10 +86,28 @@ class WeeklyScheduleViewModelTest {
             endTime = "11:00"
         )
 
+        val studentSummary = StudentSummary(
+            id = student.id,
+            name = student.name,
+            subjects = student.subjects,
+            color = student.color,
+            pendingBalance = student.pendingBalance,
+            pricePerHour = student.pricePerHour,
+            isActive = student.isActive,
+            lastClassDate = null
+        )
+
         every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
-        every { getStudentsUseCase(userId) } returns flowOf(listOf(student))
+        every { getStudentsUseCase(userId) } returns flowOf(listOf(studentSummary))
         every { getAllSchedulesUseCase(userId) } returns flowOf(listOf(schedule))
         every { getScheduleExceptionsUseCase(userId, student.id) } returns flowOf(emptyList())
+        coEvery { generateCalendarOccurrencesUseCase(any(), any(), any(), any(), any()) } returns listOf(
+            com.devsusana.hometutorpro.domain.entities.CalendarOccurrence(
+                schedule = schedule,
+                student = studentSummary,
+                date = LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            )
+        )
 
         // When
         viewModel = WeeklyScheduleViewModel(
@@ -93,6 +119,8 @@ class WeeklyScheduleViewModelTest {
             saveScheduleExceptionUseCase,
             deleteScheduleExceptionUseCase,
             saveStudentUseCase,
+            generateCalendarOccurrencesUseCase,
+            cleanupDuplicatesUseCase,
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()

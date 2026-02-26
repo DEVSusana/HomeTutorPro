@@ -96,6 +96,10 @@ class StudentRepositoryImpl @Inject constructor(
                 if (amountPaid <= 0) return@withContext Result.Error(DomainError.InvalidAmount)
                 val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
                 
+                // Check if student exists (to return appropriate error)
+                val student = studentDao.getStudentById(id, professorId).firstOrNull()
+                    ?: return@withContext Result.Error(DomainError.StudentNotFound)
+
                 // Atomic subtraction — no TOCTOU race condition
                 studentDao.subtractFromBalance(
                     studentId = id,

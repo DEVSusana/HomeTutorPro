@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.entities.Schedule
@@ -73,7 +75,7 @@ fun BulkScheduleCreation(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CalendarToday,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_calendar_icon),
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -281,6 +283,15 @@ private fun ScheduleEntryCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                val startTimeContentDescription = stringResource(
+                    R.string.cd_select_start_time,
+                    schedule.startTime
+                )
+                val endTimeContentDescription = stringResource(
+                    R.string.cd_select_end_time,
+                    schedule.endTime
+                )
+
                  // Start Time
                  Column(modifier = Modifier.weight(1f)) {
                      Text(
@@ -292,6 +303,9 @@ private fun ScheduleEntryCard(
                         onClick = { showStartTimePicker = true },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = startTimeContentDescription
+                            }
                             .testTag("start_time_field_$scheduleNumber"),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -312,6 +326,9 @@ private fun ScheduleEntryCard(
                         onClick = { showEndTimePicker = true },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = endTimeContentDescription
+                            }
                             .testTag("end_time_field_$scheduleNumber"),
                         shape = RoundedCornerShape(8.dp)
                     ) {

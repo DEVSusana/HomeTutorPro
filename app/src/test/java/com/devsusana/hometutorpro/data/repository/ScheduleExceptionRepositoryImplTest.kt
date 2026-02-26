@@ -47,12 +47,13 @@ class ScheduleExceptionRepositoryImplTest {
 
     private val testExceptionEntity = ScheduleExceptionEntity(
         id = 1L,
+        professorId = testUserId,
         studentId = 1L,
         cloudId = "exception1",
         originalScheduleId = "schedule1",
         exceptionDate = 1234567890L,
         reason = "Student request",
-        isCancelled = false,
+        type = "RESCHEDULED",
         newDayOfWeek = DayOfWeek.TUESDAY,
         newStartTime = "10:00",
         newEndTime = "11:00",
@@ -85,7 +86,7 @@ class ScheduleExceptionRepositoryImplTest {
     fun `getExceptions returns flow of exceptions`() = runTest {
         // Given
         val entities = listOf(testExceptionEntity)
-        every { exceptionDao.getExceptionsByStudentId(1L) } returns flowOf(entities)
+        every { exceptionDao.getExceptionsByStudentId(1L, testUserId) } returns flowOf(entities)
 
         // When
         val result = repository.getExceptions(testUserId, testStudentId).first()
@@ -94,13 +95,13 @@ class ScheduleExceptionRepositoryImplTest {
         assertEquals(1, result.size)
         assertEquals(testException.id, result[0].id)
         assertEquals(testException.type, result[0].type)
-        verify { exceptionDao.getExceptionsByStudentId(1L) }
+        verify { exceptionDao.getExceptionsByStudentId(1L, testUserId) }
     }
 
     @Test
     fun `getExceptions returns empty list when no exceptions`() = runTest {
         // Given
-        every { exceptionDao.getExceptionsByStudentId(1L) } returns flowOf(emptyList())
+        every { exceptionDao.getExceptionsByStudentId(1L, testUserId) } returns flowOf(emptyList())
 
         // When
         val result = repository.getExceptions(testUserId, testStudentId).first()
@@ -149,7 +150,7 @@ class ScheduleExceptionRepositoryImplTest {
     fun `deleteException removes exception successfully`() = runTest {
         // Given
         val exceptionId = "1"
-        coEvery { exceptionDao.markForDeletion(1L, any(), any()) } just Runs
+        coEvery { exceptionDao.markForDeletion(1L, testUserId, any(), any()) } just Runs
         coEvery { syncScheduler.scheduleSyncNow() } just Runs
 
         // When
@@ -157,7 +158,7 @@ class ScheduleExceptionRepositoryImplTest {
 
         // Then
         assertTrue(result is Result.Success)
-        coVerify { exceptionDao.markForDeletion(1L, any(), any()) }
+        coVerify { exceptionDao.markForDeletion(1L, testUserId, any(), any()) }
         coVerify { syncScheduler.scheduleSyncNow() }
     }
 
@@ -165,7 +166,7 @@ class ScheduleExceptionRepositoryImplTest {
     fun `deleteException returns error on database exception`() = runTest {
         // Given
         val exceptionId = "1"
-        coEvery { exceptionDao.markForDeletion(any(), any(), any()) } throws Exception("Database error")
+        coEvery { exceptionDao.markForDeletion(any(), any(), any(), any()) } throws Exception("Database error")
 
         // When
         val result = repository.deleteException(testUserId, testStudentId, exceptionId)
@@ -198,7 +199,7 @@ class ScheduleExceptionRepositoryImplTest {
         assertTrue(result is Result.Success)
         coVerify { 
             exceptionDao.insertException(match { 
-                it.isCancelled && 
+                it.type == "CANCELLED" && 
                 it.newDayOfWeek == null &&
                 it.newStartTime == null &&
                 it.newEndTime == null
@@ -219,7 +220,7 @@ class ScheduleExceptionRepositoryImplTest {
         assertTrue(result is Result.Success)
         coVerify { 
             exceptionDao.insertException(match { 
-                !it.isCancelled && 
+                it.type == "RESCHEDULED" && 
                 it.newDayOfWeek == DayOfWeek.TUESDAY &&
                 it.newStartTime == "10:00" &&
                 it.newEndTime == "11:00"
