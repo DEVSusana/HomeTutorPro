@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.devsusana.hometutorpro.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,10 +96,16 @@ fun AddExtraClassDialog(
         title = { Text(stringResource(R.string.student_detail_add_extra_class)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                val dateLabel = selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                val dateContentDescription = stringResource(
+                    R.string.cd_select_date,
+                    dateLabel
+                )
+
                 // Date Selector
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
-                        value = selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                        value = dateLabel,
                         onValueChange = {},
                         label = { Text(stringResource(R.string.schedule_form_date)) },
                         readOnly = true,
@@ -114,6 +122,9 @@ fun AddExtraClassDialog(
                     Box(
                         modifier = Modifier
                             .matchParentSize()
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = dateContentDescription
+                            }
                             .clickable { showDatePicker = true }
                     )
                 }
@@ -155,26 +166,45 @@ fun AddExtraClassDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    val startTimeLabel = startTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                    val endTimeLabel = endTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                    val startTimeContentDescription = stringResource(
+                        R.string.cd_select_start_time,
+                        startTimeLabel
+                    )
+                    val endTimeContentDescription = stringResource(
+                        R.string.cd_select_end_time,
+                        endTimeLabel
+                    )
+
                     // Start Time
                     OutlinedButton(
                         onClick = { showStartTimePicker = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = startTimeContentDescription
+                            },
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
                     ) {
                         Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(startTime.format(DateTimeFormatter.ofPattern("HH:mm")))
+                        Text(startTimeLabel)
                     }
                     
                     // End Time
                     OutlinedButton(
                         onClick = { showEndTimePicker = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = endTimeContentDescription
+                            },
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
                     ) {
                         Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(endTime.format(DateTimeFormatter.ofPattern("HH:mm")))
+                        Text(endTimeLabel)
                     }
                 }
             }

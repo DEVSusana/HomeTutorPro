@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.first
 
 import javax.inject.Inject
 
+/**
+ * Default implementation of [ISaveScheduleUseCase].
+ */
 class SaveScheduleUseCase @Inject constructor(private val repository: StudentRepository) :
     ISaveScheduleUseCase {
     override suspend operator fun invoke(professorId: String, studentId: String, schedule: Schedule): Result<Unit, DomainError> {

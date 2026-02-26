@@ -25,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.entities.Schedule
@@ -44,7 +46,12 @@ fun ScheduleListContent(
         modifier = Modifier.testTag("schedule_list_screen"),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(id = R.string.schedule_list_title)) },
+                title = { 
+                    Text(
+                        stringResource(id = R.string.schedule_list_title),
+                        modifier = Modifier.semantics { heading() }
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack, modifier = Modifier.testTag("back_button")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.schedule_list_back))

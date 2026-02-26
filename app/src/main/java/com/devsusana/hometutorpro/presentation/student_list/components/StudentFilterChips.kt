@@ -14,6 +14,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
@@ -31,6 +33,8 @@ fun StudentFilterChips(
         modifier = modifier.padding(bottom = 8.dp)
     ) {
         items(StudentFilter.entries) { filter ->
+            val selectedStateDescription = stringResource(R.string.cd_state_selected)
+            val notSelectedStateDescription = stringResource(R.string.cd_state_not_selected)
             FilterChip(
                 selected = selectedFilter == filter,
                 onClick = { onFilterChange(filter) },
@@ -41,6 +45,13 @@ fun StudentFilterChips(
                         StudentFilter.ACTIVE -> stringResource(R.string.student_list_filter_active)
                         StudentFilter.INACTIVE -> stringResource(R.string.student_list_filter_inactive)
                     })
+                },
+                modifier = Modifier.semantics {
+                    stateDescription = if (selectedFilter == filter) {
+                        selectedStateDescription
+                    } else {
+                        notSelectedStateDescription
+                    }
                 },
                 leadingIcon = if (selectedFilter == filter) {
                     { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }

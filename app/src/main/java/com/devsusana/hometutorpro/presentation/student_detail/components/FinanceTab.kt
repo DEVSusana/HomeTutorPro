@@ -104,7 +104,8 @@ fun FinanceTab(
                         }
 
                         if (student.lastPaymentDate != null) {
-                            val date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(
+                            val formatPattern = stringResource(id = R.string.date_time_format)
+                            val date = SimpleDateFormat(formatPattern, Locale.getDefault()).format(
                                 Date(student.lastPaymentDate)
                             )
                             Text(

@@ -109,7 +109,7 @@ class LocalDataMigrator @Inject constructor(
             val data = mapOf(
                 "exceptionDate" to exception.exceptionDate,
                 "reason" to exception.reason,
-                "isCancelled" to exception.isCancelled,
+                "type" to exception.type,
                 "newStartTime" to exception.newStartTime,
                 "newEndTime" to exception.newEndTime,
                 "lastModified" to System.currentTimeMillis()

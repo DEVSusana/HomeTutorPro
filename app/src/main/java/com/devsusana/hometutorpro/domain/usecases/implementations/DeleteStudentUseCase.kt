@@ -7,6 +7,9 @@ import com.devsusana.hometutorpro.domain.usecases.IDeleteStudentUseCase
 
 import javax.inject.Inject
 
+/**
+ * Default implementation of [IDeleteStudentUseCase].
+ */
 class DeleteStudentUseCase @Inject constructor(private val repository: StudentRepository) :
     IDeleteStudentUseCase {
     override suspend operator fun invoke(professorId: String, studentId: String): Result<Unit, DomainError> {

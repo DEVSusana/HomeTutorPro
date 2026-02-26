@@ -10,6 +10,9 @@ import javax.inject.Inject
  * Use case for toggling the completion status of a scheduled class.
  * Marks a class as completed/pending and triggers sync.
  */
+/**
+ * Use case implementation for toggleschedulecompletion operations.
+ */
 class ToggleScheduleCompletionUseCase @Inject constructor(
     private val studentRepository: StudentRepository
 ) : IToggleScheduleCompletionUseCase {

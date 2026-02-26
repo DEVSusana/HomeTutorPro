@@ -11,6 +11,9 @@ import javax.inject.Inject
  * Use case to execute the data migration process.
  * Emits progress updates as it proceeds through migration steps.
  */
+/**
+ * Use case implementation for migratedatafromlocal operations.
+ */
 class MigrateDataFromLocalUseCase @Inject constructor(
     private val localDataMigrator: LocalDataMigrator,
     private val rescueOrphanedDataUseCase: RescueOrphanedDataUseCase

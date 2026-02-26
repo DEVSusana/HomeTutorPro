@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.devsusana.hometutorpro.R
@@ -24,6 +26,9 @@ import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 import com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils
 import java.time.DayOfWeek
 
+/**
+ * Stateless schedule form UI.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleFormContent(
@@ -32,18 +37,21 @@ fun ScheduleFormContent(
     onStartTimeChange: (String) -> Unit,
     onEndTimeChange: (String) -> Unit,
     onSaveSchedule: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    showStartTimePicker: Boolean,
+    onShowStartTimePickerChange: (Boolean) -> Unit,
+    showEndTimePicker: Boolean,
+    onShowEndTimePickerChange: (Boolean) -> Unit,
+    isDayOfWeekMenuExpanded: Boolean,
+    onDayOfWeekMenuExpandedChange: (Boolean) -> Unit
 ) {
-    var showStartTimePicker by remember { mutableStateOf(false) }
-    var showEndTimePicker by remember { mutableStateOf(false) }
-
     if (showStartTimePicker) {
         TimePickerDialog(
             initialTime = state.schedule.startTime,
-            onDismiss = { showStartTimePicker = false },
+            onDismiss = { onShowStartTimePickerChange(false) },
             onTimeSelected = {
                 onStartTimeChange(it)
-                showStartTimePicker = false
+                onShowStartTimePickerChange(false)
             }
         )
     }
@@ -51,10 +59,10 @@ fun ScheduleFormContent(
     if (showEndTimePicker) {
         TimePickerDialog(
             initialTime = state.schedule.endTime,
-            onDismiss = { showEndTimePicker = false },
+            onDismiss = { onShowEndTimePickerChange(false) },
             onTimeSelected = {
                 onEndTimeChange(it)
-                showEndTimePicker = false
+                onShowEndTimePickerChange(false)
             }
         )
     }
@@ -62,7 +70,12 @@ fun ScheduleFormContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.add_schedule)) },
+                title = { 
+                    Text(
+                        stringResource(R.string.add_schedule),
+                        modifier = Modifier.semantics { heading() }
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack, modifier = Modifier.testTag("back_button")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.schedule_form_back))
@@ -89,12 +102,9 @@ fun ScheduleFormContent(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Day of Week Dropdown
-                    var expanded by remember { mutableStateOf(false) }
-                    
                     ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded },
+                        expanded = isDayOfWeekMenuExpanded,
+                        onExpandedChange = { onDayOfWeekMenuExpandedChange(!isDayOfWeekMenuExpanded) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
@@ -103,23 +113,23 @@ fun ScheduleFormContent(
                             readOnly = true,
                             label = { Text(stringResource(R.string.day_of_week)) },
                             leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = stringResource(R.string.cd_calendar_icon)) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDayOfWeekMenuExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                                 .testTag("day_of_week_field"),
                             shape = RoundedCornerShape(12.dp)
                         )
                         ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
+                            expanded = isDayOfWeekMenuExpanded,
+                            onDismissRequest = { onDayOfWeekMenuExpandedChange(false) }
                         ) {
                             DayOfWeek.values().forEach { day ->
                                 DropdownMenuItem(
                                     text = { Text(DayOfWeekUtils.getLocalizedName(day)) },
                                     onClick = {
                                         onDayOfWeekChange(day)
-                                        expanded = false
+                                        onDayOfWeekMenuExpandedChange(false)
                                     }
                                 )
                             }
@@ -128,7 +138,6 @@ fun ScheduleFormContent(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Start Time
                     OutlinedTextField(
                         value = state.schedule.startTime,
                         onValueChange = { },
@@ -144,7 +153,7 @@ fun ScheduleFormContent(
                                 LaunchedEffect(interactionSource) {
                                     interactionSource.interactions.collect {
                                         if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
-                                            showStartTimePicker = true
+                                            onShowStartTimePickerChange(true)
                                         }
                                     }
                                 }
@@ -153,7 +162,6 @@ fun ScheduleFormContent(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // End Time
                     OutlinedTextField(
                         value = state.schedule.endTime,
                         onValueChange = { },
@@ -169,7 +177,7 @@ fun ScheduleFormContent(
                                 LaunchedEffect(interactionSource) {
                                     interactionSource.interactions.collect {
                                         if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
-                                            showEndTimePicker = true
+                                            onShowEndTimePickerChange(true)
                                         }
                                     }
                                 }
@@ -178,7 +186,6 @@ fun ScheduleFormContent(
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // Save Button
                     Button(
                         onClick = onSaveSchedule,
                         enabled = !state.isLoading,
@@ -201,7 +208,6 @@ fun ScheduleFormContent(
                         }
                     }
 
-                    // Error message
                     state.error?.let { error ->
                         Spacer(modifier = Modifier.height(16.dp))
                         Surface(
@@ -238,7 +244,13 @@ fun ScheduleFormContentPreview() {
             onStartTimeChange = {},
             onEndTimeChange = {},
             onSaveSchedule = {},
-            onBack = {}
+            onBack = {},
+            showStartTimePicker = false,
+            onShowStartTimePickerChange = {},
+            showEndTimePicker = false,
+            onShowEndTimePickerChange = {},
+            isDayOfWeekMenuExpanded = false,
+            onDayOfWeekMenuExpandedChange = {}
         )
     }
 }

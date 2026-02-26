@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.presentation.settings
 data class EditProfileState(
     val name: String = "",
     val email: String = "",
+    val originalEmail: String = "",
     val password: String = "",
     val isPasswordVisible: Boolean = false,
     val isLoading: Boolean = false,

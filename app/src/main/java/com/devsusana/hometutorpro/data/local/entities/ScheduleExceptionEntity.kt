@@ -26,7 +26,9 @@ import kotlinx.serialization.Serializable
         Index(value = ["exceptionDate"]),
         Index(value = ["cloudId"]),
         Index(value = ["syncStatus"]),
-        Index(value = ["professorId"])
+        Index(value = ["professorId"]),
+        // Ensure only one exception per schedule and date for a professor
+        Index(value = ["professorId", "originalScheduleId", "exceptionDate"], unique = true)
     ]
 )
 data class ScheduleExceptionEntity(
@@ -44,7 +46,7 @@ data class ScheduleExceptionEntity(
     val originalScheduleId: String,
     val exceptionDate: Long, // Timestamp in milliseconds
     val reason: String,
-    val isCancelled: Boolean,
+    val type: String, // CANCELLED, RESCHEDULED, EXTRA
     val newStartTime: String?, // Format: HH:mm (if rescheduled)
     val newEndTime: String?,   // Format: HH:mm (if rescheduled)
     val newDayOfWeek: java.time.DayOfWeek?,

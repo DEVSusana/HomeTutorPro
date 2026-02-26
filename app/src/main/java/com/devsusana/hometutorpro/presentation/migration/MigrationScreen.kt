@@ -10,20 +10,33 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.migration.MigrationProgress
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun MigrationScreen(
     onMigrationComplete: () -> Unit,
     viewModel: MigrationViewModel = hiltViewModel()
 ) {
-    val state by viewModel.migrationState.collectAsState()
+    val state by viewModel.migrationState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(state) {
-        if (state is MigrationProgress.Completed) {
+    val isCompleted = state is MigrationProgress.Completed
+    LaunchedEffect(isCompleted) {
+        if (isCompleted) {
             onMigrationComplete()
         }
     }
 
+    MigrationContent(
+        state = state,
+        onStartMigration = viewModel::startMigration
+    )
+}
+
+@Composable
+fun MigrationContent(
+    state: MigrationProgress,
+    onStartMigration: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -32,7 +45,7 @@ fun MigrationScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Data Migration",
+            text = stringResource(R.string.migration_title),
             style = MaterialTheme.typography.headlineMedium
         )
         
@@ -40,20 +53,20 @@ fun MigrationScreen(
 
         when (val currentState = state) {
             is MigrationProgress.Idle -> {
-                Text("Ready to migrate your local data to the cloud.")
+                Text(stringResource(R.string.migration_ready_message))
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { viewModel.startMigration() }) {
-                    Text("Start Migration")
+                Button(onClick = onStartMigration) {
+                    Text(stringResource(R.string.migration_start))
                 }
             }
             is MigrationProgress.Error -> {
                 Text(
-                    text = "Error: ${currentState.message}",
+                    text = stringResource(R.string.migration_error_message, currentState.message),
                     color = MaterialTheme.colorScheme.error
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { viewModel.startMigration() }) {
-                    Text("Retry")
+                Button(onClick = onStartMigration) {
+                    Text(stringResource(R.string.migration_retry))
                 }
             }
             else -> {
@@ -65,16 +78,28 @@ fun MigrationScreen(
     }
 }
 
+@Composable
 private fun getProgressMessage(progress: MigrationProgress): String {
     return when (progress) {
-        is MigrationProgress.Started -> "Starting migration..."
-        is MigrationProgress.RegisteringUser -> "Registering user..."
-        is MigrationProgress.MigratingStudents -> "Migrating students..."
-        is MigrationProgress.MigratingSchedules -> "Migrating schedules..."
-        is MigrationProgress.MigratingResources -> "Migrating resources..."
-        is MigrationProgress.CleaningUp -> "Cleaning up..."
-        is MigrationProgress.Completed -> "Migration complete!"
-        is MigrationProgress.Error -> "Error occurred"
-        is MigrationProgress.Idle -> "Ready"
+        is MigrationProgress.Started -> stringResource(R.string.migration_msg_starting)
+        is MigrationProgress.RegisteringUser -> stringResource(R.string.migration_msg_registering)
+        is MigrationProgress.MigratingStudents -> stringResource(R.string.migration_msg_students)
+        is MigrationProgress.MigratingSchedules -> stringResource(R.string.migration_msg_schedules)
+        is MigrationProgress.MigratingResources -> stringResource(R.string.migration_msg_resources)
+        is MigrationProgress.CleaningUp -> stringResource(R.string.migration_msg_cleanup)
+        is MigrationProgress.Completed -> stringResource(R.string.migration_msg_complete)
+        is MigrationProgress.Error -> stringResource(R.string.migration_msg_error)
+        is MigrationProgress.Idle -> stringResource(R.string.migration_msg_ready)
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+private fun MigrationContentPreview() {
+    com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme {
+        MigrationContent(
+            state = MigrationProgress.Idle,
+            onStartMigration = {}
+        )
     }
 }

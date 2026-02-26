@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.ZoneId
 
+/**
+ * Use case implementation for savescheduleexception operations.
+ */
 class SaveScheduleExceptionUseCase @Inject constructor(
     private val repository: ScheduleExceptionRepository,
     private val studentRepository: StudentRepository
@@ -22,41 +25,89 @@ class SaveScheduleExceptionUseCase @Inject constructor(
         studentId: String,
         exception: ScheduleException
     ): Result<Unit, DomainError> {
+        val exceptionDate = Instant.ofEpochMilli(exception.date)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+
+        // PREVENT DUPLICATES: Check if an exception already exists for this original schedule and date
+        var exceptionToSave = exception
+        if (exception.id.isEmpty()) {
+            val existingExceptions = repository.getExceptions(professorId, studentId).first()
+            val alreadyExists = existingExceptions.find { 
+                it.originalScheduleId == exception.originalScheduleId && 
+                Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() == exceptionDate
+            }
+            
+            if (alreadyExists != null) {
+                // Reuse the existing ID to perform an update instead of an insert
+                exceptionToSave = exception.copy(id = alreadyExists.id)
+            }
+        }
+
         // Check for conflicts if it's a RESCHEDULED exception or an EXTRA class
-        if ((exception.type == ExceptionType.RESCHEDULED || exception.type == ExceptionType.EXTRA) 
-            && exception.newStartTime.isNotEmpty() && exception.newEndTime.isNotEmpty()) {
+        if ((exceptionToSave.type == ExceptionType.RESCHEDULED || exceptionToSave.type == ExceptionType.EXTRA) 
+            && exceptionToSave.newStartTime.isNotEmpty() && exceptionToSave.newEndTime.isNotEmpty()) {
             // 1. Get all students
             val students = studentRepository.getStudents(professorId).first()
             
-            // Parse the exception date to get the day of week
-            val exceptionDate = Instant.ofEpochMilli(exception.date)
-                .atZone(ZoneId.systemDefault())
-                .toLocalDate()
-            val exceptionDayOfWeek = exception.newDayOfWeek ?: exceptionDate.dayOfWeek
+            // Parse the exception date to get the day of week for comparison
+            val exceptionDayOfWeek = exceptionToSave.newDayOfWeek ?: exceptionDate.dayOfWeek
 
-            // 2. Check against all regular schedules for that day
+            // 2. Check against all students' schedules and exceptions
             for (student in students) {
+                // Check regular schedules
                 val studentSchedules = studentRepository.getSchedules(professorId, student.id).first()
+                val studentExceptions = repository.getExceptions(professorId, student.id).first()
+
                 for (existingSchedule in studentSchedules) {
                     if (existingSchedule.dayOfWeek == exceptionDayOfWeek) {
                          // Check time overlap
-                        if (isTimeOverlap(exception.newStartTime, exception.newEndTime, existingSchedule.startTime, existingSchedule.endTime)) {
+                        if (isTimeOverlap(exceptionToSave.newStartTime, exceptionToSave.newEndTime, existingSchedule.startTime, existingSchedule.endTime)) {
+                            // Check if THIS regular schedule is cancelled or rescheduled (moved away) for THIS date
+                            val isFreeSlot = studentExceptions.any { 
+                                it.originalScheduleId == existingSchedule.id && 
+                                (it.type == ExceptionType.CANCELLED || it.type == ExceptionType.RESCHEDULED) &&
+                                Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() == exceptionDate
+                            }
+                            
+                            if (!isFreeSlot) {
+                                return Result.Error(
+                                    DomainError.ConflictingStudent(
+                                        studentName = student.name,
+                                        time = "${existingSchedule.startTime} - ${existingSchedule.endTime}"
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3. Check against other exceptions (Rescheduled or Extra classes) for THIS date
+                for (existingException in studentExceptions) {
+                    // Skip if it's the same exception we are saving
+                    if (existingException.id == exceptionToSave.id) continue
+
+                    val existingExcDate = Instant.ofEpochMilli(existingException.date)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+
+                    if (existingExcDate == exceptionDate && 
+                        (existingException.type == ExceptionType.RESCHEDULED || existingException.type == ExceptionType.EXTRA)) {
+                        
+                        if (isTimeOverlap(exceptionToSave.newStartTime, exceptionToSave.newEndTime, existingException.newStartTime, existingException.newEndTime)) {
                             return Result.Error(
                                 DomainError.ConflictingStudent(
                                     studentName = student.name,
-                                    time = "${existingSchedule.startTime} - ${existingSchedule.endTime}"
+                                    time = "${existingException.newStartTime} - ${existingException.newEndTime}"
                                 )
                             )
                         }
                     }
                 }
             }
-            
-            // TODO: Ideally we should also check against OTHER exceptions (e.g. another rescheduled class to this time), 
-            // but for MVP checking against regular schedule is the most critical part.
         }
 
-        return repository.saveException(professorId, studentId, exception)
+        return repository.saveException(professorId, studentId, exceptionToSave)
     }
 
     private fun isTimeOverlap(start1: String, end1: String, start2: String, end2: String): Boolean {

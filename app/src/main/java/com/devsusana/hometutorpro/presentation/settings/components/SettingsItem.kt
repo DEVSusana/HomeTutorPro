@@ -11,8 +11,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.devsusana.hometutorpro.R
 
 @Composable
 fun SettingsItem(
@@ -23,6 +29,11 @@ fun SettingsItem(
     trailing: @Composable (() -> Unit)? = null,
     textColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
 ) {
+    val contentDescription = if (subtitle.isNullOrBlank()) {
+        title
+    } else {
+        stringResource(R.string.cd_settings_item, title, subtitle)
+    }
     Surface(
         onClick = onClick,
         color = MaterialTheme.colorScheme.surface
@@ -30,6 +41,10 @@ fun SettingsItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .semantics(mergeDescendants = true) {
+                    role = Role.Button
+                    this.contentDescription = contentDescription
+                }
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

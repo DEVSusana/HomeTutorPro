@@ -185,6 +185,57 @@ class AuthRepositoryImplTest {
     }
 
     // ============================================================================
+    // Update Profile Tests
+    // ============================================================================
+
+    @Test
+    fun `updateProfile triggers email verification when email changes`() = runTest {
+        val firebaseUser = mockk<FirebaseUser>(relaxed = true)
+        every { firebaseUser.email } returns "old@domain.com"
+        every { firebaseUser.verifyBeforeUpdateEmail(any()) } returns Tasks.forResult(null)
+        every { firebaseUser.updateProfile(any()) } returns Tasks.forResult(null)
+        every { firebaseAuth.currentUser } returns firebaseUser
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.updateProfile(
+            name = "New Name",
+            email = "new@domain.com",
+            workingStartTime = "08:00",
+            workingEndTime = "23:00",
+            notes = "notes"
+        )
+
+        assertTrue(result is Result.Success)
+        verify(exactly = 1) { firebaseUser.verifyBeforeUpdateEmail("new@domain.com") }
+        verify(exactly = 1) { firebaseUser.updateProfile(any()) }
+        verify { authManager.updateEmail("new@domain.com") }
+        verify { authManager.updateName("New Name") }
+    }
+
+    @Test
+    fun `updateProfile does not trigger email verification when email is unchanged`() = runTest {
+        val firebaseUser = mockk<FirebaseUser>(relaxed = true)
+        every { firebaseUser.email } returns "same@domain.com"
+        every { firebaseUser.updateProfile(any()) } returns Tasks.forResult(null)
+        every { firebaseAuth.currentUser } returns firebaseUser
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.updateProfile(
+            name = "Same Name",
+            email = "same@domain.com",
+            workingStartTime = "08:00",
+            workingEndTime = "23:00",
+            notes = "notes"
+        )
+
+        assertTrue(result is Result.Success)
+        verify(exactly = 0) { firebaseUser.verifyBeforeUpdateEmail(any()) }
+        verify(exactly = 1) { firebaseUser.updateProfile(any()) }
+    }
+
+    // ============================================================================
     // Register Tests
     // ============================================================================
 

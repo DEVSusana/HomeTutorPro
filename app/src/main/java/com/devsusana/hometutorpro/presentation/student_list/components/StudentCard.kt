@@ -119,7 +119,7 @@ fun ModernStudentCard(
                     tonalElevation = 2.dp
                 ) {
                     Text(
-                        text = "%.2f€".format(student.pendingBalance),
+                        text = stringResource(id = R.string.currency_format, student.pendingBalance),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = if (student.isActive) 1f else 0.6f),
@@ -133,7 +133,7 @@ fun ModernStudentCard(
                     tonalElevation = 2.dp
                 ) {
                     Text(
-                        text = "%.2f€".format(student.pendingBalance),
+                        text = stringResource(id = R.string.currency_format, student.pendingBalance),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = if (student.isActive) 1f else 0.6f),

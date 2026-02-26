@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.devsusana.hometutorpro.data.local
 
 import android.content.Context
@@ -10,6 +12,9 @@ import java.io.File
 import java.io.IOException
 import java.util.UUID
 
+/**
+ * Helper for encrypted database support.
+ */
 object SupportFactoryHelper {
     private const val PASSPHRASE_KEY = "db_passphrase"
     private const val PREFS_NAME = "db_security_prefs"

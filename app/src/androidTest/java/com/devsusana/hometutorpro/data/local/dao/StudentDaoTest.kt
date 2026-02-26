@@ -27,6 +27,7 @@ class StudentDaoTest {
 
     private lateinit var studentDao: StudentDao
     private lateinit var db: AppDatabase
+    private val professorId = "prof_test"
 
     @Before
     fun createDb() {
@@ -48,7 +49,7 @@ class StudentDaoTest {
         val student = createTestStudent(name = "Test Student")
         val id = studentDao.insertStudent(student)
         
-        val loaded = studentDao.getStudentById(id).first()
+        val loaded = studentDao.getStudentById(id, professorId).first()
         assertNotNull(loaded)
         assertEquals(student.name, loaded?.name)
         assertEquals(student.cloudId, loaded?.cloudId)
@@ -59,11 +60,11 @@ class StudentDaoTest {
         val student = createTestStudent(name = "Original Name")
         val id = studentDao.insertStudent(student)
         
-        val loaded = studentDao.getStudentById(id).first()!!
+        val loaded = studentDao.getStudentById(id, professorId).first()!!
         val updated = loaded.copy(name = "Updated Name")
         studentDao.updateStudent(updated)
         
-        val reloaded = studentDao.getStudentById(id).first()
+        val reloaded = studentDao.getStudentById(id, professorId).first()
         assertEquals("Updated Name", reloaded?.name)
     }
 
@@ -72,10 +73,10 @@ class StudentDaoTest {
         val student = createTestStudent(name = "To Delete")
         val id = studentDao.insertStudent(student)
         
-        val loaded = studentDao.getStudentById(id).first()!!
+        val loaded = studentDao.getStudentById(id, professorId).first()!!
         studentDao.deleteStudent(loaded)
         
-        val reloaded = studentDao.getStudentById(id).first()
+        val reloaded = studentDao.getStudentById(id, professorId).first()
         assertNull(reloaded)
     }
 
@@ -85,7 +86,7 @@ class StudentDaoTest {
         val student = createTestStudent(name = "Cloud Student", cloudId = cloudId)
         studentDao.insertStudent(student)
         
-        val loaded = studentDao.getStudentByCloudId(cloudId)
+        val loaded = studentDao.getStudentByCloudId(cloudId, professorId)
         assertNotNull(loaded)
         assertEquals(cloudId, loaded?.cloudId)
     }
@@ -95,9 +96,9 @@ class StudentDaoTest {
         val student = createTestStudent(name = "Mark Delete")
         val id = studentDao.insertStudent(student)
         
-        studentDao.markForDeletion(id)
+        studentDao.markForDeletion(id, professorId)
         
-        val loaded = studentDao.getStudentById(id).first()
+        val loaded = studentDao.getStudentById(id, professorId).first()
         // Note: getStudentById filters out pendingDelete=1, so it should return null
         assertNull(loaded)
         
@@ -111,6 +112,7 @@ class StudentDaoTest {
         cloudId: String? = null
     ): StudentEntity {
         return StudentEntity(
+            professorId = professorId,
             name = name,
             cloudId = cloudId,
             age = 20,

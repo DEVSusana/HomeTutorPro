@@ -1,9 +1,7 @@
 package com.devsusana.hometutorpro.presentation.dashboard
 
-import com.devsusana.hometutorpro.domain.entities.User
-import com.devsusana.hometutorpro.domain.entities.Student
-import com.devsusana.hometutorpro.domain.entities.Schedule
-import com.devsusana.hometutorpro.domain.entities.ScheduleException
+import com.devsusana.hometutorpro.domain.entities.*
+import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.usecases.*
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +28,8 @@ class DashboardViewModelTest {
     private lateinit var deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
     private lateinit var saveStudentUseCase: ISaveStudentUseCase
+    private lateinit var generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase
+    private lateinit var application: android.app.Application
     
     private lateinit var viewModel: DashboardViewModel
     private val testDispatcher = StandardTestDispatcher()
@@ -46,6 +46,8 @@ class DashboardViewModelTest {
         deleteScheduleExceptionUseCase = mockk()
         getStudentByIdUseCase = mockk()
         saveStudentUseCase = mockk()
+        generateCalendarOccurrencesUseCase = mockk(relaxed = true)
+        application = mockk(relaxed = true)
 
         val user = User(uid = "user123", email = "test@test.com", displayName = "Test User")
         every { getCurrentUserUseCase() } returns MutableStateFlow(user)
@@ -74,9 +76,27 @@ class DashboardViewModelTest {
         // Actually, the generator creates occurrences for this week and next week.
         // The fix ensures we only count those where occurrence.date == today.
         
-        every { getStudentsUseCase("user123") } returns flowOf(students)
+        val studentSummary = StudentSummary(
+            id = student.id,
+            name = student.name,
+            subjects = student.subjects,
+            color = student.color,
+            pendingBalance = student.pendingBalance,
+            pricePerHour = student.pricePerHour,
+            isActive = student.isActive,
+            lastClassDate = null
+        )
+        
+        every { getStudentsUseCase("user123") } returns flowOf(listOf(studentSummary))
         every { getAllSchedulesUseCase("user123") } returns flowOf(listOf(scheduleToday))
         every { getScheduleExceptionsUseCase("user123", "student1") } returns flowOf(emptyList())
+        coEvery { generateCalendarOccurrencesUseCase(any(), any(), any(), any(), any()) } returns listOf(
+            CalendarOccurrence(
+                schedule = scheduleToday,
+                student = studentSummary,
+                date = today
+            )
+        )
 
         // When
         viewModel = DashboardViewModel(
@@ -88,7 +108,8 @@ class DashboardViewModelTest {
             deleteScheduleExceptionUseCase,
             getStudentByIdUseCase,
             saveStudentUseCase,
-            mockk(relaxed = true)
+            generateCalendarOccurrencesUseCase,
+            application
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -111,9 +132,21 @@ class DashboardViewModelTest {
             val pastTime = timeNow.minusMinutes(30).toString().substring(0, 5)
             val schedulePast = Schedule(id = "sch1", studentId = "student1", dayOfWeek = dayOfWeek, startTime = pastTime, endTime = "23:59")
             
-            every { getStudentsUseCase("user123") } returns flowOf(listOf(student))
+            val studentSummary = StudentSummary(
+                id = student.id,
+                name = student.name,
+                subjects = student.subjects,
+                color = student.color,
+                pendingBalance = student.pendingBalance,
+                pricePerHour = student.pricePerHour,
+                isActive = student.isActive,
+                lastClassDate = null
+            )
+            
+            every { getStudentsUseCase("user123") } returns flowOf(listOf(studentSummary))
             every { getAllSchedulesUseCase("user123") } returns flowOf(listOf(schedulePast))
             every { getScheduleExceptionsUseCase("user123", "student1") } returns flowOf(emptyList())
+            coEvery { generateCalendarOccurrencesUseCase(any(), any(), any(), any(), any()) } returns emptyList()
 
             // When
             viewModel = DashboardViewModel(
@@ -125,7 +158,8 @@ class DashboardViewModelTest {
                 deleteScheduleExceptionUseCase,
                 getStudentByIdUseCase,
                 saveStudentUseCase,
-                mockk(relaxed = true)
+                generateCalendarOccurrencesUseCase,
+                application
             )
             testDispatcher.scheduler.advanceUntilIdle()
 

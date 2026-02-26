@@ -7,6 +7,9 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Remote data source backed by Firestore.
+ */
 @Singleton
 class FirestoreRemoteDataSource @Inject constructor(
     private val firestore: FirebaseFirestore

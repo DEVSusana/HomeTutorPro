@@ -22,6 +22,9 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import com.devsusana.hometutorpro.data.billing.BillingManager
 
+/**
+ * Data layer implementation of [AuthRepository].
+ */
 class AuthRepositoryImpl @Inject constructor(
     private val authManager: SecureAuthManager,
     private val firebaseAuth: FirebaseAuth,
@@ -29,7 +32,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val syncMetadataDao: SyncMetadataDao,
     private val dataSynchronizer: DataSynchronizer,
     private val billingManager: BillingManager,
-    @ApplicationScope private val internalScope: CoroutineScope
+    @param:ApplicationScope private val internalScope: CoroutineScope
 ) : AuthRepository {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -202,7 +205,7 @@ class AuthRepositoryImpl @Inject constructor(
             if (firebaseUser != null) {
                 // Update Firebase Email if it changed
                 if (firebaseUser.email != email) {
-                    firebaseUser.updateEmail(email).await()
+                    firebaseUser.verifyBeforeUpdateEmail(email).await()
                 }
 
                 // Update Firebase Profile Name

@@ -31,7 +31,7 @@ class LocaleHelperTest {
         val mockContext = mockk<Context>()
         val mockResources = mockk<Resources>()
         val config = Configuration()
-        config.setLocale(Locale("es"))
+        config.setLocale(Locale.forLanguageTag("es"))
         
         every { mockContext.resources } returns mockResources
         every { mockResources.configuration } returns config

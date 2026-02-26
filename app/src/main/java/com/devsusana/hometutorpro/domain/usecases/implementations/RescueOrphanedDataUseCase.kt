@@ -6,6 +6,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+/**
+ * Use case implementation for rescueorphaneddata operations.
+ */
 class RescueOrphanedDataUseCase @Inject constructor(
     private val studentRepository: StudentRepository,
     private val getCurrentUserUseCase: IGetCurrentUserUseCase

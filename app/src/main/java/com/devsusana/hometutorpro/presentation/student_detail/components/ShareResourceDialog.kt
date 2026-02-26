@@ -7,6 +7,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.core.utils.FilePickerHelper
@@ -100,6 +102,8 @@ fun ShareResourceDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    val selectedStateDescription = stringResource(R.string.cd_state_selected)
+                    val notSelectedStateDescription = stringResource(R.string.cd_state_not_selected)
                     FilterChip(
                         selected = selectedMethod == ShareMethod.EMAIL,
                         onClick = { if (canShareEmail) selectedMethod = ShareMethod.EMAIL },
@@ -110,7 +114,15 @@ fun ShareResourceDialog(
                             )
                         },
                         enabled = canShareEmail,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics {
+                                stateDescription = if (selectedMethod == ShareMethod.EMAIL) {
+                                    selectedStateDescription
+                                } else {
+                                    notSelectedStateDescription
+                                }
+                            }
                     )
                     FilterChip(
                         selected = selectedMethod == ShareMethod.WHATSAPP,
@@ -122,7 +134,15 @@ fun ShareResourceDialog(
                             )
                         },
                         enabled = canShareWhatsApp,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics {
+                                stateDescription = if (selectedMethod == ShareMethod.WHATSAPP) {
+                                    selectedStateDescription
+                                } else {
+                                    notSelectedStateDescription
+                                }
+                            }
                     )
                 }
                 
