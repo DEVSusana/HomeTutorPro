@@ -27,6 +27,7 @@ import java.time.ZoneId
 fun ScheduleExceptionDialog(
     item: WeeklyScheduleItem.Regular,
     allRegularSchedules: List<WeeklyScheduleItem.Regular>, // For conflict detection
+    isSaving: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (ScheduleException) -> Unit,
     onDelete: ((String, String) -> Unit)? = null,
@@ -46,7 +47,6 @@ fun ScheduleExceptionDialog(
         mutableStateOf(item.exception?.newEndTime ?: item.schedule.endTime) 
     }
     var reason by remember { mutableStateOf(item.exception?.reason ?: "") }
-    var isSaving by remember { mutableStateOf(false) }
     
     // Day selector dropdown state
     var dayDropdownExpanded by remember { mutableStateOf(false) }
@@ -379,7 +379,6 @@ fun ScheduleExceptionDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    isSaving = true
                     val exception = ScheduleException(
                         id = item.exception?.id ?: "",
                         studentId = item.student.id,

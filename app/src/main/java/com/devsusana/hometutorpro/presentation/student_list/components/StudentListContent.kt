@@ -30,7 +30,10 @@ fun StudentListContent(
     onLogout: () -> Unit,
     onSearchQueryChange: (String) -> Unit = {},
     onFilterChange: (StudentFilter) -> Unit = {},
-    onSortChange: (StudentSortOption) -> Unit = {}
+    onSortChange: (StudentSortOption) -> Unit = {},
+    onToggleActiveRequest: (StudentSummary) -> Unit = {},
+    onConfirmToggleActive: () -> Unit = {},
+    onDismissToggleDialog: () -> Unit = {}
 ) {
     Scaffold(
         modifier = Modifier.testTag("student_list_screen"),
@@ -71,6 +74,49 @@ fun StudentListContent(
                 onFilterChange = onFilterChange
             )
 
+            // Confirmation Dialog
+            state.confirmToggleStudent?.let { student ->
+                AlertDialog(
+                    onDismissRequest = onDismissToggleDialog,
+                    title = {
+                        Text(
+                            stringResource(
+                                if (student.isActive) R.string.student_list_confirm_deactivate_title
+                                else R.string.student_list_confirm_reactivate_title
+                            )
+                        )
+                    },
+                    text = {
+                        Text(
+                            stringResource(
+                                if (student.isActive) R.string.student_list_confirm_deactivate_message
+                                else R.string.student_list_confirm_reactivate_message
+                            )
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = onConfirmToggleActive,
+                            colors = if (student.isActive) ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ) else ButtonDefaults.buttonColors()
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (student.isActive) R.string.student_list_action_deactivate
+                                    else R.string.student_list_action_reactivate
+                                )
+                            )
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismissToggleDialog) {
+                            Text(stringResource(R.string.common_cancel))
+                        }
+                    }
+                )
+            }
+
             if (state.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -82,6 +128,7 @@ fun StudentListContent(
                 // Empty State
                 StudentListEmptyState(
                     isSearchActive = state.searchQuery.isNotEmpty(),
+                    selectedFilter = state.selectedFilter,
                     onClearSearch = { onSearchQueryChange("") }
                 )
             } else {
@@ -95,10 +142,11 @@ fun StudentListContent(
                     ),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(state.filteredAndSortedStudents) { student ->
-                        ModernStudentCard(
+                    items(state.filteredAndSortedStudents, key = { it.id }) { student ->
+                        SwipeableStudentCard(
                             student = student,
-                            onClick = { onStudentClick(student.id) }
+                            onClick = { onStudentClick(student.id) },
+                            onToggleActive = { onToggleActiveRequest(student) }
                         )
                     }
                 }

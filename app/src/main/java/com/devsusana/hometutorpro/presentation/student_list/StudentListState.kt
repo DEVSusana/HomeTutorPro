@@ -23,7 +23,8 @@ data class StudentListState(
     val error: String? = null,
     val searchQuery: String = "",
     val selectedFilter: StudentFilter = StudentFilter.ALL,
-    val sortBy: StudentSortOption = StudentSortOption.NAME
+    val sortBy: StudentSortOption = StudentSortOption.NAME,
+    val confirmToggleStudent: StudentSummary? = null
 ) {
     val filteredAndSortedStudents: List<StudentSummary>
         get() {

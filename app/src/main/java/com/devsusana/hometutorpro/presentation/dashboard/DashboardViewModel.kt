@@ -37,24 +37,10 @@ import java.time.LocalTime
 import java.time.ZoneId
 import javax.inject.Inject
 
-import com.devsusana.hometutorpro.core.utils.NotificationHelper
+import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
 import androidx.compose.runtime.Immutable
 
-@Immutable
-data class DashboardState(
-    val activeStudentsCount: Int = 0,
-    val todayPendingClassesCount: Int = 0,
-    val totalPendingIncome: Double = 0.0,
-    val classesThisWeek: Int = 0,
-    val nextClass: WeeklyScheduleItem.Regular? = null,
-    val isLoading: Boolean = true,
-    val userName: String = "",
-    val showExceptionDialog: Boolean = false,
-    val selectedSchedule: WeeklyScheduleItem.Regular? = null,
-    val allSchedules: List<WeeklyScheduleItem.Regular> = emptyList(),
-    val successMessage: String? = null,
-    val errorMessage: String? = null
-)
+
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -67,6 +53,7 @@ class DashboardViewModel @Inject constructor(
     private val getStudentByIdUseCase: IGetStudentByIdUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
     private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
+    private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -248,8 +235,7 @@ class DashboardViewModel @Inject constructor(
                 
                 when (saveStudentUseCase(uid, updatedStudent)) {
                     is Result.Success<*> -> {
-                        val scheduled = NotificationHelper.scheduleClassEndNotification(
-                            application,
+                        scheduleClassEndNotificationUseCase(
                             student.name,
                             durationMinutes.toLong()
                         )

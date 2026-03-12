@@ -110,6 +110,7 @@ class WeeklyScheduleViewModelTest {
         )
 
         // When
+        val scheduleClassEndNotificationUseCase: com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase = mockk(relaxed = true)
         viewModel = WeeklyScheduleViewModel(
             getCurrentUserUseCase,
             getStudentsUseCase,
@@ -121,6 +122,7 @@ class WeeklyScheduleViewModelTest {
             saveStudentUseCase,
             generateCalendarOccurrencesUseCase,
             cleanupDuplicatesUseCase,
+            scheduleClassEndNotificationUseCase,
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
