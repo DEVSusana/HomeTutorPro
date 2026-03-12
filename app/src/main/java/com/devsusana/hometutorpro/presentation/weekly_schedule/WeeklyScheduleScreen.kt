@@ -133,6 +133,7 @@ fun WeeklyScheduleScreen(
             ScheduleExceptionDialog(
                 item = selectedSchedule,
                 allRegularSchedules = allRegularSchedules,
+                isSaving = state.isLoading,
                 onDismiss = viewModel::dismissDialog,
                 onSave = viewModel::saveException,
                 onDelete = viewModel::deleteException,

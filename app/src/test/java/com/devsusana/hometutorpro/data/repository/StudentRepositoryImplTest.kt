@@ -286,4 +286,79 @@ class StudentRepositoryImplTest {
         assertTrue(result is Result.Error)
         assertEquals(DomainError.StudentNotFound, (result as Result.Error).error)
     }
+
+    // ============================================================================
+    // Add To Balance Tests
+    // ============================================================================
+
+    @Test
+    fun `addToBalance adds amount atomically`() = runTest {
+        // Given
+        val studentId = "1"
+        val amount = 7.0
+        coEvery {
+            studentDao.addToBalance(any(), any(), any(), any(), any(), any())
+        } just Runs
+        coEvery { syncScheduler.scheduleSyncNow() } just Runs
+
+        // When
+        val result = repository.addToBalance("prof123", studentId, amount)
+
+        // Then
+        assertTrue(result is Result.Success)
+        coVerify {
+            studentDao.addToBalance(
+                1L, "prof123", amount, any(),
+                com.devsusana.hometutorpro.data.local.entities.SyncStatus.PENDING_UPLOAD, any()
+            )
+        }
+        coVerify { syncScheduler.scheduleSyncNow() }
+    }
+
+    @Test
+    fun `addToBalance returns error for invalid amount`() = runTest {
+        // Given
+        val studentId = "1"
+        
+        // When
+        val result = repository.addToBalance("prof123", studentId, 0.0)
+
+        // Then
+        assertTrue(result is Result.Error)
+        assertEquals(DomainError.InvalidAmount, (result as Result.Error).error)
+    }
+
+    @Test
+    fun `addToBalance returns error for invalid student ID`() = runTest {
+        // Given
+        val studentId = "invalid"
+        
+        // When
+        val result = repository.addToBalance("prof123", studentId, 7.0)
+
+        // Then
+        assertTrue(result is Result.Error)
+        assertEquals(DomainError.StudentNotFound, (result as Result.Error).error)
+    }
+
+    @Test
+    fun `registerPayment with amount greater than balance allows negative`() = runTest {
+        // Given — student balance is 0, pays 25 (advance payment)
+        val studentId = "1"
+        every { studentDao.getStudentById(1L, "prof123") } returns flowOf(testStudentEntity)
+        coEvery {
+            studentDao.subtractFromBalance(any(), any(), any(), any(), any(), any())
+        } just Runs
+        coEvery { syncScheduler.scheduleSyncNow() } just Runs
+
+        // When
+        val result = repository.registerPayment("prof123", studentId, 25.0, PaymentType.EFFECTIVE)
+
+        // Then — should succeed (negative balance allowed for advance payments)
+        assertTrue(result is Result.Success)
+        coVerify {
+            studentDao.subtractFromBalance(1L, "prof123", 25.0, any(),
+                com.devsusana.hometutorpro.data.local.entities.SyncStatus.PENDING_UPLOAD, any())
+        }
+    }
 }

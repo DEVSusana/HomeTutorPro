@@ -119,6 +119,34 @@ class StudentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun addToBalance(
+        professorId: String,
+        studentId: String,
+        amount: Double
+    ): Result<Unit, DomainError> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (amount <= 0) return@withContext Result.Error(DomainError.InvalidAmount)
+                val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
+
+                studentDao.addToBalance(
+                    studentId = id,
+                    professorId = professorId,
+                    amount = amount,
+                    classDate = System.currentTimeMillis(),
+                    syncStatus = SyncStatus.PENDING_UPLOAD,
+                    timestamp = System.currentTimeMillis()
+                )
+
+                syncScheduler.scheduleSyncNow()
+
+                Result.Success(Unit)
+            } catch (e: Exception) {
+                Result.Error(DomainError.Unknown)
+            }
+        }
+    }
+
     override fun getSchedules(professorId: String, studentId: String): Flow<List<Schedule>> {
         val id = studentId.toRoomId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())
         return scheduleDao.getSchedulesByStudentId(id, professorId).map { entities ->

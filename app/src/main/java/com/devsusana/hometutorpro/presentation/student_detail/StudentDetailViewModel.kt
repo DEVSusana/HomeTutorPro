@@ -87,7 +87,7 @@ class StudentDetailViewModel @Inject constructor(
             is StudentDetailEvent.BalanceChange -> _state.value = _state.value.copy(balanceInput = event.input)
             StudentDetailEvent.ToggleBalanceEdit -> onBalanceEditToggle()
             is StudentDetailEvent.RegisterPayment -> financeDelegate.registerPayment(student.professorId, student.id, event.amount, event.type, _state, viewModelScope)
-            is StudentDetailEvent.StartClass -> financeDelegate.startClass(student.professorId, student.id, event.durationMinutes, student.pricePerHour, _state, viewModelScope)
+            is StudentDetailEvent.StartClass -> financeDelegate.startClass(student.professorId, student.id, event.durationMinutes, _state, viewModelScope)
             is StudentDetailEvent.SaveSchedule -> scheduleDelegate.saveSchedule(student.professorId, student.id, event.schedule, _state, viewModelScope)
             is StudentDetailEvent.DeleteSchedule -> scheduleDelegate.deleteSchedule(student.professorId, student.id, event.scheduleId, _state, viewModelScope)
             StudentDetailEvent.ClearFeedback -> _state.value = _state.value.copy(successMessage = null, errorMessage = null)
