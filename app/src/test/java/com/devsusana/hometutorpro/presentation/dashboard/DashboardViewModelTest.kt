@@ -99,6 +99,7 @@ class DashboardViewModelTest {
         )
 
         // When
+        val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase = mockk(relaxed = true)
         viewModel = DashboardViewModel(
             getCurrentUserUseCase,
             getStudentsUseCase,
@@ -109,6 +110,7 @@ class DashboardViewModelTest {
             getStudentByIdUseCase,
             saveStudentUseCase,
             generateCalendarOccurrencesUseCase,
+            scheduleClassEndNotificationUseCase,
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -149,6 +151,7 @@ class DashboardViewModelTest {
             coEvery { generateCalendarOccurrencesUseCase(any(), any(), any(), any(), any()) } returns emptyList()
 
             // When
+            val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase = mockk(relaxed = true)
             viewModel = DashboardViewModel(
                 getCurrentUserUseCase,
                 getStudentsUseCase,
@@ -159,6 +162,7 @@ class DashboardViewModelTest {
                 getStudentByIdUseCase,
                 saveStudentUseCase,
                 generateCalendarOccurrencesUseCase,
+                scheduleClassEndNotificationUseCase,
                 application
             )
             testDispatcher.scheduler.advanceUntilIdle()

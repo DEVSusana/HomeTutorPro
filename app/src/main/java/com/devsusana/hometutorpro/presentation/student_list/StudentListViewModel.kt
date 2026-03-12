@@ -2,9 +2,11 @@ package com.devsusana.hometutorpro.presentation.student_list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.devsusana.hometutorpro.domain.repository.AuthRepository
+import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
+import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ILogoutUseCase
+import com.devsusana.hometutorpro.domain.usecases.IToggleStudentActiveUseCase
 import com.devsusana.hometutorpro.presentation.student_list.StudentFilter
 import com.devsusana.hometutorpro.presentation.student_list.StudentSortOption
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,14 +21,15 @@ import javax.inject.Inject
 class StudentListViewModel @Inject constructor(
     private val getStudentsUseCase: IGetStudentsUseCase,
     private val logoutUseCase: ILogoutUseCase,
-    private val authRepository: AuthRepository
+    private val toggleStudentActiveUseCase: IToggleStudentActiveUseCase,
+    private val getCurrentUserUseCase: IGetCurrentUserUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(StudentListState())
     val state: StateFlow<StudentListState> = _state
 
     init {
-        authRepository.currentUser.onEach { user ->
+        getCurrentUserUseCase().onEach { user ->
             if (user != null) {
                 getStudents(user.uid)
             }
@@ -52,6 +55,24 @@ class StudentListViewModel @Inject constructor(
 
     fun onSortChange(sortBy: StudentSortOption) {
         _state.value = _state.value.copy(sortBy = sortBy)
+    }
+
+    fun onRequestToggleActive(student: StudentSummary) {
+        _state.value = _state.value.copy(confirmToggleStudent = student)
+    }
+
+    fun onDismissToggleDialog() {
+        _state.value = _state.value.copy(confirmToggleStudent = null)
+    }
+
+    fun onConfirmToggleActive() {
+        val student = _state.value.confirmToggleStudent ?: return
+        val professorId = getCurrentUserUseCase().value?.uid ?: return
+
+        viewModelScope.launch {
+            toggleStudentActiveUseCase(professorId, student.id)
+            _state.value = _state.value.copy(confirmToggleStudent = null)
+        }
     }
 
     fun logout() {

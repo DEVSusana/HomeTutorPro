@@ -8,6 +8,13 @@ import com.devsusana.hometutorpro.core.utils.NotificationHelper
 import com.devsusana.hometutorpro.core.utils.BackupManager
 import android.net.Uri
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.domain.usecases.ISetLanguageUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISetThemeModeUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISetClassEndNotificationsUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISetDebugPremiumUseCase
+import com.devsusana.hometutorpro.domain.usecases.ICreateBackupUseCase
+import com.devsusana.hometutorpro.domain.usecases.IRestoreBackupUseCase
+import com.devsusana.hometutorpro.domain.usecases.IShowTestNotificationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,20 +25,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class SettingsState(
-    val language: String = "es",
-    val themeMode: SettingsManager.ThemeMode = SettingsManager.ThemeMode.SYSTEM,
-    val classEndNotificationsEnabled: Boolean = true,
-    val isDebugPremium: Boolean = false,
-    val isBackupLoading: Boolean = false,
-    val backupMessage: String? = null,
-    val isBackupSuccess: Boolean = false
-)
+
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsManager: SettingsManager,
-    private val backupManager: BackupManager,
+    private val settingsManager: SettingsManager, // Still needed for flows for now, but actions should use UseCases
+    private val setLanguageUseCase: ISetLanguageUseCase,
+    private val setThemeModeUseCase: ISetThemeModeUseCase,
+    private val setClassEndNotificationsUseCase: ISetClassEndNotificationsUseCase,
+    private val setDebugPremiumUseCase: ISetDebugPremiumUseCase,
+    private val createBackupUseCase: ICreateBackupUseCase,
+    private val restoreBackupUseCase: IRestoreBackupUseCase,
+    private val showTestNotificationUseCase: IShowTestNotificationUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -61,41 +66,41 @@ class SettingsViewModel @Inject constructor(
 
     fun onLanguageChange(language: String) {
         viewModelScope.launch {
-            settingsManager.setLanguage(language)
+            setLanguageUseCase(language)
         }
     }
 
     suspend fun setLanguageSync(language: String) {
-        settingsManager.setLanguage(language)
+        setLanguageUseCase(language)
     }
 
     fun onThemeModeChange(mode: SettingsManager.ThemeMode) {
         viewModelScope.launch {
-            settingsManager.setThemeMode(mode)
+            setThemeModeUseCase(mode)
         }
     }
 
     fun onClassEndNotificationsToggle(enabled: Boolean) {
         viewModelScope.launch {
-            settingsManager.setClassEndNotifications(enabled)
+            setClassEndNotificationsUseCase(enabled)
         }
     }
 
     fun onDebugPremiumToggle(enabled: Boolean) {
         viewModelScope.launch {
-            settingsManager.setDebugPremium(enabled)
+            setDebugPremiumUseCase(enabled)
         }
     }
 
     fun showTestNotification() {
-        NotificationHelper.showTestNotification(application)
+        showTestNotificationUseCase()
     }
 
     fun exportBackup(onResult: (String) -> Unit) {
         viewModelScope.launch {
             _backupState.value = true to null
             try {
-                val json = backupManager.createBackup()
+                val json = createBackupUseCase()
                 onResult(json)
                 _backupState.value = false to application.getString(R.string.settings_backup_ready)
             } catch (e: Exception) {
@@ -110,7 +115,7 @@ class SettingsViewModel @Inject constructor(
     fun importBackup(uri: Uri) {
         viewModelScope.launch {
             _backupState.value = true to null
-            val result = backupManager.restoreBackup(application, uri)
+            val result = restoreBackupUseCase(uri)
             if (result.isSuccess) {
                 _backupState.value = false to application.getString(R.string.settings_restore_success)
             } else {

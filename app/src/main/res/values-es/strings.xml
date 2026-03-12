@@ -6,6 +6,7 @@
     <!-- Common Actions -->
     <string name="save">Guardar</string>
     <string name="cancel">Cancelar</string>
+    <string name="common_cancel">Cancelar</string>
     <string name="delete">Eliminar</string>
     <string name="confirm">Confirmar</string>
     <string name="ok">OK</string>
@@ -91,7 +92,10 @@
     <string name="student_detail_special_needs">Atención Educativa</string>
     <string name="student_detail_student_phone">Teléfono del Estudiante</string>
     <string name="student_detail_student_email">Email del Estudiante</string>
-    <string name="student_detail_student_color">Color del Estudiante</string>
+    <string name="student_detail_color_label">Color del Alumno</string>
+    <string name="student_detail_color_hint">Selecciona un color para identificar fácilmente a este alumno en el calendario.</string>
+    <string name="student_detail_color_auto">Generar Color Automáticamente</string>
+    <string name="cd_color_selected">Color Seleccionado</string>
     <string name="student_detail_color">Color:</string>
     <string name="student_detail_navigate_to_address">Navegar a la Dirección (Google Maps)</string>
     <string name="student_detail_schedule">Horario</string>
@@ -341,6 +345,16 @@
     <string name="student_list_filter_balance">Con Saldo</string>
     <string name="student_list_filter_active">Activos</string>
     <string name="student_list_filter_inactive">Inactivos</string>
+
+    <!-- Student List Swipe/Actions -->
+    <string name="student_list_action_deactivate">Desactivar</string>
+    <string name="student_list_action_reactivate">Reactivar</string>
+    <string name="student_list_confirm_deactivate_title">¿Desactivar alumno?</string>
+    <string name="student_list_confirm_deactivate_message">El alumno se ocultará de la lista principal, pero sus datos se conservarán.</string>
+    <string name="student_list_confirm_reactivate_title">¿Reactivar alumno?</string>
+    <string name="student_list_confirm_reactivate_message">El alumno volverá a aparecer en la lista principal.</string>
+    <string name="student_list_empty_inactive_title">No hay alumnos inactivos</string>
+    <string name="student_list_empty_inactive_desc">Para desactivar a un alumno, ve a su perfil, pulsa Editar y desactiva el interruptor \"Alumno Activo\".\n\nTambién puedes deslizar la tarjeta de un alumno hacia la izquierda desde la lista principal.</string>
     <string name="student_list_sort_name">Nombre</string>
     <string name="student_list_sort_balance">Saldo</string>
     <string name="student_list_sort_last_class">Última Clase</string>

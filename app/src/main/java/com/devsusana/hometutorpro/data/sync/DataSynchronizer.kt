@@ -245,8 +245,24 @@ class DataSynchronizer @Inject constructor(
             lastSyncTimestamp = lastSyncTimestamp
         )
         
-        // Get all local students once for duplicate detection
+        // Get all local students once for duplicate detection and ghost deletion
         val allLocalStudents = studentDao.getAllStudents(professorId).first()
+        val remoteCloudIds = remoteDocs.map { it.id }.toSet()
+        
+        // Ghost Data Prevention: Delete local students that were deleted remotely by another device
+        // We only delete local students that: 
+        // 1. Have a cloudId (meaning they were synced before)
+        // 2. Are NOT in PENDING_UPLOAD state (meaning we don't accidentally delete offline creations)
+        // 3. Are missing from the remote download
+        val localStudentsToDelete = allLocalStudents.filter { localStudent ->
+            localStudent.cloudId != null && 
+            localStudent.syncStatus != SyncStatus.PENDING_UPLOAD && 
+            !remoteCloudIds.contains(localStudent.cloudId)
+        }
+        
+        for (localStudent in localStudentsToDelete) {
+            studentDao.deleteStudent(localStudent)
+        }
         
         for (doc in remoteDocs) {
             val remoteStudent = doc.toStudentEntity(secureAuthManager, professorId)
@@ -314,6 +330,20 @@ class DataSynchronizer @Inject constructor(
                         lastSyncTimestamp = 0L // Download all for now
                     )
                     
+                    val remoteCloudIds = remoteDocs.map { it.id }.toSet()
+                    val localSchedules = scheduleDao.getSchedulesByStudentId(student.id, professorId).first()
+                    
+                    // Ghost Data Prevention for Schedules
+                    val localSchedulesToDelete = localSchedules.filter { localSchedule ->
+                        localSchedule.cloudId != null && 
+                        localSchedule.syncStatus != SyncStatus.PENDING_UPLOAD && 
+                        !remoteCloudIds.contains(localSchedule.cloudId)
+                    }
+                    
+                    for (localSchedule in localSchedulesToDelete) {
+                        scheduleDao.deleteSchedule(localSchedule)
+                    }
+                    
                     for (doc in remoteDocs) {
                         val remoteSchedule = doc.toScheduleEntity(student.id, professorId)
                         val localSchedule = scheduleDao.getScheduleByCloudId(doc.id, professorId)
@@ -350,6 +380,20 @@ class DataSynchronizer @Inject constructor(
                         path = "professors/$professorId/students/${student.cloudId}/schedule_exceptions",
                         lastSyncTimestamp = 0L
                     )
+                    
+                    val remoteCloudIds = remoteDocs.map { it.id }.toSet()
+                    val localExceptions = scheduleExceptionDao.getExceptionsByStudentId(student.id, professorId).first()
+                    
+                    // Ghost Data Prevention for Schedule Exceptions
+                    val localExceptionsToDelete = localExceptions.filter { localException ->
+                        localException.cloudId != null && 
+                        localException.syncStatus != SyncStatus.PENDING_UPLOAD && 
+                        !remoteCloudIds.contains(localException.cloudId)
+                    }
+                    
+                    for (localException in localExceptionsToDelete) {
+                        scheduleExceptionDao.deleteException(localException)
+                    }
                     
                     for (doc in remoteDocs) {
                         val remoteException = doc.toScheduleExceptionEntity(student.id, professorId)

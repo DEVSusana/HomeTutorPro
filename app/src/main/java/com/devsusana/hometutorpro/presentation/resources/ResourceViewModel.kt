@@ -17,13 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class ResourcesState(
-    val resources: List<Resource> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: Any? = null,
-    val successMessage: Any? = null,
-    val errorMessage: Any? = null
-)
+
 
 @HiltViewModel
 class ResourceViewModel @Inject constructor(

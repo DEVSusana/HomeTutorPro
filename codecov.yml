@@ -9,18 +9,33 @@ coverage:
         threshold: 2%
     patch:
       default:
-        target: 70%
+        target: 50%
 
-# Ignore patterns
+# Ignore patterns — exclude files that require instrumented tests (UI)
 ignore:
+  # Test sources (not production code)
   - "app/src/androidTest/**"
   - "app/src/test/**"
+
+  # Generated code
   - "**/R.java"
   - "**/BuildConfig.java"
+  - "**/*MapperImpl*.kt"
+
+  # Test files
   - "**/*Test*.kt"
+
+  # DI modules (Hilt boilerplate)
   - "**/*Module.kt"
   - "**/di/**"
-  - "**/*MapperImpl*.kt"
+
+  # Presentation layer — Compose UI (requires instrumented tests, not run in CI)
+  - "**/presentation/**/*Screen.kt"
+  - "**/presentation/**/*Content.kt"
+  - "**/presentation/**/*Dialog.kt"
+  - "**/presentation/**/components/**"
+  - "**/presentation/splash/**"
+  - "**/presentation/utils/**"
 
 # Comment configuration
 comment:

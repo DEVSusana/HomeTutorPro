@@ -52,6 +52,10 @@ class SaveScheduleExceptionUseCase @Inject constructor(
             
             // Parse the exception date to get the day of week for comparison
             val exceptionDayOfWeek = exceptionToSave.newDayOfWeek ?: exceptionDate.dayOfWeek
+            
+            // Calculate targetDate based on the new day of week
+            val daysDiff = exceptionDayOfWeek.value - exceptionDate.dayOfWeek.value
+            val targetDate = exceptionDate.plusDays(daysDiff.toLong())
 
             // 2. Check against all students' schedules and exceptions
             for (student in students) {
@@ -63,11 +67,11 @@ class SaveScheduleExceptionUseCase @Inject constructor(
                     if (existingSchedule.dayOfWeek == exceptionDayOfWeek) {
                          // Check time overlap
                         if (isTimeOverlap(exceptionToSave.newStartTime, exceptionToSave.newEndTime, existingSchedule.startTime, existingSchedule.endTime)) {
-                            // Check if THIS regular schedule is cancelled or rescheduled (moved away) for THIS date
+                            // Check if THIS regular schedule is cancelled or rescheduled (moved away) for THIS target date
                             val isFreeSlot = studentExceptions.any { 
                                 it.originalScheduleId == existingSchedule.id && 
                                 (it.type == ExceptionType.CANCELLED || it.type == ExceptionType.RESCHEDULED) &&
-                                Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() == exceptionDate
+                                Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() == targetDate
                             }
                             
                             if (!isFreeSlot) {
@@ -90,8 +94,15 @@ class SaveScheduleExceptionUseCase @Inject constructor(
                     val existingExcDate = Instant.ofEpochMilli(existingException.date)
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate()
+                        
+                    val existingExcTargetDate = if (existingException.newDayOfWeek != null) {
+                        val diff = existingException.newDayOfWeek.value - existingExcDate.dayOfWeek.value
+                        existingExcDate.plusDays(diff.toLong())
+                    } else {
+                        existingExcDate
+                    }
 
-                    if (existingExcDate == exceptionDate && 
+                    if (existingExcTargetDate == targetDate && 
                         (existingException.type == ExceptionType.RESCHEDULED || existingException.type == ExceptionType.EXTRA)) {
                         
                         if (isTimeOverlap(exceptionToSave.newStartTime, exceptionToSave.newEndTime, existingException.newStartTime, existingException.newEndTime)) {

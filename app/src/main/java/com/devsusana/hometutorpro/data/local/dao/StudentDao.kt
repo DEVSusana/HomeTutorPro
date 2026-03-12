@@ -60,6 +60,20 @@ interface StudentDao {
         timestamp: Long
     )
 
+    /**
+     * Atomic balance addition — used by "start class" to avoid full-entity overwrites
+     * that could race with concurrent payment operations.
+     */
+    @Query("UPDATE students SET pendingBalance = pendingBalance + :amount, lastClassDate = :classDate, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE id = :studentId AND professorId = :professorId")
+    suspend fun addToBalance(
+        studentId: Long,
+        professorId: String,
+        amount: Double,
+        classDate: Long,
+        syncStatus: SyncStatus,
+        timestamp: Long
+    )
+
     // Sync-specific queries
     @Query("SELECT * FROM students WHERE professorId = :professorId AND syncStatus = :status")
     suspend fun getStudentsBySyncStatus(professorId: String, status: SyncStatus): List<StudentEntity>

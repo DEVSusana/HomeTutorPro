@@ -27,6 +27,16 @@ interface StudentRepository {
         paymentType: PaymentType
     ): Result<Unit, DomainError>
 
+    /**
+     * Atomically adds [amount] to the student's pending balance and sets [lastClassDate].
+     * This avoids full-entity overwrites that can race with concurrent payment operations.
+     */
+    suspend fun addToBalance(
+        professorId: String,
+        studentId: String,
+        amount: Double
+    ): Result<Unit, DomainError>
+
     fun getSchedules(professorId: String, studentId: String): Flow<List<Schedule>>
     fun getAllSchedules(professorId: String): Flow<List<Schedule>>
     suspend fun saveSchedule(professorId: String, studentId: String, schedule: Schedule): Result<Unit, DomainError>
