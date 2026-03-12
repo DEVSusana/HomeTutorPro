@@ -80,6 +80,9 @@ abstract class UseCaseModule {
     abstract fun bindRegisterPaymentUseCase(impl: RegisterPaymentUseCase): IRegisterPaymentUseCase
 
     @Binds
+    abstract fun bindAddToBalanceUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.AddToBalanceUseCase): IAddToBalanceUseCase
+
+    @Binds
     abstract fun bindRegisterUseCase(impl: RegisterUseCase): IRegisterUseCase
 
     @Binds
@@ -127,4 +130,40 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindGenerateCalendarOccurrencesUseCase(impl: GenerateCalendarOccurrencesUseCase): IGenerateCalendarOccurrencesUseCase
+
+    @Binds
+    abstract fun bindToggleStudentActiveUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.ToggleStudentActiveUseCase): IToggleStudentActiveUseCase
+
+    @Binds
+    abstract fun bindCleanupDuplicatesUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CleanupDuplicatesUseCase): ICleanupDuplicatesUseCase
+
+    @Binds
+    abstract fun bindSetLanguageUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetLanguageUseCase): ISetLanguageUseCase
+
+    @Binds
+    abstract fun bindSetThemeModeUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetThemeModeUseCase): ISetThemeModeUseCase
+
+    @Binds
+    abstract fun bindSetClassEndNotificationsUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetClassEndNotificationsUseCase): ISetClassEndNotificationsUseCase
+
+    @Binds
+    abstract fun bindSetDebugPremiumUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetDebugPremiumUseCase): ISetDebugPremiumUseCase
+
+    @Binds
+    abstract fun bindCreateBackupUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CreateBackupUseCase): ICreateBackupUseCase
+
+    @Binds
+    abstract fun bindRestoreBackupUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.RestoreBackupUseCase): IRestoreBackupUseCase
+
+    @Binds
+    abstract fun bindGetPremiumProductUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetPremiumProductUseCase): IGetPremiumProductUseCase
+
+    @Binds
+    abstract fun bindLaunchPremiumPurchaseUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.LaunchPremiumPurchaseUseCase): ILaunchPremiumPurchaseUseCase
+
+    @Binds
+    abstract fun bindShowTestNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.ShowTestNotificationUseCase): IShowTestNotificationUseCase
+
+    @Binds
+    abstract fun bindScheduleClassEndNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleClassEndNotificationUseCase): IScheduleClassEndNotificationUseCase
 }

@@ -17,7 +17,8 @@ import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
 import com.devsusana.hometutorpro.domain.entities.ScheduleType
-import com.devsusana.hometutorpro.domain.usecases.implementations.CleanupDuplicatesUseCase
+import com.devsusana.hometutorpro.domain.usecases.ICleanupDuplicatesUseCase
+import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
@@ -47,7 +48,8 @@ class WeeklyScheduleViewModel @Inject constructor(
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
     private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
-    private val cleanupDuplicatesUseCase: CleanupDuplicatesUseCase,
+    private val cleanupDuplicatesUseCase: ICleanupDuplicatesUseCase,
+    private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -218,8 +220,7 @@ class WeeklyScheduleViewModel @Inject constructor(
                 
                 when (saveStudentUseCase(uid, updatedStudent)) {
                     is Result.Success<*> -> {
-                        val scheduled = NotificationHelper.scheduleClassEndNotification(
-                            application,
+                        scheduleClassEndNotificationUseCase(
                             student.name,
                             durationMinutes.toLong()
                         )

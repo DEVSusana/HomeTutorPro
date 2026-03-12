@@ -74,6 +74,7 @@ fun DashboardScreen(
         ScheduleExceptionDialog(
             item = selectedSchedule,
             allRegularSchedules = state.allSchedules,
+            isSaving = state.isLoading,
             onDismiss = viewModel::dismissDialog,
             onSave = viewModel::saveException,
             onDelete = viewModel::deleteException,

@@ -24,6 +24,9 @@ fun StudentListScreen(
         onLogout = onLogout,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onFilterChange = viewModel::onFilterChange,
-        onSortChange = viewModel::onSortChange
+        onSortChange = viewModel::onSortChange,
+        onToggleActiveRequest = viewModel::onRequestToggleActive,
+        onConfirmToggleActive = viewModel::onConfirmToggleActive,
+        onDismissToggleDialog = viewModel::onDismissToggleDialog
     )
 }

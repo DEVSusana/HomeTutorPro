@@ -10,6 +10,7 @@
     <!-- Common Actions -->
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
+    <string name="common_cancel">Cancel</string>
     <string name="delete">Delete</string>
     <string name="confirm">Confirm</string>
     <string name="ok">OK</string>
@@ -95,7 +96,10 @@
     <string name="student_detail_special_needs">Educational Attention</string>
     <string name="student_detail_student_phone">Student Phone</string>
     <string name="student_detail_student_email">Student Email</string>
-    <string name="student_detail_student_color">Student Color</string>
+    <string name="student_detail_color_label">Student Color</string>
+    <string name="student_detail_color_hint">Select a color to easily identify this student in the calendar.</string>
+    <string name="student_detail_color_auto">Auto Generate Color</string>
+    <string name="cd_color_selected">Color Selected</string>
     <string name="student_detail_color">Color:</string>
     <string name="student_detail_navigate_to_address">Navigate to Address (Google Maps)</string>
     <string name="student_detail_schedule">Schedule</string>
@@ -349,6 +353,16 @@
     <string name="student_list_filter_balance">With Balance</string>
     <string name="student_list_filter_active">Active</string>
     <string name="student_list_filter_inactive">Inactive</string>
+
+    <!-- Student List Swipe/Actions -->
+    <string name="student_list_action_deactivate">Deactivate</string>
+    <string name="student_list_action_reactivate">Reactivate</string>
+    <string name="student_list_confirm_deactivate_title">Deactivate student?</string>
+    <string name="student_list_confirm_deactivate_message">The student will be hidden from the main list, but their data will be kept.</string>
+    <string name="student_list_confirm_reactivate_title">Reactivate student?</string>
+    <string name="student_list_confirm_reactivate_message">The student will appear again in the main list.</string>
+    <string name="student_list_empty_inactive_title">No inactive students</string>
+    <string name="student_list_empty_inactive_desc">To deactivate a student, go to their profile, tap Edit and toggle \"Active Student\" off.\n\nYou can also swipe a student\'s card to the left from the main list.</string>
     <string name="student_list_sort_name">Name</string>
     <string name="student_list_sort_balance">Balance</string>
     <string name="student_list_sort_last_class">Last Class</string>
