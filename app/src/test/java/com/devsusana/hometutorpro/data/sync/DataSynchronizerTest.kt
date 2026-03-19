@@ -125,4 +125,57 @@ class DataSynchronizerTest {
         coVerify { remoteDataSource.deleteStudentData(professorId, "cloud_id_delete") }
         coVerify { studentDao.deleteStudent(any()) }
     }
+    @Test
+    fun `performSync should NOT delete local students during incremental sync if missing from remote`() = runTest {
+        // Given
+        val lastSyncTimestamp = 1000L
+        coEvery { syncMetadataDao.getLastSyncTimestamp() } returns lastSyncTimestamp
+        
+        val localStudent = StudentEntity(
+            id = 1, professorId = professorId, name = "Local Student", cloudId = "cloud_1",
+            syncStatus = SyncStatus.SYNCED, age = 0, address = "", parentPhones = "", studentPhone = "", studentEmail = "",
+            subjects = "", course = "", pricePerHour = 0.0, educationalAttention = "", lastPaymentDate = null
+        )
+        
+        every { studentDao.getAllStudents(professorId) } returns flowOf(listOf(localStudent))
+        coEvery { remoteDataSource.downloadCollection(any(), lastSyncTimestamp) } returns emptyList() // Missing from incremental fetch
+        
+        // Mock other parts of sync to avoid NPEs
+        coEvery { studentDao.getStudentsBySyncStatus(any(), any()) } returns emptyList()
+        coEvery { scheduleDao.getSchedulesBySyncStatus(any(), any()) } returns emptyList()
+        coEvery { scheduleExceptionDao.getExceptionsBySyncStatus(any(), any()) } returns emptyList()
+
+        // When
+        dataSynchronizer.performSync()
+
+        // Then
+        coVerify(exactly = 0) { studentDao.deleteStudent(localStudent) }
+    }
+
+    @Test
+    fun `performSync should delete local students during full sync if missing from remote`() = runTest {
+        // Given
+        val lastSyncTimestamp = 0L
+        coEvery { syncMetadataDao.getLastSyncTimestamp() } returns lastSyncTimestamp
+        
+        val localStudent = StudentEntity(
+            id = 1, professorId = professorId, name = "Local Student", cloudId = "cloud_1",
+            syncStatus = SyncStatus.SYNCED, age = 0, address = "", parentPhones = "", studentPhone = "", studentEmail = "",
+            subjects = "", course = "", pricePerHour = 0.0, educationalAttention = "", lastPaymentDate = null
+        )
+        
+        every { studentDao.getAllStudents(professorId) } returns flowOf(listOf(localStudent))
+        coEvery { remoteDataSource.downloadCollection(any(), 0L) } returns emptyList() // Missing from full fetch
+        
+        // Mock other parts of sync
+        coEvery { studentDao.getStudentsBySyncStatus(any(), any()) } returns emptyList()
+        coEvery { scheduleDao.getSchedulesBySyncStatus(any(), any()) } returns emptyList()
+        coEvery { scheduleExceptionDao.getExceptionsBySyncStatus(any(), any()) } returns emptyList()
+
+        // When
+        dataSynchronizer.performSync()
+
+        // Then
+        coVerify(exactly = 1) { studentDao.deleteStudent(localStudent) }
+    }
 }
