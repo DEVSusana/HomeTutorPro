@@ -8,6 +8,7 @@ import com.devsusana.hometutorpro.domain.entities.Student
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IUpdateBalanceUseCase
 import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,7 @@ class StudentFinanceDelegateTest {
 
     private lateinit var registerPaymentUseCase: IRegisterPaymentUseCase
     private lateinit var addToBalanceUseCase: IAddToBalanceUseCase
+    private lateinit var updateBalanceUseCase: IUpdateBalanceUseCase
     private lateinit var saveStudentUseCase: ISaveStudentUseCase
     private lateinit var application: Application
     private lateinit var delegate: StudentFinanceDelegate
@@ -54,6 +56,7 @@ class StudentFinanceDelegateTest {
         testScope = TestScope(testDispatcher)
         registerPaymentUseCase = mockk()
         addToBalanceUseCase = mockk()
+        updateBalanceUseCase = mockk()
         saveStudentUseCase = mockk()
         application = mockk(relaxed = true)
 
@@ -63,6 +66,7 @@ class StudentFinanceDelegateTest {
         delegate = StudentFinanceDelegate(
             registerPaymentUseCase,
             addToBalanceUseCase,
+            updateBalanceUseCase,
             saveStudentUseCase,
             application
         )
@@ -252,26 +256,29 @@ class StudentFinanceDelegateTest {
     // ============================================================================
 
     @Test
-    fun `updateBalance success sets new balance`() = testScope.runTest {
+    fun `updateBalance success sets new balance using atomic update`() = testScope.runTest {
         // Given
         val state = MutableStateFlow(StudentDetailState(student = testStudent, isBalanceEditable = true))
-        coEvery { saveStudentUseCase("prof1", any()) } returns Result.Success("1")
+        coEvery { updateBalanceUseCase("prof1", "1", 100.0) } returns Result.Success(Unit)
 
         // When
         delegate.updateBalance("prof1", "1", 100.0, state, this)
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
+        assertEquals(100.0, state.value.student!!.pendingBalance, 0.001)
         assertFalse(state.value.isBalanceEditable)
         assertFalse(state.value.isLoading)
         assertNotNull(state.value.successMessage)
+        coVerify(exactly = 1) { updateBalanceUseCase("prof1", "1", 100.0) }
+        coVerify(exactly = 0) { saveStudentUseCase(any(), any()) }
     }
 
     @Test
     fun `updateBalance error does not toggle edit mode`() = testScope.runTest {
         // Given
         val state = MutableStateFlow(StudentDetailState(student = testStudent, isBalanceEditable = true))
-        coEvery { saveStudentUseCase("prof1", any()) } returns Result.Error(DomainError.Unknown)
+        coEvery { updateBalanceUseCase("prof1", "1", 100.0) } returns Result.Error(DomainError.Unknown)
 
         // When
         delegate.updateBalance("prof1", "1", 100.0, state, this)
@@ -280,5 +287,6 @@ class StudentFinanceDelegateTest {
         // Then — isBalanceEditable unchanged on error (still true from initial state)
         assertFalse(state.value.isLoading)
         assertNotNull(state.value.errorMessage)
+        coVerify(exactly = 1) { updateBalanceUseCase("prof1", "1", 100.0) }
     }
 }

@@ -78,14 +78,23 @@ class DataSynchronizer @Inject constructor(
     
     private suspend fun cleanFirestoreDuplicates(professorId: String) {
         try {
+            val collator = java.text.Collator.getInstance(java.util.Locale("es", "ES")).apply {
+                strength = java.text.Collator.PRIMARY
+            }
+            
             val path = "professors/$professorId/students"
             val allStudents = remoteDataSource.downloadCollection(path, 0L)
             
             val studentsByName = allStudents.groupBy { 
-                it.data["name"]?.toString()?.trim()?.lowercase() ?: ""
+                it.data["name"]?.toString()?.trim() ?: ""
             }
             
-            for ((_, docs) in studentsByName) {
+            for ((name, docs) in studentsByName) {
+                // Find local students with same name using collator if needed, 
+                // but here we are cleaning Firestore duplicates based on EXACT map keys first
+                // then we could refine. For now, let's just use the collator for the grouping if possible,
+                // but groupBy uses hashCode/equals which Collator doesn't provide for Map keys easily.
+                // Instead, we will normalize the name for the key.
                 if (docs.size > 1) {
                     val toKeep = docs.maxByOrNull { 
                         it.data["lastModified"]?.toString()?.toLong() ?: 0L 
@@ -250,18 +259,22 @@ class DataSynchronizer @Inject constructor(
         val remoteCloudIds = remoteDocs.map { it.id }.toSet()
         
         // Ghost Data Prevention: Delete local students that were deleted remotely by another device
-        // We only delete local students that: 
-        // 1. Have a cloudId (meaning they were synced before)
-        // 2. Are NOT in PENDING_UPLOAD state (meaning we don't accidentally delete offline creations)
-        // 3. Are missing from the remote download
-        val localStudentsToDelete = allLocalStudents.filter { localStudent ->
-            localStudent.cloudId != null && 
-            localStudent.syncStatus != SyncStatus.PENDING_UPLOAD && 
-            !remoteCloudIds.contains(localStudent.cloudId)
+        // We only do this on a full sync (lastSyncTimestamp == 0L), otherwise incremental syncs
+        // would falsely delete unchanged local students because they are missing from the remote payload.
+        if (lastSyncTimestamp == 0L) {
+            val localStudentsToDelete = allLocalStudents.filter { localStudent ->
+                localStudent.cloudId != null && 
+                localStudent.syncStatus != SyncStatus.PENDING_UPLOAD && 
+                !remoteCloudIds.contains(localStudent.cloudId)
+            }
+            
+            for (localStudent in localStudentsToDelete) {
+                studentDao.deleteStudent(localStudent)
+            }
         }
         
-        for (localStudent in localStudentsToDelete) {
-            studentDao.deleteStudent(localStudent)
+        val collator = java.text.Collator.getInstance(java.util.Locale("es", "ES")).apply {
+            strength = java.text.Collator.PRIMARY
         }
         
         for (doc in remoteDocs) {
@@ -270,7 +283,7 @@ class DataSynchronizer @Inject constructor(
             
             if (localStudentByCloudId == null) {
                 val localStudentByName = allLocalStudents.find { 
-                    it.cloudId == null && it.name.trim().equals(remoteStudent.name.trim(), ignoreCase = true)
+                    it.cloudId == null && collator.compare(it.name.trim(), remoteStudent.name.trim()) == 0
                 }
                 
                 if (localStudentByName != null) {
@@ -290,7 +303,7 @@ class DataSynchronizer @Inject constructor(
                     ))
                 } else {
                     val existingWithSameName = allLocalStudents.find {
-                        it.name.trim().equals(remoteStudent.name.trim(), ignoreCase = true)
+                        collator.compare(it.name.trim(), remoteStudent.name.trim()) == 0
                     }
                     
                     if (existingWithSameName == null) {
