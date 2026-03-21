@@ -129,11 +129,45 @@ class StudentRepositoryImpl @Inject constructor(
                 if (amount <= 0) return@withContext Result.Error(DomainError.InvalidAmount)
                 val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
+                // Pre-check student existence to correctly return StudentNotFound for stale/deleted IDs
+                val student = studentDao.getStudentById(id, professorId).firstOrNull()
+                    ?: return@withContext Result.Error(DomainError.StudentNotFound)
+
                 studentDao.addToBalance(
                     studentId = id,
                     professorId = professorId,
                     amount = amount,
                     classDate = System.currentTimeMillis(),
+                    syncStatus = SyncStatus.PENDING_UPLOAD,
+                    timestamp = System.currentTimeMillis()
+                )
+
+                syncScheduler.scheduleSyncNow()
+
+                Result.Success(Unit)
+            } catch (e: Exception) {
+                Result.Error(DomainError.Unknown)
+            }
+        }
+    }
+
+    override suspend fun updateBalance(
+        professorId: String,
+        studentId: String,
+        newBalance: Double
+    ): Result<Unit, DomainError> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
+
+                // Pre-check student existence
+                val student = studentDao.getStudentById(id, professorId).firstOrNull()
+                    ?: return@withContext Result.Error(DomainError.StudentNotFound)
+
+                studentDao.updateBalanceOnly(
+                    studentId = id,
+                    professorId = professorId,
+                    newBalance = newBalance,
                     syncStatus = SyncStatus.PENDING_UPLOAD,
                     timestamp = System.currentTimeMillis()
                 )

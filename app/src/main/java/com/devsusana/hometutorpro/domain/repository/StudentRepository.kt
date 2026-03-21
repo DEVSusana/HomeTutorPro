@@ -37,6 +37,16 @@ interface StudentRepository {
         amount: Double
     ): Result<Unit, DomainError>
 
+    /**
+     * Updates the student's balance to an absolute value [newBalance].
+     * Uses an atomic update to prevent race conditions.
+     */
+    suspend fun updateBalance(
+        professorId: String,
+        studentId: String,
+        newBalance: Double
+    ): Result<Unit, DomainError>
+
     fun getSchedules(professorId: String, studentId: String): Flow<List<Schedule>>
     fun getAllSchedules(professorId: String): Flow<List<Schedule>>
     suspend fun saveSchedule(professorId: String, studentId: String, schedule: Schedule): Result<Unit, DomainError>

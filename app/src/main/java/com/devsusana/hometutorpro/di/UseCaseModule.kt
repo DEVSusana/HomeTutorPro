@@ -166,4 +166,7 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindScheduleClassEndNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleClassEndNotificationUseCase): IScheduleClassEndNotificationUseCase
+
+    @Binds
+    abstract fun bindUpdateBalanceUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.UpdateBalanceUseCase): IUpdateBalanceUseCase
 }

@@ -296,6 +296,7 @@ class StudentRepositoryImplTest {
         // Given
         val studentId = "1"
         val amount = 7.0
+        every { studentDao.getStudentById(1L, "prof123") } returns flowOf(testStudentEntity)
         coEvery {
             studentDao.addToBalance(any(), any(), any(), any(), any(), any())
         } just Runs
@@ -329,12 +330,64 @@ class StudentRepositoryImplTest {
     }
 
     @Test
+    fun `addToBalance returns error when student not found`() = runTest {
+        // Given
+        val studentId = "999"
+        every { studentDao.getStudentById(999L, "prof123") } returns flowOf(null)
+
+        // When
+        val result = repository.addToBalance("prof123", studentId, 7.0)
+
+        // Then
+        assertTrue(result is Result.Error)
+        assertEquals(DomainError.StudentNotFound, (result as Result.Error).error)
+    }
+
+    @Test
     fun `addToBalance returns error for invalid student ID`() = runTest {
         // Given
         val studentId = "invalid"
         
         // When
         val result = repository.addToBalance("prof123", studentId, 7.0)
+
+        // Then
+        assertTrue(result is Result.Error)
+        assertEquals(DomainError.StudentNotFound, (result as Result.Error).error)
+    }
+
+    @Test
+    fun `updateBalance updates amount atomically`() = runTest {
+        // Given
+        val studentId = "1"
+        val newBalance = 50.0
+        every { studentDao.getStudentById(1L, "prof123") } returns flowOf(testStudentEntity)
+        coEvery {
+            studentDao.updateBalanceOnly(any(), any(), any(), any(), any())
+        } just Runs
+        coEvery { syncScheduler.scheduleSyncNow() } just Runs
+
+        // When
+        val result = repository.updateBalance("prof123", studentId, newBalance)
+
+        // Then
+        assertTrue(result is Result.Success)
+        coVerify {
+            studentDao.updateBalanceOnly(
+                1L, "prof123", newBalance,
+                com.devsusana.hometutorpro.data.local.entities.SyncStatus.PENDING_UPLOAD, any()
+            )
+        }
+    }
+
+    @Test
+    fun `updateBalance returns error when student not found`() = runTest {
+        // Given
+        val studentId = "999"
+        every { studentDao.getStudentById(999L, "prof123") } returns flowOf(null)
+
+        // When
+        val result = repository.updateBalance("prof123", studentId, 50.0)
 
         // Then
         assertTrue(result is Result.Error)

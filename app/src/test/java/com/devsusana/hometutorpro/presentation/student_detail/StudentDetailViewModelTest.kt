@@ -45,6 +45,7 @@ class StudentDetailViewModelTest {
     private lateinit var checkScheduleConflictUseCase: ICheckScheduleConflictUseCase
     private lateinit var registerPaymentUseCase: IRegisterPaymentUseCase
     private lateinit var addToBalanceUseCase: IAddToBalanceUseCase
+    private lateinit var updateBalanceUseCase: IUpdateBalanceUseCase
     private lateinit var getSharedResourcesUseCase: IGetSharedResourcesUseCase
     private lateinit var saveSharedResourceUseCase: ISaveSharedResourceUseCase
     private lateinit var deleteSharedResourceUseCase: IDeleteSharedResourceUseCase
@@ -75,6 +76,7 @@ class StudentDetailViewModelTest {
         checkScheduleConflictUseCase = mockk(relaxed = true)
         registerPaymentUseCase = mockk(relaxed = true)
         addToBalanceUseCase = mockk(relaxed = true)
+        updateBalanceUseCase = mockk(relaxed = true)
         getSharedResourcesUseCase = mockk(relaxed = true)
         saveSharedResourceUseCase = mockk(relaxed = true)
         deleteSharedResourceUseCase = mockk(relaxed = true)
@@ -84,7 +86,7 @@ class StudentDetailViewModelTest {
         every { application.getString(any()) } answers { it.invocation.args[0].toString() }
         every { application.getString(any(), *anyVararg()) } answers { it.invocation.args[0].toString() }
 
-        financeDelegate = StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application)
+        financeDelegate = StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application)
         scheduleDelegate = StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application)
         resourceDelegate = StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application)
 
@@ -148,7 +150,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -220,7 +222,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -259,7 +261,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -295,7 +297,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -328,7 +330,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -370,7 +372,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -421,7 +423,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -473,7 +475,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -530,7 +532,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -589,7 +591,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -641,7 +643,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -681,7 +683,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
@@ -729,7 +731,7 @@ class StudentDetailViewModelTest {
             getCurrentUserUseCase,
             validateStudentUseCase,
             saveScheduleUseCase,
-            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, saveStudentUseCase, application),
+            StudentFinanceDelegate(registerPaymentUseCase, addToBalanceUseCase, updateBalanceUseCase, saveStudentUseCase, application),
             StudentScheduleDelegate(getSchedulesUseCase, saveScheduleUseCase, deleteScheduleUseCase, toggleScheduleCompletionUseCase, saveBulkSchedulesUseCase, saveScheduleExceptionUseCase, getAllSchedulesUseCase, checkScheduleConflictUseCase, application),
             StudentResourceDelegate(getSharedResourcesUseCase, saveSharedResourceUseCase, deleteSharedResourceUseCase, application),
             application
