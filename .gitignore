@@ -15,6 +15,7 @@
 local.properties
 google-services.json
 # Entorno virtual del agente
+agents_dev/skills/config.py
 agents_dev/.venv_agente/
 venv/
 .venv/
