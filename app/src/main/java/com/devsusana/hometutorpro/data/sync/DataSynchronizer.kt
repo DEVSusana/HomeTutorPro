@@ -15,6 +15,7 @@ import com.devsusana.hometutorpro.data.mappers.toStudentEntity
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.repository.RemoteDataSource
+import com.devsusana.hometutorpro.domain.repository.RemoteDocument
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
@@ -85,16 +86,23 @@ class DataSynchronizer @Inject constructor(
             val path = "professors/$professorId/students"
             val allStudents = remoteDataSource.downloadCollection(path, 0L)
             
-            val studentsByName = allStudents.groupBy { 
-                it.data["name"]?.toString()?.trim() ?: ""
+            // Manual bucketing using Collator.compare() so that "Ana" and "ana"
+            // (and accent variants) fall into the same group.
+            val studentsByName = mutableMapOf<String, MutableList<RemoteDocument>>()
+            for (doc in allStudents) {
+                val name = doc.data["name"]?.toString()?.trim() ?: ""
+                val normalizedKey = name.lowercase(java.util.Locale("es", "ES"))
+                val existingKey = studentsByName.keys.find { 
+                    collator.compare(it, normalizedKey) == 0 
+                }
+                if (existingKey != null) {
+                    studentsByName[existingKey]!!.add(doc)
+                } else {
+                    studentsByName[normalizedKey] = mutableListOf(doc)
+                }
             }
             
-            for ((name, docs) in studentsByName) {
-                // Find local students with same name using collator if needed, 
-                // but here we are cleaning Firestore duplicates based on EXACT map keys first
-                // then we could refine. For now, let's just use the collator for the grouping if possible,
-                // but groupBy uses hashCode/equals which Collator doesn't provide for Map keys easily.
-                // Instead, we will normalize the name for the key.
+            for ((_, docs) in studentsByName) {
                 if (docs.size > 1) {
                     val toKeep = docs.maxByOrNull { 
                         it.data["lastModified"]?.toString()?.toLong() ?: 0L 
@@ -247,30 +255,32 @@ class DataSynchronizer @Inject constructor(
 
     private suspend fun downloadRemoteChanges(professorId: String) {
         val lastSyncTimestamp = syncMetadataDao.getLastSyncTimestamp()
+        val path = "professors/$professorId/students"
         
-        // Single filtered query using RemoteDataSource
-        val remoteDocs = remoteDataSource.downloadCollection(
-            path = "professors/$professorId/students",
-            lastSyncTimestamp = lastSyncTimestamp
-        )
+        // Full fetch to reconcile remote deletions on every sync cycle
+        val allRemoteDocs = remoteDataSource.downloadCollection(path, 0L)
+        val allRemoteCloudIds = allRemoteDocs.map { it.id }.toSet()
+        
+        // Incremental fetch for efficient update processing (reuse full fetch on first sync)
+        val remoteDocs = if (lastSyncTimestamp > 0L) {
+            remoteDataSource.downloadCollection(path, lastSyncTimestamp)
+        } else {
+            allRemoteDocs
+        }
         
         // Get all local students once for duplicate detection and ghost deletion
         val allLocalStudents = studentDao.getAllStudents(professorId).first()
-        val remoteCloudIds = remoteDocs.map { it.id }.toSet()
         
-        // Ghost Data Prevention: Delete local students that were deleted remotely by another device
-        // We only do this on a full sync (lastSyncTimestamp == 0L), otherwise incremental syncs
-        // would falsely delete unchanged local students because they are missing from the remote payload.
-        if (lastSyncTimestamp == 0L) {
-            val localStudentsToDelete = allLocalStudents.filter { localStudent ->
-                localStudent.cloudId != null && 
-                localStudent.syncStatus != SyncStatus.PENDING_UPLOAD && 
-                !remoteCloudIds.contains(localStudent.cloudId)
-            }
-            
-            for (localStudent in localStudentsToDelete) {
-                studentDao.deleteStudent(localStudent)
-            }
+        // Ghost Data Prevention: Delete local students that were deleted remotely by another device.
+        // Uses the full remote set so this works on every sync, not just the first one.
+        val localStudentsToDelete = allLocalStudents.filter { localStudent ->
+            localStudent.cloudId != null && 
+            localStudent.syncStatus != SyncStatus.PENDING_UPLOAD && 
+            !allRemoteCloudIds.contains(localStudent.cloudId)
+        }
+        
+        for (localStudent in localStudentsToDelete) {
+            studentDao.deleteStudent(localStudent)
         }
         
         val collator = java.text.Collator.getInstance(java.util.Locale("es", "ES")).apply {
