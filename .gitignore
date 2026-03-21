@@ -14,11 +14,13 @@
 .cxx
 local.properties
 google-services.json
-# Entorno virtual del agente
+# Configuración de Agentes (Contiene API Keys)
 agents_dev/skills/config.py
+
+# Entorno virtual y reportes
 agents_dev/.venv_agente/
-venv/
-.venv/
+agents_dev/skills/project_reports.txt
+agents_dev/skills/PENDING_TASKS.md
 
 # Archivos temporales de backup
 *.bak
