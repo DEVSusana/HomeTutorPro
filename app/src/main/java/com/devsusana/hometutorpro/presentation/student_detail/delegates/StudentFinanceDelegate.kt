@@ -8,6 +8,7 @@ import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IUpdateBalanceUseCase
 import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ import javax.inject.Inject
 class StudentFinanceDelegate @Inject constructor(
     private val registerPaymentUseCase: IRegisterPaymentUseCase,
     private val addToBalanceUseCase: IAddToBalanceUseCase,
+    private val updateBalanceUseCase: IUpdateBalanceUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
     private val application: Application
 ) : IStudentFinanceDelegate {
@@ -72,11 +74,13 @@ class StudentFinanceDelegate @Inject constructor(
             val currentStudent = state.value.student ?: return@launch
             state.value = state.value.copy(isLoading = true)
             
-            val updatedStudent = currentStudent.copy(pendingBalance = newBalance)
-            
-            when (saveStudentUseCase(professorId, updatedStudent)) {
+            // Use atomic updateBalanceUseCase instead of saveStudentUseCase
+            // to avoid overwriting changes occurring in the background.
+            when (updateBalanceUseCase(professorId, studentId, newBalance)) {
                 is Result.Success -> {
+                    val updatedStudent = currentStudent.copy(pendingBalance = newBalance)
                     state.value = state.value.copy(
+                        student = updatedStudent,
                         isLoading = false,
                         isBalanceEditable = false,
                         successMessage = application.getString(R.string.student_detail_success_student_saved)

@@ -15,6 +15,7 @@ import com.devsusana.hometutorpro.data.mappers.toStudentEntity
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.repository.RemoteDataSource
+import com.devsusana.hometutorpro.domain.repository.RemoteDocument
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
@@ -78,11 +79,27 @@ class DataSynchronizer @Inject constructor(
     
     private suspend fun cleanFirestoreDuplicates(professorId: String) {
         try {
+            val collator = java.text.Collator.getInstance(java.util.Locale("es", "ES")).apply {
+                strength = java.text.Collator.PRIMARY
+            }
+            
             val path = "professors/$professorId/students"
             val allStudents = remoteDataSource.downloadCollection(path, 0L)
             
-            val studentsByName = allStudents.groupBy { 
-                it.data["name"]?.toString()?.trim()?.lowercase() ?: ""
+            // Manual bucketing using Collator.compare() so that "Ana" and "ana"
+            // (and accent variants) fall into the same group.
+            val studentsByName = mutableMapOf<String, MutableList<RemoteDocument>>()
+            for (doc in allStudents) {
+                val name = doc.data["name"]?.toString()?.trim() ?: ""
+                val normalizedKey = name.lowercase(java.util.Locale("es", "ES"))
+                val existingKey = studentsByName.keys.find { 
+                    collator.compare(it, normalizedKey) == 0 
+                }
+                if (existingKey != null) {
+                    studentsByName[existingKey]!!.add(doc)
+                } else {
+                    studentsByName[normalizedKey] = mutableListOf(doc)
+                }
             }
             
             for ((_, docs) in studentsByName) {
@@ -238,30 +255,36 @@ class DataSynchronizer @Inject constructor(
 
     private suspend fun downloadRemoteChanges(professorId: String) {
         val lastSyncTimestamp = syncMetadataDao.getLastSyncTimestamp()
+        val path = "professors/$professorId/students"
         
-        // Single filtered query using RemoteDataSource
-        val remoteDocs = remoteDataSource.downloadCollection(
-            path = "professors/$professorId/students",
-            lastSyncTimestamp = lastSyncTimestamp
-        )
+        // Full fetch to reconcile remote deletions on every sync cycle
+        val allRemoteDocs = remoteDataSource.downloadCollection(path, 0L)
+        val allRemoteCloudIds = allRemoteDocs.map { it.id }.toSet()
+        
+        // Incremental fetch for efficient update processing (reuse full fetch on first sync)
+        val remoteDocs = if (lastSyncTimestamp > 0L) {
+            remoteDataSource.downloadCollection(path, lastSyncTimestamp)
+        } else {
+            allRemoteDocs
+        }
         
         // Get all local students once for duplicate detection and ghost deletion
         val allLocalStudents = studentDao.getAllStudents(professorId).first()
-        val remoteCloudIds = remoteDocs.map { it.id }.toSet()
         
-        // Ghost Data Prevention: Delete local students that were deleted remotely by another device
-        // We only delete local students that: 
-        // 1. Have a cloudId (meaning they were synced before)
-        // 2. Are NOT in PENDING_UPLOAD state (meaning we don't accidentally delete offline creations)
-        // 3. Are missing from the remote download
+        // Ghost Data Prevention: Delete local students that were deleted remotely by another device.
+        // Uses the full remote set so this works on every sync, not just the first one.
         val localStudentsToDelete = allLocalStudents.filter { localStudent ->
             localStudent.cloudId != null && 
             localStudent.syncStatus != SyncStatus.PENDING_UPLOAD && 
-            !remoteCloudIds.contains(localStudent.cloudId)
+            !allRemoteCloudIds.contains(localStudent.cloudId)
         }
         
         for (localStudent in localStudentsToDelete) {
             studentDao.deleteStudent(localStudent)
+        }
+        
+        val collator = java.text.Collator.getInstance(java.util.Locale("es", "ES")).apply {
+            strength = java.text.Collator.PRIMARY
         }
         
         for (doc in remoteDocs) {
@@ -270,7 +293,7 @@ class DataSynchronizer @Inject constructor(
             
             if (localStudentByCloudId == null) {
                 val localStudentByName = allLocalStudents.find { 
-                    it.cloudId == null && it.name.trim().equals(remoteStudent.name.trim(), ignoreCase = true)
+                    it.cloudId == null && collator.compare(it.name.trim(), remoteStudent.name.trim()) == 0
                 }
                 
                 if (localStudentByName != null) {
@@ -290,7 +313,7 @@ class DataSynchronizer @Inject constructor(
                     ))
                 } else {
                     val existingWithSameName = allLocalStudents.find {
-                        it.name.trim().equals(remoteStudent.name.trim(), ignoreCase = true)
+                        collator.compare(it.name.trim(), remoteStudent.name.trim()) == 0
                     }
                     
                     if (existingWithSameName == null) {

@@ -47,6 +47,15 @@ interface StudentDao {
         timestamp: Long
     )
 
+    @Query("UPDATE students SET pendingBalance = :newBalance, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE id = :studentId AND professorId = :professorId")
+    suspend fun updateBalanceOnly(
+        studentId: Long,
+        professorId: String,
+        newBalance: Double,
+        syncStatus: SyncStatus,
+        timestamp: Long
+    )
+
     /**
      * Atomic balance subtraction — prevents TOCTOU race conditions on concurrent payments.
      */
