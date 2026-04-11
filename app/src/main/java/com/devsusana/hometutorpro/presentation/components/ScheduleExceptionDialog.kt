@@ -54,9 +54,10 @@ fun ScheduleExceptionDialog(
     // Use the actual date of the occurrence from the item
     val dateTimestamp = item.occurrence.date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
     
-    // Create a stable key from allSchedules to prevent unnecessary recomposition
-    // This key only changes when actual schedule data changes, not when the list reference changes
-    val scheduleKey = remember(allRegularSchedules.size) {
+    // Build a stable key from all schedule data including exception status.
+    // This ensures hasConflict recomputes whenever any exception status changes,
+    // not only when the list size changes.
+    val scheduleKey = remember(allRegularSchedules) {
         allRegularSchedules.joinToString("|") { regularItem ->
             val exception = regularItem.exception
             val day = exception?.newDayOfWeek ?: regularItem.schedule.dayOfWeek
@@ -71,39 +72,25 @@ fun ScheduleExceptionDialog(
         }
     }
     
-    // Conflict detection - now uses scheduleKey instead of allSchedules directly
+    // Conflict detection: check if any other class occupies the same target day/time.
+    // Uses scheduleKey as dependency to recompute when any exception status changes.
     val hasConflict = remember(newDayOfWeek, newStartTime, newEndTime, exceptionType, scheduleKey) {
         if (exceptionType == ExceptionType.RESCHEDULED && newStartTime.isNotEmpty() && newEndTime.isNotEmpty()) {
             allRegularSchedules.any { otherItem ->
                 // Skip checking against itself
-                if (otherItem.schedule.id == item.schedule.id) {
-                    false
-                } else {
-                    // Determine effective schedule for the other class
-                    val otherException = otherItem.exception
-                    
-                    // If cancelled or rescheduled (meaning it's not at its original time anymore), it doesn't cause a conflict at the ORIGINAL time
-                    // NOTE: CalendarOccurrence already handles providing the NEW time if it's rescheduled.
-                    // But we need to check if the 'otherItem' we are comparing against is a regular schedule that has been moved away.
-                    
-                    val otherDay = otherItem.occurrence.date.dayOfWeek // Use effective day from occurrence
-                    val otherStart = otherItem.startTime
-                    val otherEnd = otherItem.endTime
-                    
-                    // If the other class is cancelled for this date, no conflict
-                    if (otherException?.type == ExceptionType.CANCELLED) {
-                        false
-                    } else {
-                        // Check if same day and overlapping times
-                        // We use otherItem.occurrence.date to ensure we compare with classes on the same calendar day
-                        item.occurrence.date == otherItem.occurrence.date &&
-                        otherDay == newDayOfWeek &&
-                        timesOverlap(
-                            newStartTime, newEndTime,
-                            otherStart, otherEnd
-                        )
-                    }
-                }
+                if (otherItem.schedule.id == item.schedule.id) return@any false
+
+                val otherException = otherItem.exception
+
+                // If the other class is cancelled for this date, it doesn't cause a conflict
+                if (otherException?.type == ExceptionType.CANCELLED) return@any false
+
+                // Determine the effective day of the other class (respecting rescheduled day)
+                val otherEffectiveDay = otherException?.newDayOfWeek ?: otherItem.schedule.dayOfWeek
+
+                // Check if effective days match and times overlap
+                otherEffectiveDay == newDayOfWeek &&
+                timesOverlap(newStartTime, newEndTime, otherItem.startTime, otherItem.endTime)
             }
         } else {
             false
@@ -114,20 +101,14 @@ fun ScheduleExceptionDialog(
         if (hasConflict) {
             allRegularSchedules.find { otherItem ->
                 if (otherItem.schedule.id == item.schedule.id) return@find false
-                
+
                 val otherException = otherItem.exception
                 if (otherException?.type == ExceptionType.CANCELLED) return@find false
-                
-                val otherDay = otherItem.occurrence.date.dayOfWeek
-                val otherStart = otherItem.startTime
-                val otherEnd = otherItem.endTime
-                
-                item.occurrence.date == otherItem.occurrence.date &&
-                otherDay == newDayOfWeek &&
-                timesOverlap(
-                    newStartTime, newEndTime,
-                    otherStart, otherEnd
-                )
+
+                val otherEffectiveDay = otherException?.newDayOfWeek ?: otherItem.schedule.dayOfWeek
+
+                otherEffectiveDay == newDayOfWeek &&
+                timesOverlap(newStartTime, newEndTime, otherItem.startTime, otherItem.endTime)
             }
         } else null
     }

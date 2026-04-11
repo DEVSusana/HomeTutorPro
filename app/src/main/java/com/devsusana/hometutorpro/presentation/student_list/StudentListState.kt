@@ -40,7 +40,7 @@ data class StudentListState(
             // Apply category filter
             result = when (selectedFilter) {
                 StudentFilter.ALL -> result
-                StudentFilter.WITH_BALANCE -> result.filter { it.pendingBalance > 0 }
+                StudentFilter.WITH_BALANCE -> result.filter { it.pendingBalance != 0.0 }
                 StudentFilter.ACTIVE -> result.filter { it.isActive }
                 StudentFilter.INACTIVE -> result.filter { !it.isActive }
             }

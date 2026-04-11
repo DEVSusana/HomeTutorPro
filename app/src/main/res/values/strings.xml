@@ -338,6 +338,7 @@
     <string name="weekly_schedule_rescheduled">⚠️ Rescheduled</string>
     <string name="weekly_schedule_success_exception_saved">Exception saved successfully</string>
     <string name="weekly_schedule_error_schedule_conflict">Schedule conflict! This time slot is already taken.</string>
+    <string name="weekly_schedule_error_conflicting_student_format">Schedule conflict! %1$s has a class at %2$s</string>
     <string name="weekly_schedule_error_exception_failed">Failed to save exception</string>
     <string name="weekly_schedule_success_exception_removed">Exception removed successfully</string>
     <string name="weekly_schedule_error_remove_exception_failed">Failed to remove exception</string>

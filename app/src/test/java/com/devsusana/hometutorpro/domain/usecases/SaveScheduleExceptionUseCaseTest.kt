@@ -326,4 +326,138 @@ class SaveScheduleExceptionUseCaseTest {
         // Then
         assertTrue("Should succeed because the Tuesday slot was freed by cancellation", result is Result.Success)
     }
+
+    @Test
+    fun `invoke should ignore own vacated slot to avoid self-conflict`() = runTest {
+        // Given
+        val professorId = "prof1"
+        val studentId = "student1"
+        val date = LocalDate.of(2023, 10, 23) // Monday
+        val dateMillis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        
+        // Student has a regular class at 10-11
+        val existingSchedule = Schedule(id = "s1", studentId = studentId, dayOfWeek = DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00")
+        
+        // Reschedules it to 10:30-11:30 (overlaps with its own original slot)
+        val exception = ScheduleException(
+            id = "exc1", 
+            studentId = studentId,
+            originalScheduleId = "s1", 
+            date = dateMillis, 
+            type = ExceptionType.RESCHEDULED,
+            newStartTime = "10:30",
+            newEndTime = "11:30"
+        )
+        
+        val studentSummary = StudentSummary(id = studentId, name = "Student 1", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
+        every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(listOf(existingSchedule))
+        every { repository.getExceptions(professorId, studentId) } returns flowOf(emptyList()) // No cancellations yet
+        coEvery { repository.saveException(professorId, studentId, any()) } returns Result.Success(Unit)
+
+        // When
+        val result = useCase(professorId, studentId, exception)
+
+        // Then
+        assertTrue("Should succeed because it vacates its own slot (no self-conflict)", result is Result.Success)
+    }
+
+    @Test
+    fun `invoke should allow rescheduling into a slot vacated by another rescheduling`() = runTest {
+        // Given
+        val professorId = "prof1"
+        val date = LocalDate.of(2023, 10, 23) // Monday
+        val dateMillis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        
+        // Student A moves their class from 09:00 to 11:00
+        val studentAId = "studentA"
+        val scheduleA = Schedule(id = "sA", studentId = studentAId, dayOfWeek = DayOfWeek.MONDAY, startTime = "09:00", endTime = "10:00")
+        val rescheduleA = ScheduleException(
+            id = "excA",
+            studentId = studentAId,
+            date = dateMillis,
+            type = ExceptionType.RESCHEDULED,
+            originalScheduleId = "sA",
+            newStartTime = "11:00",
+            newEndTime = "12:00"
+        )
+        
+        // Student B tries to reschedule their class to 09:00 (vacated by A)
+        val studentBId = "studentB"
+        val scheduleB = Schedule(id = "sB", studentId = studentBId, dayOfWeek = DayOfWeek.MONDAY, startTime = "15:00", endTime = "16:00")
+        val rescheduleB = ScheduleException(
+            id = "excB",
+            studentId = studentBId,
+            date = dateMillis,
+            type = ExceptionType.RESCHEDULED,
+            originalScheduleId = "sB",
+            newStartTime = "09:00",
+            newEndTime = "10:00"
+        )
+        
+        val studentA = StudentSummary(id = studentAId, name = "Student A", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+        val studentB = StudentSummary(id = studentBId, name = "Student B", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentA, studentB))
+        
+        every { studentRepository.getSchedules(professorId, studentAId) } returns flowOf(listOf(scheduleA))
+        every { repository.getExceptions(professorId, studentAId) } returns flowOf(listOf(rescheduleA))
+        
+        every { studentRepository.getSchedules(professorId, studentBId) } returns flowOf(listOf(scheduleB))
+        every { repository.getExceptions(professorId, studentBId) } returns flowOf(listOf(rescheduleB))
+        
+        coEvery { repository.saveException(professorId, studentBId, any()) } returns Result.Success(Unit)
+
+        // When
+        val result = useCase(professorId, studentBId, rescheduleB)
+
+        // Then
+        assertTrue("Should succeed because Student A vacated the 09:00 slot by rescheduling away", result is Result.Success)
+    }
+
+    @Test
+    fun `invoke should return error for real conflict across different days`() = runTest {
+        // Given
+        val professorId = "prof1"
+        val mondayDate = LocalDate.of(2023, 10, 23)
+        val mondayMillis = mondayDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        
+        // Student B wants to move their Monday 15:00 class to Tuesday 10:00
+        val studentBId = "studentB"
+        val rescheduleB = ScheduleException(
+            id = "excB",
+            studentId = studentBId,
+            date = mondayMillis,
+            type = ExceptionType.RESCHEDULED,
+            originalScheduleId = "sB",
+            newStartTime = "10:00",
+            newEndTime = "11:00",
+            newDayOfWeek = DayOfWeek.TUESDAY
+        )
+        
+        // Student A ALREADY HAS a regular class on Tuesday 10:00
+        val studentAId = "studentA"
+        val scheduleATuesday = Schedule(id = "sA", studentId = studentAId, dayOfWeek = DayOfWeek.TUESDAY, startTime = "10:00", endTime = "11:00")
+        
+        val studentA = StudentSummary(id = studentAId, name = "Student A", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+        val studentB = StudentSummary(id = studentBId, name = "Student B", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentA, studentB))
+        
+        every { studentRepository.getSchedules(professorId, studentAId) } returns flowOf(listOf(scheduleATuesday))
+        every { repository.getExceptions(professorId, studentAId) } returns flowOf(emptyList()) // No cancellations
+        
+        every { studentRepository.getSchedules(professorId, studentBId) } returns flowOf(emptyList()) // B has no Tuesday schedule
+        every { repository.getExceptions(professorId, studentBId) } returns flowOf(emptyList())
+
+        // When
+        val result = useCase(professorId, studentBId, rescheduleB)
+
+        // Then
+        assertTrue("Should fail with ConflictingStudent because Student A is at that slot on Tuesday", result is Result.Error)
+        val error = (result as Result.Error).error
+        assertTrue("Error should be ConflictingStudent", error is DomainError.ConflictingStudent)
+        assertTrue("Conflicting student should be Student A", (error as DomainError.ConflictingStudent).studentName == "Student A")
+    }
 }
