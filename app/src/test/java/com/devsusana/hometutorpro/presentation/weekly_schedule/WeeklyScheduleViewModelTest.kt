@@ -12,7 +12,7 @@ import com.devsusana.hometutorpro.domain.usecases.IGetScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
-import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.CleanupDuplicatesUseCase
 import io.mockk.*
@@ -43,7 +43,7 @@ class WeeklyScheduleViewModelTest {
     private lateinit var saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase
     private lateinit var deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
-    private lateinit var saveStudentUseCase: ISaveStudentUseCase
+    private lateinit var addToBalanceUseCase: IAddToBalanceUseCase
     private lateinit var generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase
     private lateinit var cleanupDuplicatesUseCase: CleanupDuplicatesUseCase
     private lateinit var application: android.app.Application
@@ -61,7 +61,7 @@ class WeeklyScheduleViewModelTest {
         saveScheduleExceptionUseCase = mockk()
         deleteScheduleExceptionUseCase = mockk()
         getStudentByIdUseCase = mockk()
-        saveStudentUseCase = mockk()
+        addToBalanceUseCase = mockk()
         generateCalendarOccurrencesUseCase = mockk(relaxed = true)
         cleanupDuplicatesUseCase = mockk(relaxed = true)
         application = mockk(relaxed = true)
@@ -119,7 +119,7 @@ class WeeklyScheduleViewModelTest {
             getScheduleExceptionsUseCase,
             saveScheduleExceptionUseCase,
             deleteScheduleExceptionUseCase,
-            saveStudentUseCase,
+            addToBalanceUseCase,
             generateCalendarOccurrencesUseCase,
             cleanupDuplicatesUseCase,
             scheduleClassEndNotificationUseCase,

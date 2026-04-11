@@ -21,7 +21,7 @@ import com.devsusana.hometutorpro.domain.usecases.ICleanupDuplicatesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,7 +46,7 @@ class WeeklyScheduleViewModel @Inject constructor(
     private val getScheduleExceptionsUseCase: IGetScheduleExceptionsUseCase,
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
-    private val saveStudentUseCase: ISaveStudentUseCase,
+    private val addToBalanceUseCase: IAddToBalanceUseCase,
     private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
     private val cleanupDuplicatesUseCase: ICleanupDuplicatesUseCase,
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
@@ -156,8 +156,13 @@ class WeeklyScheduleViewModel @Inject constructor(
                     }
                 }
                 is Result.Error -> {
-                    val errorMsg = when (result.error) {
-                        DomainError.ScheduleConflict -> application.getString(R.string.weekly_schedule_error_schedule_conflict)
+                    val errorMsg = when (val error = result.error) {
+                        is DomainError.ScheduleConflict -> application.getString(R.string.weekly_schedule_error_schedule_conflict)
+                        is DomainError.ConflictingStudent -> application.getString(
+                            R.string.weekly_schedule_error_conflicting_student_format,
+                            error.studentName,
+                            error.time
+                        )
                         else -> application.getString(R.string.weekly_schedule_error_exception_failed)
                     }
                     _state.update { 
@@ -215,10 +220,8 @@ class WeeklyScheduleViewModel @Inject constructor(
                 }
                 
                 val priceToAdd = (durationMinutes / 60.0) * student.pricePerHour
-                val newBalance = student.pendingBalance + priceToAdd
-                val updatedStudent = student.copy(pendingBalance = newBalance)
                 
-                when (saveStudentUseCase(uid, updatedStudent)) {
+                when (addToBalanceUseCase(uid, studentId, priceToAdd)) {
                     is Result.Success<*> -> {
                         scheduleClassEndNotificationUseCase(
                             student.name,

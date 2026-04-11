@@ -334,6 +334,7 @@
     <string name="weekly_schedule_rescheduled">Reprogramada</string>
     <string name="weekly_schedule_success_exception_saved">Excepción guardada con éxito</string>
     <string name="weekly_schedule_error_schedule_conflict">¡Conflicto de horario! Este horario ya está ocupado.</string>
+    <string name="weekly_schedule_error_conflicting_student_format">¡Conflicto de horario! %1$s tiene una clase a las %2$s</string>
     <string name="weekly_schedule_error_exception_failed">No se pudo guardar la excepción</string>
     <string name="weekly_schedule_success_exception_removed">Excepción eliminada con éxito</string>
     <string name="weekly_schedule_error_remove_exception_failed">No se pudo eliminar la excepción</string>

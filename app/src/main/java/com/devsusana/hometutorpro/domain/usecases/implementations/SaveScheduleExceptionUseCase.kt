@@ -64,16 +64,19 @@ class SaveScheduleExceptionUseCase @Inject constructor(
                 val studentExceptions = repository.getExceptions(professorId, student.id).first()
 
                 for (existingSchedule in studentSchedules) {
+                    // Skip B's own schedule that is being rescheduled (it's vacating that slot)
+                    if (existingSchedule.id == exceptionToSave.originalScheduleId) continue
+
                     if (existingSchedule.dayOfWeek == exceptionDayOfWeek) {
-                         // Check time overlap
+                        // Check time overlap
                         if (isTimeOverlap(exceptionToSave.newStartTime, exceptionToSave.newEndTime, existingSchedule.startTime, existingSchedule.endTime)) {
                             // Check if THIS regular schedule is cancelled or rescheduled (moved away) for THIS target date
-                            val isFreeSlot = studentExceptions.any { 
-                                it.originalScheduleId == existingSchedule.id && 
-                                (it.type == ExceptionType.CANCELLED || it.type == ExceptionType.RESCHEDULED) &&
-                                Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() == targetDate
+                            val isFreeSlot = studentExceptions.any { exc ->
+                                exc.originalScheduleId == existingSchedule.id &&
+                                (exc.type == ExceptionType.CANCELLED || exc.type == ExceptionType.RESCHEDULED) &&
+                                Instant.ofEpochMilli(exc.date).atZone(ZoneId.systemDefault()).toLocalDate() == targetDate
                             }
-                            
+
                             if (!isFreeSlot) {
                                 return Result.Error(
                                     DomainError.ConflictingStudent(

@@ -1,0 +1,1 @@
+"Actúa como mi Agente de Desarrollo Senior. Tus reglas de arquitectura están en #AGENTS.md y tus directrices de interacción en #GEMINI.md. Antes de sugerir cualquier cambio en el código Kotlin, verifica que cumples con la Clean Architecture y el flujo UDF definidos en esos archivos."
