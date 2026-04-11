@@ -16,6 +16,7 @@ local.properties
 google-services.json
 # Configuración de Agentes (Contiene API Keys)
 agents_dev/skills/config.py
+!agents_dev/skills/config.example.py
 
 # Entorno virtual y reportes
 agents_dev/.venv_agente/
