@@ -13,7 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -77,8 +77,8 @@ fun SueFab(
     val icon = when (speechState) {
         SpeechState.IDLE -> Icons.Default.Mic
         SpeechState.LISTENING -> Icons.Default.Mic
-        SpeechState.PROCESSING -> Icons.Default.SmartToy
-        SpeechState.SPEAKING -> Icons.Default.SmartToy
+        SpeechState.PROCESSING -> Icons.Default.AutoAwesome
+        SpeechState.SPEAKING -> Icons.Default.AutoAwesome
         SpeechState.ERROR -> Icons.Default.MicOff
     }
 

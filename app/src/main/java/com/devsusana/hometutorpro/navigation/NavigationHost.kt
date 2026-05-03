@@ -1,6 +1,10 @@
 package com.devsusana.hometutorpro.navigation
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.res.Configuration
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -30,8 +34,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -118,6 +124,15 @@ fun NavigationHost() {
             // Sue ViewModel — scoped at the navigation host level for global persistence
             val sueViewModel: SueViewModel = hiltViewModel()
             val sueUiState by sueViewModel.uiState.collectAsState()
+            
+            val context = LocalContext.current
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { isGranted ->
+                if (isGranted) {
+                    sueViewModel.onFabClick()
+                }
+            }
 
             Scaffold(
                 bottomBar = {
@@ -136,7 +151,13 @@ fun NavigationHost() {
                             }
                             SueFab(
                                 speechState = sueUiState.speechState,
-                                onClick = { sueViewModel.onFabClick() }
+                                onClick = { 
+                                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                        sueViewModel.onFabClick()
+                                    } else {
+                                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
+                                }
                             )
                         }
                     }

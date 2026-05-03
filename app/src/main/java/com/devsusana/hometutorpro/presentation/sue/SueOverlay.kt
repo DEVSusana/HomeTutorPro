@@ -49,10 +49,8 @@ fun SueOverlay(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
-                    // Only dismiss on scrim tap when idle
-                    if (uiState.speechState == SpeechState.IDLE) {
-                        onDismiss()
-                    }
+                    // Dismiss on scrim tap at any time
+                    onDismiss()
                 }
         ) {
             // Prevent clicks on the content from dismissing

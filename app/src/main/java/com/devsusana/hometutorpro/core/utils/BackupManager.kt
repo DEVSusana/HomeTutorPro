@@ -54,16 +54,26 @@ class BackupManager @Inject constructor(
     }
 
     private suspend fun restoreData(backup: AppBackup) {
+        val currentProfessorId = auth.currentUser?.uid ?: ""
+        
         // We use a transaction-like approach by using the DAOs
         withContext(Dispatchers.IO) {
             // 1. Students (Parent)
-            backup.students.forEach { database.studentDao().insertStudent(it) }
+            backup.students.forEach { 
+                database.studentDao().insertStudent(it.copy(professorId = currentProfessorId)) 
+            }
             // 2. Schedules (Child)
-            backup.schedules.forEach { database.scheduleDao().insertSchedule(it) }
+            backup.schedules.forEach { 
+                database.scheduleDao().insertSchedule(it.copy(professorId = currentProfessorId)) 
+            }
             // 3. Exceptions
-            backup.exceptions.forEach { database.scheduleExceptionDao().insertException(it) }
+            backup.exceptions.forEach { 
+                database.scheduleExceptionDao().insertException(it.copy(professorId = currentProfessorId)) 
+            }
             // 4. Resources
-            backup.resources.forEach { database.resourceDao().insertResource(it) }
+            backup.resources.forEach { 
+                database.resourceDao().insertResource(it.copy(professorId = currentProfessorId)) 
+            }
         }
     }
 }

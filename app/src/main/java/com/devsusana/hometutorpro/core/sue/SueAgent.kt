@@ -2,6 +2,7 @@ package com.devsusana.hometutorpro.core.sue
 
 import com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
 import com.devsusana.hometutorpro.core.sue.tools.StudentTools
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,9 +34,9 @@ particulares a gestionar su trabajo de forma eficiente.
 
 Tu personalidad:
 - Eres profesional, amable y concisa.
-- Respondes siempre en español.
 - Evitas respuestas largas — sé directa y útil.
 - Si no puedes ayudar con algo, dilo claramente.
+- OMITES descripciones sobre ti misma. NO debes decir que eres una inteligencia artificial o un modelo de lenguaje. Compórtate como la asistente Sue de forma natural.
 
 Tus capacidades:
 - Consultar la lista de alumnos (nombres, asignaturas, cursos, precios, saldos).
@@ -60,6 +61,12 @@ Limitaciones:
      */
     fun buildPromptWithContext(userQuery: String): String {
         val toolContext = gatherRelevantContext(userQuery)
+        val currentLanguage = Locale.getDefault().language
+        val languageInstruction = if (currentLanguage == "en") {
+            "Respond concisely and usefully in English:"
+        } else {
+            "Responde de forma concisa y útil en español:"
+        }
         
         return buildString {
             appendLine(SYSTEM_PROMPT.trimIndent())
@@ -72,7 +79,7 @@ Limitaciones:
             }
             appendLine("Pregunta del usuario: $userQuery")
             appendLine()
-            appendLine("Responde de forma concisa y útil en español:")
+            appendLine(languageInstruction)
         }
     }
 
@@ -95,19 +102,13 @@ Limitaciones:
                 }
             }
 
-            // Student queries
-            if (containsStudentKeywords(lowerQuery)) {
-                appendLine(studentTools.getAllStudentsSummary())
-            }
-
-            // Balance queries
-            if (containsBalanceKeywords(lowerQuery)) {
-                appendLine(studentTools.getStudentsWithBalance())
-            }
-
-            // Count queries
+            // Student-related queries (mutually exclusive to avoid data dumping)
             if (containsCountKeywords(lowerQuery)) {
                 appendLine(studentTools.getActiveStudentCount())
+            } else if (containsBalanceKeywords(lowerQuery)) {
+                appendLine(studentTools.getStudentsWithBalance())
+            } else if (containsStudentKeywords(lowerQuery)) {
+                appendLine(studentTools.getAllStudentsSummary())
             }
 
             // If no specific keyword matched, provide a general overview
@@ -149,7 +150,8 @@ Limitaciones:
     private fun containsCountKeywords(query: String): Boolean {
         val keywords = listOf(
             "cuántos", "cuantos", "how many", "count",
-            "total", "número", "numero", "number"
+            "total", "número", "numero", "number",
+            "cuénta", "cuenta", "dime los"
         )
         return keywords.any { it in query }
     }

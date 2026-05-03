@@ -86,7 +86,9 @@ class SpeechManager @Inject constructor(
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech?.let { tts ->
-                    val result = tts.setLanguage(Locale("es", "ES"))
+                    val defaultLocale = Locale.getDefault()
+                    val ttsLocale = if (defaultLocale.language == "es") Locale("es", "ES") else defaultLocale
+                    val result = tts.setLanguage(ttsLocale)
                     isTtsReady = result != TextToSpeech.LANG_MISSING_DATA &&
                             result != TextToSpeech.LANG_NOT_SUPPORTED
 
@@ -119,19 +121,16 @@ class SpeechManager @Inject constructor(
      * cloud-based recognition on older devices.
      */
     fun startListening() {
-        stopListening()
-
-        speechRecognizer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+        if (speechRecognizer == null) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            speechRecognizer?.setRecognitionListener(createRecognitionListener())
         } else {
-            SpeechRecognizer.createSpeechRecognizer(context)
+            speechRecognizer?.cancel()
         }
-
-        speechRecognizer?.setRecognitionListener(createRecognitionListener())
 
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
@@ -144,12 +143,10 @@ class SpeechManager @Inject constructor(
      * Stops the current listening session and releases the recognizer.
      */
     fun stopListening() {
-        speechRecognizer?.apply {
-            stopListening()
-            cancel()
-            destroy()
+        speechRecognizer?.stopListening()
+        if (_state.value == SpeechState.LISTENING) {
+            _state.value = SpeechState.IDLE
         }
-        speechRecognizer = null
     }
 
     /**
@@ -251,6 +248,11 @@ class SpeechManager @Inject constructor(
         SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognition service is busy."
         SpeechRecognizer.ERROR_SERVER -> "Server error."
         SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected. Please try again."
-        else -> "Unknown speech recognition error."
+        10 -> "Too many requests." // ERROR_TOO_MANY_REQUESTS
+        11 -> "Server disconnected." // ERROR_SERVER_DISCONNECTED
+        12 -> "Language not supported for offline recognition." // ERROR_LANGUAGE_NOT_SUPPORTED
+        13 -> "Language pack not downloaded. Please install it in system settings." // ERROR_LANGUAGE_UNAVAILABLE
+        14 -> "Cannot check offline support." // ERROR_CANNOT_CHECK_SUPPORT
+        else -> "Unknown speech recognition error (code $errorCode)."
     }
 }

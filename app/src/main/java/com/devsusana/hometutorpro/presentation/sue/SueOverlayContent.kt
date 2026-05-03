@@ -13,7 +13,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -59,52 +66,81 @@ fun SueOverlayContent(
             .background(MaterialTheme.colorScheme.surface)
             .padding(bottom = 24.dp)
     ) {
-        // Drag handle indicator
-        Spacer(modifier = Modifier.height(8.dp))
-        Spacer(
+        // Drag handle area (swipe down to dismiss)
+        Box(
             modifier = Modifier
-                .height(4.dp)
-                .fillMaxWidth(0.1f)
-                .clip(RoundedCornerShape(2.dp))
-                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Listening state — waveform + partial transcription
-        SueListeningOverlay(
-            partialTranscription = partialTranscription,
-            isVisible = speechState == SpeechState.LISTENING,
-            onCancel = onCancel
-        )
-
-        // User's final transcription (shown during processing/speaking)
-        if (finalTranscription.isNotBlank() && speechState != SpeechState.LISTENING) {
-            UserTranscriptionBubble(
-                text = finalTranscription,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (dragAmount > 8f) { // Threshold for downward swipe
+                            onCancel()
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(
+                    modifier = Modifier
+                        .height(4.dp)
+                        .fillMaxWidth(0.12f)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
         }
 
-        // Sue's response bubble
-        SueResponseBubble(
-            response = agentResponse,
-            isTyping = speechState == SpeechState.PROCESSING,
-            isVisible = speechState == SpeechState.PROCESSING ||
-                    speechState == SpeechState.SPEAKING ||
-                    (speechState == SpeechState.IDLE && agentResponse.isNotBlank())
-        )
-
-        // Error message
-        if (errorMessage != null) {
-            Text(
-                text = errorMessage,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+        val configuration = LocalConfiguration.current
+        val maxHeight = (configuration.screenHeightDp * 0.5f).dp
+        
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxHeight)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Listening state — waveform + partial transcription
+            SueListeningOverlay(
+                partialTranscription = partialTranscription,
+                isVisible = speechState == SpeechState.LISTENING,
+                onCancel = onCancel
             )
+
+            // User's final transcription (shown during processing/speaking)
+            if (finalTranscription.isNotBlank() && speechState != SpeechState.LISTENING) {
+                UserTranscriptionBubble(
+                    text = finalTranscription,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            // Sue's response bubble
+            SueResponseBubble(
+                response = agentResponse,
+                isTyping = speechState == SpeechState.PROCESSING,
+                isVisible = speechState == SpeechState.PROCESSING ||
+                        speechState == SpeechState.SPEAKING ||
+                        (speechState == SpeechState.IDLE && agentResponse.isNotBlank())
+            )
+
+            // Error message
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+            
+            // Add padding at the bottom so content isn't hidden behind the FAB
+            Spacer(modifier = Modifier.height(88.dp))
         }
     }
 }

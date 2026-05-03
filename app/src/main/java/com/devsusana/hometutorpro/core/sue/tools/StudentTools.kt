@@ -27,15 +27,21 @@ class StudentTools @Inject constructor(
     fun getAllStudentsSummary(): String = runBlocking {
         val students = queryStudentsUseCase.getAllStudents()
         if (students.isEmpty()) {
-            return@runBlocking "No students found."
+            return@runBlocking "No se encontraron alumnos."
         }
 
         buildString {
-            appendLine("Students (${students.size} total):")
+            appendLine("Alumnos (${students.size} en total):")
+            appendLine()
             students.forEach { student ->
-                val status = if (student.isActive) "Active" else "Inactive"
-                appendLine("- ${student.name}: ${student.subjects} | ${student.course} | " +
-                    "${student.pricePerHour}€/h | Balance: ${student.pendingBalance}€ | $status")
+                val status = if (student.isActive) "Activo" else "Inactivo"
+                appendLine("• ${student.name}")
+                appendLine("  Asignaturas: ${student.subjects}")
+                appendLine("  Curso: ${student.course}")
+                appendLine("  Precio: ${student.pricePerHour} euros la hora")
+                appendLine("  Saldo pendiente: ${student.pendingBalance} euros")
+                appendLine("  Estado: $status")
+                appendLine()
             }
         }
     }
@@ -47,14 +53,18 @@ class StudentTools @Inject constructor(
     fun searchStudent(query: String): String = runBlocking {
         val results = queryStudentsUseCase.searchByName(query)
         if (results.isEmpty()) {
-            return@runBlocking "No students found matching '$query'."
+            return@runBlocking "No se encontraron alumnos con el nombre '$query'."
         }
 
         buildString {
-            appendLine("Search results for '$query' (${results.size} found):")
+            appendLine("Resultados para '$query' (${results.size} encontrados):")
+            appendLine()
             results.forEach { student ->
-                appendLine("- ${student.name}: ${student.subjects} | ${student.course} | " +
-                    "Balance: ${student.pendingBalance}€")
+                appendLine("• ${student.name}")
+                appendLine("  Asignaturas: ${student.subjects}")
+                appendLine("  Curso: ${student.course}")
+                appendLine("  Saldo pendiente: ${student.pendingBalance} euros")
+                appendLine()
             }
         }
     }
@@ -66,13 +76,13 @@ class StudentTools @Inject constructor(
     fun getStudentsWithBalance(): String = runBlocking {
         val students = queryStudentsUseCase.getStudentsWithBalance()
         if (students.isEmpty()) {
-            return@runBlocking "No students have pending balance."
+            return@runBlocking "Ningún alumno tiene saldo pendiente."
         }
 
         buildString {
-            appendLine("Students with pending balance (${students.size}):")
+            appendLine("Alumnos con saldo pendiente (${students.size}):")
             students.forEach { student ->
-                appendLine("- ${student.name}: ${student.pendingBalance}€")
+                appendLine("- ${student.name}: ${student.pendingBalance} euros")
             }
         }
     }
@@ -83,6 +93,6 @@ class StudentTools @Inject constructor(
      */
     fun getActiveStudentCount(): String = runBlocking {
         val count = queryStudentsUseCase.getActiveStudentCount()
-        "You currently have $count active students."
+        "Actualmente tienes $count alumnos activos."
     }
 }

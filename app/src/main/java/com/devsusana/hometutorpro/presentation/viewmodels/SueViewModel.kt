@@ -203,10 +203,9 @@ class SueViewModel @Inject constructor(
 
         return if (dataStart >= 0 && dataEnd >= 0) {
             val data = prompt.substring(dataStart + 25, dataEnd).trim()
-            "Datos encontrados (modelo IA no disponible):\n$data"
+            "Aquí tienes los datos solicitados:\n\n$data"
         } else {
-            "No se encontraron datos relevantes para tu consulta. " +
-                "El modelo de IA no está cargado."
+            "No he encontrado datos relevantes para tu consulta."
         }
     }
 }
