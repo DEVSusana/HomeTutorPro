@@ -586,4 +586,12 @@
     <string name="premium_subscribe_button">Subscribe for %s</string>
     <string name="premium_error_not_found">Product details not found. Please check your internet connection or try again later.</string>
     <string name="premium_go_back">Go Back</string>
+
+    <!-- Sue AI Agent -->
+    <string name="sue_fab_content_description">Sue AI Assistant</string>
+    <string name="sue_listening_title">Listening…</string>
+    <string name="sue_listening_hint">Speak now…</string>
+    <string name="sue_cancel">Cancel</string>
+    <string name="sue_error_permission">Microphone permission is required for Sue to listen.</string>
+    <string name="sue_error_model_not_loaded">AI model is not loaded. Please check the setup guide.</string>
 </resources>

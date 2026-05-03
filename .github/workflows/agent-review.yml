@@ -1,0 +1,47 @@
+name: Agent Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  agent_review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r agents_dev/requirements.txt
+
+      - name: Phase 1 - Agent Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          PYTHONPATH=$PYTHONPATH:$(pwd)/agents_dev/ci:$(pwd)/agents_dev/skills python agents_dev/ci/pr_reviewer.py
+
+      - name: Phase 2 - Guardrails
+        run: |
+          python agents_dev/ci/pr_guardrails.py
+
+      - name: Phase 3 - Auto-fix (only if previous steps passed or caught fixable issues)
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          PYTHONPATH=$PYTHONPATH:$(pwd)/agents_dev/ci:$(pwd)/agents_dev/skills python agents_dev/ci/pr_fixer.py

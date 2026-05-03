@@ -1,6 +1,8 @@
 package com.devsusana.hometutorpro.navigation
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -20,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
@@ -41,6 +45,9 @@ import com.devsusana.hometutorpro.navigation.graphs.scheduleGraph
 import com.devsusana.hometutorpro.navigation.graphs.studentGraph
 import com.devsusana.hometutorpro.presentation.components.BottomNavigationBar
 import com.devsusana.hometutorpro.presentation.components.rememberNavigationItems
+import com.devsusana.hometutorpro.presentation.sue.SueOverlay
+import com.devsusana.hometutorpro.presentation.sue.components.SueFab
+import com.devsusana.hometutorpro.presentation.viewmodels.SueViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -108,30 +115,54 @@ fun NavigationHost() {
         }
     ) {
         CompositionLocalProvider(LocalNavigationControl provides navigationControl) {
+            // Sue ViewModel — scoped at the navigation host level for global persistence
+            val sueViewModel: SueViewModel = hiltViewModel()
+            val sueUiState by sueViewModel.uiState.collectAsState()
+
             Scaffold(
                 bottomBar = {
                     if (showNavigation && !isLandscape && !forceHideBottomBar) {
                         BottomNavigationBar(navController)
                     }
                 },
-                            floatingActionButton = {
-                                if (showNavigation && isLandscape) {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.cd_menu))
-                            }
+                floatingActionButton = {
+                    if (showNavigation) {
+                        Column {
+                            if (isLandscape) {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.cd_menu))
                                 }
-                            }            ) { paddingValues ->
-                NavHost(
-                    navController = navController, 
-                    startDestination = Route.Splash,
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            SueFab(
+                                speechState = sueUiState.speechState,
+                                onClick = { sueViewModel.onFabClick() }
+                            )
+                        }
+                    }
+                }
+            ) { paddingValues ->
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                    mainGraph(navController)
-                    authGraph(navController)
-                    studentGraph(navController)
-                    scheduleGraph(navController)
+                    NavHost(
+                        navController = navController, 
+                        startDestination = Route.Splash,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        mainGraph(navController)
+                        authGraph(navController)
+                        studentGraph(navController)
+                        scheduleGraph(navController)
+                    }
+
+                    // Sue overlay renders on top of all navigation content
+                    SueOverlay(
+                        uiState = sueUiState,
+                        onDismiss = { sueViewModel.onDismiss() }
+                    )
                 }
             }
         }

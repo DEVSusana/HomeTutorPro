@@ -1,0 +1,40 @@
+package com.devsusana.hometutorpro.domain.repository
+
+import com.devsusana.hometutorpro.data.models.AgentBalanceSummary
+import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
+import com.devsusana.hometutorpro.data.models.AgentStudentDetail
+import com.devsusana.hometutorpro.data.models.AgentStudentSummary
+
+/**
+ * Repository contract for providing contextual data to the Sue AI agent.
+ *
+ * Implementations must scope all queries to the current professor's data
+ * to maintain multi-user isolation.
+ */
+interface AgentContextRepository {
+
+    /**
+     * Returns summaries of all non-deleted students for the current professor.
+     */
+    suspend fun getAllStudentSummaries(): List<AgentStudentSummary>
+
+    /**
+     * Returns all schedule entries joined with student names.
+     */
+    suspend fun getAllSchedules(): List<AgentScheduleSummary>
+
+    /**
+     * Returns students with non-zero pending balance.
+     */
+    suspend fun getStudentsWithBalance(): List<AgentBalanceSummary>
+
+    /**
+     * Searches for students whose name matches the given [query].
+     */
+    suspend fun searchStudentByName(query: String): List<AgentStudentDetail>
+
+    /**
+     * Returns the total count of active students.
+     */
+    suspend fun getActiveStudentCount(): Int
+}

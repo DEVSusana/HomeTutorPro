@@ -1,25 +1,58 @@
-from config import get_client, MODEL_ID
+import json
+import config
 
-def run_security_scan(file_path):
-    client = get_client()
+def run_security_scan(file_path, output_format="text"):
+    client = config.get_client()
 
     with open(file_path, 'r') as f:
         code = f.read()
 
-    prompt = f"""
-    Act as an Android Security Expert.
-    Scan this code for:
-    1. Hardcoded strings/keys.
-    2. Unsafe Coroutine usage.
-    3. Proper English naming (as per GEMINI.md requirements).
-    
-    CODE:
-    {code}
-    """
-
-    # Nueva forma de llamar al cliente moderno
-    response = client.models.generate_content(
-        model=MODEL_ID,
-        contents=prompt
-    )
-    return response.text
+    if output_format == "json":
+        prompt = f"""
+        Act as an Android Security Expert.
+        Scan this code for:
+        1. Hardcoded strings/keys.
+        2. Unsafe Coroutine usage.
+        3. Proper English naming (as per GEMINI.md requirements).
+        
+        CODE:
+        {code}
+        
+        Return a JSON object matching this schema:
+        {{
+          "findings": [
+            {{
+              "severity": "critical" | "warning" | "info",
+              "category": "security",
+              "file": "{file_path}",
+              "line": <line_number_if_applicable_or_0>,
+              "message": "<description of the issue>",
+              "suggestion": "<how to fix it>"
+            }}
+          ]
+        }}
+        If there are no issues, return an empty list for findings.
+        """
+        from google.genai import types
+        response = client.models.generate_content(
+            model=config.MODEL_ID,
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json")
+        )
+        return response.text
+    else:
+        prompt = f"""
+        Act as an Android Security Expert.
+        Scan this code for:
+        1. Hardcoded strings/keys.
+        2. Unsafe Coroutine usage.
+        3. Proper English naming (as per GEMINI.md requirements).
+        
+        CODE:
+        {code}
+        """
+        response = client.models.generate_content(
+            model=config.MODEL_ID,
+            contents=prompt
+        )
+        return response.text

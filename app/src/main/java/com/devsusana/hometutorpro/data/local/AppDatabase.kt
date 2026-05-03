@@ -32,6 +32,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun resourceDao(): ResourceDao
     abstract fun sharedResourceDao(): SharedResourceDao
     abstract fun syncMetadataDao(): SyncMetadataDao
+    abstract fun agentContextDao(): AgentContextDao
 
     companion object {
         private const val DATABASE_NAME = "hometutorpro.db"

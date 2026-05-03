@@ -54,6 +54,11 @@ object DatabaseModule {
     }
 
     @Provides
+    fun provideAgentContextDao(database: AppDatabase): AgentContextDao {
+        return database.agentContextDao()
+    }
+
+    @Provides
     @Singleton
     fun provideSecureAuthManager(@ApplicationContext context: Context): SecureAuthManager {
         val masterKey = MasterKey.Builder(context)
