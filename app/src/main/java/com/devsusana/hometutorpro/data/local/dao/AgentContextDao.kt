@@ -22,7 +22,7 @@ interface AgentContextDao {
      */
     @Query(
         """
-        SELECT s.name, s.subjects, s.course, s.pricePerHour, s.pendingBalance, s.isActive 
+        SELECT s.name, s.subjects, s.course, s.pricePerHour, s.pendingBalance, s.isActive, s.lastPaymentDate
         FROM students s 
         WHERE s.professorId = :professorId AND s.pendingDelete = 0
         ORDER BY s.name ASC
@@ -66,7 +66,7 @@ interface AgentContextDao {
      */
     @Query(
         """
-        SELECT s.name, s.subjects, s.course, s.pendingBalance 
+        SELECT s.name, s.subjects, s.course, s.pendingBalance, s.lastPaymentDate
         FROM students s 
         WHERE s.professorId = :professorId 
         AND LOWER(s.name) LIKE '%' || LOWER(:query) || '%' 

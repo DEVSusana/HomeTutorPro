@@ -68,8 +68,14 @@ Limitaciones:
             "Responde de forma concisa y útil en español:"
         }
         
+        val currentDateTime = java.text.SimpleDateFormat("EEEE, d 'de' MMMM 'de' yyyy, HH:mm", Locale("es", "ES")).format(java.util.Date())
+        
         return buildString {
             appendLine(SYSTEM_PROMPT.trimIndent())
+            appendLine()
+            appendLine("--- CONTEXTO TEMPORAL ---")
+            appendLine("Hoy es: $currentDateTime")
+            appendLine("--- FIN DE CONTEXTO TEMPORAL ---")
             appendLine()
             if (toolContext.isNotBlank()) {
                 appendLine("--- DATOS DISPONIBLES ---")
@@ -103,7 +109,11 @@ Limitaciones:
             }
 
             // Student-related queries (mutually exclusive to avoid data dumping)
-            if (containsCountKeywords(lowerQuery)) {
+            val specificStudentContext = studentTools.extractRelevantStudentContext(lowerQuery)
+            
+            if (specificStudentContext != null) {
+                appendLine(specificStudentContext)
+            } else if (containsCountKeywords(lowerQuery)) {
                 appendLine(studentTools.getActiveStudentCount())
             } else if (containsBalanceKeywords(lowerQuery)) {
                 appendLine(studentTools.getStudentsWithBalance())

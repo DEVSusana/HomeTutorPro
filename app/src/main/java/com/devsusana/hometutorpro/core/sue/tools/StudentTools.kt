@@ -40,6 +40,12 @@ class StudentTools @Inject constructor(
                 appendLine("  Curso: ${student.course}")
                 appendLine("  Precio: ${student.pricePerHour} euros la hora")
                 appendLine("  Saldo pendiente: ${student.pendingBalance} euros")
+                if (student.lastPaymentDate != null) {
+                    val date = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date(student.lastPaymentDate))
+                    appendLine("  Último pago: $date")
+                } else {
+                    appendLine("  Último pago: Nunca")
+                }
                 appendLine("  Estado: $status")
                 appendLine()
             }
@@ -64,6 +70,12 @@ class StudentTools @Inject constructor(
                 appendLine("  Asignaturas: ${student.subjects}")
                 appendLine("  Curso: ${student.course}")
                 appendLine("  Saldo pendiente: ${student.pendingBalance} euros")
+                if (student.lastPaymentDate != null) {
+                    val date = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date(student.lastPaymentDate))
+                    appendLine("  Último pago: $date")
+                } else {
+                    appendLine("  Último pago: Nunca")
+                }
                 appendLine()
             }
         }
@@ -84,6 +96,27 @@ class StudentTools @Inject constructor(
             students.forEach { student ->
                 appendLine("- ${student.name}: ${student.pendingBalance} euros")
             }
+        }
+    }
+
+    /**
+     * Checks if any student's name is mentioned in the query and returns their info.
+     * Intended for natural language routing.
+     */
+    fun extractRelevantStudentContext(query: String): String? = runBlocking {
+        val students = queryStudentsUseCase.getAllStudents()
+        val lowerQuery = query.lowercase()
+        
+        // Find if any student's first name (at least 3 chars to avoid false positives) is in the query
+        val matchedStudent = students.find { student ->
+            val firstName = student.name.substringBefore(" ").lowercase()
+            firstName.length >= 3 && lowerQuery.contains(firstName)
+        }
+        
+        if (matchedStudent != null) {
+            searchStudent(matchedStudent.name)
+        } else {
+            null
         }
     }
 

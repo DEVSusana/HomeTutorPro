@@ -10,7 +10,8 @@ data class AgentStudentSummary(
     val course: String,
     val pricePerHour: Double,
     val pendingBalance: Double,
-    val isActive: Boolean
+    val isActive: Boolean,
+    val lastPaymentDate: Long? = null
 )
 
 /**
@@ -39,5 +40,6 @@ data class AgentStudentDetail(
     val name: String,
     val subjects: String,
     val course: String,
-    val pendingBalance: Double
+    val pendingBalance: Double,
+    val lastPaymentDate: Long? = null
 )
