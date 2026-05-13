@@ -1,18 +1,26 @@
 package com.devsusana.hometutorpro.presentation.sue
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -58,14 +66,28 @@ fun SueOverlayContent(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    val gradientBrush = Brush.verticalGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
+        )
+    )
+
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(bottom = 24.dp)
+            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)),
+        color = Color.Transparent,
+        tonalElevation = 8.dp,
+        shadowElevation = 16.dp
     ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(gradientBrush)
+                .padding(bottom = 24.dp)
+        ) {
         // Drag handle area (swipe down to dismiss)
         Box(
             modifier = Modifier
@@ -80,15 +102,15 @@ fun SueOverlayContent(
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Spacer(
                     modifier = Modifier
-                        .height(4.dp)
-                        .fillMaxWidth(0.12f)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                        .height(5.dp)
+                        .fillMaxWidth(0.15f)
+                        .clip(RoundedCornerShape(2.5.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
 
@@ -139,10 +161,10 @@ fun SueOverlayContent(
                 )
             }
             
-            // Add padding at the bottom so content isn't hidden behind the FAB
             Spacer(modifier = Modifier.height(88.dp))
         }
     }
+}
 }
 
 /**
@@ -157,15 +179,19 @@ private fun UserTranscriptionBubble(
         horizontalAlignment = Alignment.End,
         modifier = modifier.fillMaxWidth()
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-        )
+        Surface(
+            color = MaterialTheme.colorScheme.primary,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp),
+            shadowElevation = 2.dp,
+            modifier = Modifier.padding(end = 8.dp)
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
     }
 }
 

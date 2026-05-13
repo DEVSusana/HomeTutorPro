@@ -1,5 +1,6 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
+import com.devsusana.hometutorpro.data.models.AgentScheduleDetail
 import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
 import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
@@ -15,4 +16,10 @@ class QuerySchedulesForAgentUseCase @Inject constructor(
 
     override suspend fun getAllSchedules(): List<AgentScheduleSummary> =
         repository.getAllSchedules()
+
+    override suspend fun getScheduleDetails(): List<AgentScheduleDetail> =
+        repository.getScheduleDetails()
+
+    override suspend fun getSchedulesByStudentName(studentName: String): List<AgentScheduleDetail> =
+        repository.getSchedulesByStudentName(studentName)
 }

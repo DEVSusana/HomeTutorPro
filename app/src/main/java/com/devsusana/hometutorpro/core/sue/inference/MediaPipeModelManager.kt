@@ -52,11 +52,11 @@ class MediaPipeModelManager @Inject constructor(
 
     private val _isModelLoaded = MutableStateFlow(false)
     /** Whether the model is loaded and ready for inference. */
-    val isModelLoaded: StateFlow<Boolean> = _isModelLoaded.asStateFlow()
+    val isModelLoaded: StateFlow<Boolean> get() = _isModelLoaded.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     /** Whether the model is currently being loaded. */
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    val isLoading: StateFlow<Boolean> get() = _isLoading.asStateFlow()
 
     /**
      * Attempts to load the Gemma model from the device's file system.

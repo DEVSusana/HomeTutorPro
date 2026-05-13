@@ -37,9 +37,30 @@ data class AgentBalanceSummary(
  * Detailed student information returned when the agent searches by name.
  */
 data class AgentStudentDetail(
+    val studentId: String,
     val name: String,
     val subjects: String,
     val course: String,
     val pendingBalance: Double,
     val lastPaymentDate: Long? = null
+)
+
+/**
+ * Full schedule detail including IDs needed for creating [ScheduleException] entries.
+ * Used by the agent when it needs to cancel or reschedule a specific class occurrence.
+ *
+ * @param scheduleId The unique ID of the regular schedule entry (maps to [ScheduleException.originalScheduleId]).
+ * @param studentId  The student's ID (required by [ISaveScheduleExceptionUseCase]).
+ * @param studentName Human-readable student name for confirmations.
+ * @param dayOfWeek  ISO day (1=Monday … 7=Sunday), as stored in the Room DB.
+ * @param startTime  Format "HH:mm".
+ * @param endTime    Format "HH:mm".
+ */
+data class AgentScheduleDetail(
+    val scheduleId: String,
+    val studentId: String,
+    val studentName: String,
+    val dayOfWeek: Int,
+    val startTime: String,
+    val endTime: String
 )

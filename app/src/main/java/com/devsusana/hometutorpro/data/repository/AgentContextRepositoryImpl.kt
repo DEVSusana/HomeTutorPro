@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.data.repository
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.data.local.dao.AgentContextDao
 import com.devsusana.hometutorpro.data.models.AgentBalanceSummary
+import com.devsusana.hometutorpro.data.models.AgentScheduleDetail
 import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
 import com.devsusana.hometutorpro.data.models.AgentStudentDetail
 import com.devsusana.hometutorpro.data.models.AgentStudentSummary
@@ -38,4 +39,10 @@ class AgentContextRepositoryImpl @Inject constructor(
 
     override suspend fun getActiveStudentCount(): Int =
         agentContextDao.getActiveStudentCount(professorId)
+
+    override suspend fun getScheduleDetails(): List<AgentScheduleDetail> =
+        agentContextDao.getAllScheduleDetailsForAgent(professorId)
+
+    override suspend fun getSchedulesByStudentName(studentName: String): List<AgentScheduleDetail> =
+        agentContextDao.getSchedulesByStudentName(professorId, studentName)
 }

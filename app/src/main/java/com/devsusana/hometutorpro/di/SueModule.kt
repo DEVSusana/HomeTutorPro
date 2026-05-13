@@ -2,8 +2,10 @@ package com.devsusana.hometutorpro.di
 
 import com.devsusana.hometutorpro.data.repository.AgentContextRepositoryImpl
 import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
+import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQueryStudentsForAgentUseCase
+import com.devsusana.hometutorpro.domain.usecases.implementations.ManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.QuerySchedulesForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.QueryStudentsForAgentUseCase
 import dagger.Binds
@@ -37,4 +39,9 @@ abstract class SueModule {
     abstract fun bindQuerySchedulesForAgentUseCase(
         impl: QuerySchedulesForAgentUseCase
     ): IQuerySchedulesForAgentUseCase
+
+    @Binds
+    abstract fun bindManageScheduleForAgentUseCase(
+        impl: ManageScheduleForAgentUseCase
+    ): IManageScheduleForAgentUseCase
 }

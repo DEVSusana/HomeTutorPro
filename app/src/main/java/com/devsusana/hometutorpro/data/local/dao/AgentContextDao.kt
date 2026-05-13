@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.data.local.dao
 import androidx.room.Dao
 import androidx.room.Query
 import com.devsusana.hometutorpro.data.models.AgentBalanceSummary
+import com.devsusana.hometutorpro.data.models.AgentScheduleDetail
 import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
 import com.devsusana.hometutorpro.data.models.AgentStudentDetail
 import com.devsusana.hometutorpro.data.models.AgentStudentSummary
@@ -66,7 +67,7 @@ interface AgentContextDao {
      */
     @Query(
         """
-        SELECT s.name, s.subjects, s.course, s.pendingBalance, s.lastPaymentDate
+        SELECT s.id AS studentId, s.name, s.subjects, s.course, s.pendingBalance, s.lastPaymentDate
         FROM students s 
         WHERE s.professorId = :professorId 
         AND LOWER(s.name) LIKE '%' || LOWER(:query) || '%' 
@@ -89,4 +90,44 @@ interface AgentContextDao {
         """
     )
     suspend fun getActiveStudentCount(professorId: String): Int
+
+    /**
+     * Returns all schedule entries with full detail (including IDs) for the given professor.
+     * Used by the agent when it needs to cancel or reschedule a specific occurrence.
+     */
+    @Query(
+        """
+        SELECT sch.id AS scheduleId, sch.studentId, st.name AS studentName,
+               sch.dayOfWeek, sch.startTime, sch.endTime
+        FROM schedules sch
+        INNER JOIN students st ON sch.studentId = st.id
+        WHERE sch.professorId = :professorId
+        AND sch.pendingDelete = 0
+        AND st.pendingDelete = 0
+        ORDER BY sch.dayOfWeek, sch.startTime
+        """
+    )
+    suspend fun getAllScheduleDetailsForAgent(professorId: String): List<AgentScheduleDetail>
+
+    /**
+     * Returns schedule entries for students whose name partially matches [studentName].
+     * Used to look up the scheduleId and studentId when the user asks to cancel/move a class.
+     */
+    @Query(
+        """
+        SELECT sch.id AS scheduleId, sch.studentId, st.name AS studentName,
+               sch.dayOfWeek, sch.startTime, sch.endTime
+        FROM schedules sch
+        INNER JOIN students st ON sch.studentId = st.id
+        WHERE sch.professorId = :professorId
+        AND LOWER(st.name) LIKE '%' || LOWER(:studentName) || '%'
+        AND sch.pendingDelete = 0
+        AND st.pendingDelete = 0
+        ORDER BY sch.dayOfWeek, sch.startTime
+        """
+    )
+    suspend fun getSchedulesByStudentName(
+        professorId: String,
+        studentName: String
+    ): List<AgentScheduleDetail>
 }

@@ -72,7 +72,16 @@ class SpeechManager @Inject constructor(
     /** Emits human-readable error messages. */
     val errors: SharedFlow<String> = _errors.asSharedFlow()
 
+    private val _wakeWordDetected = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /**
+     * Emits [Unit] whenever the wake word ("Oye Sue" / "Hey Sue") is detected
+     * by the always-on background listener.
+     */
+    val wakeWordDetected: SharedFlow<Unit> = _wakeWordDetected.asSharedFlow()
+
     private var speechRecognizer: SpeechRecognizer? = null
+    private var wakeWordRecognizer: SpeechRecognizer? = null
+    private var isWakeWordActive = false
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
 
@@ -140,13 +149,31 @@ class SpeechManager @Inject constructor(
     }
 
     /**
-     * Stops the current listening session and releases the recognizer.
+     * Stops the current listening session and fully destroys the [SpeechRecognizer].
+     *
+     * **Bug-fix:** The previous implementation only called [SpeechRecognizer.stopListening]
+     * and kept the recognizer object alive. When the user navigated away and back, the
+     * stale recognizer caused the FAB to remain frozen in LISTENING/PROCESSING state.
+     * Destroying it here guarantees a clean slate on the next [startListening] call.
      */
     fun stopListening() {
-        speechRecognizer?.stopListening()
-        if (_state.value == SpeechState.LISTENING) {
+        speechRecognizer?.apply {
+            stopListening()
+            destroy()
+        }
+        speechRecognizer = null
+        if (_state.value == SpeechState.LISTENING || _state.value == SpeechState.PROCESSING) {
             _state.value = SpeechState.IDLE
         }
+    }
+
+    /**
+     * Forces the state machine back to [SpeechState.IDLE].
+     * Called by the ViewModel when a listening timeout is detected.
+     */
+    fun resetState() {
+        stopListening()
+        _state.value = SpeechState.IDLE
     }
 
     /**
@@ -248,11 +275,88 @@ class SpeechManager @Inject constructor(
         SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognition service is busy."
         SpeechRecognizer.ERROR_SERVER -> "Server error."
         SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected. Please try again."
-        10 -> "Too many requests." // ERROR_TOO_MANY_REQUESTS
-        11 -> "Server disconnected." // ERROR_SERVER_DISCONNECTED
-        12 -> "Language not supported for offline recognition." // ERROR_LANGUAGE_NOT_SUPPORTED
-        13 -> "Language pack not downloaded. Please install it in system settings." // ERROR_LANGUAGE_UNAVAILABLE
-        14 -> "Cannot check offline support." // ERROR_CANNOT_CHECK_SUPPORT
+        10 -> "Too many requests."
+        11 -> "Server disconnected."
+        12 -> "Language not supported for offline recognition."
+        13 -> "Language pack not downloaded. Please install it in system settings."
+        14 -> "Cannot check offline support."
         else -> "Unknown speech recognition error (code $errorCode)."
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Wake word detection
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Starts an always-on background [SpeechRecognizer] dedicated exclusively
+     * to detecting the wake phrase "oye sue" / "hey sue".
+     *
+     * Automatically restarts itself on timeout/no-match so it stays active.
+     * Must be called after microphone permission is granted.
+     */
+    fun startWakeWordListening() {
+        if (isWakeWordActive) return
+        isWakeWordActive = true
+        launchWakeWordCycle()
+    }
+
+    /** Stops the wake word listener and releases its resources. */
+    fun stopWakeWordListening() {
+        isWakeWordActive = false
+        wakeWordRecognizer?.apply { cancel(); destroy() }
+        wakeWordRecognizer = null
+    }
+
+    private fun launchWakeWordCycle() {
+        if (!isWakeWordActive) return
+
+        wakeWordRecognizer?.apply { cancel(); destroy() }
+        wakeWordRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+        wakeWordRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+
+            override fun onResults(results: Bundle?) {
+                val text = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()?.lowercase() ?: ""
+                if (isWakePhrase(text)) {
+                    _wakeWordDetected.tryEmit(Unit)
+                }
+                // Restart the cycle regardless
+                launchWakeWordCycle()
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) {
+                val text = partialResults
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()?.lowercase() ?: ""
+                if (isWakePhrase(text)) {
+                    _wakeWordDetected.tryEmit(Unit)
+                }
+            }
+
+            override fun onError(error: Int) {
+                // Silently restart on expected non-fatal errors
+                if (isWakeWordActive) launchWakeWordCycle()
+            }
+        })
+
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        wakeWordRecognizer?.startListening(intent)
+    }
+
+    private fun isWakePhrase(text: String): Boolean {
+        val phrases = listOf("oye sue", "hey sue", "oi sue", "oye su", "hey su")
+        return phrases.any { it in text }
     }
 }
