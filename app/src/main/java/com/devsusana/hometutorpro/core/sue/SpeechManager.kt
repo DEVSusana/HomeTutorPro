@@ -72,16 +72,8 @@ class SpeechManager @Inject constructor(
     /** Emits human-readable error messages. */
     val errors: SharedFlow<String> = _errors.asSharedFlow()
 
-    private val _wakeWordDetected = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    /**
-     * Emits [Unit] whenever the wake word ("Oye Sue" / "Hey Sue") is detected
-     * by the always-on background listener.
-     */
-    val wakeWordDetected: SharedFlow<Unit> = _wakeWordDetected.asSharedFlow()
 
     private var speechRecognizer: SpeechRecognizer? = null
-    private var wakeWordRecognizer: SpeechRecognizer? = null
-    private var isWakeWordActive = false
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
 
@@ -283,80 +275,4 @@ class SpeechManager @Inject constructor(
         else -> "Unknown speech recognition error (code $errorCode)."
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Wake word detection
-    // ──────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Starts an always-on background [SpeechRecognizer] dedicated exclusively
-     * to detecting the wake phrase "oye sue" / "hey sue".
-     *
-     * Automatically restarts itself on timeout/no-match so it stays active.
-     * Must be called after microphone permission is granted.
-     */
-    fun startWakeWordListening() {
-        if (isWakeWordActive) return
-        isWakeWordActive = true
-        launchWakeWordCycle()
-    }
-
-    /** Stops the wake word listener and releases its resources. */
-    fun stopWakeWordListening() {
-        isWakeWordActive = false
-        wakeWordRecognizer?.apply { cancel(); destroy() }
-        wakeWordRecognizer = null
-    }
-
-    private fun launchWakeWordCycle() {
-        if (!isWakeWordActive) return
-
-        wakeWordRecognizer?.apply { cancel(); destroy() }
-        wakeWordRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-        wakeWordRecognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-
-            override fun onResults(results: Bundle?) {
-                val text = results
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()?.lowercase() ?: ""
-                if (isWakePhrase(text)) {
-                    _wakeWordDetected.tryEmit(Unit)
-                }
-                // Restart the cycle regardless
-                launchWakeWordCycle()
-            }
-
-            override fun onPartialResults(partialResults: Bundle?) {
-                val text = partialResults
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()?.lowercase() ?: ""
-                if (isWakePhrase(text)) {
-                    _wakeWordDetected.tryEmit(Unit)
-                }
-            }
-
-            override fun onError(error: Int) {
-                // Silently restart on expected non-fatal errors
-                if (isWakeWordActive) launchWakeWordCycle()
-            }
-        })
-
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        }
-        wakeWordRecognizer?.startListening(intent)
-    }
-
-    private fun isWakePhrase(text: String): Boolean {
-        val phrases = listOf("oye sue", "hey sue", "oi sue", "oye su", "hey su")
-        return phrases.any { it in text }
-    }
 }

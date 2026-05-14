@@ -63,9 +63,7 @@ class SueViewModel @Inject constructor(
         collectPartialTranscriptions()
         collectErrors()
         collectModelState()
-        collectWakeWord()
         preloadModel()
-        speechManager.startWakeWordListening()
     }
 
     /**
@@ -132,7 +130,6 @@ class SueViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         cancelListeningTimeout()
-        speechManager.stopWakeWordListening()
         speechManager.release()
         modelManager.release()
     }
@@ -185,16 +182,6 @@ class SueViewModel @Inject constructor(
         }
     }
 
-    private fun collectWakeWord() {
-        viewModelScope.launch {
-            speechManager.wakeWordDetected.collect {
-                // Only activate if Sue is idle — don’t interrupt ongoing operations
-                if (_uiState.value.speechState == SpeechState.IDLE) {
-                    onFabClick()
-                }
-            }
-        }
-    }
 
     private fun collectModelState() {
         viewModelScope.launch {

@@ -7,7 +7,7 @@ from google import genai
 from google.genai import types
 
 # Usaremos un modelo más potente en CI dado que tenemos acceso gratuito
-MODEL_ID = "gemini-2.0-flash" 
+MODEL_ID = "gemini-3.1-flash-lite" 
 
 def get_client():
     """Crea y devuelve un cliente de Gemini configurado."""
