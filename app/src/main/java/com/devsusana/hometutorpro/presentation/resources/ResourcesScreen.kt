@@ -169,18 +169,19 @@ fun ResourcesContent(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
 
+            val dateFormat = androidx.compose.runtime.remember {
+                SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                items(state.resources) { resource ->
+                items(state.resources, key = { it.id }) { resource ->
                     ResourceItem(
                         name = resource.name,
-                        date = SimpleDateFormat(
-                            "dd/MM/yyyy",
-                            Locale.getDefault()
-                        ).format(resource.uploadDate),
+                        date = dateFormat.format(resource.uploadDate),
                         onClick = { onResourceClick(resource) },
                         onDelete = { onDeleteResource(resource.id) }
                     )
