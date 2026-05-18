@@ -32,6 +32,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
+          cp agents_dev/skills/config.example.py agents_dev/skills/config.py
           PYTHONPATH=$PYTHONPATH:$(pwd)/agents_dev/ci:$(pwd)/agents_dev/skills python agents_dev/ci/pr_reviewer.py
 
       - name: Phase 2 - Guardrails
