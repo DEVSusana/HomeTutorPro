@@ -37,7 +37,7 @@ class AuthRepositoryImplTest {
     private lateinit var repository: AuthRepositoryImpl
     private lateinit var authManager: SecureAuthManager
     private lateinit var firebaseAuth: FirebaseAuth
-    private val authValidator: com.devsusana.hometutorpro.domain.core.AuthValidator = com.devsusana.hometutorpro.domain.core.AuthValidator
+    private lateinit var authValidator: com.devsusana.hometutorpro.domain.core.AuthValidator
     private val testDispatcher = StandardTestDispatcher()
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
 
@@ -47,13 +47,9 @@ class AuthRepositoryImplTest {
         Dispatchers.setMain(testDispatcher)
         authManager = mockk(relaxed = true)
         firebaseAuth = mockk(relaxed = true)
-        syncScheduler = mockk(relaxed = true)
-        syncMetadataDao = mockk(relaxed = true)
-        dataSynchronizer = mockk(relaxed = true)
-        billingManager = mockk(relaxed = true)
+        authValidator = mockk(relaxed = true)
         
         // Mock billingManager.isPremium to return a StateFlow
-        every { billingManager.isPremium } returns kotlinx.coroutines.flow.MutableStateFlow(false)
         
         // Mock FirebaseAuth to return null current user and capture listener
         every { firebaseAuth.currentUser } returns null

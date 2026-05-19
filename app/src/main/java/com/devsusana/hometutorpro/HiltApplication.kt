@@ -19,7 +19,7 @@ class HiltApplication : Application(), Configuration.Provider {
     }
 
     @Inject
-    lateinit var syncCoordinator: com.devsusana.hometutorpro.domain.usecases.implementations.SyncCoordinator
+    lateinit var syncCoordinator: com.devsusana.hometutorpro.domain.usecases.ISyncCoordinator
 
     override fun onCreate() {
         super.onCreate()

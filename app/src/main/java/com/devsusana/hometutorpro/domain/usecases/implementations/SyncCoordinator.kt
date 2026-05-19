@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.devsusana.hometutorpro.domain.usecases.ISyncCoordinator
 
 /**
  * Coordinates synchronization logic by observing Auth and Billing states.
@@ -22,12 +23,12 @@ class SyncCoordinator @Inject constructor(
     private val dataSynchronizer: DataSynchronizer,
     private val syncScheduler: SyncScheduler,
     @ApplicationScope private val applicationScope: CoroutineScope
-) {
+) : ISyncCoordinator {
     /**
      * Starts observing authentication and billing state changes to trigger synchronization
      * dynamically, freeing AuthRepository from knowing about synchronization logic.
      */
-    fun startObserving() {
+    override fun startObserving() {
         applicationScope.launch {
             combine(authRepository.currentUser, billingManager.isPremium) { user, isPremium ->
                 Pair(user, isPremium)
