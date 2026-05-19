@@ -36,6 +36,7 @@ class AuthRepositoryImpl @Inject constructor(
 ) : AuthRepository {
 
     private val _currentUser = MutableStateFlow<User?>(null)
+    /** The current authenticated user. */
     override val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     init {
@@ -79,6 +80,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Verifies local authentication state and updates the currentUser flow. */
     private fun checkLocalUser() {
         if (authManager.isUserLoggedIn()) {
             val userId = authManager.getUserId()
@@ -94,6 +96,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Authenticates user with Firebase or falls back to local storage credentials. */
     override suspend fun login(email: String, password: String): Result<User, DomainError> {
         var firebaseError: Exception? = null
         try {
@@ -148,6 +151,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Registers a new user with Firebase and persists credentials locally. */
     override suspend fun register(email: String, password: String, name: String): Result<User, DomainError> {
         return try {
             if (!authManager.validateEmail(email)) return Result.Error(DomainError.InvalidEmail)
@@ -182,6 +186,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Signs out the current user, clears local credentials, and resets sync metadata. */
     override suspend fun logout() {
         firebaseAuth.signOut()
         authManager.clearCredentials()
@@ -240,6 +245,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Updates the user\'s password in Firebase and local storage. */
     override suspend fun updatePassword(newPassword: String): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
@@ -256,7 +262,8 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun linkToFirebase(email: String, password: String, name: String): Result<User, DomainError> {
+    /** Links current local session to a new Firebase account. */
+    suspend fun linkAccountToFirebase(email: String, password: String, name: String): Result<User, DomainError> {
         return try {
             val result = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
             val user = result.user

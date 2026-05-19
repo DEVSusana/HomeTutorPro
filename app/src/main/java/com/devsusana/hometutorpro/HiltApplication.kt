@@ -18,9 +18,13 @@ class HiltApplication : Application(), Configuration.Provider {
         super.attachBaseContext(LocaleHelper.onAttach(base))
     }
 
+    @Inject
+    lateinit var syncCoordinator: com.devsusana.hometutorpro.domain.usecases.implementations.SyncCoordinator
+
     override fun onCreate() {
         super.onCreate()
         com.devsusana.hometutorpro.core.utils.NotificationHelper.createNotificationChannel(this)
+        syncCoordinator.startObserving()
     }
 
     override val workManagerConfiguration: Configuration
