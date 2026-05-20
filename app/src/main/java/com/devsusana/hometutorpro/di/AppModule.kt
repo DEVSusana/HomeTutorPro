@@ -45,5 +45,10 @@ abstract class AppModule {
         @Singleton
         fun provideWorkManager(@ApplicationContext context: Context): WorkManager = 
             WorkManager.getInstance(context)
+
+        @Provides
+        @Singleton
+        fun provideAuthValidator(): com.devsusana.hometutorpro.domain.core.AuthValidator =
+            com.devsusana.hometutorpro.domain.core.AuthValidator
     }
 }

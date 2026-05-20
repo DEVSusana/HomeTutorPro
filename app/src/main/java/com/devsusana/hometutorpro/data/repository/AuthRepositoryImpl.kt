@@ -155,7 +155,7 @@ class AuthRepositoryImpl @Inject constructor(
 
                 // Update Firebase Profile Name
                 val profileUpdates = UserProfileChangeRequest.Builder()
-                    .setDisplayName(name)
+                    .setDisplayName(params.name)
                     .build()
                 firebaseUser.updateProfile(profileUpdates).await()
             }
