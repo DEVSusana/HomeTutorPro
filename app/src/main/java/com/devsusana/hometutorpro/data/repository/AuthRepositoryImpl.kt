@@ -1,26 +1,19 @@
 package com.devsusana.hometutorpro.data.repository
 
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
-import com.devsusana.hometutorpro.data.local.dao.SyncMetadataDao
-import com.devsusana.hometutorpro.data.sync.DataSynchronizer
-import com.devsusana.hometutorpro.data.sync.SyncScheduler
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
-import com.devsusana.hometutorpro.di.ApplicationScope
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.UserProfileChangeRequest
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
-import com.devsusana.hometutorpro.data.billing.BillingManager
 
 /**
  * Data layer implementation of [AuthRepository].
@@ -28,57 +21,20 @@ import com.devsusana.hometutorpro.data.billing.BillingManager
 class AuthRepositoryImpl @Inject constructor(
     private val authManager: SecureAuthManager,
     private val firebaseAuth: FirebaseAuth,
-    private val syncScheduler: SyncScheduler,
-    private val syncMetadataDao: SyncMetadataDao,
-    private val dataSynchronizer: DataSynchronizer,
-    private val billingManager: BillingManager,
-    @param:ApplicationScope private val internalScope: CoroutineScope
+    private val authValidator: com.devsusana.hometutorpro.domain.core.AuthValidator
+    // Removed sync orchestration dependencies to respect SRP
 ) : AuthRepository {
 
     private val _currentUser = MutableStateFlow<User?>(null)
+    /** The current authenticated user. */
     override val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     init {
-        internalScope.launch {
-            billingManager.isPremium.collect { isPremium ->
-                if (isPremium && _currentUser.value != null) {
-                    try {
-                        dataSynchronizer.performSync()
-                    } catch (e: Exception) {
-                        syncScheduler.scheduleSyncNow()
-                    }
-                }
-            }
-        }
-
-        firebaseAuth.addAuthStateListener { auth ->
-            val firebaseUser = auth.currentUser
-            if (firebaseUser != null) {
-                _currentUser.value = buildUser(
-                    firebaseUser.uid,
-                    firebaseUser.email ?: "",
-                    firebaseUser.displayName ?: ""
-                )
-                
-                if (billingManager.isPremium.value) {
-                    internalScope.launch {
-                        try {
-                            dataSynchronizer.performSync()
-                        } catch (e: Exception) {
-                            syncScheduler.scheduleSyncNow()
-                        }
-                    }
-                }
-            } else {
-                checkLocalUser()
-            }
-        }
-        
-        if (firebaseAuth.currentUser == null) {
-            checkLocalUser()
-        }
+        // Load local user initially or register auth state listener
+        checkLocalUser()
     }
 
+    /** Verifies local authentication state and updates the currentUser flow. */
     private fun checkLocalUser() {
         if (authManager.isUserLoggedIn()) {
             val userId = authManager.getUserId()
@@ -94,6 +50,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Authenticates user with Firebase or falls back to local storage credentials. */
     override suspend fun login(email: String, password: String): Result<User, DomainError> {
         var firebaseError: Exception? = null
         try {
@@ -106,15 +63,7 @@ class AuthRepositoryImpl @Inject constructor(
                 // Save locally for offline fallback
                 authManager.saveCredentials(email, password, user.displayName ?: "", user.uid)
                 
-                if (billingManager.isPremium.value) {
-                    internalScope.launch {
-                        try {
-                            dataSynchronizer.performSync()
-                        } catch (e: Exception) {
-                            syncScheduler.scheduleSyncNow()
-                        }
-                    }
-                }
+
                 
                 return Result.Success(domainUser)
             }
@@ -130,8 +79,8 @@ class AuthRepositoryImpl @Inject constructor(
         }
 
         return try {
-            if (!authManager.validateEmail(email)) return Result.Error(DomainError.InvalidEmail)
-            if (!authManager.validatePassword(password)) return Result.Error(DomainError.InvalidPassword)
+            if (!authValidator.isValidEmail(email)) return Result.Error(DomainError.InvalidEmail)
+            if (!authValidator.isValidPassword(password)) return Result.Error(DomainError.InvalidPassword)
             
             if (authManager.validateCredentials(email, password)) {
                 val userId = authManager.getUserId() ?: return Result.Error(DomainError.UserNotFound)
@@ -148,10 +97,11 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Registers a new user with Firebase and persists credentials locally. */
     override suspend fun register(email: String, password: String, name: String): Result<User, DomainError> {
         return try {
-            if (!authManager.validateEmail(email)) return Result.Error(DomainError.InvalidEmail)
-            if (!authManager.validatePassword(password)) return Result.Error(DomainError.InvalidPassword)
+            if (!authValidator.isValidEmail(email)) return Result.Error(DomainError.InvalidEmail)
+            if (!authValidator.isValidPassword(password)) return Result.Error(DomainError.InvalidPassword)
             if (name.isBlank()) return Result.Error(DomainError.InvalidName)
             if (authManager.userExists()) return Result.Error(DomainError.UserAlreadyExists)
             
@@ -182,30 +132,25 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Signs out the current user, clears local credentials, and resets sync metadata. */
     override suspend fun logout() {
         firebaseAuth.signOut()
         authManager.clearCredentials()
         _currentUser.value = null
         
-        kotlinx.coroutines.withContext(Dispatchers.IO) {
-            syncMetadataDao.deleteAllMetadata()
-            syncScheduler.cancelAllSync()
-        }
+
     }
     
+    /** Updates user profile data in both Firebase and local persistent storage. */
     override suspend fun updateProfile(
-        name: String, 
-        email: String, 
-        workingStartTime: String, 
-        workingEndTime: String,
-        notes: String
+        params: com.devsusana.hometutorpro.domain.entities.UpdateUserParams
     ): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
                 // Update Firebase Email if it changed
-                if (firebaseUser.email != email) {
-                    firebaseUser.verifyBeforeUpdateEmail(email).await()
+                if (firebaseUser.email != params.email) {
+                    firebaseUser.verifyBeforeUpdateEmail(params.email).await()
                 }
 
                 // Update Firebase Profile Name
@@ -216,21 +161,21 @@ class AuthRepositoryImpl @Inject constructor(
             }
 
             // Always update local manager (for offline flavor or mirroring firebase)
-            authManager.updateName(name)
-            authManager.updateEmail(email)
-            authManager.updateWorkingStartTime(workingStartTime)
-            authManager.updateWorkingEndTime(workingEndTime)
-            authManager.updateNotes(notes)
+            authManager.updateName(params.name)
+            authManager.updateEmail(params.email)
+            authManager.updateWorkingStartTime(params.workingStartTime)
+            authManager.updateWorkingEndTime(params.workingEndTime)
+            authManager.updateNotes(params.notes)
 
             // Update local StateFlow
             val current = _currentUser.value
             if (current != null) {
                 _currentUser.value = current.copy(
-                    displayName = name, 
-                    email = email,
-                    workingStartTime = workingStartTime,
-                    workingEndTime = workingEndTime,
-                    notes = notes
+                    displayName = params.name,
+                    email = params.email,
+                    workingStartTime = params.workingStartTime,
+                    workingEndTime = params.workingEndTime,
+                    notes = params.notes
                 )
             }
 
@@ -240,6 +185,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Updates the user\'s password in Firebase and local storage. */
     override suspend fun updatePassword(newPassword: String): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
@@ -256,7 +202,8 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun linkToFirebase(email: String, password: String, name: String): Result<User, DomainError> {
+    /** Links current local session to a new Firebase account. */
+    suspend fun linkAccountToFirebase(email: String, password: String, name: String): Result<User, DomainError> {
         return try {
             val result = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
             val user = result.user

@@ -13,12 +13,7 @@ interface AuthRepository {
     suspend fun login(email: String, password: String): Result<User, DomainError>
     suspend fun register(email: String, password: String, name: String): Result<User, DomainError>
     suspend fun logout()
-    suspend fun updateProfile(
-        name: String, 
-        email: String, 
-        workingStartTime: String, 
-        workingEndTime: String,
-        notes: String
-    ): Result<Unit, DomainError>
+    /** Updates user profile data in both Firebase and local persistent storage. */
+    suspend fun updateProfile(params: com.devsusana.hometutorpro.domain.entities.UpdateUserParams): Result<Unit, DomainError>
     suspend fun updatePassword(newPassword: String): Result<Unit, DomainError>
 }
