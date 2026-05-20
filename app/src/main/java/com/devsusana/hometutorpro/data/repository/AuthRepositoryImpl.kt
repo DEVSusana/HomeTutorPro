@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.data.repository
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.entities.UpdateUserParams
 import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -143,7 +144,7 @@ class AuthRepositoryImpl @Inject constructor(
     
     /** Updates user profile data in both Firebase and local persistent storage. */
     override suspend fun updateProfile(
-        params: com.devsusana.hometutorpro.domain.entities.UpdateUserParams
+        params: UpdateUserParams
     ): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser

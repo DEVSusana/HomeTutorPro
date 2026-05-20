@@ -39,7 +39,7 @@ jobs:
         run: |
           python agents_dev/ci/pr_guardrails.py
 
-      - name: Phase 3 - Auto-fix (only if previous steps passed or caught fixable issues)
+      - name: Phase 3 - Fix Suggester (comment-only, no auto-apply)
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
