@@ -71,48 +71,72 @@ fun FinanceTab(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
                             if (state.isBalanceEditable) {
-                                OutlinedTextField(
-                                    value = state.balanceInput,
-                                    onValueChange = { onEvent(StudentDetailEvent.BalanceChange(it)) },
-                                    label = { Text(stringResource(id = R.string.student_detail_pending_balance_label)) },
-                                    modifier = Modifier.weight(1f),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    OutlinedTextField(
+                                        value = state.balanceInput,
+                                        onValueChange = { onEvent(StudentDetailEvent.BalanceChange(it)) },
+                                        label = { Text(stringResource(id = R.string.student_detail_pending_balance_label)) },
+                                        modifier = Modifier.weight(1f),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        singleLine = true
+                                    )
+                                    IconButton(onClick = { onEvent(StudentDetailEvent.SaveBalance) }) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = stringResource(id = R.string.save),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    IconButton(onClick = { onEvent(StudentDetailEvent.ToggleBalanceEdit) }) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = stringResource(id = R.string.cancel),
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
                             } else {
                                 Text(
                                     text = stringResource(id = R.string.student_detail_pending_balance, student.pendingBalance),
                                     style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(end = 40.dp)
                                 )
                             }
-                            if (isEditMode) {
-                                IconButton(onClick = { onEvent(StudentDetailEvent.ToggleBalanceEdit) }) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = stringResource(id = R.string.student_detail_edit_balance),
-                                        tint = if (state.isBalanceEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
+
+                            if (student.lastPaymentDate != null) {
+                                val formatPattern = stringResource(id = R.string.date_time_format)
+                                val date = SimpleDateFormat(formatPattern, Locale.getDefault()).format(
+                                    Date(student.lastPaymentDate)
+                                )
+                                Text(
+                                    text = stringResource(id = R.string.student_detail_last_payment, date),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
                             }
                         }
 
-                        if (student.lastPaymentDate != null) {
-                            val formatPattern = stringResource(id = R.string.date_time_format)
-                            val date = SimpleDateFormat(formatPattern, Locale.getDefault()).format(
-                                Date(student.lastPaymentDate)
-                            )
-                            Text(
-                                text = stringResource(id = R.string.student_detail_last_payment, date),
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
+                        if (!state.isBalanceEditable) {
+                            IconButton(
+                                onClick = { onEvent(StudentDetailEvent.ToggleBalanceEdit) },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = stringResource(id = R.string.student_detail_edit_balance),
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
                 }
@@ -121,7 +145,7 @@ fun FinanceTab(
 
                 Button(
                     onClick = onPaymentClick,
-                    enabled = student.pendingBalance > 0,
+                    enabled = true,
                     modifier = Modifier.fillMaxWidth().testTag("register_payment_button"),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
