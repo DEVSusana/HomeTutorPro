@@ -16,6 +16,7 @@ sealed interface StudentDetailEvent {
     data class PriceChange(val input: String) : StudentDetailEvent
     data class BalanceChange(val input: String) : StudentDetailEvent
     data object ToggleBalanceEdit : StudentDetailEvent
+    data object SaveBalance : StudentDetailEvent
     
     data class RegisterPayment(val amount: Double, val type: PaymentType) : StudentDetailEvent
     data class StartClass(val durationMinutes: Int) : StudentDetailEvent

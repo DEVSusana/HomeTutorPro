@@ -25,7 +25,7 @@ fun StudentDetailScreen(
     val isNewStudent = student?.id?.isEmpty() == true || student?.id == "new"
 
     var isLocalEditMode by rememberSaveable(student?.id) { mutableStateOf(isNewStudent) }
-    val isEditMode = isLocalEditMode || state.isBalanceEditable
+    val isEditMode = isLocalEditMode
 
     var showPaymentDialog by rememberSaveable { mutableStateOf(false) }
     var selectedPaymentType by rememberSaveable { mutableStateOf<PaymentType?>(null) }

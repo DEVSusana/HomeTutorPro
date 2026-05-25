@@ -86,6 +86,7 @@ class StudentDetailViewModel @Inject constructor(
             is StudentDetailEvent.PriceChange -> onPriceChange(event.input)
             is StudentDetailEvent.BalanceChange -> _state.value = _state.value.copy(balanceInput = event.input)
             StudentDetailEvent.ToggleBalanceEdit -> onBalanceEditToggle()
+            StudentDetailEvent.SaveBalance -> saveBalance()
             is StudentDetailEvent.RegisterPayment -> financeDelegate.registerPayment(student.professorId, student.id, event.amount, event.type, _state, viewModelScope)
             is StudentDetailEvent.StartClass -> financeDelegate.startClass(student.professorId, student.id, event.durationMinutes, _state, viewModelScope)
             is StudentDetailEvent.SaveSchedule -> scheduleDelegate.saveSchedule(student.professorId, student.id, event.schedule, _state, viewModelScope)
@@ -126,6 +127,22 @@ class StudentDetailViewModel @Inject constructor(
         _state.value = _state.value.copy(
             isBalanceEditable = isEditing,
             balanceInput = if (isEditing) currentBalance.toString() else ""
+        )
+    }
+
+    private fun saveBalance() {
+        val student = _state.value.student ?: return
+        val newBalance = _state.value.balanceInput.toDoubleOrNull()
+        if (newBalance == null) {
+            _state.value = _state.value.copy(errorMessage = application.getString(R.string.student_detail_error_invalid_balance))
+            return
+        }
+        financeDelegate.updateBalance(
+            professorId = student.professorId,
+            studentId = student.id,
+            newBalance = newBalance,
+            state = _state,
+            scope = viewModelScope
         )
     }
 
