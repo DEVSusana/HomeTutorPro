@@ -1,6 +1,6 @@
 package com.devsusana.hometutorpro.core.sue
 
-import com.devsusana.hometutorpro.core.sue.inference.MediaPipeModelManager
+import com.devsusana.hometutorpro.domain.repository.InferenceRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -9,11 +9,11 @@ import javax.inject.Singleton
  * 
  * Koog typically expects a remote `PromptExecutor` that handles HTTP calls to OpenAI/Anthropic.
  * This class intercepts the Koog prompt, formats it for the Gemma 2B instruction-tuned model,
- * and delegates execution to our local `MediaPipeModelManager`.
+ * and delegates execution to our local `InferenceRepository`.
  */
 @Singleton
 class MediaPipePromptExecutor @Inject constructor(
-    private val modelManager: MediaPipeModelManager
+    private val inferenceRepository: InferenceRepository
 ) {
     /**
      * Executes the prompt locally.
@@ -24,7 +24,7 @@ class MediaPipePromptExecutor @Inject constructor(
      */
     suspend fun execute(systemPrompt: String, userContext: String): String {
         val formattedPrompt = formatForGemma(systemPrompt, userContext)
-        return modelManager.generateResponse(formattedPrompt)
+        return inferenceRepository.generateResponse(formattedPrompt)
     }
 
     /**

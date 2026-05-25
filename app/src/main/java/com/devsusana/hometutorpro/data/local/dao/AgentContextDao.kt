@@ -2,11 +2,11 @@ package com.devsusana.hometutorpro.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Query
-import com.devsusana.hometutorpro.data.models.AgentBalanceSummary
-import com.devsusana.hometutorpro.data.models.AgentScheduleDetail
-import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
-import com.devsusana.hometutorpro.data.models.AgentStudentDetail
-import com.devsusana.hometutorpro.data.models.AgentStudentSummary
+import com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
+import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
+import com.devsusana.hometutorpro.domain.entities.AgentStudentSummary
 
 /**
  * DAO providing optimized, read-only queries for the Sue AI agent.

@@ -2,13 +2,15 @@ package com.devsusana.hometutorpro.presentation.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.devsusana.hometutorpro.core.sue.SpeechManager
-import com.devsusana.hometutorpro.core.sue.SpeechState
+import com.devsusana.hometutorpro.domain.entities.SpeechState
+import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.entities.SueOperationResult
+import com.devsusana.hometutorpro.domain.repository.SpeechService
+import com.devsusana.hometutorpro.domain.repository.InferenceRepository
 import com.devsusana.hometutorpro.core.sue.SueAgent
-import com.devsusana.hometutorpro.core.sue.SuePendingAction
-import com.devsusana.hometutorpro.core.sue.inference.MediaPipeModelManager
 import com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
 import com.devsusana.hometutorpro.core.sue.tools.StudentTools
+import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
 import com.devsusana.hometutorpro.presentation.sue.SueUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -28,16 +30,16 @@ import javax.inject.Inject
  * 2. SueAgent → Intent detection (schedule management or normal query).
  * 3. Confirmation flow → If a pending action is detected, Sue asks for
  *    confirmation before executing. "sí" executes, "no" cancels.
- * 4. MediaPipeModelManager → On-device LLM inference for normal queries.
+ * 4. InferenceRepository → On-device LLM inference for normal queries.
  * 5. TextToSpeech → Speaks the response.
  *
  * Scoped at the navigation host level so Sue's state persists across screens.
  */
 @HiltViewModel
 class SueViewModel @Inject constructor(
-    private val speechManager: SpeechManager,
+    private val speechService: SpeechService,
     private val sueAgent: SueAgent,
-    private val modelManager: MediaPipeModelManager,
+    private val inferenceRepository: InferenceRepository,
     private val scheduleTools: ScheduleTools,
     private val studentTools: StudentTools
 ) : ViewModel() {
@@ -76,7 +78,7 @@ class SueViewModel @Inject constructor(
     fun onFabClick() {
         when (_uiState.value.speechState) {
             SpeechState.IDLE, SpeechState.ERROR -> {
-                speechManager.initializeTts()
+                speechService.initializeTts()
                 _uiState.update {
                     it.copy(
                         isOverlayVisible = true,
@@ -86,15 +88,15 @@ class SueViewModel @Inject constructor(
                         agentResponse = ""
                     )
                 }
-                speechManager.startListening()
+                speechService.startListening()
                 startListeningTimeout()
             }
             SpeechState.LISTENING -> {
                 cancelListeningTimeout()
-                speechManager.stopListening()
+                speechService.stopListening()
             }
             SpeechState.SPEAKING -> {
-                speechManager.stopSpeaking()
+                speechService.stopSpeaking()
             }
             else -> {
                 _uiState.update { it.copy(isOverlayVisible = true) }
@@ -108,8 +110,8 @@ class SueViewModel @Inject constructor(
      */
     fun onDismiss() {
         cancelListeningTimeout()
-        speechManager.stopListening()
-        speechManager.stopSpeaking()
+        speechService.stopListening()
+        speechService.stopSpeaking()
         _uiState.update {
             it.copy(
                 isOverlayVisible = false,
@@ -122,7 +124,7 @@ class SueViewModel @Inject constructor(
     /** Clears any displayed error message and resets speech state if needed. */
     fun onErrorDismissed() {
         if (_uiState.value.speechState == SpeechState.ERROR) {
-            speechManager.resetState()
+            speechService.resetState()
         }
         _uiState.update { it.copy(errorMessage = null) }
     }
@@ -130,17 +132,17 @@ class SueViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         cancelListeningTimeout()
-        speechManager.release()
-        modelManager.release()
+        speechService.release()
+        inferenceRepository.release()
     }
 
     private fun preloadModel() {
-        viewModelScope.launch { modelManager.loadModel() }
+        viewModelScope.launch { inferenceRepository.loadModel() }
     }
 
     private fun collectSpeechState() {
         viewModelScope.launch {
-            speechManager.state.collect { state ->
+            speechService.state.collect { state ->
                 _uiState.update { it.copy(speechState = state) }
                 // Cancel the timeout once we leave LISTENING/PROCESSING
                 if (state == SpeechState.IDLE || state == SpeechState.SPEAKING) {
@@ -152,7 +154,7 @@ class SueViewModel @Inject constructor(
 
     private fun collectTranscriptions() {
         viewModelScope.launch {
-            speechManager.transcriptions.collect { transcription ->
+            speechService.transcriptions.collect { transcription ->
                 cancelListeningTimeout()
                 _uiState.update {
                     it.copy(
@@ -167,7 +169,7 @@ class SueViewModel @Inject constructor(
 
     private fun collectPartialTranscriptions() {
         viewModelScope.launch {
-            speechManager.partialTranscriptions.collect { partial ->
+            speechService.partialTranscriptions.collect { partial ->
                 _uiState.update { it.copy(partialTranscription = partial) }
             }
         }
@@ -175,7 +177,7 @@ class SueViewModel @Inject constructor(
 
     private fun collectErrors() {
         viewModelScope.launch {
-            speechManager.errors.collect { error ->
+            speechService.errors.collect { error ->
                 cancelListeningTimeout()
                 _uiState.update { it.copy(errorMessage = error) }
             }
@@ -185,7 +187,7 @@ class SueViewModel @Inject constructor(
 
     private fun collectModelState() {
         viewModelScope.launch {
-            modelManager.isModelLoaded.collect { loaded ->
+            inferenceRepository.isModelLoaded.collect { loaded ->
                 _uiState.update { it.copy(isModelLoaded = loaded) }
             }
         }
@@ -206,7 +208,7 @@ class SueViewModel @Inject constructor(
             delay(LISTENING_TIMEOUT_MS)
             val state = _uiState.value.speechState
             if (state == SpeechState.LISTENING || state == SpeechState.PROCESSING) {
-                speechManager.resetState()
+                speechService.resetState()
             }
         }
     }
@@ -233,9 +235,10 @@ class SueViewModel @Inject constructor(
             // Check for action intents first (rule-based, no LLM needed)
             val intentResult = sueAgent.detectActionIntent(transcription)
             if (intentResult != null) {
-                val (action, message) = intentResult
+                val message = SueResponseFormatter.format(intentResult)
+                val action = (intentResult as? SueOperationResult.Prepare.Success)?.action
                 _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
-                speechManager.speak(message)
+                speechService.speak(message)
             } else {
                 processWithAgent(transcription)
             }
@@ -257,12 +260,12 @@ class SueViewModel @Inject constructor(
             NEGATIVE_WORDS.any { it in lower } -> {
                 val cancelMessage = "De acuerdo, he cancelado la acción."
                 _uiState.update { it.copy(agentResponse = cancelMessage, pendingAction = null) }
-                speechManager.speak(cancelMessage)
+                speechService.speak(cancelMessage)
             }
             else -> {
                 val askAgain = "No he entendido. Di «sí» para confirmar o «no» para cancelar."
                 _uiState.update { it.copy(agentResponse = askAgain) }
-                speechManager.speak(askAgain)
+                speechService.speak(askAgain)
             }
         }
     }
@@ -272,7 +275,7 @@ class SueViewModel @Inject constructor(
      */
     private suspend fun executePendingAction(action: SuePendingAction) {
         try {
-            val response = when (action) {
+            val executeResult = when (action) {
                 is SuePendingAction.CancelClass ->
                     scheduleTools.executeCancelAction(action)
                 is SuePendingAction.RescheduleClass ->
@@ -282,12 +285,13 @@ class SueViewModel @Inject constructor(
                 is SuePendingAction.AddBalance ->
                     studentTools.executeAddBalance(action)
             }
+            val response = SueResponseFormatter.format(executeResult)
             _uiState.update { it.copy(agentResponse = response) }
-            speechManager.speak(response)
+            speechService.speak(response)
         } catch (e: Exception) {
             val errorMsg = "Lo siento, no se pudo completar la acción."
             _uiState.update { it.copy(agentResponse = errorMsg, errorMessage = e.message) }
-            speechManager.speak(errorMsg)
+            speechService.speak(errorMsg)
         }
     }
 
@@ -298,7 +302,7 @@ class SueViewModel @Inject constructor(
     /**
      * Processes the user's transcription through the Sue agent pipeline:
      * 1. SueAgent gathers relevant tool context and builds a prompt.
-     * 2. MediaPipeModelManager runs inference on the prompt.
+     * 2. InferenceRepository runs inference on the prompt.
      * 3. The response is displayed and spoken via TTS.
      *
      * Falls back to raw tool data if the model is not loaded.
@@ -308,19 +312,19 @@ class SueViewModel @Inject constructor(
             val prompt = sueAgent.buildPromptWithContext(transcription)
 
             val response = if (_uiState.value.isModelLoaded) {
-                modelManager.generateResponse(prompt)
+                inferenceRepository.generateResponse(prompt)
             } else {
                 extractDataFromPrompt(prompt)
             }
 
             _uiState.update { it.copy(agentResponse = response) }
-            speechManager.speak(response)
+            speechService.speak(response)
         } catch (e: Exception) {
             val errorResponse = "Lo siento, hubo un error al procesar tu consulta."
             _uiState.update {
                 it.copy(agentResponse = errorResponse, errorMessage = e.message)
             }
-            speechManager.speak(errorResponse)
+            speechService.speak(errorResponse)
         }
     }
 

@@ -2,6 +2,8 @@ package com.devsusana.hometutorpro.core.sue
 
 import com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
 import com.devsusana.hometutorpro.core.sue.tools.StudentTools
+import com.devsusana.hometutorpro.domain.entities.PaymentType
+import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -78,22 +80,22 @@ class SueAgent @Inject constructor(
 
     /**
      * Detects an action intent (schedule or financial) from [query] and prepares the
-     * corresponding [SuePendingAction] with all data pre-resolved.
+     * corresponding [SueOperationResult.Prepare] with all data pre-resolved.
      *
      * Returns null if no action intent is detected, meaning the
      * caller should fall through to normal LLM processing.
      *
-     * @return Pair of (pending action or null, message to speak/show).
+     * Returns [SueOperationResult.Prepare] with the resolved action and confirmation data,
+     * or with an error descriptor if the intent was detected but the data could not be resolved.
      */
-    suspend fun detectActionIntent(query: String): Pair<SuePendingAction?, String>? {
+    suspend fun detectActionIntent(query: String): SueOperationResult.Prepare? {
         val lower = query.lowercase()
 
         return when {
             containsCancelKeywords(lower) -> {
                 val studentName = extractStudentName(lower) ?: return null
                 val dayOfWeek = extractDayOfWeek(lower) ?: return null
-                val (action, message) = scheduleTools.prepareCancelAction(studentName, dayOfWeek)
-                Pair(action, message)
+                scheduleTools.prepareCancelAction(studentName, dayOfWeek)
             }
 
             containsRescheduleKeywords(lower) -> {
@@ -101,27 +103,21 @@ class SueAgent @Inject constructor(
                 val days = extractTwoDaysOfWeek(lower)
                 val fromDay = days.first ?: return null
                 val toDay = days.second ?: return null
-                val newTime = extractTime(lower) ?: run {
-                    // If no target time provided, ask for it
-                    return Pair(null, "¿A qué hora quieres mover la clase? Por ejemplo, di «a las 11:00».")
-                }
-                val (action, message) = scheduleTools.prepareRescheduleAction(studentName, fromDay, toDay, newTime)
-                Pair(action, message)
+                val newTime = extractTime(lower) ?: return null
+                scheduleTools.prepareRescheduleAction(studentName, fromDay, toDay, newTime)
             }
 
             containsRegisterPaymentKeywords(lower) -> {
                 val studentName = extractStudentNameForFinance(lower) ?: return null
-                val amount = extractAmount(lower) ?: return Pair(null, "¿Qué cantidad ha pagado? Por ejemplo, di «20 euros».")
-                val paymentType = if (lower.contains("bizum")) com.devsusana.hometutorpro.domain.entities.PaymentType.BIZUM else com.devsusana.hometutorpro.domain.entities.PaymentType.EFFECTIVE
-                val (action, message) = studentTools.prepareRegisterPayment(studentName, amount, paymentType)
-                Pair(action, message)
+                val amount = extractAmount(lower) ?: return null
+                val paymentType = if (lower.contains("bizum")) PaymentType.BIZUM else PaymentType.EFFECTIVE
+                studentTools.prepareRegisterPayment(studentName, amount, paymentType)
             }
 
             containsAddBalanceKeywords(lower) -> {
                 val studentName = extractStudentNameForFinance(lower) ?: return null
-                val amount = extractAmount(lower) ?: return Pair(null, "¿Cuánto saldo quieres añadir? Por ejemplo, di «15 euros».")
-                val (action, message) = studentTools.prepareAddBalance(studentName, amount)
-                Pair(action, message)
+                val amount = extractAmount(lower) ?: return null
+                studentTools.prepareAddBalance(studentName, amount)
             }
 
             else -> null
@@ -187,45 +183,50 @@ class SueAgent @Inject constructor(
             // 1. Schedule queries
             if (containsScheduleKeywords(lowerQuery)) {
                 if (containsNextClassKeywords(lowerQuery)) {
-                    appendLine(scheduleTools.getNextClass())
+                    appendLine(formatResult(scheduleTools.getNextClass()))
                 } else if (containsFreeSlotKeywords(lowerQuery)) {
-                    appendLine(scheduleTools.getFreeSlots())
+                    appendLine(formatResult(scheduleTools.getFreeSlots()))
                 } else {
-                    // Resolve relative references first (hoy, mañana, ayer)
                     val relativeDay = extractRelativeDayOfWeek(lowerQuery)
                     val explicitDay = extractDayOfWeek(lowerQuery)
                     val targetDay = relativeDay ?: explicitDay
 
                     if (targetDay != null) {
                         val timeFilter = extractTimeOfDayFilter(lowerQuery)
-                        appendLine(scheduleTools.getScheduleForDay(targetDay, timeFilter))
+                        appendLine(formatResult(scheduleTools.getScheduleForDay(targetDay, timeFilter)))
                     } else {
-                        appendLine(scheduleTools.getWeeklySchedule())
+                        appendLine(formatResult(scheduleTools.getWeeklySchedule()))
                     }
                 }
             }
 
             // 2. Student queries — mutually exclusive branches to avoid data dumping
-            val specificStudentContext = studentTools.extractRelevantStudentContext(lowerQuery)
+            val matchedStudent = studentTools.extractRelevantStudent(lowerQuery)
             val hasSchedule = containsScheduleKeywords(lowerQuery)
-            
+
             when {
-                specificStudentContext != null ->
-                    appendLine(specificStudentContext)
+                matchedStudent != null ->
+                    appendLine(formatResult(studentTools.searchStudent(matchedStudent.name)))
 
                 containsCountKeywords(lowerQuery) ->
-                    appendLine(studentTools.getActiveStudentCount())
+                    appendLine(formatResult(studentTools.getActiveStudentCount()))
 
                 containsBalanceKeywords(lowerQuery) ->
-                    appendLine(studentTools.getStudentsWithBalance())
+                    appendLine(formatResult(studentTools.getStudentsWithBalance()))
 
                 containsAllStudentsKeywords(lowerQuery) && !hasSchedule ->
-                    appendLine(studentTools.getAllStudentsSummary())
+                    appendLine(formatResult(studentTools.getAllStudentsSummary()))
                 // No else-branch — if nothing matched, no context is injected.
-                // The LLM will respond based on the system prompt alone.
             }
         }
     }
+
+    /**
+     * Converts a [SueOperationResult] to a string suitable for LLM context injection.
+     * Delegates to the presentation formatter which holds all localized strings.
+     */
+    private fun formatResult(result: SueOperationResult): String =
+        com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter.format(result)
 
     // ──────────────────────────────────────────────────────────────────────────
     // Keyword helpers

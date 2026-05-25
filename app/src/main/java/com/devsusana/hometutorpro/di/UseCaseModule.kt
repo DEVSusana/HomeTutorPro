@@ -169,4 +169,17 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindUpdateBalanceUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.UpdateBalanceUseCase): IUpdateBalanceUseCase
+
+    @Binds
+    abstract fun bindGetLanguageUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetLanguageUseCase): IGetLanguageUseCase
+
+    @Binds
+    abstract fun bindGetThemeModeUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetThemeModeUseCase): IGetThemeModeUseCase
+
+    @Binds
+    abstract fun bindGetClassEndNotificationsUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetClassEndNotificationsUseCase): IGetClassEndNotificationsUseCase
+
+    @Binds
+    abstract fun bindGetDebugPremiumUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetDebugPremiumUseCase): IGetDebugPremiumUseCase
 }
+

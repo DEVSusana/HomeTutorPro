@@ -1,7 +1,7 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.devsusana.hometutorpro.data.models.AgentScheduleDetail
-import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
 import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
 import javax.inject.Inject

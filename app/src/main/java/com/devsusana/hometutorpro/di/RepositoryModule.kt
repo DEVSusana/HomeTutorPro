@@ -54,4 +54,17 @@ abstract class RepositoryModule {
     abstract fun bindRemoteDataSource(
         firestoreRemoteDataSource: FirestoreRemoteDataSource
     ): RemoteDataSource
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupRepository(
+        backupRepositoryImpl: BackupRepositoryImpl
+    ): BackupRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSettingsRepository(
+        settingsRepositoryImpl: SettingsRepositoryImpl
+    ): SettingsRepository
 }
+

@@ -15,13 +15,14 @@ class ClassEndReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         android.util.Log.d("ClassEndReceiver", "onReceive called - alarm triggered!")
         
+
         // Check if notifications are enabled in settings
-        val settingsManager = EntryPointAccessors.fromApplication(
+        val settingsRepository = EntryPointAccessors.fromApplication(
             context.applicationContext,
-            com.devsusana.hometutorpro.di.SettingsManagerEntryPoint::class.java
-        ).settingsManager()
+            com.devsusana.hometutorpro.di.SettingsRepositoryEntryPoint::class.java
+        ).settingsRepository()
         
-        val areNotificationsEnabled = runBlocking { settingsManager.classEndNotificationsFlow.first() }
+        val areNotificationsEnabled = runBlocking { settingsRepository.classEndNotificationsFlow.first() }
         
         if (!areNotificationsEnabled) {
             android.util.Log.d("ClassEndReceiver", "Notifications are disabled in settings, skipping.")

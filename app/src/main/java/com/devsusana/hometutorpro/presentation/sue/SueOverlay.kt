@@ -15,7 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.devsusana.hometutorpro.core.sue.SpeechState
+import com.devsusana.hometutorpro.domain.entities.SpeechState
 
 /**
  * Full-screen overlay container for Sue's conversational interface.

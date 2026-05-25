@@ -1,87 +1,58 @@
-package com.devsusana.hometutorpro.core.sue
+package com.devsusana.hometutorpro.data.repository
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.devsusana.hometutorpro.domain.entities.SpeechState
+import com.devsusana.hometutorpro.domain.repository.SpeechService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Represents the current state of the speech system.
- */
-enum class SpeechState {
-    /** No active speech operation. */
-    IDLE,
-    /** Actively listening for speech input. */
-    LISTENING,
-    /** Processing the captured speech. */
-    PROCESSING,
-    /** Speaking a response via TTS. */
-    SPEAKING,
-    /** An error occurred during the speech operation. */
-    ERROR
-}
-
-/**
- * Manages the speech-to-text ([SpeechRecognizer]) and text-to-speech ([TextToSpeech])
- * subsystems for the Sue AI agent.
- *
- * Exposes:
- * - [state]: Current [SpeechState] as a [StateFlow].
- * - [transcriptions]: Completed transcription results as a [SharedFlow].
- * - [partialTranscriptions]: Real-time partial transcription updates as a [SharedFlow].
- *
- * Uses on-device recognition (API 31+) with fallback to cloud-based recognition
- * for older devices.
- *
- * @param context Application context for initializing Android speech services.
+ * Android implementation of [SpeechService] using [SpeechRecognizer] and [TextToSpeech].
  */
 @Singleton
-class SpeechManager @Inject constructor(
+class SpeechServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context
-) {
+) : SpeechService {
+
+    private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val _state = MutableStateFlow(SpeechState.IDLE)
-    /** Current state of the speech system. */
-    val state: StateFlow<SpeechState> = _state.asStateFlow()
+    override val state: StateFlow<SpeechState> = _state.asStateFlow()
 
     private val _transcriptions = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    /** Emits completed transcription results. */
-    val transcriptions: SharedFlow<String> = _transcriptions.asSharedFlow()
+    override val transcriptions: SharedFlow<String> = _transcriptions.asSharedFlow()
 
     private val _partialTranscriptions = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    /** Emits partial (real-time) transcription updates while listening. */
-    val partialTranscriptions: SharedFlow<String> = _partialTranscriptions.asSharedFlow()
+    override val partialTranscriptions: SharedFlow<String> = _partialTranscriptions.asSharedFlow()
 
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    /** Emits human-readable error messages. */
-    val errors: SharedFlow<String> = _errors.asSharedFlow()
-
+    override val errors: SharedFlow<String> = _errors.asSharedFlow()
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
 
-    /**
-     * Initializes the TTS engine. Should be called during app startup or
-     * when the agent is first activated.
-     */
-    fun initializeTts() {
+    override fun initializeTts() {
         if (textToSpeech != null) return
 
         textToSpeech = TextToSpeech(context) { status ->
@@ -105,23 +76,17 @@ class SpeechManager @Inject constructor(
                         @Deprecated("Deprecated in Java")
                         override fun onError(utteranceId: String?) {
                             _state.value = SpeechState.ERROR
-                            _errors.tryEmit("Error during text-to-speech playback.")
+                            emitError("Error during text-to-speech playback.")
                         }
                     })
                 }
             } else {
-                _errors.tryEmit("Text-to-speech initialization failed.")
+                emitError("Text-to-speech initialization failed.")
             }
         }
     }
 
-    /**
-     * Starts listening for speech input using the device microphone.
-     *
-     * Uses on-device recognition on API 31+ (offline), falling back to
-     * cloud-based recognition on older devices.
-     */
-    fun startListening() {
+    override fun startListening() {
         if (speechRecognizer == null) {
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
             speechRecognizer?.setRecognitionListener(createRecognitionListener())
@@ -140,15 +105,7 @@ class SpeechManager @Inject constructor(
         speechRecognizer?.startListening(intent)
     }
 
-    /**
-     * Stops the current listening session and fully destroys the [SpeechRecognizer].
-     *
-     * **Bug-fix:** The previous implementation only called [SpeechRecognizer.stopListening]
-     * and kept the recognizer object alive. When the user navigated away and back, the
-     * stale recognizer caused the FAB to remain frozen in LISTENING/PROCESSING state.
-     * Destroying it here guarantees a clean slate on the next [startListening] call.
-     */
-    fun stopListening() {
+    override fun stopListening() {
         speechRecognizer?.apply {
             stopListening()
             destroy()
@@ -159,23 +116,14 @@ class SpeechManager @Inject constructor(
         }
     }
 
-    /**
-     * Forces the state machine back to [SpeechState.IDLE].
-     * Called by the ViewModel when a listening timeout is detected.
-     */
-    fun resetState() {
+    override fun resetState() {
         stopListening()
         _state.value = SpeechState.IDLE
     }
 
-    /**
-     * Speaks the given [text] aloud using the TTS engine.
-     *
-     * @param text The text for Sue to speak.
-     */
-    fun speak(text: String) {
+    override fun speak(text: String) {
         if (!isTtsReady) {
-            _errors.tryEmit("Text-to-speech is not ready.")
+            emitError("Text-to-speech is not ready.")
             return
         }
 
@@ -183,21 +131,14 @@ class SpeechManager @Inject constructor(
         textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
-    /**
-     * Stops any ongoing TTS playback.
-     */
-    fun stopSpeaking() {
+    override fun stopSpeaking() {
         textToSpeech?.stop()
         if (_state.value == SpeechState.SPEAKING) {
             _state.value = SpeechState.IDLE
         }
     }
 
-    /**
-     * Releases all resources held by the speech system.
-     * Should be called when the agent is no longer needed.
-     */
-    fun release() {
+    override fun release() {
         stopListening()
         textToSpeech?.apply {
             stop()
@@ -208,22 +149,22 @@ class SpeechManager @Inject constructor(
         _state.value = SpeechState.IDLE
     }
 
+    private fun emitError(message: String) {
+        coroutineScope.launch {
+            _errors.emit(message)
+        }
+    }
+
     private fun createRecognitionListener(): RecognitionListener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
             _state.value = SpeechState.LISTENING
         }
 
-        override fun onBeginningOfSpeech() {
-            // User started speaking — keep LISTENING state
-        }
+        override fun onBeginningOfSpeech() {}
 
-        override fun onRmsChanged(rmsdB: Float) {
-            // Could be used for audio wave visualization
-        }
+        override fun onRmsChanged(rmsdB: Float) {}
 
-        override fun onBufferReceived(buffer: ByteArray?) {
-            // Raw audio data — not needed for transcription
-        }
+        override fun onBufferReceived(buffer: ByteArray?) {}
 
         override fun onEndOfSpeech() {
             _state.value = SpeechState.PROCESSING
@@ -232,14 +173,16 @@ class SpeechManager @Inject constructor(
         override fun onError(error: Int) {
             val message = mapSpeechErrorToMessage(error)
             _state.value = SpeechState.ERROR
-            _errors.tryEmit(message)
+            emitError(message)
         }
 
         override fun onResults(results: Bundle?) {
             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             val transcription = matches?.firstOrNull() ?: ""
             if (transcription.isNotBlank()) {
-                _transcriptions.tryEmit(transcription)
+                coroutineScope.launch {
+                    _transcriptions.emit(transcription)
+                }
             }
             _state.value = SpeechState.PROCESSING
         }
@@ -248,13 +191,13 @@ class SpeechManager @Inject constructor(
             val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             val partial = matches?.firstOrNull() ?: ""
             if (partial.isNotBlank()) {
-                _partialTranscriptions.tryEmit(partial)
+                coroutineScope.launch {
+                    _partialTranscriptions.emit(partial)
+                }
             }
         }
 
-        override fun onEvent(eventType: Int, params: Bundle?) {
-            // Reserved for future use
-        }
+        override fun onEvent(eventType: Int, params: Bundle?) {}
     }
 
     private fun mapSpeechErrorToMessage(errorCode: Int): String = when (errorCode) {
@@ -274,5 +217,4 @@ class SpeechManager @Inject constructor(
         14 -> "Cannot check offline support."
         else -> "Unknown speech recognition error (code $errorCode)."
     }
-
 }

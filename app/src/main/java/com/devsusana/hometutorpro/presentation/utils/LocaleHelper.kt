@@ -4,7 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
-import com.devsusana.hometutorpro.core.settings.dataStore
+import com.devsusana.hometutorpro.di.SettingsRepositoryEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.util.Locale
@@ -45,14 +46,17 @@ object LocaleHelper {
      */
     fun onAttach(context: Context): Context {
         val language = try {
-            kotlinx.coroutines.runBlocking {
-                context.dataStore.data.first()[com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_KEY]
-                    ?: com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
+            val entryPoint = EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                SettingsRepositoryEntryPoint::class.java
+            )
+            val settingsRepository = entryPoint.settingsRepository()
+            runBlocking {
+                settingsRepository.languageFlow.first()
             }
         } catch (e: Exception) {
-            // If DataStore is not available yet (e.g., during app initialization),
-            // fall back to Spanish as default
-            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
+            // If Hilt or DataStore is not available yet, fall back to Spanish
+            "es"
         }
         
         val locale = Locale(language)

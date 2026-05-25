@@ -7,7 +7,7 @@ import com.android.billingclient.api.PendingPurchasesParams
 import com.devsusana.hometutorpro.BuildConfig
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
-import com.devsusana.hometutorpro.core.settings.SettingsManager
+import com.devsusana.hometutorpro.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +24,7 @@ import kotlin.coroutines.resume
 @Singleton
 class BillingManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val settingsManager: SettingsManager
+    private val settingsRepository: SettingsRepository
 ) : PurchasesUpdatedListener, PremiumBillingService {
 
     private val _realPremium = MutableStateFlow(false)
@@ -42,7 +42,7 @@ class BillingManager @Inject constructor(
         startConnection()
         // Combine real premium status with debug preference
         CoroutineScope(Dispatchers.Main).launch {
-            combine(_realPremium, settingsManager.isDebugPremiumFlow) { real, debug ->
+            combine(_realPremium, settingsRepository.isDebugPremiumFlow) { real, debug ->
                 if (BuildConfig.DEBUG) {
                     // In DEBUG, strict control via toggle to allow testing non-premium state
                     debug

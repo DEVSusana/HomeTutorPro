@@ -1,9 +1,11 @@
 package com.devsusana.hometutorpro.core.sue.tools
 
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
-import com.devsusana.hometutorpro.core.sue.SuePendingAction
-import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
 import com.devsusana.hometutorpro.domain.entities.PaymentType
+import com.devsusana.hometutorpro.domain.entities.SueOperationResult
+import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQueryStudentsForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
@@ -11,11 +13,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Koog-compatible tool definitions for student-related queries and finance operations.
+ * Tool definitions for student-related queries and finance operations.
  *
- * All functions are `suspend` so they execute on the coroutine dispatcher
- * chosen by the caller (typically [Dispatchers.IO] via the ViewModel's
- * [viewModelScope]).
+ * All functions are `suspend` to comply with AGENTS.md Rule 1 (Coroutines),
+ * executing database I/O on background threads.
  */
 @Singleton
 class StudentTools @Inject constructor(
@@ -26,122 +27,66 @@ class StudentTools @Inject constructor(
 ) {
 
     /**
-     * Returns a text summary of all students (name, subjects, course, price, balance, status).
-     * Intended for broad queries like "list my students" or "how many students do I have".
+     * Returns a summary of all students.
      */
-    suspend fun getAllStudentsSummary(): String {
+    suspend fun getAllStudentsSummary(): SueOperationResult {
         val students = queryStudentsUseCase.getAllStudents()
-        if (students.isEmpty()) return "No se encontraron alumnos."
-
-        return buildString {
-            appendLine("Alumnos (${students.size} en total):")
-            appendLine()
-            students.forEach { student ->
-                val status = if (student.isActive) "Activo" else "Inactivo"
-                appendLine("• ${student.name}")
-                appendLine("  Asignaturas: ${student.subjects}")
-                appendLine("  Curso: ${student.course}")
-                appendLine("  Precio: ${student.pricePerHour} euros la hora")
-                appendLine("  Saldo pendiente: ${student.pendingBalance} euros")
-                if (student.lastPaymentDate != null) {
-                    val date = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
-                        .format(java.util.Date(student.lastPaymentDate))
-                    appendLine("  Último pago: $date")
-                } else {
-                    appendLine("  Último pago: Nunca")
-                }
-                appendLine("  Estado: $status")
-                appendLine()
-            }
-        }
+        return SueOperationResult.AllStudentsSummary(students)
     }
 
     /**
      * Searches students by name and returns their details.
-     * Intended for targeted queries like "tell me about María".
      *
-     * @param query Partial or full student name as spoken by the user.
+     * @param query Partial or full student name.
      */
-    suspend fun searchStudent(query: String): String {
+    suspend fun searchStudent(query: String): SueOperationResult {
         val results = queryStudentsUseCase.searchByName(query)
-        if (results.isEmpty()) return "No se encontraron alumnos con el nombre '$query'."
-
-        return buildString {
-            val header = if (results.size == 1) results.first().name else "'$query'"
-            appendLine("Información de $header (${results.size} encontrado${if (results.size != 1) "s" else ""}):")
-            appendLine()
-            results.forEach { student ->
-                appendLine("• ${student.name}")
-                appendLine("  Asignaturas: ${student.subjects}")
-                appendLine("  Curso: ${student.course}")
-                appendLine("  Saldo pendiente: ${student.pendingBalance} euros")
-                if (student.lastPaymentDate != null) {
-                    val date = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
-                        .format(java.util.Date(student.lastPaymentDate))
-                    appendLine("  Último pago: $date")
-                } else {
-                    appendLine("  Último pago: Nunca")
-                }
-                appendLine()
-            }
-        }
+        return SueOperationResult.StudentDetails(query, results)
     }
 
     /**
      * Returns students with non-zero pending balance.
-     * Intended for financial queries like "who owes me money".
      */
-    suspend fun getStudentsWithBalance(): String {
+    suspend fun getStudentsWithBalance(): SueOperationResult {
         val students = queryStudentsUseCase.getStudentsWithBalance()
-        if (students.isEmpty()) return "Ningún alumno tiene saldo pendiente."
-
-        return buildString {
-            appendLine("Alumnos con saldo pendiente (${students.size}):")
-            students.forEach { student ->
-                appendLine("- ${student.name}: ${student.pendingBalance} euros")
-            }
-        }
+        return SueOperationResult.StudentsWithBalance(students)
     }
 
     /**
-     * Checks if any student's name is mentioned in the query and returns their info.
+     * Extracts a matched student detail from a natural language query.
      *
-     * Uses a two-pass strategy to avoid false positives:
-     * 1. Exact first-name word-boundary match (case-insensitive regex).
-     * 2. Partial match fallback with a minimum of 4 characters.
-     *
-     * Returns null when no student name is detected — the caller MUST NOT fall
-     * back to dumping all students when this returns null.
-     *
-     * @param query The lowercased user query.
+     * Uses a two-pass matching strategy:
+     * 1. Exact first-name word-boundary match.
+     * 2. Partial match fallback (min 4 chars).
      */
-    suspend fun extractRelevantStudentContext(query: String): String? {
+    suspend fun extractRelevantStudent(query: String): AgentStudentDetail? {
         val students = queryStudentsUseCase.getAllStudents()
+        val lowerQuery = query.lowercase()
 
-        // Pass 1 — exact first-name word-boundary match
         val exactMatch = students.find { student ->
             val firstName = student.name.substringBefore(" ").lowercase()
-            firstName.length >= 3 && Regex("\\b${Regex.escape(firstName)}\\b").containsMatchIn(query)
+            firstName.length >= 3 && Regex("\\b${Regex.escape(firstName)}\\b").containsMatchIn(lowerQuery)
         }
 
         val matchedStudent = exactMatch
             ?: students.find { student ->
-                // Pass 2 — partial match (higher minimum to reduce false positives)
                 val firstName = student.name.substringBefore(" ").lowercase()
-                firstName.length >= 4 && query.contains(firstName)
+                firstName.length >= 4 && lowerQuery.contains(firstName)
             }
 
-        return matchedStudent?.let { searchStudent(it.name) }
+        return matchedStudent?.let { student ->
+            queryStudentsUseCase.searchByName(student.name).firstOrNull()
+        }
     }
 
     /**
      * Returns the count of active students.
-     * Intended for summary queries like "how many active students do I have".
      */
-    suspend fun getActiveStudentCount(): String {
+    suspend fun getActiveStudentCount(): SueOperationResult {
         val count = queryStudentsUseCase.getActiveStudentCount()
-        return "Actualmente tienes $count alumnos activos."
+        return SueOperationResult.ActiveStudentCount(count)
     }
+
     /**
      * Prepares a RegisterPayment action for user confirmation.
      */
@@ -149,33 +94,29 @@ class StudentTools @Inject constructor(
         studentName: String,
         amount: Double,
         paymentType: PaymentType
-    ): Pair<SuePendingAction.RegisterPayment?, String> {
+    ): SueOperationResult.Prepare {
         val results = queryStudentsUseCase.searchByName(studentName)
         val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
 
         if (match == null) {
-            return Pair(null, "No he encontrado ningún alumno llamado $studentName para registrar el pago.")
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
         }
 
-        val typeStr = if (paymentType == PaymentType.BIZUM) "por Bizum" else "en efectivo"
         val action = SuePendingAction.RegisterPayment(
             studentName = match.name,
             studentId = match.studentId,
             amount = amount,
             paymentType = paymentType
         )
-        val confirmText = "¿Confirmas registrar un pago de $amount euros de ${match.name} $typeStr? " +
-                "Di sí para confirmar o no para cancelar."
-        
-        return Pair(action, confirmText)
+        return SueOperationResult.Prepare.Success(action)
     }
 
     /**
      * Executes a confirmed RegisterPayment action.
      */
-    suspend fun executeRegisterPayment(action: SuePendingAction.RegisterPayment): String {
+    suspend fun executeRegisterPayment(action: SuePendingAction.RegisterPayment): SueOperationResult.Execute {
         val professorId = secureAuthManager.getUserId()
-            ?: return "No se pudo registrar el pago: no hay sesión activa."
+            ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = registerPaymentUseCase(
             professorId = professorId,
@@ -183,8 +124,8 @@ class StudentTools @Inject constructor(
             amountPaid = action.amount,
             paymentType = action.paymentType
         )) {
-            is Result.Success -> "Hecho. Se ha registrado el pago de ${action.amount} euros de ${action.studentName}."
-            is Result.Error -> "No se pudo registrar el pago: ${result.error}."
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
         }
     }
 
@@ -194,12 +135,12 @@ class StudentTools @Inject constructor(
     suspend fun prepareAddBalance(
         studentName: String,
         amount: Double
-    ): Pair<SuePendingAction.AddBalance?, String> {
+    ): SueOperationResult.Prepare {
         val results = queryStudentsUseCase.searchByName(studentName)
         val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
 
         if (match == null) {
-            return Pair(null, "No he encontrado ningún alumno llamado $studentName para añadirle saldo.")
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
         }
 
         val action = SuePendingAction.AddBalance(
@@ -207,26 +148,23 @@ class StudentTools @Inject constructor(
             studentId = match.studentId,
             amount = amount
         )
-        val confirmText = "¿Confirmas sumar $amount euros a la deuda de ${match.name}? " +
-                "Di sí para confirmar o no para cancelar."
-        
-        return Pair(action, confirmText)
+        return SueOperationResult.Prepare.Success(action)
     }
 
     /**
      * Executes a confirmed AddBalance action.
      */
-    suspend fun executeAddBalance(action: SuePendingAction.AddBalance): String {
+    suspend fun executeAddBalance(action: SuePendingAction.AddBalance): SueOperationResult.Execute {
         val professorId = secureAuthManager.getUserId()
-            ?: return "No se pudo actualizar el saldo: no hay sesión activa."
+            ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = addToBalanceUseCase(
             professorId = professorId,
             studentId = action.studentId,
             amount = action.amount
         )) {
-            is Result.Success -> "Hecho. Se han sumado ${action.amount} euros a la cuenta de ${action.studentName}."
-            is Result.Error -> "No se pudo actualizar el saldo: ${result.error}."
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
         }
     }
 }

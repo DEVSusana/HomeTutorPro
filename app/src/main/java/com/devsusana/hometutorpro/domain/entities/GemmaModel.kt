@@ -1,11 +1,7 @@
-package com.devsusana.hometutorpro.core.sue
+package com.devsusana.hometutorpro.domain.entities
 
 /**
  * Definition of the Gemma LLM model for the Koog agent framework.
- * 
- * In a full Koog implementation, this would implement `ai.koog.model.LLMModel`.
- * Since Koog is primarily designed for remote providers (OpenAI, Anthropic),
- * this acts as a descriptor for our custom local MediaPipe executor.
  */
 data class GemmaModel(
     val name: String = "gemma-2b-it-gpu-int4",

@@ -1,8 +1,8 @@
 package com.devsusana.hometutorpro.domain.usecases
 
-import com.devsusana.hometutorpro.data.models.AgentBalanceSummary
-import com.devsusana.hometutorpro.data.models.AgentStudentDetail
-import com.devsusana.hometutorpro.data.models.AgentStudentSummary
+import com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary
+import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
+import com.devsusana.hometutorpro.domain.entities.AgentStudentSummary
 
 /**
  * Use case contract for querying student data on behalf of the Sue AI agent.

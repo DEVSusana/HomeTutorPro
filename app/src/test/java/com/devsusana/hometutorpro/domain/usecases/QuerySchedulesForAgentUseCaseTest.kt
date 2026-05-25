@@ -1,7 +1,7 @@
 package com.devsusana.hometutorpro.domain.usecases
 
-import com.devsusana.hometutorpro.data.models.AgentScheduleDetail
-import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
 import com.devsusana.hometutorpro.domain.usecases.implementations.QuerySchedulesForAgentUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify

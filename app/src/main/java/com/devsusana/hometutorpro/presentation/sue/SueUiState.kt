@@ -1,7 +1,7 @@
 package com.devsusana.hometutorpro.presentation.sue
 
-import com.devsusana.hometutorpro.core.sue.SuePendingAction
-import com.devsusana.hometutorpro.core.sue.SpeechState
+import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.entities.SpeechState
 
 /**
  * UI state for the Sue AI agent overlay.

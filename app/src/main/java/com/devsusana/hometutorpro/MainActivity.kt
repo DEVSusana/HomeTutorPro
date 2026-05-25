@@ -31,8 +31,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import com.devsusana.hometutorpro.R
-import com.devsusana.hometutorpro.core.settings.SettingsManager
 import com.devsusana.hometutorpro.data.util.DuplicateCleanupUtil
+import com.devsusana.hometutorpro.domain.repository.SettingsRepository
+import com.devsusana.hometutorpro.domain.entities.AppThemeMode
 import com.devsusana.hometutorpro.domain.usecases.implementations.RescueOrphanedDataUseCase
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
 import javax.inject.Inject
@@ -41,7 +42,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject
-    lateinit var settingsManager: SettingsManager
+    lateinit var settingsRepository: SettingsRepository
     
     @Inject
     lateinit var duplicateCleanupUtil: DuplicateCleanupUtil
@@ -79,8 +80,8 @@ class MainActivity : ComponentActivity() {
         }
         
         setContent {
-            val themeMode by settingsManager.themeModeFlow.collectAsState(
-                initial = SettingsManager.ThemeMode.SYSTEM
+            val themeMode by settingsRepository.themeModeFlow.collectAsState(
+                initial = AppThemeMode.SYSTEM
             )
             
             HomeTutorProTheme(themeMode = themeMode) {

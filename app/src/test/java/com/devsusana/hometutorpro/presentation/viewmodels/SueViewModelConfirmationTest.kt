@@ -1,13 +1,15 @@
 package com.devsusana.hometutorpro.presentation.viewmodels
 
-import com.devsusana.hometutorpro.core.sue.SpeechManager
-import com.devsusana.hometutorpro.core.sue.SpeechState
-import com.devsusana.hometutorpro.core.sue.SueAgent
-import com.devsusana.hometutorpro.core.sue.SuePendingAction
-import com.devsusana.hometutorpro.core.sue.inference.MediaPipeModelManager
-import com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
-import com.devsusana.hometutorpro.presentation.sue.SueUiState
 import android.util.Log
+import com.devsusana.hometutorpro.domain.entities.SpeechState
+import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.entities.SueOperationResult
+import com.devsusana.hometutorpro.domain.repository.SpeechService
+import com.devsusana.hometutorpro.domain.repository.InferenceRepository
+import com.devsusana.hometutorpro.core.sue.SueAgent
+import com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
+import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
+import com.devsusana.hometutorpro.presentation.sue.SueUiState
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -39,14 +41,14 @@ class SueViewModelConfirmationTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private lateinit var speechManager: SpeechManager
+    private lateinit var speechService: SpeechService
     private lateinit var sueAgent: SueAgent
-    private lateinit var modelManager: MediaPipeModelManager
+    private lateinit var inferenceRepository: InferenceRepository
     private lateinit var scheduleTools: ScheduleTools
     private lateinit var studentTools: com.devsusana.hometutorpro.core.sue.tools.StudentTools
     private lateinit var viewModel: SueViewModel
 
-    // Shared flows used to drive speechManager state from tests
+    // Shared flows used to drive speechService state from tests
     private val speechStateFlow = MutableStateFlow(SpeechState.IDLE)
     private val transcriptionFlow = MutableSharedFlow<String>()
     private val partialFlow = MutableSharedFlow<String>()
@@ -61,20 +63,20 @@ class SueViewModelConfirmationTest {
 
         Dispatchers.setMain(testDispatcher)
 
-        speechManager = mockk(relaxed = true) {
+        speechService = mockk(relaxed = true) {
             every { state } returns speechStateFlow
             every { transcriptions } returns transcriptionFlow
             every { partialTranscriptions } returns partialFlow
             every { errors } returns errorFlow
         }
         sueAgent = mockk(relaxed = true)
-        // Instantiate real MediaPipeModelManager with a mocked context.
-        // This avoids MockKException on its StateFlow properties while testing the ViewModel.
-        modelManager = MediaPipeModelManager(mockk(relaxed = true))
+        inferenceRepository = mockk(relaxed = true) {
+            every { isModelLoaded } returns modelLoadedFlow
+        }
         scheduleTools = mockk(relaxed = true)
         studentTools = mockk(relaxed = true)
 
-        viewModel = SueViewModel(speechManager, sueAgent, modelManager, scheduleTools, studentTools)
+        viewModel = SueViewModel(speechService, sueAgent, inferenceRepository, scheduleTools, studentTools)
     }
 
     @After
@@ -94,20 +96,18 @@ class SueViewModelConfirmationTest {
             studentName = "María",
             studentId = "student1",
             scheduleId = "schedule1",
-            date = 1_700_000_000_000L,
-            dayLabel = "lunes 19 de mayo",
+            date = 1700000000000L,
             startTime = "09:00",
             endTime = "10:00"
         )
-        val successMessage = "Hecho. La clase de María del lunes 19 de mayo ha sido cancelada."
-        coEvery { scheduleTools.executeCancelAction(pendingAction) } returns successMessage
+        val executeResult = SueOperationResult.Execute.Success(pendingAction)
+        coEvery { scheduleTools.executeCancelAction(pendingAction) } returns executeResult
         coEvery { sueAgent.detectActionIntent(any()) } returns null
 
         // Inject the pending action into the VM's state
         // We do this by first having the agent return it from detectActionIntent
-        val confirmText = "¿Confirmas cancelar la clase de María el lunes 19 a las 09:00?"
         coEvery { sueAgent.detectActionIntent("cancela la clase de María el lunes") } returns
-                Pair(pendingAction, confirmText)
+                SueOperationResult.Prepare.Success(pendingAction)
 
         // Simulate first transcription — sets pending action
         transcriptionFlow.emit("cancela la clase de María el lunes")
@@ -118,9 +118,10 @@ class SueViewModelConfirmationTest {
         advanceUntilIdle()
 
         // Then — pending action cleared, response set to success message
+        val expectedMessage = SueResponseFormatter.format(executeResult)
         val state: SueUiState = viewModel.uiState.value
         assertNull("Pending action should be cleared after execution", state.pendingAction)
-        assertEquals(successMessage, state.agentResponse)
+        assertEquals(expectedMessage, state.agentResponse)
         coVerify { scheduleTools.executeCancelAction(pendingAction) }
     }
 
@@ -135,13 +136,12 @@ class SueViewModelConfirmationTest {
             studentName = "Juan",
             studentId = "student2",
             scheduleId = "schedule2",
-            date = 1_700_000_000_000L,
-            dayLabel = "martes 20 de mayo",
+            date = 1700000000000L,
             startTime = "11:00",
             endTime = "12:00"
         )
         coEvery { sueAgent.detectActionIntent("cancela la clase de Juan el martes") } returns
-                Pair(pendingAction, "¿Confirmas...?")
+                SueOperationResult.Prepare.Success(pendingAction)
 
         transcriptionFlow.emit("cancela la clase de Juan el martes")
         advanceUntilIdle()
@@ -165,10 +165,10 @@ class SueViewModelConfirmationTest {
         // Given
         val pendingAction = SuePendingAction.CancelClass(
             studentName = "Ana", studentId = "s3", scheduleId = "sch3",
-            date = 0L, dayLabel = "miércoles", startTime = "10:00", endTime = "11:00"
+            date = 1700000000000L, startTime = "10:00", endTime = "11:00"
         )
         coEvery { sueAgent.detectActionIntent("cancela la clase de Ana el miércoles") } returns
-                Pair(pendingAction, "¿Confirmas...?")
+                SueOperationResult.Prepare.Success(pendingAction)
 
         transcriptionFlow.emit("cancela la clase de Ana el miércoles")
         advanceUntilIdle()
@@ -192,10 +192,10 @@ class SueViewModelConfirmationTest {
         // Given — inject pending action
         val pendingAction = SuePendingAction.CancelClass(
             studentName = "Pedro", studentId = "s4", scheduleId = "sch4",
-            date = 0L, dayLabel = "jueves", startTime = "16:00", endTime = "17:00"
+            date = 1700000000000L, startTime = "16:00", endTime = "17:00"
         )
         coEvery { sueAgent.detectActionIntent("cancela la clase de Pedro el jueves") } returns
-                Pair(pendingAction, "¿Confirmas...?")
+                SueOperationResult.Prepare.Success(pendingAction)
         transcriptionFlow.emit("cancela la clase de Pedro el jueves")
         advanceUntilIdle()
 
@@ -220,12 +220,12 @@ class SueViewModelConfirmationTest {
             amount = 20.0,
             paymentType = com.devsusana.hometutorpro.domain.entities.PaymentType.EFFECTIVE
         )
-        val successMessage = "Hecho. Se ha registrado el pago de 20.0 euros de María."
-        coEvery { studentTools.executeRegisterPayment(paymentAction) } returns successMessage
+        val executeResult = SueOperationResult.Execute.Success(paymentAction)
+        coEvery { studentTools.executeRegisterPayment(paymentAction) } returns executeResult
         coEvery { sueAgent.detectActionIntent(any()) } returns null
 
         coEvery { sueAgent.detectActionIntent("registra un pago de maría") } returns
-                Pair(paymentAction, "¿Confirmas?")
+                SueOperationResult.Prepare.Success(paymentAction)
         
         transcriptionFlow.emit("registra un pago de maría")
         advanceUntilIdle()
@@ -233,8 +233,9 @@ class SueViewModelConfirmationTest {
         transcriptionFlow.emit("sí")
         advanceUntilIdle()
 
+        val expectedMessage = SueResponseFormatter.format(executeResult)
         assertNull(viewModel.uiState.value.pendingAction)
-        assertEquals(successMessage, viewModel.uiState.value.agentResponse)
+        assertEquals(expectedMessage, viewModel.uiState.value.agentResponse)
         coVerify { studentTools.executeRegisterPayment(paymentAction) }
     }
 
@@ -245,12 +246,12 @@ class SueViewModelConfirmationTest {
             studentId = "student2",
             amount = 15.5
         )
-        val successMessage = "Hecho. Se han sumado 15.5 euros a la cuenta de Juan."
-        coEvery { studentTools.executeAddBalance(addBalanceAction) } returns successMessage
+        val executeResult = SueOperationResult.Execute.Success(addBalanceAction)
+        coEvery { studentTools.executeAddBalance(addBalanceAction) } returns executeResult
         coEvery { sueAgent.detectActionIntent(any()) } returns null
 
         coEvery { sueAgent.detectActionIntent("suma 15.5 euros a la deuda de Juan") } returns
-                Pair(addBalanceAction, "¿Confirmas?")
+                SueOperationResult.Prepare.Success(addBalanceAction)
         
         transcriptionFlow.emit("suma 15.5 euros a la deuda de Juan")
         advanceUntilIdle()
@@ -258,8 +259,9 @@ class SueViewModelConfirmationTest {
         transcriptionFlow.emit("sí")
         advanceUntilIdle()
 
+        val expectedMessage = SueResponseFormatter.format(executeResult)
         assertNull(viewModel.uiState.value.pendingAction)
-        assertEquals(successMessage, viewModel.uiState.value.agentResponse)
+        assertEquals(expectedMessage, viewModel.uiState.value.agentResponse)
         coVerify { studentTools.executeAddBalance(addBalanceAction) }
     }
 }

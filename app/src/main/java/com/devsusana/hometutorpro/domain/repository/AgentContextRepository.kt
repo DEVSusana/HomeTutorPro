@@ -1,10 +1,10 @@
 package com.devsusana.hometutorpro.domain.repository
 
-import com.devsusana.hometutorpro.data.models.AgentBalanceSummary
-import com.devsusana.hometutorpro.data.models.AgentScheduleDetail
-import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
-import com.devsusana.hometutorpro.data.models.AgentStudentDetail
-import com.devsusana.hometutorpro.data.models.AgentStudentSummary
+import com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
+import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
+import com.devsusana.hometutorpro.domain.entities.AgentStudentSummary
 
 /**
  * Repository contract for providing contextual data to the Sue AI agent.

@@ -28,7 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
-import com.devsusana.hometutorpro.core.sue.SpeechState
+import com.devsusana.hometutorpro.domain.entities.SpeechState
 
 /**
  * Animated Floating Action Button for the Sue AI agent.

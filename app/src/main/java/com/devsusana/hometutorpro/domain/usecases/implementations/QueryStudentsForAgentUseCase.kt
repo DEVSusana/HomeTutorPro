@@ -1,8 +1,8 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.devsusana.hometutorpro.data.models.AgentBalanceSummary
-import com.devsusana.hometutorpro.data.models.AgentStudentDetail
-import com.devsusana.hometutorpro.data.models.AgentStudentSummary
+import com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary
+import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
+import com.devsusana.hometutorpro.domain.entities.AgentStudentSummary
 import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
 import com.devsusana.hometutorpro.domain.usecases.IQueryStudentsForAgentUseCase
 import javax.inject.Inject

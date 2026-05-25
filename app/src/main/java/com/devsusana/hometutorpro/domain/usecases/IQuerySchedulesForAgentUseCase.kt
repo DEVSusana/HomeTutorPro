@@ -1,7 +1,7 @@
 package com.devsusana.hometutorpro.domain.usecases
 
-import com.devsusana.hometutorpro.data.models.AgentScheduleDetail
-import com.devsusana.hometutorpro.data.models.AgentScheduleSummary
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
+import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
 
 /**
  * Use case contract for querying schedule data on behalf of the Sue AI agent.
