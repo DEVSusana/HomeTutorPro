@@ -3,7 +3,10 @@ package com.devsusana.hometutorpro.di
 import android.content.Context
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.data.local.AppDatabase
+import com.devsusana.hometutorpro.data.local.SupportFactoryHelper
+import com.devsusana.hometutorpro.data.local.migrations.DatabaseMigrations
 import com.devsusana.hometutorpro.data.local.dao.*
+import androidx.room.Room
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.Module
@@ -20,7 +23,21 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getInstance(context)
+        val factory = SupportFactoryHelper.createFactory(context)
+        return Room.databaseBuilder(
+            context.applicationContext,
+            AppDatabase::class.java,
+            "hometutorpro.db"
+        )
+            .openHelperFactory(factory)
+            .addMigrations(
+                DatabaseMigrations.MIGRATION_4_5,
+                DatabaseMigrations.MIGRATION_5_6,
+                DatabaseMigrations.MIGRATION_6_7,
+                DatabaseMigrations.MIGRATION_7_8,
+                DatabaseMigrations.MIGRATION_8_9
+            )
+            .build()
     }
 
     @Provides

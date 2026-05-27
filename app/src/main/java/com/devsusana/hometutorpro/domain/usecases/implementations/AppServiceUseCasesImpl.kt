@@ -1,6 +1,5 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import android.app.Activity
 import android.app.Application
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
@@ -13,14 +12,6 @@ class GetPremiumProductUseCase @Inject constructor(
 ) : IGetPremiumProductUseCase {
     override suspend operator fun invoke(): PremiumProduct? {
         return billingService.getPremiumProduct()
-    }
-}
-
-class LaunchPremiumPurchaseUseCase @Inject constructor(
-    private val billingService: PremiumBillingService
-) : ILaunchPremiumPurchaseUseCase {
-    override operator fun invoke(activity: Activity) {
-        billingService.launchPremiumPurchase(activity)
     }
 }
 

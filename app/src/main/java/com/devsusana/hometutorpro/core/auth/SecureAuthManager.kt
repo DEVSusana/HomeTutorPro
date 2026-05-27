@@ -16,7 +16,7 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 
 class SecureAuthManager(
-    private val sharedPreferences: SharedPreferences,
+    private val encryptedSharedPreferences: SharedPreferences,
     private val cryptographyProvider: CryptographyProvider = AndroidCryptographyProvider()
 ) {
 
@@ -24,7 +24,7 @@ class SecureAuthManager(
         val idToSave = userId ?: UUID.randomUUID().toString()
         val salt = generateSalt()
         val hashedPassword = hashPassword(credentialsToken, salt)
-        sharedPreferences.edit().apply {
+        encryptedSharedPreferences.edit().apply {
             putString(KEY_EMAIL, email)
             putString(KEY_PASSWORD_HASH, hashedPassword)
             putString(KEY_PASSWORD_SALT, salt)
@@ -39,8 +39,8 @@ class SecureAuthManager(
     }
 
     fun getCredentials(): Triple<String, String, String>? {
-        val email = sharedPreferences.getString(KEY_EMAIL, null)
-        val name = sharedPreferences.getString(KEY_NAME, null)
+        val email = encryptedSharedPreferences.getString(KEY_EMAIL, null)
+        val name = encryptedSharedPreferences.getString(KEY_NAME, null)
         // Password hash is not returned — use validateCredentials() instead
         return if (email != null && name != null) {
             Triple(email, "", name)
@@ -49,24 +49,24 @@ class SecureAuthManager(
         }
     }
 
-    fun getUserId(): String? = sharedPreferences.getString(KEY_USER_ID, null)
+    fun getUserId(): String? = encryptedSharedPreferences.getString(KEY_USER_ID, null)
 
-    fun getUserName(): String? = sharedPreferences.getString(KEY_NAME, null)
+    fun getUserName(): String? = encryptedSharedPreferences.getString(KEY_NAME, null)
 
-    fun getEmail(): String? = sharedPreferences.getString(KEY_EMAIL, null)
+    fun getEmail(): String? = encryptedSharedPreferences.getString(KEY_EMAIL, null)
 
-    fun isUserLoggedIn(): Boolean = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false)
+    fun isUserLoggedIn(): Boolean = encryptedSharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false)
 
     fun validateCredentials(email: String, credentialsToken: String): Boolean {
-        val storedEmail = sharedPreferences.getString(KEY_EMAIL, null)
-        val storedHash = sharedPreferences.getString(KEY_PASSWORD_HASH, null)
-        val storedSalt = sharedPreferences.getString(KEY_PASSWORD_SALT, null)
+        val storedEmail = encryptedSharedPreferences.getString(KEY_EMAIL, null)
+        val storedHash = encryptedSharedPreferences.getString(KEY_PASSWORD_HASH, null)
+        val storedSalt = encryptedSharedPreferences.getString(KEY_PASSWORD_SALT, null)
         if (storedEmail == null || storedHash == null || storedSalt == null) return false
         return email == storedEmail && verifyPassword(credentialsToken, storedHash, storedSalt)
     }
 
     fun clearCredentials() {
-        sharedPreferences.edit().clear().apply()
+        encryptedSharedPreferences.edit().clear().apply()
     }
 
     fun validateEmail(email: String): Boolean = AuthValidator.isValidEmail(email)
@@ -74,47 +74,41 @@ class SecureAuthManager(
     fun validatePassword(password: String): Boolean = AuthValidator.isValidPassword(password)
 
     fun updateName(newName: String) {
-        sharedPreferences.edit().putString(KEY_NAME, newName).apply()
+        encryptedSharedPreferences.edit().putString(KEY_NAME, newName).apply()
     }
 
     fun updateEmail(newEmail: String) {
-        sharedPreferences.edit().putString(KEY_EMAIL, newEmail).apply()
+        encryptedSharedPreferences.edit().putString(KEY_EMAIL, newEmail).apply()
     }
 
     fun updatePassword(newCredentialsToken: String) {
         val salt = generateSalt()
         val hashedPassword = hashPassword(newCredentialsToken, salt)
-        sharedPreferences.edit()
+        encryptedSharedPreferences.edit()
             .putString(KEY_PASSWORD_HASH, hashedPassword)
             .putString(KEY_PASSWORD_SALT, salt)
             .apply()
     }
 
-    fun userExists(): Boolean = sharedPreferences.getString(KEY_EMAIL, null) != null
+    fun userExists(): Boolean = encryptedSharedPreferences.getString(KEY_EMAIL, null) != null
 
-    fun getWorkingStartTime(): String = sharedPreferences.getString(KEY_WORKING_START_TIME, "08:00") ?: "08:00"
+    fun getWorkingStartTime(): String = encryptedSharedPreferences.getString(KEY_WORKING_START_TIME, "08:00") ?: "08:00"
 
-    fun getWorkingEndTime(): String = sharedPreferences.getString(KEY_WORKING_END_TIME, "23:00") ?: "23:00"
+    fun getWorkingEndTime(): String = encryptedSharedPreferences.getString(KEY_WORKING_END_TIME, "23:00") ?: "23:00"
 
     fun updateWorkingStartTime(time: String) {
-        sharedPreferences.edit().putString(KEY_WORKING_START_TIME, time).apply()
+        encryptedSharedPreferences.edit().putString(KEY_WORKING_START_TIME, time).apply()
     }
 
-        fun updateWorkingEndTime(time: String) {
+    fun updateWorkingEndTime(time: String) {
+        encryptedSharedPreferences.edit().putString(KEY_WORKING_END_TIME, time).apply()
+    }
 
-            sharedPreferences.edit().putString(KEY_WORKING_END_TIME, time).apply()
+    fun getNotes(): String = encryptedSharedPreferences.getString(KEY_NOTES, "") ?: ""
 
-        }
-
-    
-
-        fun getNotes(): String = sharedPreferences.getString(KEY_NOTES, "") ?: ""
-
-    
-
-            fun updateNotes(notes: String) {
-                sharedPreferences.edit().putString(KEY_NOTES, notes).apply()
-            }
+    fun updateNotes(notes: String) {
+        encryptedSharedPreferences.edit().putString(KEY_NOTES, notes).apply()
+    }
         
     fun encryptPII(text: String?): String = cryptographyProvider.encrypt(text)
 

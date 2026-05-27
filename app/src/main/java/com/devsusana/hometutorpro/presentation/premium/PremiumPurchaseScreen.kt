@@ -35,8 +35,11 @@ fun PremiumPurchaseScreen(
         premiumProduct = premiumProduct,
         isLoading = isLoading,
         onBuyPremium = {
-            if (context is android.app.Activity) {
-                viewModel.buyPremium(context)
+            val activity = context as? android.app.Activity
+            if (activity != null) {
+                viewModel.buyPremium { client, params ->
+                    client.launchBillingFlow(activity, params)
+                }
             }
         },
         onNavigateBack = onNavigateBack

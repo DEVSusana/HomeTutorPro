@@ -158,8 +158,7 @@ abstract class UseCaseModule {
     @Binds
     abstract fun bindGetPremiumProductUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetPremiumProductUseCase): IGetPremiumProductUseCase
 
-    @Binds
-    abstract fun bindLaunchPremiumPurchaseUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.LaunchPremiumPurchaseUseCase): ILaunchPremiumPurchaseUseCase
+
 
     @Binds
     abstract fun bindShowTestNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.ShowTestNotificationUseCase): IShowTestNotificationUseCase

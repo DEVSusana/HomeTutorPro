@@ -1,6 +1,5 @@
 package com.devsusana.hometutorpro.data.billing
 
-import android.app.Activity
 import com.android.billingclient.api.*
 import com.android.billingclient.api.PendingPurchasesParams
 import com.devsusana.hometutorpro.BuildConfig
@@ -111,30 +110,6 @@ class BillingManager @Inject constructor(
     }
 
     /**
-     * Initiates the Google Play Billing flow to purchase a specific product.
-     * @param activity The current activity to host the billing flow.
-     * @param productDetails The product details object for the desired item.
-     */
-    private fun launchPurchaseFlow(activity: Activity, productDetails: ProductDetails) {
-        val flowParams = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(
-                listOf(
-                    BillingFlowParams.ProductDetailsParams.newBuilder()
-                        .setProductDetails(productDetails)
-                        .setOfferToken(
-                            productDetails.subscriptionOfferDetails
-                                ?.firstOrNull()
-                                ?.offerToken
-                                .orEmpty()
-                        )
-                        .build()
-                )
-            )
-            .build()
-        billingClient.launchBillingFlow(activity, flowParams)
-    }
-
-    /**
      * Fetches pricing and details for a specific product ID from the Google Play Store.
      * @param productId The ID of the product to query.
      * @param onResult Callback invoked with the [ProductDetails] if found, or null otherwise.
@@ -188,11 +163,26 @@ class BillingManager @Inject constructor(
 
     /**
      * Triggers the purchase flow for the cached premium product details.
-     * @param activity The current activity context.
+     * @param launcher Callback launcher that takes BillingClient and BillingFlowParams to launch the flow from the UI.
      */
-    override fun launchPremiumPurchase(activity: Activity) {
+    override fun launchPremiumPurchase(launcher: (BillingClient, BillingFlowParams) -> Unit) {
         val details = lastProductDetails ?: return
-        launchPurchaseFlow(activity, details)
+        val flowParams = BillingFlowParams.newBuilder()
+            .setProductDetailsParamsList(
+                listOf(
+                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                        .setProductDetails(details)
+                        .setOfferToken(
+                            details.subscriptionOfferDetails
+                                ?.firstOrNull()
+                                ?.offerToken
+                                .orEmpty()
+                        )
+                        .build()
+                )
+            )
+            .build()
+        launcher(billingClient, flowParams)
     }
 
     companion object {

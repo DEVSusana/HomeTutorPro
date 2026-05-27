@@ -1,6 +1,7 @@
 package com.devsusana.hometutorpro.core.billing
 
-import android.app.Activity
+import com.android.billingclient.api.BillingClient
+import com.android.billingclient.api.BillingFlowParams
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -11,5 +12,5 @@ interface PremiumBillingService {
 
     suspend fun getPremiumProduct(): PremiumProduct?
 
-    fun launchPremiumPurchase(activity: Activity)
+    fun launchPremiumPurchase(launcher: (BillingClient, BillingFlowParams) -> Unit)
 }
