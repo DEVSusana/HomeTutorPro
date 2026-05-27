@@ -1,29 +1,23 @@
 package com.devsusana.hometutorpro.core.auth
 
-import android.content.Context
 import android.content.SharedPreferences
-import android.util.Base64
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.devsusana.hometutorpro.domain.core.AuthValidator
-import java.security.KeyStore
-import java.security.SecureRandom
 import java.util.UUID
-import javax.crypto.Cipher
-import javax.crypto.SecretKey
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
 
+/**
+ * Manages secure storage of credentials and sensitive user data.
+ * Decoupled from cryptography and hashing implementations using constructor injection.
+ */
 class SecureAuthManager(
     private val encryptedSharedPreferences: SharedPreferences,
-    private val cryptographyProvider: CryptographyProvider = AndroidCryptographyProvider()
+    private val cryptographyProvider: CryptographyProvider,
+    private val passwordHasher: PasswordHasher
 ) {
 
     fun saveCredentials(email: String, credentialsToken: String, name: String, userId: String? = null): String {
         val idToSave = userId ?: UUID.randomUUID().toString()
-        val salt = generateSalt()
-        val hashedPassword = hashPassword(credentialsToken, salt)
+        val salt = passwordHasher.generateSalt()
+        val hashedPassword = passwordHasher.hashPassword(credentialsToken, salt)
         encryptedSharedPreferences.edit().apply {
             putString(KEY_EMAIL, email)
             putString(KEY_PASSWORD_HASH, hashedPassword)
@@ -62,7 +56,7 @@ class SecureAuthManager(
         val storedHash = encryptedSharedPreferences.getString(KEY_PASSWORD_HASH, null)
         val storedSalt = encryptedSharedPreferences.getString(KEY_PASSWORD_SALT, null)
         if (storedEmail == null || storedHash == null || storedSalt == null) return false
-        return email == storedEmail && verifyPassword(credentialsToken, storedHash, storedSalt)
+        return email == storedEmail && passwordHasher.verifyPassword(credentialsToken, storedHash, storedSalt)
     }
 
     fun clearCredentials() {
@@ -82,8 +76,8 @@ class SecureAuthManager(
     }
 
     fun updatePassword(newCredentialsToken: String) {
-        val salt = generateSalt()
-        val hashedPassword = hashPassword(newCredentialsToken, salt)
+        val salt = passwordHasher.generateSalt()
+        val hashedPassword = passwordHasher.hashPassword(newCredentialsToken, salt)
         encryptedSharedPreferences.edit()
             .putString(KEY_PASSWORD_HASH, hashedPassword)
             .putString(KEY_PASSWORD_SALT, salt)
@@ -114,75 +108,6 @@ class SecureAuthManager(
 
     fun decryptPII(encrypted: String?): String = cryptographyProvider.decrypt(encrypted)
 
-    /**
-     * Default implementation using AndroidKeyStore and AES/GCM.
-     */
-    private class AndroidCryptographyProvider : CryptographyProvider {
-        override fun encrypt(text: String?): String {
-            if (text.isNullOrEmpty()) return ""
-            return try {
-                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-                val secretKey = keyStore.getKey(MasterKey.DEFAULT_MASTER_KEY_ALIAS, null) as SecretKey
-                
-                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-                
-                val iv = cipher.iv
-                val encryptedBytes = cipher.doFinal(text.toByteArray(Charsets.UTF_8))
-                
-                val combined = ByteArray(iv.size + encryptedBytes.size)
-                System.arraycopy(iv, 0, combined, 0, iv.size)
-                System.arraycopy(encryptedBytes, 0, combined, iv.size, encryptedBytes.size)
-                
-                Base64.encodeToString(combined, Base64.NO_WRAP)
-            } catch (e: Exception) {
-                text
-            }
-        }
-
-        override fun decrypt(encrypted: String?): String {
-            if (encrypted.isNullOrEmpty()) return ""
-            return try {
-                val combined = Base64.decode(encrypted, Base64.NO_WRAP)
-                if (combined.size < 12) return encrypted // Not encrypted or invalid
-
-                val iv = combined.sliceArray(0 until 12)
-                val encryptedBytes = combined.sliceArray(12 until combined.size)
-                
-                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-                val secretKey = keyStore.getKey(MasterKey.DEFAULT_MASTER_KEY_ALIAS, null) as SecretKey
-                
-                val spec = GCMParameterSpec(128, iv)
-                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
-                
-                String(cipher.doFinal(encryptedBytes), Charsets.UTF_8)
-            } catch (e: Exception) {
-                encrypted
-            }
-        }
-    }
-        
-            private fun generateSalt(): String {
-        
-        val salt = ByteArray(16)
-        SecureRandom().nextBytes(salt)
-        return Base64.encodeToString(salt, Base64.NO_WRAP)
-    }
-
-    private fun hashPassword(password: String, saltBase64: String): String {
-        val salt = Base64.decode(saltBase64, Base64.NO_WRAP)
-        val spec = PBEKeySpec(password.toCharArray(), salt, PBKDF2_ITERATIONS, PBKDF2_KEY_LENGTH)
-        val factory = SecretKeyFactory.getInstance(PBKDF2_ALGORITHM)
-        val hash = factory.generateSecret(spec).encoded
-        return Base64.encodeToString(hash, Base64.NO_WRAP)
-    }
-
-    private fun verifyPassword(password: String, storedHash: String, storedSalt: String): Boolean {
-        val computedHash = hashPassword(password, storedSalt)
-        return computedHash == storedHash
-    }
-
     companion object {
         private const val PREFS_NAME = "secure_auth_prefs"
         private const val KEY_EMAIL = "email"
@@ -194,10 +119,5 @@ class SecureAuthManager(
         private const val KEY_WORKING_START_TIME = "working_start_time"
         private const val KEY_WORKING_END_TIME = "working_end_time"
         private const val KEY_NOTES = "notes"
-        private const val PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA256"
-        private const val PBKDF2_ITERATIONS = 600000
-        private const val PBKDF2_KEY_LENGTH = 256
     }
 }
-
-    

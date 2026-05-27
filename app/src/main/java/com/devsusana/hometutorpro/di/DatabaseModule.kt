@@ -2,6 +2,10 @@ package com.devsusana.hometutorpro.di
 
 import android.content.Context
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.core.auth.CryptographyProvider
+import com.devsusana.hometutorpro.core.auth.AndroidCryptographyProvider
+import com.devsusana.hometutorpro.core.auth.PasswordHasher
+import com.devsusana.hometutorpro.core.auth.Pbkdf2PasswordHasher
 import com.devsusana.hometutorpro.data.local.AppDatabase
 import com.devsusana.hometutorpro.data.local.SupportFactoryHelper
 import com.devsusana.hometutorpro.data.local.migrations.DatabaseMigrations
@@ -77,7 +81,23 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideSecureAuthManager(@ApplicationContext context: Context): SecureAuthManager {
+    fun provideCryptographyProvider(): CryptographyProvider {
+        return AndroidCryptographyProvider()
+    }
+
+    @Provides
+    @Singleton
+    fun providePasswordHasher(): PasswordHasher {
+        return Pbkdf2PasswordHasher()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSecureAuthManager(
+        @ApplicationContext context: Context,
+        cryptographyProvider: CryptographyProvider,
+        passwordHasher: PasswordHasher
+    ): SecureAuthManager {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
@@ -89,6 +109,6 @@ object DatabaseModule {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
-        return SecureAuthManager(sharedPreferences)
+        return SecureAuthManager(sharedPreferences, cryptographyProvider, passwordHasher)
     }
 }

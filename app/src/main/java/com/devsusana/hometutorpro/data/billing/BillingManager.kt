@@ -2,17 +2,11 @@ package com.devsusana.hometutorpro.data.billing
 
 import com.android.billingclient.api.*
 import com.android.billingclient.api.PendingPurchasesParams
-import com.devsusana.hometutorpro.BuildConfig
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
-import com.devsusana.hometutorpro.di.ApplicationScope
-import com.devsusana.hometutorpro.domain.repository.SettingsRepository
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,16 +18,13 @@ import kotlin.coroutines.resume
  */
 @Singleton
 class BillingManager @Inject constructor(
-    billingClientBuilder: BillingClient.Builder,
-    private val settingsRepository: SettingsRepository,
-    @ApplicationScope private val applicationScope: CoroutineScope
+    billingClientBuilder: BillingClient.Builder
 ) : PurchasesUpdatedListener, PremiumBillingService {
 
     private val _realPremium = MutableStateFlow(false)
-    private val _isPremium = MutableStateFlow(false)
 
     /** Exposed Flow containing the active premium/subscription status. */
-    override val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
+    override val isPremium: StateFlow<Boolean> = _realPremium.asStateFlow()
 
     private val billingClient = billingClientBuilder
         .setListener(this)
@@ -43,20 +34,6 @@ class BillingManager @Inject constructor(
 
     init {
         startConnection()
-        // Combine real premium status with debug preference
-        applicationScope.launch {
-            combine(_realPremium, settingsRepository.isDebugPremiumFlow) { real, debug ->
-                if (BuildConfig.DEBUG) {
-                    // In DEBUG, strict control via toggle to allow testing non-premium state
-                    debug
-                } else {
-                    // In RELEASE, use real premium status
-                    real
-                }
-            }.collect { combined ->
-                _isPremium.value = combined
-            }
-        }
     }
 
     private fun startConnection() {

@@ -4,33 +4,37 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.devsusana.hometutorpro.core.utils.NotificationHelper
-import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.flow.first
+import com.devsusana.hometutorpro.di.ApplicationScope
+import com.devsusana.hometutorpro.domain.repository.SettingsRepository
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * BroadcastReceiver to handle scheduled class end notifications.
- * Uses [goAsync] to perform preference checks in a background coroutine
- * without blocking the receiver's main execution thread.
+ * Uses [goAsync] and Hilt injection to check settings and show notifications
+ * off the main execution thread.
  */
+@AndroidEntryPoint
 class ClassEndReceiver : BroadcastReceiver() {
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
 
     override fun onReceive(context: Context, intent: Intent) {
         android.util.Log.d("ClassEndReceiver", "onReceive called - alarm triggered!")
         
         val pendingResult = goAsync()
         
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        applicationScope.launch {
             try {
                 // Check if notifications are enabled in settings
-                val settingsRepository = EntryPointAccessors.fromApplication(
-                    context.applicationContext,
-                    com.devsusana.hometutorpro.di.SettingsRepositoryEntryPoint::class.java
-                ).settingsRepository()
-                
                 val areNotificationsEnabled = settingsRepository.classEndNotificationsFlow.first()
                 
                 if (!areNotificationsEnabled) {

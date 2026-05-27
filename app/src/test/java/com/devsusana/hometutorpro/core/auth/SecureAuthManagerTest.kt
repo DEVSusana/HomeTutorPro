@@ -25,7 +25,13 @@ class SecureAuthManagerTest {
             override fun encrypt(text: String?): String = text?.reversed() ?: ""
             override fun decrypt(encrypted: String?): String = encrypted?.reversed() ?: ""
         }
-        authManager = SecureAuthManager(prefs, mockCrypto)
+        val mockHasher = object : PasswordHasher {
+            override fun generateSalt(): String = "test_salt"
+            override fun hashPassword(password: String, saltBase64: String): String = "$password:$saltBase64"
+            override fun verifyPassword(password: String, storedHash: String, storedSalt: String): Boolean =
+                storedHash == "$password:$storedSalt"
+        }
+        authManager = SecureAuthManager(prefs, mockCrypto, mockHasher)
         authManager.clearCredentials()
     }
 
