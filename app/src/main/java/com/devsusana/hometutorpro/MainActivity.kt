@@ -43,12 +43,6 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
-    
-    @Inject
-    lateinit var duplicateCleanupUtil: DuplicateCleanupUtil
-    
-    @Inject
-    lateinit var rescueOrphanedDataUseCase: RescueOrphanedDataUseCase
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LocaleHelper.onAttach(newBase))
@@ -62,22 +56,7 @@ class MainActivity : ComponentActivity() {
 //            android.view.WindowManager.LayoutParams.FLAG_SECURE,
 //            android.view.WindowManager.LayoutParams.FLAG_SECURE
 //        )
-
-        NotificationHelper.createNotificationChannel(this)
         
-        // Clean up any duplicate students on app startup
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                // 1. Recover data lost in Migration 7->8
-                rescueOrphanedDataUseCase()
-                
-                // 2. Regular cleanup
-                duplicateCleanupUtil.removeDuplicateStudents()
-                duplicateCleanupUtil.removeLocalDuplicates()
-            } catch (e: Exception) {
-                // Silently fail - cleanup is best effort
-            }
-        }
         
         setContent {
             val themeMode by settingsRepository.themeModeFlow.collectAsState(

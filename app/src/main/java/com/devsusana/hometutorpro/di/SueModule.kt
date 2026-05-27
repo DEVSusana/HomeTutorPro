@@ -60,4 +60,10 @@ abstract class SueModule {
     abstract fun bindManageScheduleForAgentUseCase(
         impl: ManageScheduleForAgentUseCase
     ): IManageScheduleForAgentUseCase
+
+    @Binds
+    @Singleton
+    abstract fun bindSueAgent(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.SueAgentImpl
+    ): com.devsusana.hometutorpro.domain.usecases.ISueAgent
 }

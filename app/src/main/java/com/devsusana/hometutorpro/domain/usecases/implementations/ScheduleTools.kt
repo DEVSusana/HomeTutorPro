@@ -1,4 +1,4 @@
-package com.devsusana.hometutorpro.core.sue.tools
+package com.devsusana.hometutorpro.domain.usecases.implementations
 
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
@@ -6,6 +6,7 @@ import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
+import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -27,7 +28,8 @@ import javax.inject.Singleton
 class ScheduleTools @Inject constructor(
     private val querySchedulesUseCase: IQuerySchedulesForAgentUseCase,
     private val manageScheduleUseCase: IManageScheduleForAgentUseCase,
-    private val secureAuthManager: SecureAuthManager
+    private val secureAuthManager: SecureAuthManager,
+    private val dateTimeProvider: DateTimeProvider
 ) {
 
     companion object {
@@ -77,8 +79,8 @@ class ScheduleTools @Inject constructor(
         val schedules = querySchedulesUseCase.getAllSchedules()
         if (schedules.isEmpty()) return SueOperationResult.NextClass(null, null)
 
-        val now = LocalDate.now()
-        val currentTime = LocalTime.now()
+        val now = dateTimeProvider.getNow().toLocalDate()
+        val currentTime = dateTimeProvider.getNow().toLocalTime()
         val todayIso = now.dayOfWeek.value
 
         val sorted = schedules.sortedWith(compareBy({ it.dayOfWeek }, { it.startTime }))
@@ -240,5 +242,5 @@ class ScheduleTools @Inject constructor(
     // ──────────────────────────────────────────────────────────────────────────
 
     private fun nextOccurrenceDate(dayOfWeek: DayOfWeek): LocalDate =
-        LocalDate.now().with(TemporalAdjusters.nextOrSame(dayOfWeek))
+        dateTimeProvider.getNow().toLocalDate().with(TemporalAdjusters.nextOrSame(dayOfWeek))
 }

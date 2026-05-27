@@ -1,4 +1,4 @@
-package com.devsusana.hometutorpro.core.sue.tools
+package com.devsusana.hometutorpro.domain.usecases.implementations
 
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.domain.core.DomainError

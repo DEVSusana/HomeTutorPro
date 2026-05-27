@@ -1,9 +1,9 @@
-package com.devsusana.hometutorpro.core.sue
+package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
-import com.devsusana.hometutorpro.core.sue.tools.StudentTools
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
+import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
+import com.devsusana.hometutorpro.domain.usecases.ISueAgent
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,21 +19,20 @@ import javax.inject.Singleton
  * 4. Provide the system prompt that defines Sue's personality.
  */
 @Singleton
-class SueAgent @Inject constructor(
+class SueAgentImpl @Inject constructor(
     private val studentTools: StudentTools,
-    private val scheduleTools: ScheduleTools
-) {
+    private val scheduleTools: ScheduleTools,
+    private val dateTimeProvider: DateTimeProvider
+) : ISueAgent {
 
     companion object {
 
         /**
          * Builds the Sue system prompt with a locale-aware language instruction.
          *
-         * Reads [Locale.getDefault()] at call time so that the language and regional
-         * variant (e.g. es-ES vs en-GB) always matches the device’s current setting.
+         * @param locale The locale to format instructions for.
          */
-        fun buildSystemPrompt(): String {
-            val locale = Locale.getDefault()
+        fun buildSystemPrompt(locale: Locale): String {
             val languageTag = locale.toLanguageTag() // e.g. "es-ES", "en-GB", "en-US"
             val languageName = locale.getDisplayLanguage(Locale.ENGLISH) // e.g. "Spanish"
             val countryName = if (locale.country.isNotEmpty()) {
@@ -88,7 +87,7 @@ class SueAgent @Inject constructor(
      * Returns [SueOperationResult.Prepare] with the resolved action and confirmation data,
      * or with an error descriptor if the intent was detected but the data could not be resolved.
      */
-    suspend fun detectActionIntent(query: String): SueOperationResult.Prepare? {
+    override suspend fun detectActionIntent(query: String): SueOperationResult.Prepare? {
         val lower = query.lowercase()
 
         return when {
@@ -128,24 +127,16 @@ class SueAgent @Inject constructor(
     // Normal LLM prompt building
     // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Processes a user query by routing it to the appropriate tools and building
-     * a context-enriched prompt for the LLM.
-     *
-     * This is a `suspend` function because [gatherRelevantContext] calls suspend
-     * tool methods that perform database I/O.
-     */
-    suspend fun buildPromptWithContext(userQuery: String): String {
+    override suspend fun buildPromptWithContext(userQuery: String): String {
         val toolContext = gatherRelevantContext(userQuery)
-        val locale = Locale.getDefault()
+        val locale = dateTimeProvider.getLocale()
 
         // Format date/time in the device locale so it reads naturally
-        val currentDateTime = java.text.SimpleDateFormat(
-            "EEEE, d MMMM yyyy, HH:mm", locale
-        ).format(java.util.Date())
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy, HH:mm", locale)
+        val currentDateTime = dateTimeProvider.getNow().format(formatter)
 
         return buildString {
-            appendLine(buildSystemPrompt())
+            appendLine(buildSystemPrompt(locale))
             appendLine()
             appendLine("--- TEMPORAL CONTEXT ---")
             appendLine("Current date/time: $currentDateTime")
@@ -321,7 +312,7 @@ class SueAgent @Inject constructor(
      * Returns null if no relative reference is found.
      */
     private fun extractRelativeDayOfWeek(query: String): Int? {
-        val today = java.time.LocalDate.now().dayOfWeek.value
+        val today = dateTimeProvider.getNow().dayOfWeek.value
         return when {
             "hoy" in query || "today" in query ||
             "esta tarde" in query || "esta mañana" in query ||

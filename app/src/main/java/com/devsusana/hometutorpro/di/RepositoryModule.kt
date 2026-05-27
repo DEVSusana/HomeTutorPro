@@ -66,5 +66,11 @@ abstract class RepositoryModule {
     abstract fun bindSettingsRepository(
         settingsRepositoryImpl: SettingsRepositoryImpl
     ): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDateTimeProvider(
+        dateTimeProviderImpl: DateTimeProviderImpl
+    ): DateTimeProvider
 }
 

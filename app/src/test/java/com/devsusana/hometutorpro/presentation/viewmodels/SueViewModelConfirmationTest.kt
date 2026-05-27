@@ -6,8 +6,8 @@ import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.repository.SpeechService
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
-import com.devsusana.hometutorpro.core.sue.SueAgent
-import com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
+import com.devsusana.hometutorpro.domain.usecases.ISueAgent
+import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
 import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
 import com.devsusana.hometutorpro.presentation.sue.SueUiState
 import io.mockk.coEvery
@@ -42,10 +42,10 @@ class SueViewModelConfirmationTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var speechService: SpeechService
-    private lateinit var sueAgent: SueAgent
+    private lateinit var sueAgent: ISueAgent
     private lateinit var inferenceRepository: InferenceRepository
     private lateinit var scheduleTools: ScheduleTools
-    private lateinit var studentTools: com.devsusana.hometutorpro.core.sue.tools.StudentTools
+    private lateinit var studentTools: com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
     private lateinit var viewModel: SueViewModel
 
     // Shared flows used to drive speechService state from tests

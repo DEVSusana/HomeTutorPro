@@ -7,9 +7,9 @@ import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.repository.SpeechService
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
-import com.devsusana.hometutorpro.core.sue.SueAgent
-import com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
-import com.devsusana.hometutorpro.core.sue.tools.StudentTools
+import com.devsusana.hometutorpro.domain.usecases.ISueAgent
+import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
+import com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
 import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
 import com.devsusana.hometutorpro.presentation.sue.SueUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,7 +38,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SueViewModel @Inject constructor(
     private val speechService: SpeechService,
-    private val sueAgent: SueAgent,
+    private val sueAgent: ISueAgent,
     private val inferenceRepository: InferenceRepository,
     private val scheduleTools: ScheduleTools,
     private val studentTools: StudentTools

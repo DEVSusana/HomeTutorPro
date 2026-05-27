@@ -1,8 +1,12 @@
-package com.devsusana.hometutorpro.core.sue
+package com.devsusana.hometutorpro.domain.usecases.implementations
 
+import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import java.time.LocalDateTime
+import java.util.Locale
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -12,23 +16,28 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Unit tests for [SueAgent] intent-detection logic.
+ * Unit tests for [SueAgentImpl] intent-detection logic.
  *
- * Covers the keyword-based routing in [SueAgent.extractDayOfWeek]
- * and [SueAgent.detectActionIntent]. Schedule and student tools are stubbed
+ * Covers the keyword-based routing in [SueAgentImpl.extractDayOfWeek]
+ * and [SueAgentImpl.detectActionIntent]. Schedule and student tools are stubbed
  * to return [SueOperationResult.Prepare.Error] with CLASS_NOT_FOUND or
  * STUDENT_NOT_FOUND to simulate "no match" scenarios cleanly.
  */
 class SueAgentIntentDetectionTest {
 
-    private lateinit var scheduleTools: com.devsusana.hometutorpro.core.sue.tools.ScheduleTools
-    private lateinit var studentTools: com.devsusana.hometutorpro.core.sue.tools.StudentTools
-    private lateinit var sueAgent: SueAgent
+    private lateinit var scheduleTools: ScheduleTools
+    private lateinit var studentTools: StudentTools
+    private lateinit var dateTimeProvider: DateTimeProvider
+    private lateinit var sueAgent: SueAgentImpl
 
     @Before
     fun setup() {
         scheduleTools = mockk(relaxed = true)
         studentTools = mockk(relaxed = true)
+        dateTimeProvider = mockk(relaxed = true)
+
+        every { dateTimeProvider.getNow() } returns LocalDateTime.of(2026, 5, 27, 8, 35) // Wednesday
+        every { dateTimeProvider.getLocale() } returns Locale.US
 
         // Stub tools to return Prepare.Error for missing entities
         coEvery { scheduleTools.prepareCancelAction(any(), any()) } returns
@@ -40,9 +49,10 @@ class SueAgentIntentDetectionTest {
         coEvery { studentTools.prepareAddBalance(any(), any()) } returns
             SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
 
-        sueAgent = SueAgent(
+        sueAgent = SueAgentImpl(
             studentTools = studentTools,
-            scheduleTools = scheduleTools
+            scheduleTools = scheduleTools,
+            dateTimeProvider = dateTimeProvider
         )
     }
 

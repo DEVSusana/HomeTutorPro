@@ -27,6 +27,10 @@ abstract class AppModule {
     @Singleton
     abstract fun bindPremiumBillingService(billingManager: BillingManager): PremiumBillingService
 
+    @Binds
+    @Singleton
+    abstract fun bindAppInitializer(appInitializer: com.devsusana.hometutorpro.presentation.utils.AppInitializerImpl): com.devsusana.hometutorpro.domain.usecases.AppInitializer
+
     companion object {
         @Provides
         @Singleton

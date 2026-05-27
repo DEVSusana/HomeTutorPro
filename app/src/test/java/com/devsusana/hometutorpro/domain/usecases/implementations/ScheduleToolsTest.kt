@@ -1,4 +1,4 @@
-package com.devsusana.hometutorpro.core.sue.tools
+package com.devsusana.hometutorpro.domain.usecases.implementations
 
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.domain.core.DomainError
@@ -7,8 +7,11 @@ import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
 import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
+import java.time.LocalDateTime
+import java.util.Locale
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -29,6 +32,7 @@ class ScheduleToolsTest {
     private lateinit var querySchedulesUseCase: IQuerySchedulesForAgentUseCase
     private lateinit var manageScheduleUseCase: IManageScheduleForAgentUseCase
     private lateinit var secureAuthManager: SecureAuthManager
+    private lateinit var dateTimeProvider: DateTimeProvider
     private lateinit var scheduleTools: ScheduleTools
 
     // AgentScheduleSummary — used by getAllSchedules() (no IDs needed)
@@ -61,11 +65,16 @@ class ScheduleToolsTest {
         querySchedulesUseCase = mockk()
         manageScheduleUseCase = mockk()
         secureAuthManager = mockk()
+        dateTimeProvider = mockk(relaxed = true)
+
+        every { dateTimeProvider.getNow() } returns LocalDateTime.of(2026, 5, 27, 8, 35) // Wednesday
+        every { dateTimeProvider.getLocale() } returns Locale.US
 
         scheduleTools = ScheduleTools(
             querySchedulesUseCase = querySchedulesUseCase,
             manageScheduleUseCase = manageScheduleUseCase,
-            secureAuthManager = secureAuthManager
+            secureAuthManager = secureAuthManager,
+            dateTimeProvider = dateTimeProvider
         )
     }
 
