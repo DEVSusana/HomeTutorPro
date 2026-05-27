@@ -1,7 +1,6 @@
 package com.devsusana.hometutorpro.data.billing
 
 import android.app.Activity
-import android.content.Context
 import com.android.billingclient.api.*
 import com.android.billingclient.api.PendingPurchasesParams
 import com.devsusana.hometutorpro.BuildConfig
@@ -9,7 +8,6 @@ import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
 import com.devsusana.hometutorpro.di.ApplicationScope
 import com.devsusana.hometutorpro.domain.repository.SettingsRepository
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +25,7 @@ import kotlin.coroutines.resume
  */
 @Singleton
 class BillingManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    billingClientBuilder: BillingClient.Builder,
     private val settingsRepository: SettingsRepository,
     @ApplicationScope private val applicationScope: CoroutineScope
 ) : PurchasesUpdatedListener, PremiumBillingService {
@@ -38,9 +36,8 @@ class BillingManager @Inject constructor(
     /** Exposed Flow containing the active premium/subscription status. */
     override val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
 
-    private val billingClient = BillingClient.newBuilder(context)
+    private val billingClient = billingClientBuilder
         .setListener(this)
-        .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .build()
 
     private var lastProductDetails: ProductDetails? = null

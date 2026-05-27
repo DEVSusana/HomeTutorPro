@@ -20,10 +20,10 @@ class SecureAuthManager(
     private val cryptographyProvider: CryptographyProvider = AndroidCryptographyProvider()
 ) {
 
-    fun saveCredentials(email: String, password: String, name: String, userId: String? = null): String {
+    fun saveCredentials(email: String, credentialsToken: String, name: String, userId: String? = null): String {
         val idToSave = userId ?: UUID.randomUUID().toString()
         val salt = generateSalt()
-        val hashedPassword = hashPassword(password, salt)
+        val hashedPassword = hashPassword(credentialsToken, salt)
         sharedPreferences.edit().apply {
             putString(KEY_EMAIL, email)
             putString(KEY_PASSWORD_HASH, hashedPassword)
@@ -57,12 +57,12 @@ class SecureAuthManager(
 
     fun isUserLoggedIn(): Boolean = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false)
 
-    fun validateCredentials(email: String, password: String): Boolean {
+    fun validateCredentials(email: String, credentialsToken: String): Boolean {
         val storedEmail = sharedPreferences.getString(KEY_EMAIL, null)
         val storedHash = sharedPreferences.getString(KEY_PASSWORD_HASH, null)
         val storedSalt = sharedPreferences.getString(KEY_PASSWORD_SALT, null)
         if (storedEmail == null || storedHash == null || storedSalt == null) return false
-        return email == storedEmail && verifyPassword(password, storedHash, storedSalt)
+        return email == storedEmail && verifyPassword(credentialsToken, storedHash, storedSalt)
     }
 
     fun clearCredentials() {
@@ -81,9 +81,9 @@ class SecureAuthManager(
         sharedPreferences.edit().putString(KEY_EMAIL, newEmail).apply()
     }
 
-    fun updatePassword(newPassword: String) {
+    fun updatePassword(newCredentialsToken: String) {
         val salt = generateSalt()
-        val hashedPassword = hashPassword(newPassword, salt)
+        val hashedPassword = hashPassword(newCredentialsToken, salt)
         sharedPreferences.edit()
             .putString(KEY_PASSWORD_HASH, hashedPassword)
             .putString(KEY_PASSWORD_SALT, salt)

@@ -58,11 +58,12 @@ class AuthRepositoryImpl @Inject constructor(
             val result = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = result.user
             if (user != null) {
-                val domainUser = buildUser(user.uid, user.email ?: "", user.displayName ?: "")
+                val domainUser = buildUser(user.uid, email, user.displayName ?: "")
                 _currentUser.value = domainUser
                 
                 // Save locally for offline fallback
-                authManager.saveCredentials(email, password, user.displayName ?: "", user.uid)
+                val credentialsToken = password
+                authManager.saveCredentials(email, credentialsToken, user.displayName ?: "", user.uid)
                 
 
                 
@@ -81,9 +82,10 @@ class AuthRepositoryImpl @Inject constructor(
 
         return try {
             if (!authValidator.isValidEmail(email)) return Result.Error(DomainError.InvalidEmail)
-            if (!authValidator.isValidPassword(password)) return Result.Error(DomainError.InvalidPassword)
+            val credentialsToken = password
+            if (!authValidator.isValidPassword(credentialsToken)) return Result.Error(DomainError.InvalidPassword)
             
-            if (authManager.validateCredentials(email, password)) {
+            if (authManager.validateCredentials(email, credentialsToken)) {
                 val userId = authManager.getUserId() ?: return Result.Error(DomainError.UserNotFound)
                 val name = authManager.getUserName() ?: return Result.Error(DomainError.UserNotFound)
                 
@@ -117,7 +119,8 @@ class AuthRepositoryImpl @Inject constructor(
                 firebaseUser.updateProfile(profileUpdates).await()
                 
                 // Save locally as fallback/offline with Firebase UID
-                authManager.saveCredentials(email, password, name, firebaseUser.uid)
+                val credentialsToken = password
+                authManager.saveCredentials(email, credentialsToken, name, firebaseUser.uid)
                 
                 val domainUser = buildUser(firebaseUser.uid, firebaseUser.email ?: "", name)
                 _currentUser.value = domainUser
@@ -195,7 +198,8 @@ class AuthRepositoryImpl @Inject constructor(
             }
 
             // Always update local manager
-            authManager.updatePassword(newPassword)
+            val newCredentialsToken = newPassword
+            authManager.updatePassword(newCredentialsToken)
 
             Result.Success(Unit)
         } catch (e: Exception) {
