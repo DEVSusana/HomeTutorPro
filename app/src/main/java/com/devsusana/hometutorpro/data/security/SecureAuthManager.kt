@@ -1,12 +1,15 @@
-package com.devsusana.hometutorpro.core.auth
+package com.devsusana.hometutorpro.data.security
 
 import android.content.SharedPreferences
+import com.devsusana.hometutorpro.core.auth.CryptographyProvider
+import com.devsusana.hometutorpro.core.auth.PasswordHasher
 import com.devsusana.hometutorpro.domain.core.AuthValidator
 import java.util.UUID
 
 /**
  * Manages secure storage of credentials and sensitive user data.
  * Decoupled from cryptography and hashing implementations using constructor injection.
+ * Resides in the data layer because it directly accesses SharedPreferences for persistence.
  */
 class SecureAuthManager(
     private val encryptedSharedPreferences: SharedPreferences,

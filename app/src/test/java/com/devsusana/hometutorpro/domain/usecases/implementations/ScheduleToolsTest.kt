@@ -1,12 +1,12 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
 import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
@@ -15,6 +15,7 @@ import java.util.Locale
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -25,13 +26,13 @@ import org.junit.Test
  * Unit tests for [ScheduleTools].
  *
  * All dependencies ([IQuerySchedulesForAgentUseCase], [IManageScheduleForAgentUseCase],
- * [SecureAuthManager]) are mocked so tests run in complete isolation.
+ * [AuthRepository]) are mocked so tests run in complete isolation.
  */
 class ScheduleToolsTest {
 
     private lateinit var querySchedulesUseCase: IQuerySchedulesForAgentUseCase
     private lateinit var manageScheduleUseCase: IManageScheduleForAgentUseCase
-    private lateinit var secureAuthManager: SecureAuthManager
+    private lateinit var authRepository: AuthRepository
     private lateinit var dateTimeProvider: DateTimeProvider
     private lateinit var scheduleTools: ScheduleTools
 
@@ -60,11 +61,20 @@ class ScheduleToolsTest {
         endTime = "11:00"
     )
 
+    private val mockUser = com.devsusana.hometutorpro.domain.entities.User(
+        uid = "prof-1",
+        email = "prof@example.com",
+        displayName = "Professor",
+        workingStartTime = "08:00",
+        workingEndTime = "23:00",
+        notes = ""
+    )
+
     @Before
     fun setup() {
         querySchedulesUseCase = mockk()
         manageScheduleUseCase = mockk()
-        secureAuthManager = mockk()
+        authRepository = mockk()
         dateTimeProvider = mockk(relaxed = true)
 
         every { dateTimeProvider.getNow() } returns LocalDateTime.of(2026, 5, 27, 8, 35) // Wednesday
@@ -73,7 +83,7 @@ class ScheduleToolsTest {
         scheduleTools = ScheduleTools(
             querySchedulesUseCase = querySchedulesUseCase,
             manageScheduleUseCase = manageScheduleUseCase,
-            secureAuthManager = secureAuthManager,
+            authRepository = authRepository,
             dateTimeProvider = dateTimeProvider
         )
     }
@@ -203,7 +213,7 @@ class ScheduleToolsTest {
 
     @Test
     fun `executeCancelAction returns AuthError when no session found`() = runTest {
-        every { secureAuthManager.getUserId() } returns null
+        every { authRepository.currentUser } returns MutableStateFlow(null)
 
         val action = SuePendingAction.CancelClass(
             studentName = "María", studentId = "stu-1", scheduleId = "sched-1",
@@ -217,7 +227,7 @@ class ScheduleToolsTest {
 
     @Test
     fun `executeCancelAction returns Execute Success on successful cancellation`() = runTest {
-        every { secureAuthManager.getUserId() } returns "prof-1"
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
         coEvery {
             manageScheduleUseCase.cancelClass(any(), any(), any(), any())
         } returns Result.Success(Unit)
@@ -235,7 +245,7 @@ class ScheduleToolsTest {
 
     @Test
     fun `executeCancelAction returns Execute Error on domain error`() = runTest {
-        every { secureAuthManager.getUserId() } returns "prof-1"
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
         coEvery {
             manageScheduleUseCase.cancelClass(any(), any(), any(), any())
         } returns Result.Error(DomainError.Unknown)

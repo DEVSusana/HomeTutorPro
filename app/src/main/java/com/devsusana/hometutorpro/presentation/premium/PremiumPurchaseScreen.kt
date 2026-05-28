@@ -38,7 +38,11 @@ fun PremiumPurchaseScreen(
             val activity = context as? android.app.Activity
             if (activity != null) {
                 viewModel.buyPremium { client, params ->
-                    client.launchBillingFlow(activity, params)
+                    val billingClient = client as? com.android.billingclient.api.BillingClient
+                    val billingFlowParams = params as? com.android.billingclient.api.BillingFlowParams
+                    if (billingClient != null && billingFlowParams != null) {
+                        billingClient.launchBillingFlow(activity, billingFlowParams)
+                    }
                 }
             }
         },

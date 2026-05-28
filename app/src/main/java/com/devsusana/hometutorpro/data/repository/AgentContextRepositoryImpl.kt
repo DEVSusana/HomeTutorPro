@@ -1,6 +1,6 @@
 package com.devsusana.hometutorpro.data.repository
 
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.data.local.dao.AgentContextDao
 import com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary
 import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail

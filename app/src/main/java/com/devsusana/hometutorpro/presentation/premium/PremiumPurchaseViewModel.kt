@@ -2,8 +2,6 @@ package com.devsusana.hometutorpro.presentation.premium
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.android.billingclient.api.BillingClient
-import com.android.billingclient.api.BillingFlowParams
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
 import com.devsusana.hometutorpro.domain.usecases.IGetPremiumProductUseCase
@@ -40,7 +38,7 @@ class PremiumPurchaseViewModel @Inject constructor(
         }
     }
 
-    fun buyPremium(launcher: (BillingClient, BillingFlowParams) -> Unit) {
+    fun buyPremium(launcher: (Any, Any) -> Unit) {
         billingService.launchPremiumPurchase(launcher)
     }
 }

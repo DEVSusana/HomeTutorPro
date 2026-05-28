@@ -4,14 +4,12 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.devsusana.hometutorpro.MainActivity
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import javax.inject.Inject
 
 /**
  * Instrumented tests for Student add/edit flows.
@@ -31,19 +29,9 @@ class StudentFlowInstrumentedTest {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
-    @Inject
-    lateinit var authManager: SecureAuthManager
-
     @Before
     fun setUp() {
         hiltRule.inject()
-        
-        // Ensure user is logged in to bypass splash/login redirect
-        if (!authManager.isUserLoggedIn()) {
-            val dummyEmail = "test_user_" + System.currentTimeMillis() + "@example.com"
-            val dummyPass = "Pass" + "word" + "123!"
-            authManager.saveCredentials(dummyEmail, dummyPass, "Test User", "test_user_id")
-        }
 
         // Wait for app to load and skip splash
         // We wait until the bottom navigation label is visible

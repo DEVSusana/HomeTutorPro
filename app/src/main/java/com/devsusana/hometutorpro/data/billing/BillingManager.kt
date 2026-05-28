@@ -142,7 +142,7 @@ class BillingManager @Inject constructor(
      * Triggers the purchase flow for the cached premium product details.
      * @param launcher Callback launcher that takes BillingClient and BillingFlowParams to launch the flow from the UI.
      */
-    override fun launchPremiumPurchase(launcher: (BillingClient, BillingFlowParams) -> Unit) {
+    override fun launchPremiumPurchase(launcher: (Any, Any) -> Unit) {
         val details = lastProductDetails ?: return
         val flowParams = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(

@@ -1,6 +1,8 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.domain.entities.User
+import com.devsusana.hometutorpro.domain.repository.AuthRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
@@ -31,7 +33,7 @@ class StudentToolsTest {
     private lateinit var queryStudentsUseCase: IQueryStudentsForAgentUseCase
     private lateinit var registerPaymentUseCase: IRegisterPaymentUseCase
     private lateinit var addToBalanceUseCase: IAddToBalanceUseCase
-    private lateinit var secureAuthManager: SecureAuthManager
+    private lateinit var authRepository: AuthRepository
     private lateinit var studentTools: StudentTools
 
     private val mariaDetail = AgentStudentDetail(
@@ -77,13 +79,13 @@ class StudentToolsTest {
         queryStudentsUseCase = mockk()
         registerPaymentUseCase = mockk()
         addToBalanceUseCase = mockk()
-        secureAuthManager = mockk()
+        authRepository = mockk()
 
         studentTools = StudentTools(
             queryStudentsUseCase = queryStudentsUseCase,
             registerPaymentUseCase = registerPaymentUseCase,
             addToBalanceUseCase = addToBalanceUseCase,
-            secureAuthManager = secureAuthManager
+            authRepository = authRepository
         )
     }
 
@@ -173,7 +175,7 @@ class StudentToolsTest {
 
     @Test
     fun `executeRegisterPayment returns AuthError when no session`() = runTest {
-        every { secureAuthManager.getUserId() } returns null
+        every { authRepository.currentUser } returns MutableStateFlow(null)
 
         val action = SuePendingAction.RegisterPayment(
             studentName = "María García",
@@ -189,7 +191,7 @@ class StudentToolsTest {
 
     @Test
     fun `executeRegisterPayment returns Execute Success on success`() = runTest {
-        every { secureAuthManager.getUserId() } returns "prof-1"
+        every { authRepository.currentUser } returns MutableStateFlow(User(uid = "prof-1", email = "test@example.com", displayName = "Professor"))
         coEvery { registerPaymentUseCase(any(), any(), any(), any()) } returns Result.Success(Unit)
 
         val action = SuePendingAction.RegisterPayment(
@@ -207,7 +209,7 @@ class StudentToolsTest {
 
     @Test
     fun `executeRegisterPayment returns Execute Error on domain error`() = runTest {
-        every { secureAuthManager.getUserId() } returns "prof-1"
+        every { authRepository.currentUser } returns MutableStateFlow(User(uid = "prof-1", email = "test@example.com", displayName = "Professor"))
         coEvery {
             registerPaymentUseCase(any(), any(), any(), any())
         } returns Result.Error(DomainError.InvalidAmount)
@@ -243,7 +245,7 @@ class StudentToolsTest {
 
     @Test
     fun `executeAddBalance returns Execute Success on success`() = runTest {
-        every { secureAuthManager.getUserId() } returns "prof-1"
+        every { authRepository.currentUser } returns MutableStateFlow(User(uid = "prof-1", email = "test@example.com", displayName = "Professor"))
         coEvery { addToBalanceUseCase(any(), any(), any()) } returns Result.Success(Unit)
 
         val action = SuePendingAction.AddBalance(

@@ -1,6 +1,6 @@
 package com.devsusana.hometutorpro.data.repository
 
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.UpdateUserParams

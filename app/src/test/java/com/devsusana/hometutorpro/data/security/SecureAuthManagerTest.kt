@@ -1,7 +1,9 @@
-package com.devsusana.hometutorpro.core.auth
+package com.devsusana.hometutorpro.data.security
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.devsusana.hometutorpro.core.auth.CryptographyProvider
+import com.devsusana.hometutorpro.core.auth.PasswordHasher
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test

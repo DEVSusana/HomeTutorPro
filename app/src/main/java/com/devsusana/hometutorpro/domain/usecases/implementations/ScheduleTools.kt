@@ -1,9 +1,9 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
@@ -28,7 +28,7 @@ import javax.inject.Singleton
 class ScheduleTools @Inject constructor(
     private val querySchedulesUseCase: IQuerySchedulesForAgentUseCase,
     private val manageScheduleUseCase: IManageScheduleForAgentUseCase,
-    private val secureAuthManager: SecureAuthManager,
+    private val authRepository: AuthRepository,
     private val dateTimeProvider: DateTimeProvider
 ) {
 
@@ -202,7 +202,7 @@ class ScheduleTools @Inject constructor(
      * Executes a confirmed [SuePendingAction.CancelClass].
      */
     suspend fun executeCancelAction(action: SuePendingAction.CancelClass): SueOperationResult.Execute {
-        val professorId = secureAuthManager.getUserId()
+        val professorId = authRepository.currentUser.value?.uid
             ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = manageScheduleUseCase.cancelClass(
@@ -220,7 +220,7 @@ class ScheduleTools @Inject constructor(
      * Executes a confirmed [SuePendingAction.RescheduleClass].
      */
     suspend fun executeRescheduleAction(action: SuePendingAction.RescheduleClass): SueOperationResult.Execute {
-        val professorId = secureAuthManager.getUserId()
+        val professorId = authRepository.currentUser.value?.uid
             ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = manageScheduleUseCase.rescheduleClass(

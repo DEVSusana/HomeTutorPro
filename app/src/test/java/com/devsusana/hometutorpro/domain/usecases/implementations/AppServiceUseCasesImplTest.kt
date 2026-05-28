@@ -1,7 +1,5 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.android.billingclient.api.BillingClient
-import com.android.billingclient.api.BillingFlowParams
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
 import com.devsusana.hometutorpro.domain.repository.NotificationRepository
@@ -18,7 +16,7 @@ class AppServiceUseCasesImplTest {
         val product: PremiumProduct?
     ) : PremiumBillingService {
         override suspend fun getPremiumProduct(): PremiumProduct? = product
-        override fun launchPremiumPurchase(launcher: (BillingClient, BillingFlowParams) -> Unit) {}
+        override fun launchPremiumPurchase(launcher: (Any, Any) -> Unit) {}
     }
 
     private class FakeNotificationRepository : NotificationRepository {

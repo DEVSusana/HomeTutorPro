@@ -19,11 +19,6 @@ abstract class RepositoryModule {
         syncCoordinator: com.devsusana.hometutorpro.domain.usecases.implementations.SyncCoordinator
     ): com.devsusana.hometutorpro.domain.usecases.ISyncCoordinator
 
-    @Binds
-    @Singleton
-    abstract fun bindAuthRepository(
-        authRepositoryImpl: AuthRepositoryImpl
-    ): AuthRepository
 
     @Binds
     @Singleton

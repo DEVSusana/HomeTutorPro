@@ -1,11 +1,11 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQueryStudentsForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
@@ -23,7 +23,7 @@ class StudentTools @Inject constructor(
     private val queryStudentsUseCase: IQueryStudentsForAgentUseCase,
     private val registerPaymentUseCase: IRegisterPaymentUseCase,
     private val addToBalanceUseCase: IAddToBalanceUseCase,
-    private val secureAuthManager: SecureAuthManager
+    private val authRepository: AuthRepository
 ) {
 
     /**
@@ -115,7 +115,7 @@ class StudentTools @Inject constructor(
      * Executes a confirmed RegisterPayment action.
      */
     suspend fun executeRegisterPayment(action: SuePendingAction.RegisterPayment): SueOperationResult.Execute {
-        val professorId = secureAuthManager.getUserId()
+        val professorId = authRepository.currentUser.value?.uid
             ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = registerPaymentUseCase(
@@ -155,7 +155,7 @@ class StudentTools @Inject constructor(
      * Executes a confirmed AddBalance action.
      */
     suspend fun executeAddBalance(action: SuePendingAction.AddBalance): SueOperationResult.Execute {
-        val professorId = secureAuthManager.getUserId()
+        val professorId = authRepository.currentUser.value?.uid
             ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = addToBalanceUseCase(
