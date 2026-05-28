@@ -1,4 +1,4 @@
-package com.devsusana.hometutorpro.ui
+package com.devsusana.hometutorpro.presentation.weekly_schedule
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -12,25 +12,35 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Shared test tags for Weekly Schedule views test.
+ * Centralized test tags for Weekly Schedule UI components.
+ * Used across instrumented tests to locate semantic nodes.
  */
 object TestTags {
+    /** The test tag for the button that switches to grid view. */
     const val GRID_VIEW_BUTTON = "grid_view_button"
+    /** The test tag for the button that switches to list view. */
     const val LIST_VIEW_BUTTON = "list_view_button"
+    /** The test tag for a single schedule entry item in the list or grid. */
     const val SCHEDULE_ITEM = "schedule_item"
+    /** The test tag for the dialog that displays schedule item details. */
     const val DETAIL_DIALOG = "detail_dialog"
 }
 
 /**
  * Instrumented tests for Weekly Schedule views (Grid and List).
+ *
+ * Validates view toggling, item rendering, and detail dialog interactions
+ * using the Hilt-injected [MainActivity] Compose test rule.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 class WeeklyScheduleViewsInstrumentedTest {
 
+    /** Hilt DI rule for injecting test dependencies before each test. */
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 
+    /** Compose test rule that launches [MainActivity] for UI interaction and assertions. */
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 

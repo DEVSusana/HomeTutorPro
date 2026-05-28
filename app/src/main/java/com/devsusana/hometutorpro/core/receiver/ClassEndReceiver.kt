@@ -20,13 +20,25 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class ClassEndReceiver : BroadcastReceiver() {
 
+    /** Use case responsible for triggering the class-end notification logic. */
     @Inject
     lateinit var notifyClassEndUseCase: INotifyClassEndUseCase
 
+    /** Application-scoped coroutine scope for background work that outlives the receiver. */
     @Inject
     @ApplicationScope
     lateinit var applicationScope: CoroutineScope
 
+    /**
+     * Handles the incoming broadcast intent for the class-end event.
+     *
+     * Extracts the student name from the intent extras and delegates the notification
+     * logic to [INotifyClassEndUseCase] within [applicationScope]. Uses [goAsync] to
+     * keep the receiver alive during the coroutine execution.
+     *
+     * @param context The context in which the receiver is running.
+     * @param intent The intent being received, containing the student name extra.
+     */
     override fun onReceive(context: Context, intent: Intent) {
         val studentName = intent.getStringExtra(EXTRA_STUDENT_NAME)
             ?: context.getString(com.devsusana.hometutorpro.R.string.student_default_name)

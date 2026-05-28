@@ -1,4 +1,4 @@
-package com.devsusana.hometutorpro.ui
+package com.devsusana.hometutorpro.presentation.student
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -13,15 +13,21 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented tests for Student add/edit flows.
+ * Instrumented test suite for validating the end-to-end student management flow.
+ *
+ * Verifies navigation, creation, update, deletion, and validation logic within
+ * the Student feature. Ensures integration between UI and the underlying
+ * Hilt-injected dependencies.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 class StudentFlowInstrumentedTest {
 
+    /** Hilt DI rule for injecting test dependencies before each test. */
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 
+    /** Compose test rule that launches [MainActivity] for UI interaction and assertions. */
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 

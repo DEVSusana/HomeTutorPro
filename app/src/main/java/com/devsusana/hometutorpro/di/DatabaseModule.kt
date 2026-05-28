@@ -74,10 +74,7 @@ object DatabaseModule {
         return database.sharedResourceDao()
     }
 
-    @Provides
-    fun provideAgentContextDao(database: AppDatabase): AgentContextDao {
-        return database.agentContextDao()
-    }
+
 
     @Provides
     @Singleton
