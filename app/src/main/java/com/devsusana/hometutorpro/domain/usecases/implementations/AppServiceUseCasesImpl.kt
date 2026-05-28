@@ -1,9 +1,8 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import android.app.Application
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
-import com.devsusana.hometutorpro.core.utils.NotificationHelper
+import com.devsusana.hometutorpro.domain.repository.NotificationRepository
 import com.devsusana.hometutorpro.domain.usecases.*
 import javax.inject.Inject
 
@@ -16,19 +15,18 @@ class GetPremiumProductUseCase @Inject constructor(
 }
 
 class ShowTestNotificationUseCase @Inject constructor(
-    private val application: Application
+    private val notificationRepository: NotificationRepository
 ) : IShowTestNotificationUseCase {
     override operator fun invoke() {
-        NotificationHelper.showTestNotification(application)
+        notificationRepository.showTestNotification()
     }
 }
 
 class ScheduleClassEndNotificationUseCase @Inject constructor(
-    private val application: Application
+    private val notificationRepository: NotificationRepository
 ) : IScheduleClassEndNotificationUseCase {
     override operator fun invoke(studentName: String, durationMinutes: Long): Boolean {
-        return NotificationHelper.scheduleClassEndNotification(
-            application,
+        return notificationRepository.scheduleClassEndNotification(
             studentName,
             durationMinutes
         )

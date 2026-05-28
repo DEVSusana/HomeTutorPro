@@ -3,9 +3,9 @@ package com.devsusana.hometutorpro.di
 import android.content.Context
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.core.auth.CryptographyProvider
-import com.devsusana.hometutorpro.core.auth.AndroidCryptographyProvider
 import com.devsusana.hometutorpro.core.auth.PasswordHasher
-import com.devsusana.hometutorpro.core.auth.Pbkdf2PasswordHasher
+import com.devsusana.hometutorpro.data.security.AndroidCryptographyProvider
+import com.devsusana.hometutorpro.data.security.Pbkdf2PasswordHasher
 import com.devsusana.hometutorpro.data.local.AppDatabase
 import com.devsusana.hometutorpro.data.local.SupportFactoryHelper
 import com.devsusana.hometutorpro.data.local.migrations.DatabaseMigrations

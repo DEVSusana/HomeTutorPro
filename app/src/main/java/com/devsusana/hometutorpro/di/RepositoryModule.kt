@@ -72,5 +72,11 @@ abstract class RepositoryModule {
     abstract fun bindDateTimeProvider(
         dateTimeProviderImpl: DateTimeProviderImpl
     ): DateTimeProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationRepository(
+        notificationRepositoryImpl: NotificationRepositoryImpl
+    ): NotificationRepository
 }
 

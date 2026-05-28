@@ -26,6 +26,7 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.GetSharedResou
 import com.devsusana.hometutorpro.domain.usecases.implementations.SaveSharedResourceUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.DeleteSharedResourceUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.MigrateDataFromLocalUseCase
+import com.devsusana.hometutorpro.domain.usecases.implementations.NotifyClassEndUseCaseImpl
 import com.devsusana.hometutorpro.domain.usecases.implementations.UpdateProfileUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.UpdatePasswordUseCase
 import dagger.Binds
@@ -180,5 +181,8 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindGetDebugPremiumUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetDebugPremiumUseCase): IGetDebugPremiumUseCase
+
+    @Binds
+    abstract fun bindNotifyClassEndUseCase(impl: NotifyClassEndUseCaseImpl): INotifyClassEndUseCase
 }
 

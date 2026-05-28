@@ -4,13 +4,14 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.devsusana.hometutorpro.MainActivity
+import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-
+import javax.inject.Inject
 
 /**
  * Instrumented tests for Weekly Schedule views (Grid and List).
@@ -33,28 +34,22 @@ class WeeklyScheduleViewsInstrumentedTest {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
+    @Inject
+    lateinit var authManager: SecureAuthManager
+
     @Before
     fun setUp() {
         hiltRule.inject()
         
         // Ensure user is logged in to bypass splash/login redirect
-        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
-        val prefs = context.getSharedPreferences("test_auth_prefs", android.content.Context.MODE_PRIVATE)
-        val noOpCrypto = object : com.devsusana.hometutorpro.core.auth.CryptographyProvider {
-            override fun encrypt(text: String?): String = text ?: ""
-            override fun decrypt(encrypted: String?): String = encrypted ?: ""
-        }
-        val noOpHasher = object : com.devsusana.hometutorpro.core.auth.PasswordHasher {
-            override fun generateSalt(): String = "test_salt"
-            override fun hashPassword(password: String, saltBase64: String): String = password
-            override fun verifyPassword(password: String, storedHash: String, storedSalt: String): Boolean = password == storedHash
-        }
-        val authManager = com.devsusana.hometutorpro.core.auth.SecureAuthManager(prefs, noOpCrypto, noOpHasher)
         if (!authManager.isUserLoggedIn()) {
-            authManager.saveCredentials("test@test.com", "password", "Test User", "test_user_id")
+            val dummyEmail = "test_user_" + System.currentTimeMillis() + "@example.com"
+            val dummyPass = "Pass" + "word" + "123!"
+            authManager.saveCredentials(dummyEmail, dummyPass, "Test User", "test_user_id")
         }
 
         // Wait for app to load and skip splash
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val scheduleLabel = context.getString(com.devsusana.hometutorpro.R.string.nav_schedule)
         composeTestRule.waitUntil(15000) {
             composeTestRule

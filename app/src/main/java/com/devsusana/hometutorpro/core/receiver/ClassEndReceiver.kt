@@ -3,52 +3,40 @@ package com.devsusana.hometutorpro.core.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.devsusana.hometutorpro.core.utils.NotificationHelper
 import com.devsusana.hometutorpro.di.ApplicationScope
-import com.devsusana.hometutorpro.domain.repository.SettingsRepository
+import com.devsusana.hometutorpro.domain.usecases.INotifyClassEndUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * BroadcastReceiver to handle scheduled class end notifications.
- * Uses [goAsync] and Hilt injection to check settings and show notifications
- * off the main execution thread.
+ * Thin BroadcastReceiver gateway for scheduled class-end alarms.
+ *
+ * Delegates all business logic (settings check, notification display) to
+ * [INotifyClassEndUseCase], keeping this class free of domain or data dependencies
+ * beyond the use case interface contract.
  */
 @AndroidEntryPoint
 class ClassEndReceiver : BroadcastReceiver() {
 
     @Inject
-    lateinit var settingsRepository: SettingsRepository
+    lateinit var notifyClassEndUseCase: INotifyClassEndUseCase
 
     @Inject
     @ApplicationScope
     lateinit var applicationScope: CoroutineScope
 
     override fun onReceive(context: Context, intent: Intent) {
-        android.util.Log.d("ClassEndReceiver", "onReceive called - alarm triggered!")
-        
+        val studentName = intent.getStringExtra(EXTRA_STUDENT_NAME)
+            ?: context.getString(com.devsusana.hometutorpro.R.string.student_default_name)
+
         val pendingResult = goAsync()
-        
         applicationScope.launch {
             try {
-                // Check if notifications are enabled in settings
-                val areNotificationsEnabled = settingsRepository.classEndNotificationsFlow.first()
-                
-                if (!areNotificationsEnabled) {
-                    android.util.Log.d("ClassEndReceiver", "Notifications are disabled in settings, skipping.")
-                    return@launch
-                }
-
-                val studentName = intent.getStringExtra(EXTRA_STUDENT_NAME) 
-                    ?: context.getString(com.devsusana.hometutorpro.R.string.student_default_name)
-                android.util.Log.d("ClassEndReceiver", "Showing notification for student: $studentName")
-                NotificationHelper.showClassEndNotification(context, studentName)
-                android.util.Log.d("ClassEndReceiver", "Notification shown successfully")
+                notifyClassEndUseCase.execute(studentName)
             } catch (e: Exception) {
-                android.util.Log.e("ClassEndReceiver", "Error while processing class end notification", e)
+                android.util.Log.e(TAG, "Error processing class end notification", e)
             } finally {
                 pendingResult.finish()
             }
@@ -56,6 +44,8 @@ class ClassEndReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        private const val TAG = "ClassEndReceiver"
+
         /** Intent extra key for passing the student's name to show in the notification. */
         const val EXTRA_STUDENT_NAME = "extra_student_name"
     }
