@@ -2,7 +2,7 @@ package com.devsusana.hometutorpro.data.security
 
 import android.content.SharedPreferences
 import com.devsusana.hometutorpro.core.auth.CryptographyProvider
-import com.devsusana.hometutorpro.core.auth.PasswordHasher
+import com.devsusana.hometutorpro.domain.auth.PasswordHasher
 import com.devsusana.hometutorpro.domain.core.AuthValidator
 import java.util.UUID
 

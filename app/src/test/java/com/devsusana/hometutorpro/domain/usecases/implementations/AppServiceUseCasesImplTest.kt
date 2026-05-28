@@ -16,7 +16,6 @@ class AppServiceUseCasesImplTest {
         val product: PremiumProduct?
     ) : PremiumBillingService {
         override suspend fun getPremiumProduct(): PremiumProduct? = product
-        override fun launchPremiumPurchase(launcher: (Any, Any) -> Unit) {}
     }
 
     private class FakeNotificationRepository : NotificationRepository {

@@ -2,6 +2,7 @@ package com.devsusana.hometutorpro.presentation.premium
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.app.Activity
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
 import com.devsusana.hometutorpro.domain.usecases.IGetPremiumProductUseCase
@@ -15,6 +16,7 @@ import javax.inject.Inject
 @HiltViewModel
 class PremiumPurchaseViewModel @Inject constructor(
     private val billingService: PremiumBillingService,
+    private val billingLauncher: BillingLauncher,
     private val getPremiumProductUseCase: IGetPremiumProductUseCase
 ) : ViewModel() {
 
@@ -38,7 +40,7 @@ class PremiumPurchaseViewModel @Inject constructor(
         }
     }
 
-    fun buyPremium(launcher: (Any, Any) -> Unit) {
-        billingService.launchPremiumPurchase(launcher)
+    fun buyPremium(activity: Activity) {
+        billingLauncher.launchPremiumPurchase(activity)
     }
 }

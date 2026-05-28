@@ -2,8 +2,10 @@ package com.devsusana.hometutorpro.data.billing
 
 import com.android.billingclient.api.*
 import com.android.billingclient.api.PendingPurchasesParams
+import android.app.Activity
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
+import com.devsusana.hometutorpro.presentation.premium.BillingLauncher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +21,7 @@ import kotlin.coroutines.resume
 @Singleton
 class BillingManager @Inject constructor(
     billingClientBuilder: BillingClient.Builder
-) : PurchasesUpdatedListener, PremiumBillingService {
+) : PurchasesUpdatedListener, PremiumBillingService, BillingLauncher {
 
     private val _realPremium = MutableStateFlow(false)
 
@@ -140,9 +142,9 @@ class BillingManager @Inject constructor(
 
     /**
      * Triggers the purchase flow for the cached premium product details.
-     * @param launcher Callback launcher that takes BillingClient and BillingFlowParams to launch the flow from the UI.
+     * @param activity The host activity.
      */
-    override fun launchPremiumPurchase(launcher: (Any, Any) -> Unit) {
+    override fun launchPremiumPurchase(activity: Activity) {
         val details = lastProductDetails ?: return
         val flowParams = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(
@@ -159,7 +161,7 @@ class BillingManager @Inject constructor(
                 )
             )
             .build()
-        launcher(billingClient, flowParams)
+        billingClient.launchBillingFlow(activity, flowParams)
     }
 
     companion object {

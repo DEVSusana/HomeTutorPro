@@ -1,6 +1,6 @@
 package com.devsusana.hometutorpro.data.security
 
-import com.devsusana.hometutorpro.core.auth.PasswordHasher
+import com.devsusana.hometutorpro.domain.auth.PasswordHasher
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.SecretKeyFactory

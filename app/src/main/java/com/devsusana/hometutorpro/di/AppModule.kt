@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.di
 import android.content.Context
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.data.billing.BillingManager
+import com.devsusana.hometutorpro.presentation.premium.BillingLauncher
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -26,6 +27,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindPremiumBillingService(billingManager: BillingManager): PremiumBillingService
+
+    @Binds
+    @Singleton
+    abstract fun bindBillingLauncher(billingManager: BillingManager): BillingLauncher
 
     @Binds
     @Singleton

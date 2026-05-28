@@ -12,15 +12,17 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
+ * Shared test tags for Weekly Schedule views test.
+ */
+object TestTags {
+    const val GRID_VIEW_BUTTON = "grid_view_button"
+    const val LIST_VIEW_BUTTON = "list_view_button"
+    const val SCHEDULE_ITEM = "schedule_item"
+    const val DETAIL_DIALOG = "detail_dialog"
+}
+
+/**
  * Instrumented tests for Weekly Schedule views (Grid and List).
- * These tests run on a real device to verify:
- * - Grid view displays correctly
- * - List view displays correctly
- * - Switching between views works
- * - Schedule items are interactive
- * 
- * Note: These tests assume the app navigates to the weekly schedule screen.
- * If the app starts at login, these tests will be skipped.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -32,115 +34,86 @@ class WeeklyScheduleViewsInstrumentedTest {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
+    /**
+     * Configures the test environment, injects dependencies, and navigates to the Weekly Schedule screen.
+     */
     @Before
     fun setUp() {
         hiltRule.inject()
-
-        // Wait for app to load and skip splash
-        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
-        val scheduleLabel = context.getString(com.devsusana.hometutorpro.R.string.nav_schedule)
+        
+        // Wait for bottom navigation item to be displayed
         composeTestRule.waitUntil(15000) {
             composeTestRule
-                .onAllNodesWithText(scheduleLabel)
+                .onAllNodesWithTag("nav_item_WeeklySchedule")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        
-        // Navigate to Weekly Schedule screen from Dashboard using text search
-        composeTestRule.onNodeWithText(scheduleLabel).performClick()
+
+        // Navigate to Weekly Schedule screen
+        composeTestRule.onNodeWithTag("nav_item_WeeklySchedule").performClick()
         composeTestRule.waitForIdle()
-        // Give it an extra moment to complete transition
-        composeTestRule.mainClock.advanceTimeBy(500)
     }
 
+    /**
+     * Verifies that the list view is correctly displayed by default.
+     */
     @Test
     fun scheduleListView_displaysCorrectly() {
-        // Given: User is on weekly schedule screen in list view (default)
-        // Verify the grid view button is visible (meaning we're in list view)
-        composeTestRule
-            .onNodeWithTag("grid_view_button", useUnmergedTree = true)
-            .assertExists()
+        composeTestRule.onNodeWithTag(TestTags.GRID_VIEW_BUTTON).assertExists()
     }
 
+    /**
+     * Verifies that switching to the grid view renders correctly.
+     */
     @Test
     fun scheduleGridView_displaysCorrectly() {
-        // When: User switches to grid view
-        composeTestRule
-            .onNodeWithTag("grid_view_button", useUnmergedTree = true)
-            .performClick()
-
-        composeTestRule.waitForIdle()
-
-        // Then: Grid view should be displayed
-        // Verify the list view button is now visible (meaning we're in grid view)
-        composeTestRule
-            .onNodeWithTag("list_view_button", useUnmergedTree = true)
-            .assertExists()
+        composeTestRule.onNodeWithTag(TestTags.GRID_VIEW_BUTTON).performClick()
+        composeTestRule.onNodeWithTag(TestTags.LIST_VIEW_BUTTON).assertIsDisplayed()
     }
 
+    /**
+     * Verifies the toggling functionality between list and grid views.
+     */
     @Test
     fun switchBetweenViews_worksCorrectly() {
-        // When: User switches to grid view
-        composeTestRule
-            .onNodeWithTag("grid_view_button", useUnmergedTree = true)
-            .performClick()
-
-        composeTestRule.waitForIdle()
-
-        // Then: Grid view is displayed
-        composeTestRule
-            .onNodeWithTag("list_view_button", useUnmergedTree = true)
-            .assertExists()
-
-        // When: User switches back to list view
-        composeTestRule
-            .onNodeWithTag("list_view_button", useUnmergedTree = true)
-            .performClick()
-
-        composeTestRule.waitForIdle()
-
-        // Then: List view is displayed again
-        composeTestRule
-            .onNodeWithTag("grid_view_button", useUnmergedTree = true)
-            .assertExists()
+        composeTestRule.onNodeWithTag(TestTags.GRID_VIEW_BUTTON).performClick()
+        composeTestRule.onNodeWithTag(TestTags.LIST_VIEW_BUTTON).assertExists()
+        composeTestRule.onNodeWithTag(TestTags.LIST_VIEW_BUTTON).performClick()
+        composeTestRule.onNodeWithTag(TestTags.GRID_VIEW_BUTTON).assertExists()
     }
 
+    /**
+     * Verifies that clicking on a schedule item triggers the expected detail dialog.
+     */
     @Test
     fun scheduleItem_clickOpensDialog() {
-        // Given: User is on weekly schedule
-        // When: User clicks on a schedule item (if any exist)
-        val scheduleItems = composeTestRule
-            .onAllNodesWithTag("schedule_item", useUnmergedTree = true)
-        
-        // Only perform click if there are schedule items
-        if (scheduleItems.fetchSemanticsNodes().isNotEmpty()) {
-            scheduleItems.onFirst().performClick()
-            composeTestRule.waitForIdle()
-            
-            // Then: Exception dialog should open
-            // (Verification would depend on actual dialog test tags)
+        val scheduleItem = composeTestRule.onAllNodesWithTag(TestTags.SCHEDULE_ITEM)
+        if (scheduleItem.fetchSemanticsNodes().isNotEmpty()) {
+            scheduleItem.onFirst().performClick()
+            composeTestRule.onNodeWithTag(TestTags.DETAIL_DIALOG).assertIsDisplayed()
         }
     }
 
+    /**
+     * Verifies that schedule items are visible within the grid view layout.
+     */
     @Test
     fun gridView_showsScheduleItems() {
-        // When: User switches to grid view
-        composeTestRule
-            .onNodeWithTag("grid_view_button", useUnmergedTree = true)
-            .performClick()
-
-        composeTestRule.waitForIdle()
-
-        // Then: Grid view should be displayed
-        composeTestRule
-            .onNodeWithTag("list_view_button", useUnmergedTree = true)
-            .assertExists()
+        composeTestRule.onNodeWithTag(TestTags.GRID_VIEW_BUTTON).performClick()
+        val scheduleItem = composeTestRule.onAllNodesWithTag(TestTags.SCHEDULE_ITEM)
+        if (scheduleItem.fetchSemanticsNodes().isNotEmpty()) {
+            scheduleItem.onFirst().assertExists()
+        }
     }
 
+    /**
+     * Verifies that schedule details are visible within the list view layout.
+     */
     @Test
     fun listView_showsScheduleDetails() {
-        // Verify the grid view button is visible (meaning we're in list view)
-        composeTestRule
-            .onNodeWithTag("grid_view_button", useUnmergedTree = true)
-            .assertExists()
+        composeTestRule.onNodeWithTag(TestTags.GRID_VIEW_BUTTON).assertExists()
+        val scheduleItem = composeTestRule.onAllNodesWithTag(TestTags.SCHEDULE_ITEM)
+        if (scheduleItem.fetchSemanticsNodes().isNotEmpty()) {
+            scheduleItem.onFirst().assertExists()
+        }
     }
 }

@@ -1,7 +1,6 @@
-package com.devsusana.hometutorpro.presentation.weekly_schedule
+package com.devsusana.hometutorpro.presentation.viewmodels
 
 import com.devsusana.hometutorpro.domain.entities.Schedule
-import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.entities.Student
 import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.entities.User
@@ -15,6 +14,8 @@ import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.CleanupDuplicatesUseCase
+import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleViewModel
+import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleItem
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,8 +32,10 @@ import org.junit.Before
 import org.junit.Test
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
 
+/**
+ * Unit tests for [WeeklyScheduleViewModel] verifying correct load of schedule items and state changes.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WeeklyScheduleViewModelTest {
 
@@ -51,6 +54,7 @@ class WeeklyScheduleViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
+    /** Configures the test dispatcher and mocks before each test runs. */
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
@@ -67,13 +71,15 @@ class WeeklyScheduleViewModelTest {
         application = mockk(relaxed = true)
     }
 
+    /** Resets the main dispatcher after each test completes. */
     @After
     fun tearDown() {
         Dispatchers.resetMain()
     }
 
+    /** Verifies that the ViewModel loads the weekly schedules correctly from the use cases on initialization. */
     @Test
-    fun `init should load weekly schedule`() = runTest {
+    fun init_shouldLoadWeeklySchedule() = runTest {
         // Given
         val userId = "user123"
         val user = User(uid = userId, email = "test@test.com", displayName = "Test User")
@@ -129,7 +135,6 @@ class WeeklyScheduleViewModelTest {
 
         // Then
         val schedules = viewModel.state.value.schedulesByDay[DayOfWeek.MONDAY]
-        println("Schedules for Monday: $schedules")
         assertEquals(1, schedules?.filterIsInstance<WeeklyScheduleItem.Regular>()?.size)
         val regularItem = schedules?.filterIsInstance<WeeklyScheduleItem.Regular>()?.firstOrNull()
         assertEquals(schedule.id, regularItem?.schedule?.id)
