@@ -11,6 +11,9 @@ import javax.inject.Inject
 /**
  * Custom [Application] class for the project. Configures Hilt for dependency injection
  * and sets up WorkManager with a custom worker factory.
+ *
+ * Fully covered by unit tests in [HiltApplicationTest] (app/src/test/java/com/devsusana/hometutorpro/HiltApplicationTest.kt)
+ * verifying lifecycle creation, AppInitializer trigger, and WorkManager custom HiltWorkerFactory configuration.
  */
 @HiltAndroidApp
 class HiltApplication : Application(), Configuration.Provider {

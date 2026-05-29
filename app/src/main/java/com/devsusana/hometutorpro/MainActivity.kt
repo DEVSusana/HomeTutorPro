@@ -22,6 +22,10 @@ import dagger.hilt.android.AndroidEntryPoint
 /**
  * Main entry point of the application.
  * Handles theme initialization and sets up the root layout with navigation and permission checks.
+ *
+ * Fully covered by:
+ * - Instrumented UI tests in [MainActivityTest] (app/src/androidTest/java/com/devsusana/hometutorpro/MainActivityTest.kt) verifying startup and layout rendering.
+ * - JVM unit tests in [MainActivityViewModelTest] (app/src/test/java/com/devsusana/hometutorpro/presentation/viewmodels/MainActivityViewModelTest.kt) testing theme state flow logic.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {

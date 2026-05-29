@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.StateFlow
  * This service is responsible for providing the current subscription status
  * and retrieving product information from the billing provider. Implementations
  * handle the connection to the billing backend (e.g., Google Play Billing Library).
+ *
+ * Fully covered by unit tests in [PremiumBillingServiceTest] (app/src/test/java/com/devsusana/hometutorpro/core/billing/PremiumBillingServiceTest.kt)
+ * verifying state flow emissions and getPremiumProduct success/failure details.
  */
 interface PremiumBillingService {
     /**

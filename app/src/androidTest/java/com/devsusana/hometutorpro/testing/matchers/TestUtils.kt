@@ -1,4 +1,4 @@
-package com.devsusana.hometutorpro.utils
+package com.devsusana.hometutorpro.testing.matchers
 
 import androidx.compose.ui.test.SemanticsMatcher
 

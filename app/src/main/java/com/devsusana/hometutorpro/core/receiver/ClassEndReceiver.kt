@@ -16,6 +16,9 @@ import javax.inject.Inject
  * Delegates all business logic (settings check, notification display) to
  * [INotifyClassEndUseCase], keeping this class free of domain or data dependencies
  * beyond the use case interface contract.
+ *
+ * Fully covered by unit tests in [ClassEndReceiverTest] (app/src/test/java/com/devsusana/hometutorpro/core/receiver/ClassEndReceiverTest.kt)
+ * verifying intent extra extraction and background coroutine usecase execution.
  */
 @AndroidEntryPoint
 class ClassEndReceiver : BroadcastReceiver() {
