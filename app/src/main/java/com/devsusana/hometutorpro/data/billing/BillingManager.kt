@@ -29,22 +29,46 @@ class BillingManager @Inject constructor(
     /** Exposed Flow containing the active premium/subscription status. */
     override val isPremium: StateFlow<Boolean> = _realPremium.asStateFlow()
 
-    /**
-     * The [BillingClient] instance used for all billing operations.
-     * Exposed as `internal` so that [com.devsusana.hometutorpro.presentation.premium.PlayBillingLauncher]
-     * can invoke [BillingClient.launchBillingFlow] without this class referencing [android.app.Activity].
-     */
-    internal val billingClient: BillingClient = billingClientBuilder
+    private val billingClient: BillingClient = billingClientBuilder
         .setListener(this)
         .build()
 
+    private var lastProductDetails: ProductDetails? = null
+
     /**
-     * Cached [ProductDetails] from the last successful product query.
-     * Exposed as `internal` so that [com.devsusana.hometutorpro.presentation.premium.PlayBillingLauncher]
-     * can build [BillingFlowParams] without duplicating query logic.
+     * Launches the Google Play billing flow for the premium subscription using cached product details.
+     *
+     * @param activity The host activity required by the Google Play Billing Library.
      */
-    internal var lastProductDetails: ProductDetails? = null
-        private set
+    fun launchPurchaseFlow(activity: android.app.Activity) {
+        val details = lastProductDetails ?: return
+        launchPurchaseFlow(activity, details)
+    }
+
+    /**
+     * Launches the Google Play billing flow for the specified product.
+     *
+     * @param activity The host activity required by the Google Play Billing Library.
+     * @param productDetails The Google Play product details to purchase.
+     */
+    fun launchPurchaseFlow(activity: android.app.Activity, productDetails: ProductDetails) {
+        val flowParams = BillingFlowParams.newBuilder()
+            .setProductDetailsParamsList(
+                listOf(
+                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                        .setProductDetails(productDetails)
+                        .setOfferToken(
+                            productDetails.subscriptionOfferDetails
+                                ?.firstOrNull()
+                                ?.offerToken
+                                .orEmpty()
+                        )
+                        .build()
+                )
+            )
+            .build()
+        billingClient.launchBillingFlow(activity, flowParams)
+    }
 
     init {
         startConnection()

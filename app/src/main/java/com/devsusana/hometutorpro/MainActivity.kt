@@ -10,14 +10,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.activity.viewModels
 import com.devsusana.hometutorpro.domain.entities.AppThemeMode
-import com.devsusana.hometutorpro.domain.repository.SettingsRepository
 import com.devsusana.hometutorpro.navigation.NavigationHost
 import com.devsusana.hometutorpro.presentation.components.PermissionCheckHandler
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
+import com.devsusana.hometutorpro.presentation.viewmodels.MainActivityViewModel
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
 /**
  * Main entry point of the application.
@@ -27,10 +27,9 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     /**
-     * Repository used to observe current user theme mode configuration (e.g. system, light, dark).
+     * ViewModel associated with MainActivity.
      */
-    @Inject
-    lateinit var settingsRepository: SettingsRepository
+    private val viewModel: MainActivityViewModel by viewModels()
 
     /**
      * Attaches the base context and applies locale configurations via [LocaleHelper].
@@ -50,15 +49,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         setContent {
-            val themeMode by settingsRepository.themeModeFlow.collectAsState(
+            val themeMode by viewModel.themeModeFlow.collectAsState(
                 initial = AppThemeMode.SYSTEM
             )
             
             HomeTutorProTheme(themeMode = themeMode) {
                 PermissionCheckHandler()
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                     modifier = Modifier.fillMaxSize(),
+                     color = MaterialTheme.colorScheme.background
                 ) {
                     NavigationHost()
                 }

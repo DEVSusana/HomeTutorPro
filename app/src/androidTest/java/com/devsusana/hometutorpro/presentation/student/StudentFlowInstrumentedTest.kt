@@ -4,13 +4,17 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.devsusana.hometutorpro.MainActivity
-import com.devsusana.hometutorpro.utils.hasTestTag
+import com.devsusana.hometutorpro.data.local.dao.StudentDao
+import com.devsusana.hometutorpro.data.local.entities.StudentEntity
+import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import javax.inject.Inject
 
 /**
  * Instrumented test suite for validating the end-to-end student management flow.
@@ -31,12 +35,38 @@ class StudentFlowInstrumentedTest {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
+    /** DAO to seed database with initial student data to ensure deterministic tests. */
+    @Inject
+    lateinit var studentDao: StudentDao
+
     /**
-     * Initializes Hilt dependencies and navigates to the Student List screen.
+     * Initializes Hilt dependencies, seeds initial student data, and navigates to Student List.
      */
     @Before
     fun setUp() {
         hiltRule.inject()
+        
+        // Seed initial student data
+        runBlocking {
+            studentDao.insertStudent(
+                StudentEntity(
+                    id = 1L,
+                    professorId = "test_user_id",
+                    name = "John Doe",
+                    age = 20,
+                    address = "123 Street",
+                    parentPhones = "555-1234",
+                    studentPhone = "555-5678",
+                    studentEmail = "john.doe@example.com",
+                    subjects = "Math",
+                    course = "Algebra",
+                    pricePerHour = 45.0,
+                    educationalAttention = "Regular",
+                    lastPaymentDate = null,
+                    syncStatus = SyncStatus.SYNCED
+                )
+            )
+        }
         
         // Wait for bottom navigation item to be displayed
         composeTestRule.waitUntil(15000) {
@@ -73,16 +103,13 @@ class StudentFlowInstrumentedTest {
      */
     @Test
     fun editExistingStudent_updatesSuccessfully() {
-        // Find student item and click it
-        val studentItem = composeTestRule.onAllNodes(hasTestTag("student_item_.*".toRegex()))
-        if (studentItem.fetchSemanticsNodes().isNotEmpty()) {
-            studentItem.onFirst().performClick()
-            composeTestRule.onNodeWithTag("edit_button").performClick()
-            composeTestRule.onNodeWithTag("name_field").performTextReplacement("Updated Student Name")
-            composeTestRule.onNodeWithTag("save_student_button").performClick()
+        // Assert that the seeded student card exists, click it to open details, and edit
+        composeTestRule.onNodeWithTag("student_item_1").performClick()
+        composeTestRule.onNodeWithTag("edit_button").performClick()
+        composeTestRule.onNodeWithTag("name_field").performTextReplacement("Updated Student Name")
+        composeTestRule.onNodeWithTag("save_student_button").performClick()
 
-            composeTestRule.onNodeWithText("Updated Student Name").assertExists()
-        }
+        composeTestRule.onNodeWithText("Updated Student Name").assertExists()
     }
 
     /**
@@ -90,15 +117,13 @@ class StudentFlowInstrumentedTest {
      */
     @Test
     fun deleteStudent_removesFromList() {
-        val studentItem = composeTestRule.onAllNodes(hasTestTag("student_item_.*".toRegex()))
-        if (studentItem.fetchSemanticsNodes().isNotEmpty()) {
-            studentItem.onFirst().performClick()
-            composeTestRule.onNodeWithTag("edit_button").performClick()
-            composeTestRule.onNodeWithTag("delete_student_button").performClick()
-            composeTestRule.onNodeWithTag("confirm_delete_button").performClick()
+        // Assert that the seeded student card exists, click it, edit, and delete
+        composeTestRule.onNodeWithTag("student_item_1").performClick()
+        composeTestRule.onNodeWithTag("edit_button").performClick()
+        composeTestRule.onNodeWithTag("delete_student_button").performClick()
+        composeTestRule.onNodeWithTag("confirm_delete_button").performClick()
 
-            composeTestRule.onNodeWithTag("student_list_screen").assertExists()
-        }
+        composeTestRule.onNodeWithTag("student_list_screen").assertExists()
     }
 
     /**
