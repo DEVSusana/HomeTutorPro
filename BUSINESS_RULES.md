@@ -7,6 +7,7 @@
 ## 1. Gestión de Estudiantes y Tutores
 * **Identificación Única:** Cada Estudiante y Tutor debe estar asociado a una cuenta de usuario única e identificada mediante un UID único generado por autenticación (Auth).
 * **Campos Obligatorios:** No se permiten perfiles de estudiantes sin nombre, dirección y correo electrónico válido.
+* **Saldo Pendiente y Valores Negativos:** El saldo pendiente de un alumno (`pendingBalance`) representa la cantidad de dinero acumulada por clases dadas que el alumno le debe pagar al tutor. Se permite y admite explícitamente que este saldo sea **negativo**. Un saldo negativo indica que el alumno tiene saldo a favor (por ejemplo, por pagar de más al tutor de forma adelantada o porque el tutor no disponía de cambio para devolver en su momento). Bajo ningún concepto se deben implementar validaciones de dominio que restrinjan el saldo a ser no negativo (ej. >= 0).
 
 ---
 
