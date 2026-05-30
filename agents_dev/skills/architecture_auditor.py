@@ -1,3 +1,4 @@
+import os
 import json
 import config
 
@@ -6,13 +7,24 @@ def run_architecture_audit(file_path, output_format="text"):
 
     with open('AGENTS.md', 'r') as f:
         rules = f.read()
+
+    business_rules = ""
+    try:
+        if os.path.exists('BUSINESS_RULES.md'):
+            with open('BUSINESS_RULES.md', 'r') as f:
+                business_rules = f.read()
+    except Exception:
+        pass
+
     with open(file_path, 'r') as f:
         code = f.read()
 
     if output_format == "json":
         prompt = f"""
         Act as an Android Architecture Expert.
-        Review this Kotlin code based on these rules: {rules}
+        Review this Kotlin code based on these architectural rules: {rules}
+        
+        Additionally, verify if the code complies with these business rules if applicable: {business_rules}
         
         CODE:
         {code}
@@ -40,7 +52,10 @@ def run_architecture_audit(file_path, output_format="text"):
         )
         return response.text
     else:
-        prompt = f"Review this Kotlin code based on these rules: {rules}\n\nCODE:\n{code}"
+        rules_context = rules
+        if business_rules:
+            rules_context += f"\n\nBUSINESS RULES:\n{business_rules}"
+        prompt = f"Review this Kotlin code based on these rules: {rules_context}\n\nCODE:\n{code}"
         response = client.models.generate_content(
             model=config.MODEL_ID,
             contents=prompt

@@ -23,6 +23,7 @@ Implementar rigurosamente la **Arquitectura Limpia (Clean Architecture)** con **
     * **Propósito:** Contiene la lógica de negocio central de la aplicación. Es completamente independiente de cualquier framework, base de datos o UI.
     * **Contenido:** Entidades, interfaces de casos de uso (Use Cases), interfaces de repositorios.
     * **Principio:** Pura lógica de negocio, sin dependencias de Android SDK ni frameworks externos (excepto Kotlin estándar).
+    * **Reglas de Negocio Obligatorias:** Toda la implementación de la lógica y casos de uso en esta capa debe cumplir de manera inflexible con lo especificado en el archivo `BUSINESS_RULES.md` en la raíz del proyecto.
 
 * **Capa de Datos (`data`):**
     * **Propósito:** Responsable de la obtención, transformación y persistencia de datos. Implementa las interfaces de repositorio definidas en la capa de Dominio.
