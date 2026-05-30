@@ -53,10 +53,11 @@ if __name__ == "__main__":
             
             modified_files = []
             for line in status_output.splitlines():
-                if line.strip():
-                    # Format: XY filepath (e.g. M  app/src/main/.../File.kt)
-                    # XY is 2 characters plus a space
-                    filepath = line.strip()[3:].strip().strip('"')
+                if line.strip() and len(line) >= 4:
+                    # git status --porcelain formats output as:
+                    # XY path
+                    # where XY is exactly 2 characters of status and 1 separator space.
+                    filepath = line[3:].strip().strip('"')
                     if filepath.endswith(".kt") and os.path.exists(filepath):
                         modified_files.append(filepath)
             
