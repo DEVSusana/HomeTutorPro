@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,11 +13,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
@@ -35,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -142,13 +147,31 @@ fun NavigationHost() {
                 },
                 floatingActionButton = {
                     if (showNavigation) {
-                        Column {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
                             if (isLandscape) {
                                 IconButton(onClick = { scope.launch { drawerState.open() } }) {
                                     Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.cd_menu))
                                 }
-                                Spacer(Modifier.height(8.dp))
                             }
+                            
+                            if (isRoute(Route.StudentList)) {
+                                FloatingActionButton(
+                                    onClick = {
+                                        navController.navigate(Route.StudentDetail("new"))
+                                    },
+                                    modifier = Modifier.testTag("add_student_button"),
+                                    elevation = FloatingActionButtonDefaults.elevation(
+                                        defaultElevation = 6.dp,
+                                        pressedElevation = 12.dp
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.student_list_add_student))
+                                }
+                            }
+                            
                             SueFab(
                                 speechState = sueUiState.speechState,
                                 onClick = { 

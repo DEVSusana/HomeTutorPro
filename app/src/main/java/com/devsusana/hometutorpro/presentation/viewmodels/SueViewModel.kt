@@ -333,11 +333,22 @@ class SueViewModel @Inject constructor(
      * Extracts the tool data section from the prompt and presents it directly.
      */
     private fun extractDataFromPrompt(prompt: String): String {
-        val dataStart = prompt.indexOf("--- DATOS DISPONIBLES ---")
-        val dataEnd = prompt.indexOf("--- FIN DE DATOS ---")
+        // Try English tags first (from SueAgentImpl.kt)
+        var startTag = "--- AVAILABLE DATA ---"
+        var endTag = "--- END OF DATA ---"
+        var dataStart = prompt.indexOf(startTag)
+        var dataEnd = prompt.indexOf(endTag)
+
+        // Fallback to Spanish tags if not found
+        if (dataStart < 0 || dataEnd < 0) {
+            startTag = "--- DATOS DISPONIBLES ---"
+            endTag = "--- FIN DE DATOS ---"
+            dataStart = prompt.indexOf(startTag)
+            dataEnd = prompt.indexOf(endTag)
+        }
 
         return if (dataStart >= 0 && dataEnd >= 0) {
-            val data = prompt.substring(dataStart + 25, dataEnd).trim()
+            val data = prompt.substring(dataStart + startTag.length, dataEnd).trim()
             "Aquí tienes los datos solicitados:\n\n$data"
         } else {
             "No he encontrado datos relevantes para tu consulta."
