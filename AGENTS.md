@@ -9,6 +9,9 @@
 * **Lenguaje Principal:** Kotlin (exclusivo para todo el código de aplicación y pruebas).
 * **Framework de UI:** Jetpack Compose (exclusivo para la construcción de interfaces de usuario).
 * **Gestión de Concurrencia:** Kotlin Coroutines (exclusivo para operaciones asíncronas y concurrentes).
+* **Base de Datos Local:** Room Database (preferido para persistencia de datos local).
+* **Base de Datos en la Nube:** Firebase Cloud Firestore (preferido para sincronización de datos y base de datos cloud).
+* **Integración API REST:** Retrofit (preferido para conexiones y consumo de APIs REST externas).
 
 ---
 
@@ -162,9 +165,18 @@ Gemini DEBE generar las clases en las siguientes ubicaciones específicas, respe
 * **Modularización Robusta:**
     * Fomentar la creación de módulos Gradle separados para cada capa (`:domain`, `:data`, `:presentation`) o por característica/feature (`:feature:home`, `:feature:profile`).
     * Esta separación mejora significativamente los tiempos de compilación, refuerza la separación de preocupaciones y facilita la asignación de equipos en proyectos grandes.
-* **Manejo de Estados Consistente:**
-    * Implementar un enfoque claro y consistente para el manejo de estados en Compose, preferiblemente **Unidirectional Data Flow (UDF)**.
-    * Los ViewModels DEBEN exponer el estado de la UI como `StateFlow` o `LiveData` (preferiblemente `StateFlow`) y los eventos como `SharedFlow` o `Channel`.
+* **Manejo de Estados Consistente y UDF:**
+    * Implementar estrictamente el patrón **Unidirectional Data Flow (UDF)** para el manejo de estados en Compose. El estado fluye hacia abajo (del ViewModel a la UI) y los eventos fluyen hacia arriba (de la UI al ViewModel).
+    * Los ViewModels DEBEN exponer el estado de la UI como un único `StateFlow` inmutable del tipo de estado específico de la pantalla (ej. `StateFlow<MyUiState>`), y las acciones de un solo uso (eventos como navegación o Toasts) como `SharedFlow` o `Channel`.
+    * Se debe estandarizar la representación de estados asíncronos y cargas utilizando una interfaz sellada (`sealed interface` o `sealed class`) común para los estados de la UI:
+      ```kotlin
+      sealed interface UiState<out T> {
+          object Loading : UiState<Nothing>
+          data class Success<out T>(val data: T) : UiState<T>
+          data class Error(val errorMessage: String) : UiState<Nothing>
+      }
+      ```
+      Alternativamente, se puede usar una clase de datos de estado con banderas explícitas (`isLoading`, `error`, `data`) si la pantalla requiere mantener vistas previas o estados mixtos, pero el flujo unidireccional debe respetarse rigurosamente.
 * **Manejo de Errores Global:**
     * Definir y aplicar una estrategia de manejo de errores uniforme en todas las capas. Los errores deben ser capturados lo más cerca posible de su origen (ej. `data sources`), transformados en errores de dominio y manejados en la capa de presentación para notificar al usuario.
 * **Control de Concurrencia con Coroutines:**
@@ -218,4 +230,4 @@ El orquestador ejecutará secuencialmente los 5 agentes de auditoría (**Arquite
 
 ---
 
-**Nota para Gemini:** `com.yourpackage` SIEMPRE debe ser reemplazado por el package raíz real del proyecto (ej. `com.example.myapp`). Cualquier referencia a este placeholder debe ser sustituida por el valor correcto.
+**Nota para Gemini:** El package raíz real de este proyecto es `com.devsusana.hometutorpro`. Cualquier referencia al placeholder `com.yourpackage` en esta guía debe ser sustituida por este package correcto en el código generado.
