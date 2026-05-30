@@ -80,8 +80,8 @@ if __name__ == "__main__":
         targets = get_modified_kt_files()
         
     if not targets:
-        print("ℹ️ No modified Kotlin files detected via git. Defaulting to StudentRepositoryImpl.kt")
-        targets = ["app/src/main/java/com/devsusana/hometutorpro/data/repository/StudentRepositoryImpl.kt"]
+        print("ℹ️ No modified Kotlin files detected via git. Nothing to audit.")
+        sys.exit(0)
         
     print(f"🔍 Files to audit: {targets}")
     for idx, target in enumerate(targets):
