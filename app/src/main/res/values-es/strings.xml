@@ -583,4 +583,12 @@
     <string name="premium_error_not_found">No se encontraron los detalles del producto. Por favor, comprueba tu conexión a internet o inténtalo de nuevo más tarde.</string>
     <string name="premium_go_back">Volver</string>
     <string name="manage_your_students_efficiently">Gestiona tus alumnos de forma eficiente.</string>
+
+    <!-- Sue AI Agent -->
+    <string name="sue_fab_content_description">Asistente IA Sue</string>
+    <string name="sue_listening_title">Escuchando…</string>
+    <string name="sue_listening_hint">Habla ahora…</string>
+    <string name="sue_cancel">Cancelar</string>
+    <string name="sue_error_permission">Se necesita permiso del micrófono para que Sue pueda escucharte.</string>
+    <string name="sue_error_model_not_loaded">El modelo de IA no está cargado. Consulta la guía de configuración.</string>
 </resources>

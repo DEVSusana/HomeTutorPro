@@ -50,7 +50,7 @@ class EditProfileViewModelTest {
         every { application.getString(R.string.edit_profile_email_verify_notice) } returns
             "Profile updated. Please verify the new email to complete the change."
         every { getCurrentUserUseCase.invoke() } returns userFlow
-        coEvery { updateProfileUseCase(any(), any(), any(), any(), any()) } returns Result.Success(Unit)
+        coEvery { updateProfileUseCase(any()) } returns Result.Success(Unit)
         coEvery { updatePasswordUseCase(any()) } returns Result.Success(Unit)
 
         userFlow.value = User(uid = "u1", email = "user@domain.com", displayName = "User")

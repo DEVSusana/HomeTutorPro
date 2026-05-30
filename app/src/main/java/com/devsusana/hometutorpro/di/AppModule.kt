@@ -3,6 +3,8 @@ package com.devsusana.hometutorpro.di
 import android.content.Context
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.data.billing.BillingManager
+import com.devsusana.hometutorpro.presentation.premium.BillingLauncher
+import com.devsusana.hometutorpro.presentation.premium.PlayBillingLauncher
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -27,6 +29,14 @@ abstract class AppModule {
     @Singleton
     abstract fun bindPremiumBillingService(billingManager: BillingManager): PremiumBillingService
 
+    @Binds
+    @Singleton
+    abstract fun bindBillingLauncher(playBillingLauncher: PlayBillingLauncher): BillingLauncher
+
+    @Binds
+    @Singleton
+    abstract fun bindAppInitializer(appInitializer: com.devsusana.hometutorpro.presentation.utils.AppInitializerImpl): com.devsusana.hometutorpro.domain.usecases.AppInitializer
+
     companion object {
         @Provides
         @Singleton
@@ -45,5 +55,10 @@ abstract class AppModule {
         @Singleton
         fun provideWorkManager(@ApplicationContext context: Context): WorkManager = 
             WorkManager.getInstance(context)
+
+        @Provides
+        @Singleton
+        fun provideAuthValidator(): com.devsusana.hometutorpro.domain.core.AuthValidator =
+            com.devsusana.hometutorpro.domain.core.AuthValidator
     }
 }

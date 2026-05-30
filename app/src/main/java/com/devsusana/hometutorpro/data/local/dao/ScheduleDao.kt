@@ -114,4 +114,69 @@ interface ScheduleDao {
 
     @Query("UPDATE schedules SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
     suspend fun assignOrphanedDataToProfessor(professorId: String)
+
+    /**
+     * Returns all schedules joined with student names for the given professor.
+     *
+     * @param professorId The ID of the professor.
+     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary] representing the schedule overviews.
+     */
+    @Query(
+        """
+        SELECT st.name AS studentName, sch.dayOfWeek, sch.startTime, sch.endTime 
+        FROM schedules sch 
+        INNER JOIN students st ON sch.studentId = st.id 
+        WHERE sch.professorId = :professorId 
+        AND sch.pendingDelete = 0 
+        AND st.pendingDelete = 0
+        ORDER BY sch.dayOfWeek, sch.startTime
+        """
+    )
+    suspend fun getAllSchedulesForAgent(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary>
+
+    /**
+     * Returns all schedule entries with full detail for the given professor.
+     *
+     * @param professorId The ID of the professor.
+     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail] containing full schedule information.
+     */
+    @Query(
+        """
+        SELECT sch.id AS scheduleId, sch.studentId, st.name AS studentName,
+               sch.dayOfWeek, sch.startTime, sch.endTime
+        FROM schedules sch
+        INNER JOIN students st ON sch.studentId = st.id
+        WHERE sch.professorId = :professorId
+        AND sch.pendingDelete = 0
+        AND st.pendingDelete = 0
+        ORDER BY sch.dayOfWeek, sch.startTime
+        """
+    )
+    suspend fun getAllScheduleDetailsForAgent(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail>
+
+    /**
+     * Returns schedule entries for students whose name matches [studentName].
+     *
+     * @param professorId The ID of the professor.
+     * @param studentName The name query to filter schedules.
+     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail] linked to the student search.
+     */
+    @Query(
+        """
+        SELECT sch.id AS scheduleId, sch.studentId, st.name AS studentName,
+               sch.dayOfWeek, sch.startTime, sch.endTime
+        FROM schedules sch
+        INNER JOIN students st ON sch.studentId = st.id
+        WHERE sch.professorId = :professorId
+        AND LOWER(st.name) LIKE '%' || LOWER(:studentName) || '%'
+        AND sch.pendingDelete = 0
+        AND st.pendingDelete = 0
+        ORDER BY sch.dayOfWeek, sch.startTime
+        """
+    )
+    suspend fun getSchedulesByStudentName(
+        professorId: String,
+        studentName: String
+    ): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail>
 }
+

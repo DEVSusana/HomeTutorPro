@@ -26,6 +26,7 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.GetSharedResou
 import com.devsusana.hometutorpro.domain.usecases.implementations.SaveSharedResourceUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.DeleteSharedResourceUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.MigrateDataFromLocalUseCase
+import com.devsusana.hometutorpro.domain.usecases.implementations.NotifyClassEndUseCaseImpl
 import com.devsusana.hometutorpro.domain.usecases.implementations.UpdateProfileUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.UpdatePasswordUseCase
 import dagger.Binds
@@ -158,8 +159,7 @@ abstract class UseCaseModule {
     @Binds
     abstract fun bindGetPremiumProductUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetPremiumProductUseCase): IGetPremiumProductUseCase
 
-    @Binds
-    abstract fun bindLaunchPremiumPurchaseUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.LaunchPremiumPurchaseUseCase): ILaunchPremiumPurchaseUseCase
+
 
     @Binds
     abstract fun bindShowTestNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.ShowTestNotificationUseCase): IShowTestNotificationUseCase
@@ -169,4 +169,20 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindUpdateBalanceUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.UpdateBalanceUseCase): IUpdateBalanceUseCase
+
+    @Binds
+    abstract fun bindGetLanguageUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetLanguageUseCase): IGetLanguageUseCase
+
+    @Binds
+    abstract fun bindGetThemeModeUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetThemeModeUseCase): IGetThemeModeUseCase
+
+    @Binds
+    abstract fun bindGetClassEndNotificationsUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetClassEndNotificationsUseCase): IGetClassEndNotificationsUseCase
+
+    @Binds
+    abstract fun bindGetDebugPremiumUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetDebugPremiumUseCase): IGetDebugPremiumUseCase
+
+    @Binds
+    abstract fun bindNotifyClassEndUseCase(impl: NotifyClassEndUseCaseImpl): INotifyClassEndUseCase
 }
+
