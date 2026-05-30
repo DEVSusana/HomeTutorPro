@@ -13,7 +13,7 @@ def run_security_scan(file_path, output_format="text"):
         Scan this code for:
         1. Hardcoded strings/keys.
         2. Unsafe Coroutine usage.
-        3. Proper English naming (as per GEMINI.md requirements).
+        3. Proper English naming (as per AGENTS.md requirements).
         
         CODE:
         {code}
@@ -46,7 +46,7 @@ def run_security_scan(file_path, output_format="text"):
         Scan this code for:
         1. Hardcoded strings/keys.
         2. Unsafe Coroutine usage.
-        3. Proper English naming (as per GEMINI.md requirements).
+        3. Proper English naming (as per AGENTS.md requirements).
         
         CODE:
         {code}

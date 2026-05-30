@@ -41,5 +41,9 @@ def start_mission(target_file):
     print("✅ MISSION COMPLETE: You now have a 360° view of your code.")
 
 if __name__ == "__main__":
-    target = "app/src/main/java/com/devsusana/hometutorpro/data/repository/StudentRepositoryImpl.kt"
+    import sys
+    if len(sys.argv) > 1:
+        target = sys.argv[1]
+    else:
+        target = "app/src/main/java/com/devsusana/hometutorpro/data/repository/StudentRepositoryImpl.kt"
     start_mission(target)

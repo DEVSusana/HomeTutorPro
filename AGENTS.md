@@ -185,4 +185,35 @@ Gemini DEBE generar las clases en las siguientes ubicaciones específicas, respe
 
 ---
 
+## 11. Verificación Local mediante Agentes y Habilidades (Skills)
+
+Para asegurar que los desarrollos cumplen con esta guía antes de subirlos y pasar la CI remota, se puede ejecutar el orquestador de agentes de auditoría localmente en tu terminal.
+
+### Prerrequisitos y Configuración
+Los scripts de agentes y habilidades viven en el directorio `agents_dev/`. Requieren configurar la clave de API de Gemini:
+1. Configura la clave de API de Gemini en tu terminal:
+   ```bash
+   export GEMINI_API_KEY="tu-api-key-aquí"
+   ```
+
+### Ejecución de Auditoría en la Terminal
+Para ejecutar el análisis local sobre un archivo Kotlin específico:
+1. **Activa el entorno virtual de Python** del proyecto de agentes:
+   ```bash
+   source agents_dev/.venv_agente/bin/activate
+   ```
+2. **Ejecuta el orquestador de agentes** pasando la ruta del archivo que deseas analizar como argumento:
+   ```bash
+   python agents_dev/skills/agent_orchestrator.py <ruta_del_archivo_kotlin>
+   ```
+   *Ejemplo:*
+   ```bash
+   python agents_dev/skills/agent_orchestrator.py app/src/main/java/com/devsusana/hometutorpro/data/repository/AuthRepositoryImpl.kt
+   ```
+   *Nota:* Si no proporcionas una ruta de archivo, el script analizará por defecto `StudentRepositoryImpl.kt`.
+
+El orquestador ejecutará secuencialmente los 5 agentes de auditoría (**Arquitectura**, **Seguridad**, **Testing**, **KDocs** y **Refactor**), aplicando pausas de 35 segundos para respetar la cuota gratuita de la API.
+
+---
+
 **Nota para Gemini:** `com.yourpackage` SIEMPRE debe ser reemplazado por el package raíz real del proyecto (ej. `com.example.myapp`). Cualquier referencia a este placeholder debe ser sustituida por el valor correcto.
