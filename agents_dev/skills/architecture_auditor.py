@@ -45,10 +45,10 @@ def run_architecture_audit(file_path, output_format="text"):
         If there are no issues, return an empty list for findings.
         """
         from google.genai import types
-        response = client.models.generate_content(
-            model=config.MODEL_ID,
+        response = config.generate_content_with_retry(
+            client=client,
             contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json")
+            config_args=types.GenerateContentConfig(response_mime_type="application/json")
         )
         return response.text
     else:
@@ -56,8 +56,8 @@ def run_architecture_audit(file_path, output_format="text"):
         if business_rules:
             rules_context += f"\n\nBUSINESS RULES:\n{business_rules}"
         prompt = f"Review this Kotlin code based on these rules: {rules_context}\n\nCODE:\n{code}"
-        response = client.models.generate_content(
-            model=config.MODEL_ID,
+        response = config.generate_content_with_retry(
+            client=client,
             contents=prompt
         )
         return response.text
