@@ -92,30 +92,133 @@ class SueAgentImpl @Inject constructor(
 
         return when {
             containsCancelKeywords(lower) -> {
-                val studentName = extractStudentName(lower) ?: return null
-                val dayOfWeek = extractDayOfWeek(lower) ?: return null
+                val student = studentTools.extractRelevantStudent(lower)
+                val studentName = student?.name ?: extractStudentName(lower)
+                if (studentName == null) {
+                    return SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "Por favor, indica el nombre del alumno para cancelar la clase."
+                    )
+                }
+
+                var dayOfWeek = extractRelativeDayOfWeek(lower) ?: extractDayOfWeek(lower)
+                if (dayOfWeek == null) {
+                    val schedules = scheduleTools.getSchedulesByStudentName(studentName)
+                    if (schedules.isEmpty()) {
+                        return SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                            "No he encontrado ninguna clase programada para $studentName."
+                        )
+                    } else if (schedules.size == 1) {
+                        dayOfWeek = schedules.first().dayOfWeek
+                    } else {
+                        return SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                            "He encontrado varias clases para $studentName. Por favor, especifica el día de la clase que quieres cancelar (ej. lunes o martes)."
+                        )
+                    }
+                }
                 scheduleTools.prepareCancelAction(studentName, dayOfWeek)
             }
 
             containsRescheduleKeywords(lower) -> {
-                val studentName = extractStudentName(lower) ?: return null
+                val student = studentTools.extractRelevantStudent(lower)
+                val studentName = student?.name ?: extractStudentName(lower)
+                if (studentName == null) {
+                    return SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "Por favor, indica el nombre del alumno para mover la clase."
+                    )
+                }
+
                 val days = extractTwoDaysOfWeek(lower)
-                val fromDay = days.first ?: return null
-                val toDay = days.second ?: return null
-                val newTime = extractTime(lower) ?: return null
+                var fromDay = days.first
+                var toDay = days.second
+                val newTime = extractTime(lower)
+                if (newTime == null) {
+                    return SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.UNKNOWN,
+                        "Por favor, indica la nueva hora a la que quieres mover la clase (ej. a las 18:00)."
+                    )
+                }
+
+                if (fromDay == null || toDay == null) {
+                    val schedules = scheduleTools.getSchedulesByStudentName(studentName)
+                    if (schedules.isEmpty()) {
+                        return SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                            "No he encontrado ninguna clase programada para $studentName."
+                        )
+                    }
+
+                    val explicitDay = extractDayOfWeek(lower)
+                    if (explicitDay != null) {
+                        toDay = explicitDay
+                        if (schedules.size == 1) {
+                            fromDay = schedules.first().dayOfWeek
+                        } else {
+                            val candidateDays = schedules.map { it.dayOfWeek }.filter { it != toDay }
+                            if (candidateDays.size == 1) {
+                                fromDay = candidateDays.first()
+                            } else {
+                                return SueOperationResult.Prepare.Error(
+                                    SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                                    "Por favor, indica el día original de la clase que quieres mover y el nuevo día (ej. de lunes a miércoles)."
+                                )
+                            }
+                        }
+                    } else {
+                        if (schedules.size == 1) {
+                            fromDay = schedules.first().dayOfWeek
+                            toDay = fromDay
+                        } else {
+                            return SueOperationResult.Prepare.Error(
+                                SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                                "Por favor, indica el día de la clase que quieres mover."
+                            )
+                        }
+                    }
+                }
+
                 scheduleTools.prepareRescheduleAction(studentName, fromDay, toDay, newTime)
             }
 
             containsRegisterPaymentKeywords(lower) -> {
-                val studentName = extractStudentNameForFinance(lower) ?: return null
-                val amount = extractAmount(lower) ?: return null
+                val student = studentTools.extractRelevantStudent(lower)
+                val studentName = student?.name ?: extractStudentNameForFinance(lower)
+                if (studentName == null) {
+                    return SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "Por favor, indica el nombre del alumno para registrar el pago."
+                    )
+                }
+                val amount = extractAmount(lower)
+                if (amount == null) {
+                    return SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.UNKNOWN,
+                        "Por favor, indica el importe del pago (ej. 20 euros)."
+                    )
+                }
                 val paymentType = if (lower.contains("bizum")) PaymentType.BIZUM else PaymentType.EFFECTIVE
                 studentTools.prepareRegisterPayment(studentName, amount, paymentType)
             }
 
             containsAddBalanceKeywords(lower) -> {
-                val studentName = extractStudentNameForFinance(lower) ?: return null
-                val amount = extractAmount(lower) ?: return null
+                val student = studentTools.extractRelevantStudent(lower)
+                val studentName = student?.name ?: extractStudentNameForFinance(lower)
+                if (studentName == null) {
+                    return SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "Por favor, indica el nombre del alumno para añadir saldo."
+                    )
+                }
+                val amount = extractAmount(lower)
+                if (amount == null) {
+                    return SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.UNKNOWN,
+                        "Por favor, indica el importe a añadir (ej. 15 euros)."
+                    )
+                }
                 studentTools.prepareAddBalance(studentName, amount)
             }
 
@@ -183,7 +286,7 @@ class SueAgentImpl @Inject constructor(
                     val targetDay = relativeDay ?: explicitDay
 
                     if (targetDay != null) {
-                        val timeFilter = extractTimeOfDayFilter(lowerQuery)
+                        val timeFilter = extractTime(lowerQuery) ?: extractTimeOfDayFilter(lowerQuery)
                         appendLine(formatResult(scheduleTools.getScheduleForDay(targetDay, timeFilter)))
                     } else {
                         appendLine(formatResult(scheduleTools.getWeeklySchedule()))
@@ -373,8 +476,14 @@ class SueAgentImpl @Inject constructor(
             "anular la clase de ", "mueve la clase de ", "mover la clase de ",
             "cambia la clase de ", "cambiar la clase de ", "pasa la clase de ",
             "traslada la clase de ", "la clase de ",
+            "cancela la clase con ", "cancelar la clase con ", "mueve la clase con ",
+            "mover la clase con ", "cambia la clase con ", "cambiar la clase con ",
+            "cancela a ", "cancelar a ", "anula a ", "anular a ",
+            "mueve a ", "mover a ", "cambia a ", "cambiar a ",
             "cancel class for ", "cancel the class of ", "move class for ",
-            "reschedule class for ", "change class for ", "the class of "
+            "reschedule class for ", "change class for ", "the class of ",
+            "cancel class with ", "cancel the class with ", "move class with ",
+            "change class with "
         )
         for (connector in commonConnectors) {
             val idx = query.indexOf(connector)

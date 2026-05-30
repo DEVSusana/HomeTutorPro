@@ -63,9 +63,10 @@ object SueResponseFormatter {
 
     private fun formatDaySchedule(result: SueOperationResult.DaySchedule): String {
         val dayName = dayName(result.dayOfWeek)
-        val slotLabel = when (result.timeFilter) {
-            "morning" -> " (mañana)"
-            "afternoon" -> " (tarde)"
+        val slotLabel = when {
+            result.timeFilter == "morning" -> " (mañana)"
+            result.timeFilter == "afternoon" -> " (tarde)"
+            result.timeFilter != null && result.timeFilter.contains(":") -> " a las ${result.timeFilter}"
             else -> ""
         }
         if (result.schedules.isEmpty()) {
@@ -180,10 +181,11 @@ object SueResponseFormatter {
         }
     }
 
-    private fun formatPreparationError(result: SueOperationResult.Prepare.Error): String =
-        when (result.errorType) {
+    private fun formatPreparationError(result: SueOperationResult.Prepare.Error): String {
+        if (result.details != null) return result.details
+        return when (result.errorType) {
             SueOperationResult.ErrorType.STUDENT_NOT_FOUND ->
-                "No he encontrado ningún alumno ${result.details?.let { "llamado $it " } ?: ""}para realizar la acción."
+                "No he encontrado ningún alumno para realizar la acción."
             SueOperationResult.ErrorType.CLASS_NOT_FOUND ->
                 "No he encontrado ninguna clase para ese alumno ese día. Comprueba el nombre y el día."
             SueOperationResult.ErrorType.AUTH_ERROR ->
@@ -191,6 +193,7 @@ object SueResponseFormatter {
             SueOperationResult.ErrorType.UNKNOWN ->
                 "No se pudo preparar la acción. Inténtalo de nuevo."
         }
+    }
 
     private fun formatExecutionSuccess(action: SuePendingAction): String = when (action) {
         is SuePendingAction.CancelClass -> {

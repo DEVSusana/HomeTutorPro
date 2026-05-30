@@ -107,10 +107,12 @@ class SueAgentIntentDetectionTest {
     }
 
     @Test
-    fun `detectActionIntent should return null when cancel intent has no day`() = runTest {
-        // "cancela" detected but no day → extractDayOfWeek returns null → returns null
+    fun `detectActionIntent should return Error when cancel intent has no day`() = runTest {
         val result = sueAgent.detectActionIntent("cancela la clase de María")
-        assertNull(result)
+        assertNotNull(result)
+        assertTrue(result is SueOperationResult.Prepare.Error)
+        assertEquals(SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+            (result as SueOperationResult.Prepare.Error).errorType)
     }
 
     @Test
@@ -142,9 +144,20 @@ class SueAgentIntentDetectionTest {
     }
 
     @Test
-    fun `detectActionIntent should return null when reschedule has no time`() = runTest {
-        // Intent detected but no "a las HH:MM" → returns null
+    fun `detectActionIntent should return Error when reschedule has no time`() = runTest {
         val result = sueAgent.detectActionIntent("mueve la clase de Ana del lunes al martes")
-        assertNull(result)
+        assertNotNull(result)
+        assertTrue(result is SueOperationResult.Prepare.Error)
+        assertEquals(SueOperationResult.ErrorType.UNKNOWN,
+            (result as SueOperationResult.Prepare.Error).errorType)
+    }
+
+    @Test
+    fun `detectActionIntent should detect cancel intent with relative day hoy`() = runTest {
+        val result = sueAgent.detectActionIntent("cancela la clase de María de hoy")
+        assertNotNull(result)
+        assertTrue(result is SueOperationResult.Prepare.Error)
+        assertEquals(SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+            (result as SueOperationResult.Prepare.Error).errorType)
     }
 }

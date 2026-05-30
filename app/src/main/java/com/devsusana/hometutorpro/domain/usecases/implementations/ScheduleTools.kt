@@ -58,12 +58,20 @@ class ScheduleTools @Inject constructor(
         val allSchedules = querySchedulesUseCase.getAllSchedules()
             .filter { it.dayOfWeek == dayOfWeek }
 
-        val schedules = when (timeFilter) {
-            "morning" -> allSchedules.filter {
+        val schedules = when {
+            timeFilter == "morning" -> allSchedules.filter {
                 LocalTime.parse(it.startTime, TIME_FORMATTER).isBefore(LocalTime.of(14, 0))
             }
-            "afternoon" -> allSchedules.filter {
+            timeFilter == "afternoon" -> allSchedules.filter {
                 LocalTime.parse(it.startTime, TIME_FORMATTER).isAfter(LocalTime.of(13, 59))
+            }
+            timeFilter != null && timeFilter.contains(":") -> {
+                val targetTime = LocalTime.parse(timeFilter, TIME_FORMATTER)
+                allSchedules.filter { s ->
+                    val start = LocalTime.parse(s.startTime, TIME_FORMATTER)
+                    val end = LocalTime.parse(s.endTime, TIME_FORMATTER)
+                    !targetTime.isBefore(start) && targetTime.isBefore(end)
+                }
             }
             else -> allSchedules
         }
@@ -97,12 +105,16 @@ class ScheduleTools @Inject constructor(
         if (candidate == null) return SueOperationResult.NextClass(null, null)
 
         val targetDayOfWeek = DayOfWeek.of(candidate.dayOfWeek)
-        val occurrenceDate = if (candidate.dayOfWeek >= todayIso &&
-            candidate != sorted.firstOrNull()
-        ) {
-            now.with(TemporalAdjusters.nextOrSame(targetDayOfWeek))
-        } else {
+        val startLocalTime = LocalTime.parse(candidate.startTime, TIME_FORMATTER)
+        val isNextWeek = when {
+            candidate.dayOfWeek < todayIso -> true
+            candidate.dayOfWeek == todayIso -> !startLocalTime.isAfter(currentTime)
+            else -> false
+        }
+        val occurrenceDate = if (isNextWeek) {
             now.with(TemporalAdjusters.next(targetDayOfWeek))
+        } else {
+            now.with(TemporalAdjusters.nextOrSame(targetDayOfWeek))
         }
 
         return SueOperationResult.NextClass(candidate, occurrenceDate)
@@ -235,6 +247,10 @@ class ScheduleTools @Inject constructor(
             is Result.Success -> SueOperationResult.Execute.Success(action)
             is Result.Error -> SueOperationResult.Execute.Error(result.error)
         }
+    }
+
+    suspend fun getSchedulesByStudentName(studentName: String): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail> {
+        return querySchedulesUseCase.getSchedulesByStudentName(studentName)
     }
 
     // ──────────────────────────────────────────────────────────────────────────

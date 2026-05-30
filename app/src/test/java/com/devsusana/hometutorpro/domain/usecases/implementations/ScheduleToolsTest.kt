@@ -260,4 +260,50 @@ class ScheduleToolsTest {
         assertTrue(result is SueOperationResult.Execute.Error)
         assertEquals(DomainError.Unknown, (result as SueOperationResult.Execute.Error).domainError)
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // getNextClass
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `getNextClass returns correct date of this week when candidate is first schedule`() = runTest {
+        val thursdaySched = AgentScheduleSummary(
+            studentName = "María",
+            dayOfWeek = 4,
+            startTime = "10:00",
+            endTime = "11:00"
+        )
+        val mondaySched = AgentScheduleSummary(
+            studentName = "Juan",
+            dayOfWeek = 1,
+            startTime = "16:00",
+            endTime = "17:00"
+        )
+        coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(thursdaySched, mondaySched)
+
+        val result = scheduleTools.getNextClass()
+
+        assertTrue(result is SueOperationResult.NextClass)
+        val nextClass = result as SueOperationResult.NextClass
+        assertEquals("María", nextClass.schedule?.studentName)
+        assertEquals(LocalDateTime.of(2026, 5, 28, 8, 35).toLocalDate(), nextClass.occurrenceDate)
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // getScheduleForDay with specific time filter
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `getScheduleForDay with specific hour filter filters correctly`() = runTest {
+        val s1 = AgentScheduleSummary(studentName = "María", dayOfWeek = 1, startTime = "10:00", endTime = "11:00")
+        val s2 = AgentScheduleSummary(studentName = "Juan", dayOfWeek = 1, startTime = "18:00", endTime = "19:00")
+        coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(s1, s2)
+
+        val result = scheduleTools.getScheduleForDay(dayOfWeek = 1, timeFilter = "18:00")
+
+        assertTrue(result is SueOperationResult.DaySchedule)
+        val dayResult = result as SueOperationResult.DaySchedule
+        assertEquals(1, dayResult.schedules.size)
+        assertEquals("Juan", dayResult.schedules.first().studentName)
+    }
 }
