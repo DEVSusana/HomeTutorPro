@@ -10,12 +10,25 @@
 
 ---
 
-## 2. Gestión de Clases y Tutorías
-* **Sin Solapamientos:** Un tutor no puede tener agendadas dos tutorías en un mismo bloque de tiempo (rango de horas solapado). La lógica de reserva debe validar el horario antes de registrar la tutoría.
-* **Reprogramación y Movimiento de Clases:** Se permite reprogramar o mover tutorías a una nueva fecha u hora. Al realizar un cambio de horario:
-  - Se debe validar rigurosamente que el nuevo bloque horario de destino esté libre y no se solape con otras tutorías.
-  - El bloque horario de origen ocupado previamente por la tutoría debe liberarse inmediatamente para que quede disponible para otras reservas, permitiendo reordenar el calendario de forma eficiente.
-* **Estados de la Clase:** Una tutoría agendada solo puede pasar por los siguientes estados: `Scheduled` (Agendada) -> `InProgress` (En progreso) -> `Completed` (Completada) o `Cancelled` (Cancelada).
+## 2. Gestión de Clases y Calendario (Modelo Excepciones vs Horario Base)
+La gestión del calendario diferencia estrictamente entre el **Horario Base (Plantilla Recurrente)** y las **Sesiones Reales del Calendario (Excepciones Temporales)**.
+
+### A. Horario Base Recurrente (`Schedule`):
+* Cada alumno tiene configurado un horario base fijo (día de la semana, hora de inicio y fin) en su perfil. Este horario se repite de manera infinita en el futuro y solo cambia si se edita el perfil de forma permanente en los detalles del alumno.
+
+### B. Ocurrencias y Excepciones Temporales (`ScheduleException`):
+Las modificaciones en el calendario operan únicamente sobre la fecha de una sesión concreta (`date: Long` como timestamp) a través de excepciones temporales, sin alterar el horario base del alumno para las semanas siguientes.
+
+* **Cancelación de Sesión (`CANCELLED`):**
+  - Cancela la clase de un alumno para una fecha específica.
+  - **Liberación de Hueco:** Libera inmediatamente el hueco de esa hora y fecha específicas (`isFreeSlot = true`), permitiendo que el tutor asigne ese espacio a otro estudiante de forma temporal.
+* **Reubicación o Cambio de Horario/Día (`RESCHEDULED`):**
+  - Mueve la clase de un alumno a otra hora o a otro día de la semana (`newDayOfWeek`) para una fecha específica.
+  - **Validación de Solapamiento:** Se debe calcular la fecha de destino (`targetDate`) y asegurar que el nuevo bloque horario no colisione con el horario regular o con las excepciones de otros alumnos en esa fecha.
+  - **Liberación de Hueco de Origen:** El bloque horario original de origen de esa sesión queda marcado automáticamente como libre para esa fecha específica, permitiendo que sea ocupado por otro alumno de forma temporal.
+* **Clase Extra (`EXTRA`):**
+  - Añade una sesión de tutoría adicional para un alumno en una fecha específica, configurada con el ID especial de origen `EXTRA`.
+  - **No liberación de hueco habitual:** Al ser una clase adicional, no se asocia al horario recurrente del alumno, por lo que la sesión de su horario base habitual sigue activa y ocupada para esa fecha.
 
 ---
 
