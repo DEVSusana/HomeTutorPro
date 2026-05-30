@@ -187,7 +187,10 @@ Gemini DEBE generar las clases en las siguientes ubicaciones específicas, respe
 
 ## 11. Verificación Local mediante Agentes y Habilidades (Skills)
 
-Para asegurar que los desarrollos cumplen con esta guía antes de subirlos y pasar la CI remota, se puede ejecutar el orquestador de agentes de auditoría localmente en tu terminal.
+Para asegurar que los desarrollos cumplen con esta guía antes de subirlos y pasar la CI remota, se debe utilizar el orquestador de agentes de auditoría local.
+
+### Regla Obligatoria de Flujo de Trabajo (Para Asistentes de IA / Gemini)
+* **Lanzamiento Automático al Finalizar:** Una vez que el usuario declare completada una tarea o instrucción (utilizando expresiones como "ya está listo", "hecho", "ya quedó", "completado" o similar), el Asistente de IA **DEBE ejecutar automáticamente** el análisis local de los agentes sobre los archivos Kotlin que hayan sido modificados durante la sesión de trabajo. El asistente no debe dar por terminada la respuesta ni dar el trabajo por finalizado hasta haber ejecutado este orquestador y presentado el reporte de análisis al usuario.
 
 ### Prerrequisitos y Configuración
 Los scripts de agentes y habilidades viven en el directorio `agents_dev/`. Requieren configurar la clave de API de Gemini:
@@ -197,20 +200,19 @@ Los scripts de agentes y habilidades viven en el directorio `agents_dev/`. Requi
    ```
 
 ### Ejecución de Auditoría en la Terminal
-Para ejecutar el análisis local sobre un archivo Kotlin específico:
+Para ejecutar el análisis local sobre los archivos Kotlin modificados:
 1. **Activa el entorno virtual de Python** del proyecto de agentes:
    ```bash
    source agents_dev/.venv_agente/bin/activate
    ```
-2. **Ejecuta el orquestador de agentes** pasando la ruta del archivo que deseas analizar como argumento:
+2. **Ejecuta el orquestador de agentes**:
    ```bash
-   python agents_dev/skills/agent_orchestrator.py <ruta_del_archivo_kotlin>
+   python agents_dev/skills/agent_orchestrator.py
    ```
-   *Ejemplo:*
+   *Nota:* Por defecto, si no pasas ningún parámetro, el script detectará automáticamente los archivos Kotlin modificados en tu workspace (vía `git status` / `git diff`). También es posible forzar el análisis de un archivo específico pasándolo como argumento:
    ```bash
    python agents_dev/skills/agent_orchestrator.py app/src/main/java/com/devsusana/hometutorpro/data/repository/AuthRepositoryImpl.kt
    ```
-   *Nota:* Si no proporcionas una ruta de archivo, el script analizará por defecto `StudentRepositoryImpl.kt`.
 
 El orquestador ejecutará secuencialmente los 5 agentes de auditoría (**Arquitectura**, **Seguridad**, **Testing**, **KDocs** y **Refactor**), aplicando pausas de 35 segundos para respetar la cuota gratuita de la API.
 
