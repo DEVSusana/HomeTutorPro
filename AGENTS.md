@@ -9,6 +9,9 @@
 * **Lenguaje Principal:** Kotlin (exclusivo para todo el código de aplicación y pruebas).
 * **Framework de UI:** Jetpack Compose (exclusivo para la construcción de interfaces de usuario).
 * **Gestión de Concurrencia:** Kotlin Coroutines (exclusivo para operaciones asíncronas y concurrentes).
+* **Base de Datos Local:** Room Database (preferido para persistencia de datos local).
+* **Base de Datos en la Nube:** Firebase Cloud Firestore (preferido para sincronización de datos y base de datos cloud).
+* **Integración API REST:** Retrofit (preferido para conexiones y consumo de APIs REST externas).
 
 ---
 
@@ -20,6 +23,7 @@ Implementar rigurosamente la **Arquitectura Limpia (Clean Architecture)** con **
     * **Propósito:** Contiene la lógica de negocio central de la aplicación. Es completamente independiente de cualquier framework, base de datos o UI.
     * **Contenido:** Entidades, interfaces de casos de uso (Use Cases), interfaces de repositorios.
     * **Principio:** Pura lógica de negocio, sin dependencias de Android SDK ni frameworks externos (excepto Kotlin estándar).
+    * **Reglas de Negocio Obligatorias:** Toda la implementación de la lógica y casos de uso en esta capa debe cumplir de manera inflexible con lo especificado en el archivo `BUSINESS_RULES.md` en la raíz del proyecto.
 
 * **Capa de Datos (`data`):**
     * **Propósito:** Responsable de la obtención, transformación y persistencia de datos. Implementa las interfaces de repositorio definidas en la capa de Dominio.
@@ -162,9 +166,18 @@ Gemini DEBE generar las clases en las siguientes ubicaciones específicas, respe
 * **Modularización Robusta:**
     * Fomentar la creación de módulos Gradle separados para cada capa (`:domain`, `:data`, `:presentation`) o por característica/feature (`:feature:home`, `:feature:profile`).
     * Esta separación mejora significativamente los tiempos de compilación, refuerza la separación de preocupaciones y facilita la asignación de equipos en proyectos grandes.
-* **Manejo de Estados Consistente:**
-    * Implementar un enfoque claro y consistente para el manejo de estados en Compose, preferiblemente **Unidirectional Data Flow (UDF)**.
-    * Los ViewModels DEBEN exponer el estado de la UI como `StateFlow` o `LiveData` (preferiblemente `StateFlow`) y los eventos como `SharedFlow` o `Channel`.
+* **Manejo de Estados Consistente y UDF:**
+    * Implementar estrictamente el patrón **Unidirectional Data Flow (UDF)** para el manejo de estados en Compose. El estado fluye hacia abajo (del ViewModel a la UI) y los eventos fluyen hacia arriba (de la UI al ViewModel).
+    * Los ViewModels DEBEN exponer el estado de la UI como un único `StateFlow` inmutable del tipo de estado específico de la pantalla (ej. `StateFlow<MyUiState>`), y las acciones de un solo uso (eventos como navegación o Toasts) como `SharedFlow` o `Channel`.
+    * Se debe estandarizar la representación de estados asíncronos y cargas utilizando una interfaz sellada (`sealed interface` o `sealed class`) común para los estados de la UI:
+      ```kotlin
+      sealed interface UiState<out T> {
+          object Loading : UiState<Nothing>
+          data class Success<out T>(val data: T) : UiState<T>
+          data class Error(val errorMessage: String) : UiState<Nothing>
+      }
+      ```
+      Alternativamente, se puede usar una clase de datos de estado con banderas explícitas (`isLoading`, `error`, `data`) si la pantalla requiere mantener vistas previas o estados mixtos, pero el flujo unidireccional debe respetarse rigurosamente.
 * **Manejo de Errores Global:**
     * Definir y aplicar una estrategia de manejo de errores uniforme en todas las capas. Los errores deben ser capturados lo más cerca posible de su origen (ej. `data sources`), transformados en errores de dominio y manejados en la capa de presentación para notificar al usuario.
 * **Control de Concurrencia con Coroutines:**
@@ -185,4 +198,37 @@ Gemini DEBE generar las clases en las siguientes ubicaciones específicas, respe
 
 ---
 
-**Nota para Gemini:** `com.yourpackage` SIEMPRE debe ser reemplazado por el package raíz real del proyecto (ej. `com.example.myapp`). Cualquier referencia a este placeholder debe ser sustituida por el valor correcto.
+## 11. Verificación Local mediante Agentes y Habilidades (Skills)
+
+Para asegurar que los desarrollos cumplen con esta guía antes de subirlos y pasar la CI remota, se debe utilizar el orquestador de agentes de auditoría local.
+
+### Regla Obligatoria de Flujo de Trabajo (Para Asistentes de IA / Gemini)
+* **Lanzamiento Automático al Finalizar:** Una vez que el usuario declare completada una tarea o instrucción (utilizando expresiones como "ya está listo", "hecho", "ya quedó", "completado" o similar), el Asistente de IA **DEBE ejecutar automáticamente** el análisis local de los agentes sobre los archivos Kotlin que hayan sido modificados durante la sesión de trabajo. El asistente no debe dar por terminada la respuesta ni dar el trabajo por finalizado hasta haber ejecutado este orquestador y presentado el reporte de análisis al usuario.
+
+### Prerrequisitos y Configuración
+Los scripts de agentes y habilidades viven en el directorio `agents_dev/`. Requieren configurar la clave de API de Gemini:
+1. Configura la clave de API de Gemini en tu terminal:
+   ```bash
+   export GEMINI_API_KEY="tu-api-key-aquí"
+   ```
+
+### Ejecución de Auditoría en la Terminal
+Para ejecutar el análisis local sobre los archivos Kotlin modificados:
+1. **Activa el entorno virtual de Python** del proyecto de agentes:
+   ```bash
+   source agents_dev/.venv_agente/bin/activate
+   ```
+2. **Ejecuta el orquestador de agentes**:
+   ```bash
+   python agents_dev/skills/agent_orchestrator.py
+   ```
+   *Nota:* Por defecto, si no pasas ningún parámetro, el script detectará automáticamente los archivos Kotlin modificados en tu workspace (vía `git status` / `git diff`). También es posible forzar el análisis de un archivo específico pasándolo como argumento:
+   ```bash
+   python agents_dev/skills/agent_orchestrator.py app/src/main/java/com/devsusana/hometutorpro/data/repository/AuthRepositoryImpl.kt
+   ```
+
+El orquestador ejecutará secuencialmente los 5 agentes de auditoría (**Arquitectura**, **Seguridad**, **Testing**, **KDocs** y **Refactor**), aplicando pausas de 35 segundos para respetar la cuota gratuita de la API.
+
+---
+
+**Nota para Gemini:** El package raíz real de este proyecto es `com.devsusana.hometutorpro`. Cualquier referencia al placeholder `com.yourpackage` en esta guía debe ser sustituida por este package correcto en el código generado.

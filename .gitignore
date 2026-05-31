@@ -29,3 +29,4 @@ agents_dev/skills/PENDING_TASKS.md
 # Archivos de configuración de Python
 __pycache__/
 *.py[cod]
+.aider*

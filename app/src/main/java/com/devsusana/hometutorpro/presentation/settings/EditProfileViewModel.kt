@@ -78,11 +78,13 @@ class EditProfileViewModel @Inject constructor(
         viewModelScope.launch {
             // 1. Update Profile (Name, Email, and Working Hours)
             val profileResult = updateProfileUseCase(
-                state.value.name, 
-                state.value.email,
-                state.value.workingStartTime,
-                state.value.workingEndTime,
-                state.value.notes
+                com.devsusana.hometutorpro.domain.entities.UpdateUserParams(
+                    name = state.value.name,
+                    email = state.value.email,
+                    workingStartTime = state.value.workingStartTime,
+                    workingEndTime = state.value.workingEndTime,
+                    notes = state.value.notes
+                )
             )
             
             if (profileResult is Result.Error) {

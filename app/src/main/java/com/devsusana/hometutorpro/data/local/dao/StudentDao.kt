@@ -104,4 +104,75 @@ interface StudentDao {
 
     @Query("UPDATE students SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
     suspend fun assignOrphanedDataToProfessor(professorId: String)
+
+    /**
+     * Returns a summary of all active, non-deleted students for the given professor.
+     *
+     * @param professorId The ID of the professor.
+     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentStudentSummary] representing the student records.
+     */
+    @Query(
+        """
+        SELECT s.name, s.subjects, s.course, s.pricePerHour, s.pendingBalance, s.isActive, s.lastPaymentDate
+        FROM students s 
+        WHERE s.professorId = :professorId AND s.pendingDelete = 0
+        ORDER BY s.name ASC
+        """
+    )
+    suspend fun getAllStudentSummariesForAgent(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentStudentSummary>
+
+    /**
+     * Returns students with non-zero pending balance for the given professor.
+     *
+     * @param professorId The ID of the professor.
+     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary] for students with outstanding balances.
+     */
+    @Query(
+        """
+        SELECT s.name, s.pendingBalance 
+        FROM students s 
+        WHERE s.professorId = :professorId 
+        AND s.pendingBalance != 0 
+        AND s.pendingDelete = 0
+        ORDER BY s.pendingBalance DESC
+        """
+    )
+    suspend fun getStudentsWithBalance(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary>
+
+    /**
+     * Searches for students whose name matches the given query (case-insensitive).
+     *
+     * @param professorId The ID of the professor.
+     * @param query The search term to match against student names.
+     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentStudentDetail] matching the search.
+     */
+    @Query(
+        """
+        SELECT s.id AS studentId, s.name, s.subjects, s.course, s.pendingBalance, s.lastPaymentDate
+        FROM students s 
+        WHERE s.professorId = :professorId 
+        AND LOWER(s.name) LIKE '%' || LOWER(:query) || '%' 
+        AND s.pendingDelete = 0
+        ORDER BY s.name ASC
+        """
+    )
+    suspend fun searchStudentByName(professorId: String, query: String): List<com.devsusana.hometutorpro.domain.entities.AgentStudentDetail>
+
+    /**
+     * Returns the total count of active, non-deleted students for the given professor.
+     *
+     * @param professorId The ID of the professor.
+     * @return The integer count of active students.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) 
+        FROM students s 
+        WHERE s.professorId = :professorId 
+        AND s.isActive = 1 
+        AND s.pendingDelete = 0
+        """
+    )
+    suspend fun getActiveStudentCount(professorId: String): Int
 }
+

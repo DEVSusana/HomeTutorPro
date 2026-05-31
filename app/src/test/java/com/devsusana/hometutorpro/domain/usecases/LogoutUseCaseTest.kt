@@ -21,7 +21,11 @@ class LogoutUseCaseTest {
     @Before
     fun setup() {
         authRepository = mockk(relaxed = true)
-        logoutUseCase = LogoutUseCase(authRepository)
+        logoutUseCase = LogoutUseCase(
+            repository = authRepository,
+            syncMetadataDao = mockk(relaxed = true),
+            syncScheduler = mockk(relaxed = true)
+        )
     }
 
     @Test

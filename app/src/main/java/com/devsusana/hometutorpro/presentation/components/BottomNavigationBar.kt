@@ -1,5 +1,7 @@
 package com.devsusana.hometutorpro.presentation.components
 
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Home
@@ -64,6 +66,7 @@ fun BottomNavigationBar(navController: NavController) {
             val isSelected = currentDestination?.hierarchy?.any { it.hasRoute(item.route::class) } == true
             
             NavigationBarItem(
+                modifier = Modifier.testTag("nav_item_${item.route::class.simpleName}"),
                 icon = { Icon(item.icon, contentDescription = item.label) },
                 label = { Text(item.label) },
                 selected = isSelected,
