@@ -46,6 +46,7 @@
 
 El proyecto sigue **Clean Architecture + MVVM**, diseñado como una app real de producción, no como demo.
 
+```text
 app
 │
 ├── core
@@ -62,7 +63,7 @@ app
 │ └── settings
 │
 └── build-logic
-
+```
 
 ### Capas
 
