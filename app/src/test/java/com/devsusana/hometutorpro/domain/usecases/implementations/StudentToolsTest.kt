@@ -156,6 +156,33 @@ class StudentToolsTest {
         assertNull(result)
     }
 
+    @Test
+    fun `extractRelevantStudent returns match for phonetically similar name`() = runTest {
+        val christianSummary = AgentStudentSummary(
+            name = "Christian Smith",
+            subjects = "Math",
+            course = "ESO",
+            pricePerHour = 20.0,
+            pendingBalance = 0.0,
+            isActive = true,
+            lastPaymentDate = null
+        )
+        val christianDetail = AgentStudentDetail(
+            studentId = "stu-3",
+            name = "Christian Smith",
+            subjects = "Math",
+            course = "ESO",
+            pendingBalance = 0.0,
+            lastPaymentDate = null
+        )
+        coEvery { queryStudentsUseCase.getAllStudents() } returns listOf(mariaSummary, juanSummary, christianSummary)
+        coEvery { queryStudentsUseCase.searchByName("Christian Smith") } returns listOf(christianDetail)
+
+        val result = studentTools.extractRelevantStudent("mueve la clase de Cristian")
+
+        assertEquals(christianDetail, result)
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // prepareRegisterPayment
     // ──────────────────────────────────────────────────────────────────────────

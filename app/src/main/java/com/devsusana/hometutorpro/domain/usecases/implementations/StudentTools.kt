@@ -70,19 +70,36 @@ class StudentTools @Inject constructor(
      * 1. Exact first-name word-boundary match.
      * 2. Partial match fallback (min 4 chars).
      */
+    private fun normalizeName(name: String): String {
+        val temp = java.text.Normalizer.normalize(name.lowercase(), java.text.Normalizer.Form.NFD)
+        val cleaned = temp.replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+        return cleaned
+            .replace("christian", "cristian")
+            .replace("ph", "f")
+            .replace("th", "t")
+            .replace("ch", "c")
+            .replace("k", "c")
+            .replace("y", "i")
+            .replace("v", "b")
+            .replace("z", "s")
+            .trim()
+    }
+
     suspend fun extractRelevantStudent(query: String): AgentStudentDetail? {
         val students = queryStudentsUseCase.getAllStudents()
-        val lowerQuery = query.lowercase()
+        val normalizedQuery = normalizeName(query)
 
         val exactMatch = students.find { student ->
-            val firstName = student.name.substringBefore(" ").lowercase()
-            firstName.length >= 3 && Regex("\\b${Regex.escape(firstName)}\\b").containsMatchIn(lowerQuery)
+            val firstName = student.name.substringBefore(" ")
+            val normFirst = normalizeName(firstName)
+            normFirst.length >= 3 && Regex("\\b${Regex.escape(normFirst)}\\b").containsMatchIn(normalizedQuery)
         }
 
         val matchedStudent = exactMatch
             ?: students.find { student ->
-                val firstName = student.name.substringBefore(" ").lowercase()
-                firstName.length >= 4 && lowerQuery.contains(firstName)
+                val firstName = student.name.substringBefore(" ")
+                val normFirst = normalizeName(firstName)
+                normFirst.length >= 4 && normalizedQuery.contains(normFirst)
             }
 
         return matchedStudent?.let { student ->

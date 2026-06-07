@@ -125,16 +125,17 @@ fun Schedule.toEntity(studentId: Long, professorId: String, existingId: Long = 0
 
 // ScheduleException Mappers
 fun ScheduleExceptionEntity.toDomain(): ScheduleException {
+    val exceptionType = try { ExceptionType.valueOf(type) } catch (e: Exception) { ExceptionType.CANCELLED }
     return ScheduleException(
         id = id.toString(),
         studentId = studentId.toString(),
         professorId = professorId,
         date = exceptionDate,
-        type = try { ExceptionType.valueOf(type) } catch (e: Exception) { ExceptionType.CANCELLED },
+        type = exceptionType,
         originalScheduleId = originalScheduleId,
-        newStartTime = newStartTime ?: "",
-        newEndTime = newEndTime ?: "",
-        newDayOfWeek = newDayOfWeek,
+        newStartTime = if (exceptionType == ExceptionType.CANCELLED) "" else (newStartTime ?: ""),
+        newEndTime = if (exceptionType == ExceptionType.CANCELLED) "" else (newEndTime ?: ""),
+        newDayOfWeek = if (exceptionType == ExceptionType.CANCELLED) null else newDayOfWeek,
         reason = reason
     )
 }

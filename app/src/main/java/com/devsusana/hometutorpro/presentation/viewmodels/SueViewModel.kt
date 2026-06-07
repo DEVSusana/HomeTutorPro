@@ -60,7 +60,23 @@ class SueViewModel @Inject constructor(
         private const val LISTENING_TIMEOUT_MS = 15_000L
 
         private val AFFIRMATIVE_WORDS = setOf("sí", "si", "yes", "confirmar", "confirmo", "ok", "vale", "correcto", "adelante", "de acuerdo")
-        private val NEGATIVE_WORDS = setOf("no", "cancelar", "cancela", "nope", "negativo", "para", "olvídalo", "olvida")
+        private val NEGATIVE_WORDS = setOf("no", "nope", "negativo", "olvídalo", "olvida", "déjalo")
+
+        /**
+         * Checks whether [text] matches any word in [words] as a whole word
+         * (not a substring). For multi-word entries (e.g. "de acuerdo"),
+         * a simple `contains` check is used.
+         */
+        private fun containsWord(text: String, words: Set<String>): Boolean {
+            return words.any { word ->
+                if (word.contains(' ')) {
+                    word in text
+                } else {
+                    // Match whole word using regex word boundaries
+                    Regex("""\b${Regex.escape(word)}\b""").containsMatchIn(text)
+                }
+            }
+        }
     }
 
     init {
@@ -267,23 +283,49 @@ class SueViewModel @Inject constructor(
         val lower = transcription.lowercase().trim()
 
         when {
-            AFFIRMATIVE_WORDS.any { it in lower } -> {
+            containsWord(lower, AFFIRMATIVE_WORDS) -> {
                 _uiState.update { it.copy(pendingAction = null) }
                 executePendingAction(transcription, pendingAction)
             }
-            NEGATIVE_WORDS.any { it in lower } -> {
-                val cancelMessage = "De acuerdo, he cancelado la acción."
-                conversationHistory.add(Pair(transcription, cancelMessage))
-                while (conversationHistory.size > 10) conversationHistory.removeAt(0)
-                _uiState.update { it.copy(agentResponse = cancelMessage, pendingAction = null) }
-                speechService.speak(cancelMessage)
+            containsWord(lower, NEGATIVE_WORDS) -> {
+                _uiState.update { it.copy(pendingAction = null) }
+                // Check if the rejection also carries a new action intent
+                // (e.g. "no, cancela la clase de Ana" → reject reschedule + start cancel)
+                val newIntentResult = sueAgent.detectActionIntent(transcription)
+                if (newIntentResult != null) {
+                    val message = SueResponseFormatter.format(newIntentResult)
+                    val action = (newIntentResult as? SueOperationResult.Prepare.Success)?.action
+                    conversationHistory.add(Pair(transcription, message))
+                    while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+                    _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                    speechService.speak(message)
+                } else {
+                    val cancelMessage = "De acuerdo, he cancelado la acción."
+                    conversationHistory.add(Pair(transcription, cancelMessage))
+                    while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+                    _uiState.update { it.copy(agentResponse = cancelMessage) }
+                    speechService.speak(cancelMessage)
+                }
             }
             else -> {
-                val askAgain = "No he entendido. Di «sí» para confirmar o «no» para cancelar."
-                conversationHistory.add(Pair(transcription, askAgain))
-                while (conversationHistory.size > 10) conversationHistory.removeAt(0)
-                _uiState.update { it.copy(agentResponse = askAgain) }
-                speechService.speak(askAgain)
+                // Before asking again, check if the user issued a completely new intent
+                val newIntentResult = sueAgent.detectActionIntent(transcription)
+                if (newIntentResult != null) {
+                    // User changed their mind — discard pending action, route new intent
+                    _uiState.update { it.copy(pendingAction = null) }
+                    val message = SueResponseFormatter.format(newIntentResult)
+                    val action = (newIntentResult as? SueOperationResult.Prepare.Success)?.action
+                    conversationHistory.add(Pair(transcription, message))
+                    while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+                    _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                    speechService.speak(message)
+                } else {
+                    val askAgain = "No he entendido. Di «sí» para confirmar o «no» para cancelar."
+                    conversationHistory.add(Pair(transcription, askAgain))
+                    while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+                    _uiState.update { it.copy(agentResponse = askAgain) }
+                    speechService.speak(askAgain)
+                }
             }
         }
     }

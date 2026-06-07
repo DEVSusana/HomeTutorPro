@@ -133,7 +133,7 @@ class SueAgentImpl @Inject constructor(
 
         // 1. If we have a pending intent type, check if the user wants to abort or change topic
         if (lastActiveIntentType != null) {
-            val abortWords = listOf("no", "nada", "olvídalo", "olvida", "cancela", "cancelar", "abortar", "aborta")
+            val abortWords = listOf("no", "nada", "olvídalo", "olvida", "déjalo", "abortar", "aborta")
             if (abortWords.any { it == lower }) {
                 resetConversationContext()
                 return null
@@ -464,8 +464,8 @@ class SueAgentImpl @Inject constructor(
                     )
                 } else {
                     val days = extractTwoDaysOfWeek(lower)
-                    var fromDay = days.first ?: lastMentionedDayOfWeek
-                    var toDay = days.second
+                    var fromDay: Int? = null
+                    var toDay: Int? = null
 
                     val schedules = scheduleTools.getSchedulesByStudentName(studentName)
                     if (schedules.isEmpty()) {
@@ -474,22 +474,49 @@ class SueAgentImpl @Inject constructor(
                             "No he encontrado ninguna clase programada para $studentName."
                         )
                     } else {
+                        if (days.first != null && days.second != null) {
+                            fromDay = days.first
+                            toDay = days.second
+                        } else if (days.first != null) {
+                            val singleDay = days.first!!
+                            val hasClassOnSingleDay = schedules.any { it.dayOfWeek == singleDay }
+                            if (hasClassOnSingleDay) {
+                                if (isTargetDay(lower, singleDay)) {
+                                    toDay = singleDay
+                                } else {
+                                    fromDay = singleDay
+                                }
+                            } else {
+                                toDay = singleDay
+                            }
+                        }
+
                         // Resolve fromDay if null
                         if (fromDay == null) {
                             if (schedules.size == 1) {
                                 fromDay = schedules.first().dayOfWeek
                             } else {
-                                val todayDay = dateTimeProvider.getNow().dayOfWeek.value
-                                val todayMatch = schedules.firstOrNull { it.dayOfWeek == todayDay }
-                                if (todayMatch != null) {
-                                    fromDay = todayDay
+                                val fallbackDay = lastMentionedDayOfWeek ?: dateTimeProvider.getNow().dayOfWeek.value
+                                val hasClassOnFallback = schedules.any { it.dayOfWeek == fallbackDay }
+                                if (hasClassOnFallback) {
+                                    fromDay = fallbackDay
                                 } else {
-                                    return SueOperationResult.Prepare.Error(
-                                        SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                                        "¿Qué día es la clase de $studentName que quieres mover?"
-                                    )
+                                    val todayDay = dateTimeProvider.getNow().dayOfWeek.value
+                                    val todayMatch = schedules.firstOrNull { it.dayOfWeek == todayDay }
+                                    if (todayMatch != null) {
+                                        fromDay = todayDay
+                                    } else {
+                                        fromDay = schedules.firstOrNull()?.dayOfWeek
+                                    }
                                 }
                             }
+                        }
+
+                        if (fromDay == null) {
+                            return SueOperationResult.Prepare.Error(
+                                SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                                "¿Qué día es la clase de $studentName que quieres mover?"
+                            )
                         }
 
                         if (toDay == null) {
@@ -690,26 +717,34 @@ class SueAgentImpl @Inject constructor(
                 } else if (containsFreeSlotKeywords(lowerQuery)) {
                     appendLine(formatResult(scheduleTools.getFreeSlots()))
                 } else {
-                    var targetDay = day
+                    val daysToInject = mutableSetOf<Int>()
+                    daysToInject.add(dateTimeProvider.getNow().dayOfWeek.value)
+
+                    if (day != null) {
+                        daysToInject.add(day)
+                    }
+                    if (lastMentionedDayOfWeek != null) {
+                        daysToInject.add(lastMentionedDayOfWeek!!)
+                    }
+
+                    val extractedDays = extractTwoDaysOfWeek(lowerQuery)
+                    if (extractedDays.first != null) daysToInject.add(extractedDays.first!!)
+                    if (extractedDays.second != null) daysToInject.add(extractedDays.second!!)
 
                     val timeFilter = extractTime(lowerQuery) ?: extractTimeOfDayFilter(lowerQuery)
-
-                    // If day is missing but we have a student name and a specific time, attempt to resolve the day from the schedules
-                    if (targetDay == null && timeFilter != null && timeFilter.contains(":")) {
+                    if (day == null && timeFilter != null && timeFilter.contains(":")) {
                         val lookupName = lastMentionedStudentName
                         if (lookupName != null) {
                             val studentSchedules = scheduleTools.getSchedulesByStudentName(lookupName)
                             val matchingSchedule = studentSchedules.firstOrNull { it.startTime == timeFilter }
                             if (matchingSchedule != null) {
-                                targetDay = matchingSchedule.dayOfWeek
+                                daysToInject.add(matchingSchedule.dayOfWeek)
                             }
                         }
                     }
 
-                    if (targetDay != null) {
-                        appendLine(formatResult(scheduleTools.getScheduleForDay(targetDay, timeFilter)))
-                    } else {
-                        appendLine(formatResult(scheduleTools.getWeeklySchedule()))
+                    for (d in daysToInject.sorted()) {
+                        appendLine(formatResult(scheduleTools.getScheduleForDay(d, timeFilter)))
                     }
                 }
             }
@@ -776,6 +811,7 @@ class SueAgentImpl @Inject constructor(
 
     private fun containsRescheduleKeywords(query: String) =
         listOf("mueve", "mover", "cambia", "cambiar", "pasa", "pasar", "traslada", "trasladar",
+               "reprograma", "reprogramar", "reprograme", "pospone", "posponer", "pospón", "adelanta", "adelantar",
                "move", "change", "reschedule", "postpone")
             .any { it in query }
 
@@ -1352,6 +1388,45 @@ class SueAgentImpl @Inject constructor(
         }
 
         return matches.sortedBy { it.index }.map { it.timeStr }
+    }
+
+    private fun isTargetDay(query: String, day: Int): Boolean {
+        val lower = query.lowercase()
+        val today = dateTimeProvider.getNow().dayOfWeek.value
+        val tomorrow = (today % 7) + 1
+        val yesterday = if (today == 1) 7 else today - 1
+
+        val dayNames = mutableListOf<String>()
+        when (day) {
+            1 -> dayNames.addAll(listOf("lunes", "monday"))
+            2 -> dayNames.addAll(listOf("martes", "tuesday"))
+            3 -> dayNames.addAll(listOf("miércoles", "miercoles", "wednesday"))
+            4 -> dayNames.addAll(listOf("jueves", "thursday"))
+            5 -> dayNames.addAll(listOf("viernes", "friday"))
+            6 -> dayNames.addAll(listOf("sábado", "sabado", "saturday"))
+            7 -> dayNames.addAll(listOf("domingo", "sunday"))
+        }
+
+        if (day == today) {
+            dayNames.addAll(listOf("hoy", "today", "esta tarde", "esta mañana", "esta noche", "tonight"))
+        }
+        if (day == tomorrow) {
+            dayNames.addAll(listOf("mañana", "tomorrow"))
+        }
+        if (day == yesterday) {
+            dayNames.addAll(listOf("ayer", "yesterday"))
+        }
+
+        for (name in dayNames) {
+            val idx = lower.indexOf(name)
+            if (idx >= 0) {
+                val prefix = lower.substring(0, idx).trim()
+                if (prefix.endsWith(" al") || prefix.endsWith(" a") || prefix.endsWith(" para") || prefix.endsWith(" para el") || prefix.endsWith(" to")) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     private fun isQuestionOrQuery(query: String): Boolean {

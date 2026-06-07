@@ -233,7 +233,8 @@ object SueResponseFormatter {
             val originalLabel = epochMillisToLabel(action.originalDate)
             val targetLabel = epochMillisToLabel(action.newDate)
             "Hecho. La clase de ${action.studentName} se ha movido del " +
-                "$originalLabel al $targetLabel de ${action.newStartTime} a ${action.newEndTime}."
+                "$originalLabel al $targetLabel de ${action.newStartTime} a ${action.newEndTime}. " +
+                "El cambio solo afecta a esta clase. El alumno mantiene su horario habitual los demás días."
         }
         is SuePendingAction.RegisterPayment ->
             "Hecho. Se ha registrado el pago de ${action.amount} euros de ${action.studentName}."

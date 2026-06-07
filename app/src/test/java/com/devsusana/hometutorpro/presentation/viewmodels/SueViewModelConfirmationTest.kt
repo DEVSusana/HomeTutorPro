@@ -297,4 +297,97 @@ class SueViewModelConfirmationTest {
         coVerify { scheduleTools.executeCreateSchedule(pendingAction) }
         coVerify { scheduleTools.getFreeSlots() }
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Confirmation flow — user issues a new intent during confirmation
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `when pending reschedule and user says cancela la clase it should discard reschedule and start cancel`() = runTest {
+        // Given — a pending reschedule action
+        val rescheduleAction = SuePendingAction.RescheduleClass(
+            studentName = "Christian",
+            studentId = "stud1",
+            scheduleId = "sch1",
+            originalDate = 1700000000000L,
+            originalStartTime = "18:30",
+            newDayOfWeek = null,
+            newDate = 1700100000000L,
+            newStartTime = "18:30",
+            newEndTime = "20:30"
+        )
+        coEvery { sueAgent.detectActionIntent("reprograma la clase de Christian al lunes") } returns
+                SueOperationResult.Prepare.Success(rescheduleAction)
+
+        // Set up the cancel action that should be returned for the second query
+        val cancelAction = SuePendingAction.CancelClass(
+            studentName = "Christian",
+            studentId = "stud1",
+            scheduleId = "sch1",
+            date = 1700000000000L,
+            startTime = "18:30",
+            endTime = "20:30"
+        )
+        coEvery { sueAgent.detectActionIntent("cancela la clase de Christian de esta tarde") } returns
+                SueOperationResult.Prepare.Success(cancelAction)
+
+        // First turn: reschedule intent → sets pending reschedule
+        transcriptionFlow.emit("reprograma la clase de Christian al lunes")
+        advanceUntilIdle()
+        assertEquals(rescheduleAction, viewModel.uiState.value.pendingAction)
+
+        // Second turn: user says "cancela la clase de..." → should discard reschedule, start cancel
+        transcriptionFlow.emit("cancela la clase de Christian de esta tarde")
+        advanceUntilIdle()
+
+        // Then — the pending action should now be the cancel action, not the reschedule
+        val state = viewModel.uiState.value
+        assertEquals(cancelAction, state.pendingAction)
+        coVerify(exactly = 0) { scheduleTools.executeRescheduleAction(any()) }
+        coVerify(exactly = 0) { scheduleTools.executeCancelAction(any()) }
+    }
+
+    @Test
+    fun `when pending action and user says no cancela la clase it should reject and start cancel intent`() = runTest {
+        // Given — a pending reschedule action
+        val rescheduleAction = SuePendingAction.RescheduleClass(
+            studentName = "Ana",
+            studentId = "stud2",
+            scheduleId = "sch2",
+            originalDate = 1700000000000L,
+            originalStartTime = "16:00",
+            newDayOfWeek = null,
+            newDate = 1700100000000L,
+            newStartTime = "16:00",
+            newEndTime = "17:00"
+        )
+        coEvery { sueAgent.detectActionIntent("mueve la clase de Ana al martes") } returns
+                SueOperationResult.Prepare.Success(rescheduleAction)
+
+        // Cancel action from the combined message
+        val cancelAction = SuePendingAction.CancelClass(
+            studentName = "Ana",
+            studentId = "stud2",
+            scheduleId = "sch2",
+            date = 1700000000000L,
+            startTime = "16:00",
+            endTime = "17:00"
+        )
+        coEvery { sueAgent.detectActionIntent("no, cancela la clase de Ana de esta tarde") } returns
+                SueOperationResult.Prepare.Success(cancelAction)
+
+        // First turn: reschedule
+        transcriptionFlow.emit("mueve la clase de Ana al martes")
+        advanceUntilIdle()
+        assertEquals(rescheduleAction, viewModel.uiState.value.pendingAction)
+
+        // Second turn: "no, cancela la clase de Ana" → reject reschedule + start cancel
+        transcriptionFlow.emit("no, cancela la clase de Ana de esta tarde")
+        advanceUntilIdle()
+
+        // Then — reschedule discarded, cancel pending action set
+        val state = viewModel.uiState.value
+        assertEquals(cancelAction, state.pendingAction)
+        coVerify(exactly = 0) { scheduleTools.executeRescheduleAction(any()) }
+    }
 }

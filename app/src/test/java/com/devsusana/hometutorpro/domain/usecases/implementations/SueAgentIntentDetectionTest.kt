@@ -555,5 +555,21 @@ class SueAgentIntentDetectionTest {
         val details = (result as SueOperationResult.Prepare.Error).details
         assertTrue(details != null && (details.contains("varias") || details.contains("hora")))
     }
+
+    @Test
+    fun `detectActionIntent should resolve reschedule with single target day using target prepositions`() = runTest {
+        val scheduleDetail = com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail(
+            scheduleId = "sch-1", studentId = "stu-1", studentName = "Ana",
+            dayOfWeek = 3, startTime = "16:30", endTime = "17:30"
+        )
+        coEvery { scheduleTools.getSchedulesByStudentName("Ana") } returns listOf(scheduleDetail)
+        coEvery { scheduleTools.prepareRescheduleAction("Ana", 3, 1, "16:30", null) } returns
+                SueOperationResult.Prepare.Success(mockk())
+
+        val result = sueAgent.detectActionIntent("reprograma la clase de Ana al lunes")
+        assertNotNull(result)
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        io.mockk.coVerify { scheduleTools.prepareRescheduleAction("Ana", 3, 1, "16:30", null) }
+    }
 }
 
