@@ -2,10 +2,17 @@ package com.devsusana.hometutorpro.domain.usecases.implementations
 
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.entities.Schedule
+import com.devsusana.hometutorpro.domain.entities.ScheduleException
+import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IQueryStudentsForAgentUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleUseCase
+import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -20,14 +27,15 @@ import javax.inject.Singleton
  *
  * All functions are `suspend` to comply with AGENTS.md Rule 1 (Coroutines),
  * ensuring database I/O does not block the main thread.
- *
- * All write operations go through [IManageScheduleForAgentUseCase] which delegates
- * business-rule validation to [ISaveScheduleExceptionUseCase].
  */
 @Singleton
 class ScheduleTools @Inject constructor(
     private val querySchedulesUseCase: IQuerySchedulesForAgentUseCase,
     private val manageScheduleUseCase: IManageScheduleForAgentUseCase,
+    private val queryStudentsUseCase: IQueryStudentsForAgentUseCase,
+    private val saveScheduleUseCase: ISaveScheduleUseCase,
+    private val deleteScheduleUseCase: IDeleteScheduleUseCase,
+    private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val authRepository: AuthRepository,
     private val dateTimeProvider: DateTimeProvider
 ) {
@@ -141,10 +149,19 @@ class ScheduleTools @Inject constructor(
      */
     suspend fun prepareCancelAction(
         studentName: String,
-        dayOfWeek: Int
+        dayOfWeek: Int,
+        time: String? = null
     ): SueOperationResult.Prepare {
         val schedules = querySchedulesUseCase.getSchedulesByStudentName(studentName)
-        val match = schedules.firstOrNull { it.dayOfWeek == dayOfWeek }
+        val daySchedules = schedules.filter { it.dayOfWeek == dayOfWeek }
+
+        val match = if (time != null && daySchedules.size > 1) {
+            daySchedules.firstOrNull { it.startTime == time }
+                ?: daySchedules.firstOrNull { it.startTime.substringBefore(":") == time.substringBefore(":") }
+                ?: daySchedules.firstOrNull()
+        } else {
+            daySchedules.firstOrNull()
+        }
 
         if (match == null) {
             return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.CLASS_NOT_FOUND)
@@ -164,18 +181,22 @@ class ScheduleTools @Inject constructor(
         return SueOperationResult.Prepare.Success(action)
     }
 
-    /**
-     * Looks up [studentName]'s schedule for [fromDayOfWeek] and builds a
-     * [SuePendingAction.RescheduleClass] targeting [toDayOfWeek] at [newStartTime].
-     */
     suspend fun prepareRescheduleAction(
         studentName: String,
         fromDayOfWeek: Int,
         toDayOfWeek: Int,
-        newStartTime: String
+        newStartTime: String,
+        fromTime: String? = null
     ): SueOperationResult.Prepare {
         val schedules = querySchedulesUseCase.getSchedulesByStudentName(studentName)
-        val match = schedules.firstOrNull { it.dayOfWeek == fromDayOfWeek }
+        val daySchedules = schedules.filter { it.dayOfWeek == fromDayOfWeek }
+        val match = if (fromTime != null) {
+            daySchedules.firstOrNull { it.startTime == fromTime }
+                ?: daySchedules.firstOrNull { it.startTime.substringBefore(":") == fromTime.substringBefore(":") }
+                ?: daySchedules.firstOrNull()
+        } else {
+            daySchedules.firstOrNull()
+        }
 
         if (match == null) {
             return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.CLASS_NOT_FOUND)
@@ -253,6 +274,148 @@ class ScheduleTools @Inject constructor(
         return querySchedulesUseCase.getSchedulesByStudentName(studentName)
     }
 
+    /**
+     * Prepares a CreateSchedule action for user confirmation.
+     */
+    suspend fun prepareCreateSchedule(
+        studentName: String,
+        dayOfWeek: Int,
+        startTime: String,
+        endTime: String
+    ): SueOperationResult.Prepare {
+        val students = queryStudentsUseCase.searchByName(studentName)
+        val match = students.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+
+        if (match == null) {
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+        }
+
+        val action = SuePendingAction.CreateSchedule(
+            studentName = match.name,
+            studentId = match.studentId,
+            dayOfWeek = dayOfWeek,
+            startTime = startTime,
+            endTime = endTime
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes a confirmed CreateSchedule action.
+     */
+    suspend fun executeCreateSchedule(action: SuePendingAction.CreateSchedule): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val schedule = Schedule(
+            studentId = action.studentId,
+            professorId = professorId,
+            dayOfWeek = DayOfWeek.of(action.dayOfWeek),
+            startTime = action.startTime,
+            endTime = action.endTime
+        )
+
+        return when (val result = saveScheduleUseCase(professorId, action.studentId, schedule)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
+     * Prepares a DeleteSchedule action for user confirmation.
+     */
+    suspend fun prepareDeleteSchedule(
+        studentName: String,
+        dayOfWeek: Int,
+        startTime: String? = null
+    ): SueOperationResult.Prepare {
+        val schedules = querySchedulesUseCase.getSchedulesByStudentName(studentName)
+        val daySchedules = schedules.filter { it.dayOfWeek == dayOfWeek }
+
+        val match = if (startTime != null && daySchedules.size > 1) {
+            daySchedules.firstOrNull { it.startTime == startTime }
+                ?: daySchedules.firstOrNull { it.startTime.substringBefore(":") == startTime.substringBefore(":") }
+                ?: daySchedules.firstOrNull()
+        } else {
+            daySchedules.firstOrNull()
+        }
+
+        if (match == null) {
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.CLASS_NOT_FOUND)
+        }
+
+        val action = SuePendingAction.DeleteSchedule(
+            studentName = match.studentName,
+            studentId = match.studentId,
+            scheduleId = match.scheduleId,
+            dayOfWeek = match.dayOfWeek,
+            startTime = match.startTime
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes a confirmed DeleteSchedule action.
+     */
+    suspend fun executeDeleteSchedule(action: SuePendingAction.DeleteSchedule): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        return when (val result = deleteScheduleUseCase(professorId, action.studentId, action.scheduleId)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
+     * Prepares an AddExtraClass action for user confirmation.
+     */
+    suspend fun prepareAddExtraClass(
+        studentName: String,
+        dateMillis: Long,
+        startTime: String,
+        endTime: String
+    ): SueOperationResult.Prepare {
+        val students = queryStudentsUseCase.searchByName(studentName)
+        val match = students.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+
+        if (match == null) {
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+        }
+
+        val action = SuePendingAction.AddExtraClass(
+            studentName = match.name,
+            studentId = match.studentId,
+            date = dateMillis,
+            startTime = startTime,
+            endTime = endTime
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes a confirmed AddExtraClass action.
+     */
+    suspend fun executeAddExtraClass(action: SuePendingAction.AddExtraClass): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val exception = ScheduleException(
+            studentId = action.studentId,
+            professorId = professorId,
+            date = action.date,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA", // Special original schedule ID per business rules
+            newStartTime = action.startTime,
+            newEndTime = action.endTime
+        )
+
+        return when (val result = saveScheduleExceptionUseCase(professorId, action.studentId, exception)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Private helpers
     // ──────────────────────────────────────────────────────────────────────────
@@ -260,3 +423,4 @@ class ScheduleTools @Inject constructor(
     private fun nextOccurrenceDate(dayOfWeek: DayOfWeek): LocalDate =
         dateTimeProvider.getNow().toLocalDate().with(TemporalAdjusters.nextOrSame(dayOfWeek))
 }
+

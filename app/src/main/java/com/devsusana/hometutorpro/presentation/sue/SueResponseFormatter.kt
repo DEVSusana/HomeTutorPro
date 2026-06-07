@@ -179,6 +179,33 @@ object SueResponseFormatter {
             "¿Confirmas sumar ${action.amount} euros a la deuda de ${action.studentName}? " +
                 "Di sí para confirmar o no para cancelar."
         }
+        is SuePendingAction.StartClass -> {
+            "¿Confirmas iniciar una clase para ${action.studentName} de ${action.durationMinutes} minutos? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.CreateStudent -> {
+            "¿Confirmas crear el alumno ${action.name} de ${action.subjects} a ${action.pricePerHour} euros la hora? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.DeleteStudent -> {
+            "¿Confirmas eliminar al alumno ${action.studentName} y toda su información de forma permanente? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.CreateSchedule -> {
+            val day = dayName(action.dayOfWeek)
+            "¿Confirmas programar un horario permanente para ${action.studentName} los $day de ${action.startTime} a ${action.endTime}? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.DeleteSchedule -> {
+            val day = dayName(action.dayOfWeek)
+            "¿Confirmas eliminar el horario permanente de ${action.studentName} los $day a las ${action.startTime}? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.AddExtraClass -> {
+            val dayLabel = epochMillisToLabel(action.date)
+            "¿Confirmas añadir una clase extra para ${action.studentName} el $dayLabel de ${action.startTime} a ${action.endTime}? " +
+                "Di sí para confirmar o no para cancelar."
+        }
     }
 
     private fun formatPreparationError(result: SueOperationResult.Prepare.Error): String {
@@ -212,26 +239,52 @@ object SueResponseFormatter {
             "Hecho. Se ha registrado el pago de ${action.amount} euros de ${action.studentName}."
         is SuePendingAction.AddBalance ->
             "Hecho. Se han sumado ${action.amount} euros a la cuenta de ${action.studentName}."
+        is SuePendingAction.StartClass ->
+            "Hecho. Se ha iniciado la clase para ${action.studentName} de ${action.durationMinutes} minutos."
+        is SuePendingAction.CreateStudent ->
+            "Hecho. Se ha creado el alumno ${action.name} con tarifa de ${action.pricePerHour} euros la hora."
+        is SuePendingAction.DeleteStudent ->
+            "Hecho. Se ha eliminado al alumno ${action.studentName}."
+        is SuePendingAction.CreateSchedule -> {
+            val day = dayName(action.dayOfWeek)
+            "Hecho. Se ha configurado el horario permanente para ${action.studentName} los $day de ${action.startTime} a ${action.endTime}."
+        }
+        is SuePendingAction.DeleteSchedule -> {
+            val day = dayName(action.dayOfWeek)
+            "Hecho. Se ha eliminado el horario de los $day a las ${action.startTime} de ${action.studentName}."
+        }
+        is SuePendingAction.AddExtraClass -> {
+            val dayLabel = epochMillisToLabel(action.date)
+            "Hecho. Se ha agendado la clase extra para ${action.studentName} el $dayLabel de ${action.startTime} a ${action.endTime}."
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Converts an epoch-millis timestamp to a Spanish date label like "lunes 23 de junio".
-     */
     private fun epochMillisToLabel(epochMillis: Long): String =
-        LocalDate.ofEpochDay(epochMillis / 86_400_000L).format(DATE_FORMATTER_ES)
+        java.time.Instant.ofEpochMilli(epochMillis)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+            .format(DATE_FORMATTER_ES)
 
     private fun dayName(isoDay: Int): String =
         DAY_NAMES_ES[isoDay]?.replaceFirstChar { it.uppercase() } ?: "Día $isoDay"
 
-    private fun formatDomainError(error: DomainError): String = when (error) {
+    fun formatFreeDaysList(freeDays: List<Int>): String {
+        if (freeDays.isEmpty()) return ""
+        val names = freeDays.map { dayName(it).lowercase() }
+        return "Los siguientes días están completamente libres esta semana: ${names.joinToString(", ")}."
+    }
+
+    fun formatDomainError(error: DomainError, freeSlotsText: String = ""): String = when (error) {
         is DomainError.StudentNotFound -> "No se encontró el alumno en la base de datos."
         is DomainError.ScheduleConflict -> "Hay un conflicto con el horario seleccionado."
-        is DomainError.ConflictingStudent ->
-            "Conflicto de horario con ${error.studentName} a las ${error.time}."
+        is DomainError.ConflictingStudent -> {
+            val base = "No se puede realizar la acción debido a un conflicto de horario. El hueco está ocupado por ${error.studentName} de ${error.time}."
+            if (freeSlotsText.isNotEmpty()) "$base $freeSlotsText" else base
+        }
         is DomainError.InvalidAmount -> "El importe introducido no es válido."
         is DomainError.NetworkError -> "Error de red. Comprueba tu conexión."
         else -> "No se pudo completar la operación. Inténtalo de nuevo."

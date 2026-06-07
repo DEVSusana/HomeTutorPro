@@ -2,8 +2,14 @@ package com.devsusana.hometutorpro.domain.usecases.implementations
 
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
+import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
+import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.ISueAgent
+import java.time.temporal.TemporalAdjusters
+import java.time.DayOfWeek
+import java.time.ZoneId
+import java.time.LocalTime
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,7 +28,8 @@ import javax.inject.Singleton
 class SueAgentImpl @Inject constructor(
     private val studentTools: StudentTools,
     private val scheduleTools: ScheduleTools,
-    private val dateTimeProvider: DateTimeProvider
+    private val dateTimeProvider: DateTimeProvider,
+    private val authRepository: AuthRepository
 ) : ISueAgent {
 
     companion object {
@@ -64,13 +71,47 @@ class SueAgentImpl @Inject constructor(
                 - Contar alumnos activos.
                 - Cancelar o mover clases puntuales (solo la ocurrencia indicada).
                 - Mostrar huecos libres en la semana actual.
+                - Crear o eliminar perfiles de alumnos.
+                - Configurar o eliminar horarios recurrentes permanentes de clases.
+                - Programar clases extra y registrar el inicio de clases en directo.
 
                 Limitaciones:
-                - Solo puedes CONSULTAR o ejecutar acciones puntuales (cancelar/mover UNA clase).
-                - No puedes crear ni eliminar horarios permanentes.
                 - Solo conoces los datos del profesor que está usando la app.
             """.trimIndent()
         }
+    }    private enum class IntentType {
+        START_CLASS,
+        CREATE_STUDENT,
+        DELETE_STUDENT,
+        ADD_EXTRA_CLASS,
+        CREATE_SCHEDULE,
+        DELETE_SCHEDULE,
+        CANCEL_CLASS,
+        RESCHEDULE_CLASS,
+        REGISTER_PAYMENT,
+        ADD_BALANCE
+    }
+
+    private var lastMentionedStudentName: String? = null
+    private var lastMentionedDayOfWeek: Int? = null
+    private var lastMentionedTime: String? = null
+    private var lastMentionedAmount: Double? = null
+    private var lastMentionedDuration: Int? = null
+    private var lastMentionedPrice: Double? = null
+    private var lastMentionedSubjects: String? = null
+    private var lastMentionedCourse: String? = null
+    private var lastActiveIntentType: IntentType? = null
+
+    override fun resetConversationContext() {
+        lastMentionedStudentName = null
+        lastMentionedDayOfWeek = null
+        lastMentionedTime = null
+        lastMentionedAmount = null
+        lastMentionedDuration = null
+        lastMentionedPrice = null
+        lastMentionedSubjects = null
+        lastMentionedCourse = null
+        lastActiveIntentType = null
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -88,149 +129,488 @@ class SueAgentImpl @Inject constructor(
      * or with an error descriptor if the intent was detected but the data could not be resolved.
      */
     override suspend fun detectActionIntent(query: String): SueOperationResult.Prepare? {
-        val lower = query.lowercase()
+        val lower = query.lowercase().trim()
 
-        return when {
-            containsCancelKeywords(lower) -> {
-                val student = studentTools.extractRelevantStudent(lower)
-                val studentName = student?.name ?: extractStudentName(lower)
-                if (studentName == null) {
-                    return SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "Por favor, indica el nombre del alumno para cancelar la clase."
-                    )
-                }
-
-                var dayOfWeek = extractRelativeDayOfWeek(lower) ?: extractDayOfWeek(lower)
-                if (dayOfWeek == null) {
-                    val schedules = scheduleTools.getSchedulesByStudentName(studentName)
-                    if (schedules.isEmpty()) {
-                        return SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                            "No he encontrado ninguna clase programada para $studentName."
-                        )
-                    } else if (schedules.size == 1) {
-                        dayOfWeek = schedules.first().dayOfWeek
-                    } else {
-                        return SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                            "He encontrado varias clases para $studentName. Por favor, especifica el día de la clase que quieres cancelar (ej. lunes o martes)."
-                        )
-                    }
-                }
-                scheduleTools.prepareCancelAction(studentName, dayOfWeek)
+        // 1. If we have a pending intent type, check if the user wants to abort or change topic
+        if (lastActiveIntentType != null) {
+            val abortWords = listOf("no", "nada", "olvídalo", "olvida", "cancela", "cancelar", "abortar", "aborta")
+            if (abortWords.any { it == lower }) {
+                resetConversationContext()
+                return null
             }
-
-            containsRescheduleKeywords(lower) -> {
-                val student = studentTools.extractRelevantStudent(lower)
-                val studentName = student?.name ?: extractStudentName(lower)
-                if (studentName == null) {
-                    return SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "Por favor, indica el nombre del alumno para mover la clase."
-                    )
-                }
-
-                val days = extractTwoDaysOfWeek(lower)
-                var fromDay = days.first
-                var toDay = days.second
-                val newTime = extractTime(lower)
-                if (newTime == null) {
-                    return SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.UNKNOWN,
-                        "Por favor, indica la nueva hora a la que quieres mover la clase (ej. a las 18:00)."
-                    )
-                }
-
-                if (fromDay == null || toDay == null) {
-                    val schedules = scheduleTools.getSchedulesByStudentName(studentName)
-                    if (schedules.isEmpty()) {
-                        return SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                            "No he encontrado ninguna clase programada para $studentName."
-                        )
-                    }
-
-                    val explicitDay = extractDayOfWeek(lower)
-                    if (explicitDay != null) {
-                        toDay = explicitDay
-                        if (schedules.size == 1) {
-                            fromDay = schedules.first().dayOfWeek
-                        } else {
-                            val candidateDays = schedules.map { it.dayOfWeek }.filter { it != toDay }
-                            if (candidateDays.size == 1) {
-                                fromDay = candidateDays.first()
-                            } else {
-                                return SueOperationResult.Prepare.Error(
-                                    SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                                    "Por favor, indica el día original de la clase que quieres mover y el nuevo día (ej. de lunes a miércoles)."
-                                )
-                            }
-                        }
-                    } else {
-                        if (schedules.size == 1) {
-                            fromDay = schedules.first().dayOfWeek
-                            toDay = fromDay
-                        } else {
-                            return SueOperationResult.Prepare.Error(
-                                SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                                "Por favor, indica el día de la clase que quieres mover."
-                            )
-                        }
-                    }
-                }
-
-                scheduleTools.prepareRescheduleAction(studentName, fromDay, toDay, newTime)
+            if (isQuestionOrQuery(lower)) {
+                lastActiveIntentType = null
             }
+        }
 
-            containsRegisterPaymentKeywords(lower) -> {
-                val student = studentTools.extractRelevantStudent(lower)
-                val studentName = student?.name ?: extractStudentNameForFinance(lower)
-                if (studentName == null) {
-                    return SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "Por favor, indica el nombre del alumno para registrar el pago."
-                    )
-                }
-                val amount = extractAmount(lower)
-                if (amount == null) {
-                    return SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.UNKNOWN,
-                        "Por favor, indica el importe del pago (ej. 20 euros)."
-                    )
-                }
-                val paymentType = if (lower.contains("bizum")) PaymentType.BIZUM else PaymentType.EFFECTIVE
-                studentTools.prepareRegisterPayment(studentName, amount, paymentType)
-            }
+        // 2. Extract and update context memory variables
+        val matchedStudent = studentTools.extractRelevantStudent(lower)
+        val matchedName = matchedStudent?.name ?: extractStudentName(lower) ?: extractStudentNameForFinance(lower) ?: extractNameAfter(lower, listOf("inicia una clase para ", "inicia clase para ", "empieza clase para ", "start class for "))
+        if (matchedName != null) {
+            val capitalizedName = matchedName.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            lastMentionedStudentName = capitalizedName
+        }
 
-            containsAddBalanceKeywords(lower) -> {
-                val student = studentTools.extractRelevantStudent(lower)
-                val studentName = student?.name ?: extractStudentNameForFinance(lower)
-                if (studentName == null) {
-                    return SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "Por favor, indica el nombre del alumno para añadir saldo."
-                    )
-                }
-                val amount = extractAmount(lower)
-                if (amount == null) {
-                    return SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.UNKNOWN,
-                        "Por favor, indica el importe a añadir (ej. 15 euros)."
-                    )
-                }
-                studentTools.prepareAddBalance(studentName, amount)
-            }
+        val relativeDay = extractRelativeDayOfWeek(lower)
+        val explicitDay = extractDayOfWeek(lower)
+        val matchedDay = relativeDay ?: explicitDay
+        if (matchedDay != null) {
+            lastMentionedDayOfWeek = matchedDay
+        }
 
+        val matchedTime = extractTime(lower)
+        if (matchedTime != null) {
+            lastMentionedTime = matchedTime
+        }
+
+        val matchedAmount = extractAmount(lower)
+        if (matchedAmount != null) {
+            lastMentionedAmount = matchedAmount
+        }
+
+        val matchedDuration = extractDurationOptional(lower)
+        if (matchedDuration != null) {
+            lastMentionedDuration = matchedDuration
+        }
+
+        // 3. Determine the intent to process (explicit or fallback to last active intent)
+        val explicitIntent = when {
+            containsStartClassKeywords(lower) -> IntentType.START_CLASS
+            containsCreateStudentKeywords(lower) -> IntentType.CREATE_STUDENT
+            containsDeleteStudentKeywords(lower) -> IntentType.DELETE_STUDENT
+            containsAddExtraClassKeywords(lower) -> IntentType.ADD_EXTRA_CLASS
+            containsCreateScheduleKeywords(lower) -> IntentType.CREATE_SCHEDULE
+            containsDeleteScheduleKeywords(lower) -> IntentType.DELETE_SCHEDULE
+            containsCancelKeywords(lower) -> IntentType.CANCEL_CLASS
+            containsRescheduleKeywords(lower) -> IntentType.RESCHEDULE_CLASS
+            containsRegisterPaymentKeywords(lower) -> IntentType.REGISTER_PAYMENT
+            containsAddBalanceKeywords(lower) -> IntentType.ADD_BALANCE
             else -> null
         }
+
+        val activeIntent = explicitIntent ?: lastActiveIntentType
+        if (activeIntent == null) {
+            return null
+        }
+
+        // Set the active intent so if it fails (due to missing info), we persist it for the next turn
+        lastActiveIntentType = activeIntent
+
+        val result = when (activeIntent) {
+            IntentType.START_CLASS -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿Para qué alumno quieres iniciar la clase?"
+                    )
+                } else {
+                    val duration = lastMentionedDuration
+                    if (duration == null) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿De cuántos minutos será la clase con $studentName?"
+                        )
+                    } else {
+                        studentTools.prepareStartClass(studentName, duration)
+                    }
+                }
+            }
+
+            IntentType.CREATE_STUDENT -> {
+                val queryWithoutKeywords = lower
+                    .replace("crear un estudiante", "")
+                    .replace("crear un alumno", "")
+                    .replace("crea un estudiante", "")
+                    .replace("crea un alumno", "")
+                    .replace("crear al estudiante", "")
+                    .replace("crear al alumno", "")
+                    .replace("crea al estudiante", "")
+                    .replace("crea al alumno", "")
+                    .replace("crear el estudiante", "")
+                    .replace("crear el alumno", "")
+                    .replace("crea el estudiante", "")
+                    .replace("crea el alumno", "")
+                    .replace("añadir un estudiante", "")
+                    .replace("añadir un alumno", "")
+                    .replace("añade un estudiante", "")
+                    .replace("añade un alumno", "")
+                    .replace("añadir al estudiante", "")
+                    .replace("añadir al alumno", "")
+                    .replace("añade al estudiante", "")
+                    .replace("añade al alumno", "")
+                    .replace("añadir estudiante", "")
+                    .replace("añadir alumno", "")
+                    .replace("añade estudiante", "")
+                    .replace("añade alumno", "")
+                    .replace("create student", "")
+                    .replace("add student", "")
+                    .trim()
+
+                if (lastMentionedStudentName == null) {
+                    val stopWords = listOf(" de ", " a ", " para ", " in ", " at ", " for ")
+                    var nameCandidate = queryWithoutKeywords
+                    for (stop in stopWords) {
+                        val stopIdx = nameCandidate.indexOf(stop)
+                        if (stopIdx >= 0) {
+                            nameCandidate = nameCandidate.substring(0, stopIdx).trim()
+                        }
+                    }
+                    if (nameCandidate.isNotBlank() && !nameCandidate.contains(Regex("""\d"""))) {
+                        lastMentionedStudentName = nameCandidate.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                    }
+                }
+
+                val price = extractAmount(lower)
+                if (price != null) {
+                    lastMentionedPrice = price
+                }
+
+                val subjectKeywords = listOf(" de ", " in ", " para ", " for ")
+                for (kw in subjectKeywords) {
+                    val idx = lower.indexOf(kw)
+                    if (idx >= 0) {
+                        val rest = query.substring(idx + kw.length).trim()
+                        val stopWords = listOf(" a ", " por ", " at ", " for ")
+                        var end = rest.length
+                        for (stop in stopWords) {
+                            val stopIdx = rest.lowercase().indexOf(stop)
+                            if (stopIdx in 1 until end) end = stopIdx
+                        }
+                        val candidate = rest.substring(0, end).trim()
+                        if (candidate.isNotBlank() && !candidate.contains(Regex("""\d""")) && 
+                            !listOf("lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo").any { it in candidate.lowercase() }) {
+                            lastMentionedSubjects = candidate
+                            break
+                        }
+                    }
+                }
+
+                val courseKeywords = listOf("eso", "bachillerato", "bach", "primaria", "secundaria", "universidad")
+                val courseMatch = courseKeywords.find { it in lower }
+                if (courseMatch != null) {
+                    lastMentionedCourse = courseMatch
+                }
+
+                val studentName = lastMentionedStudentName
+                if (studentName.isNullOrBlank()) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.UNKNOWN,
+                        "¿Cómo se llama el nuevo alumno?"
+                    )
+                } else {
+                    val priceVal = lastMentionedPrice
+                    if (priceVal == null) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿Cuál será el precio por hora de $studentName?"
+                        )
+                    } else {
+                        val finalCourse = lastMentionedCourse ?: "Other"
+                        val finalSubjects = lastMentionedSubjects ?: "General"
+                        studentTools.prepareCreateStudent(studentName, finalCourse, finalSubjects, priceVal)
+                    }
+                }
+            }
+
+            IntentType.DELETE_STUDENT -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres eliminar el perfil?"
+                    )
+                } else {
+                    studentTools.prepareDeleteStudent(studentName)
+                }
+            }
+
+            IntentType.ADD_EXTRA_CLASS -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿Para qué alumno quieres programar la clase extra?"
+                    )
+                } else {
+                    val dayOfWeek = lastMentionedDayOfWeek ?: dateTimeProvider.getNow().dayOfWeek.value
+                    val targetDate = dateTimeProvider.getNow().toLocalDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.of(dayOfWeek)))
+                    val dateMillis = targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+                    val times = extractTwoTimes(lower) ?: lastMentionedTime?.let { lastTime ->
+                        val parts = lastTime.split(":")
+                        val h = parts[0].toInt()
+                        val m = parts[1].toInt()
+                        val endH = (h + 1) % 24
+                        val endTime = "%02d:%02d".format(endH, m)
+                        Pair(lastTime, endTime)
+                    }
+                    if (times == null) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿A qué hora quieres programar la clase extra de $studentName?"
+                        )
+                    } else {
+                        scheduleTools.prepareAddExtraClass(studentName, dateMillis, times.first, times.second)
+                    }
+                }
+            }
+
+            IntentType.CREATE_SCHEDULE -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿Para qué alumno deseas configurar el horario?"
+                    )
+                } else {
+                    val dayOfWeek = lastMentionedDayOfWeek
+                    if (dayOfWeek == null) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿Qué día de la semana será la clase de $studentName?"
+                        )
+                    } else {
+                        val times = extractTwoTimes(lower) ?: lastMentionedTime?.let { lastTime ->
+                            val parts = lastTime.split(":")
+                            val h = parts[0].toInt()
+                            val m = parts[1].toInt()
+                            val endH = (h + 1) % 24
+                            val endTime = "%02d:%02d".format(endH, m)
+                            Pair(lastTime, endTime)
+                        }
+                        if (times == null) {
+                            val dayName = when(dayOfWeek) {
+                                1 -> "lunes"
+                                2 -> "martes"
+                                3 -> "miércoles"
+                                4 -> "jueves"
+                                5 -> "viernes"
+                                6 -> "sábado"
+                                7 -> "domingo"
+                                else -> "ese día"
+                            }
+                            SueOperationResult.Prepare.Error(
+                                SueOperationResult.ErrorType.UNKNOWN,
+                                "¿A qué hora será la clase de $studentName los $dayName?"
+                            )
+                        } else {
+                            scheduleTools.prepareCreateSchedule(studentName, dayOfWeek, times.first, times.second)
+                        }
+                    }
+                }
+            }
+
+            IntentType.DELETE_SCHEDULE -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres eliminar el horario?"
+                    )
+                } else {
+                    val dayOfWeek = lastMentionedDayOfWeek
+                    if (dayOfWeek == null) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿Qué día de la semana es el horario que quieres eliminar?"
+                        )
+                    } else {
+                        val time = lastMentionedTime
+                        scheduleTools.prepareDeleteSchedule(studentName, dayOfWeek, time)
+                    }
+                }
+            }
+
+            IntentType.CANCEL_CLASS -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres cancelar la clase?"
+                    )
+                } else {
+                    var dayOfWeek = lastMentionedDayOfWeek
+                    val time = lastMentionedTime
+
+                    if (dayOfWeek == null) {
+                        val schedules = scheduleTools.getSchedulesByStudentName(studentName)
+                        if (schedules.isEmpty()) {
+                            SueOperationResult.Prepare.Error(
+                                SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                                "No he encontrado ninguna clase programada para $studentName."
+                            )
+                        } else if (schedules.size == 1) {
+                            dayOfWeek = schedules.first().dayOfWeek
+                            scheduleTools.prepareCancelAction(studentName, dayOfWeek, time)
+                        } else {
+                            SueOperationResult.Prepare.Error(
+                                SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                                "¿Qué día es la clase de $studentName que quieres cancelar?"
+                            )
+                        }
+                    } else {
+                        scheduleTools.prepareCancelAction(studentName, dayOfWeek, time)
+                    }
+                }
+            }
+
+            IntentType.RESCHEDULE_CLASS -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres mover la clase?"
+                    )
+                } else {
+                    val days = extractTwoDaysOfWeek(lower)
+                    var fromDay = days.first ?: lastMentionedDayOfWeek
+                    var toDay = days.second
+
+                    val schedules = scheduleTools.getSchedulesByStudentName(studentName)
+                    if (schedules.isEmpty()) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                            "No he encontrado ninguna clase programada para $studentName."
+                        )
+                    } else {
+                        // Resolve fromDay if null
+                        if (fromDay == null) {
+                            if (schedules.size == 1) {
+                                fromDay = schedules.first().dayOfWeek
+                            } else {
+                                val todayDay = dateTimeProvider.getNow().dayOfWeek.value
+                                val todayMatch = schedules.firstOrNull { it.dayOfWeek == todayDay }
+                                if (todayMatch != null) {
+                                    fromDay = todayDay
+                                } else {
+                                    return SueOperationResult.Prepare.Error(
+                                        SueOperationResult.ErrorType.CLASS_NOT_FOUND,
+                                        "¿Qué día es la clase de $studentName que quieres mover?"
+                                    )
+                                }
+                            }
+                        }
+
+                        if (toDay == null) {
+                            toDay = fromDay
+                        }
+
+                        // Resolve times
+                        val times = extractAllTimesInQuery(lower)
+                        var fromTime: String? = null
+                        var targetTime: String? = null
+
+                        if (times.size >= 2) {
+                            fromTime = times[0]
+                            targetTime = times[1]
+                        } else if (times.size == 1) {
+                            val singleTime = times[0]
+                            val daySchedules = schedules.filter { it.dayOfWeek == fromDay }
+                            val hasClassAtTime = daySchedules.any {
+                                it.startTime == singleTime || it.startTime.substringBefore(":") == singleTime.substringBefore(":")
+                            }
+                            if (hasClassAtTime) {
+                                fromTime = singleTime
+                                targetTime = singleTime // move day, keep same time
+                            } else {
+                                fromTime = null
+                                targetTime = singleTime // move to new time
+                            }
+                        } else {
+                            fromTime = null
+                            targetTime = lastMentionedTime
+                        }
+
+                        // If targetTime is still null, default to the original class start time on fromDay!
+                        if (targetTime == null) {
+                            val daySchedules = schedules.filter { it.dayOfWeek == fromDay }
+                            if (fromTime == null && daySchedules.size > 1) {
+                                return SueOperationResult.Prepare.Error(
+                                    SueOperationResult.ErrorType.UNKNOWN,
+                                    "¿Qué clase de $studentName quieres mover? Tiene varias ese día."
+                                )
+                            }
+                            val match = if (fromTime != null) {
+                                daySchedules.firstOrNull { it.startTime == fromTime }
+                                    ?: daySchedules.firstOrNull { it.startTime.substringBefore(":") == fromTime.substringBefore(":") }
+                                    ?: daySchedules.firstOrNull()
+                            } else {
+                                daySchedules.firstOrNull()
+                            }
+                            if (match != null) {
+                                targetTime = match.startTime
+                            }
+                        }
+
+                        if (targetTime == null) {
+                            SueOperationResult.Prepare.Error(
+                                SueOperationResult.ErrorType.UNKNOWN,
+                                "¿A qué hora quieres programar la clase de $studentName?"
+                            )
+                        } else {
+                            scheduleTools.prepareRescheduleAction(studentName, fromDay, toDay, targetTime, fromTime)
+                        }
+                    }
+                }
+            }
+
+            IntentType.REGISTER_PAYMENT -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres registrar el pago?"
+                    )
+                } else {
+                    val amount = lastMentionedAmount
+                    if (amount == null) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿De cuánto es el pago de $studentName?"
+                        )
+                    } else {
+                        val paymentType = if (lower.contains("bizum")) PaymentType.BIZUM else PaymentType.EFFECTIVE
+                        studentTools.prepareRegisterPayment(studentName, amount, paymentType)
+                    }
+                }
+            }
+
+            IntentType.ADD_BALANCE -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿A qué alumno le quieres sumar saldo?"
+                    )
+                } else {
+                    val amount = lastMentionedAmount
+                    if (amount == null) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿Cuánto saldo deseas sumarle a $studentName?"
+                        )
+                    } else {
+                        studentTools.prepareAddBalance(studentName, amount)
+                    }
+                }
+            }
+        }
+
+        if (result is SueOperationResult.Prepare.Success) {
+            lastActiveIntentType = null
+        }
+        return result
     }
 
     // ──────────────────────────────────────────────────────────────────────────
     // Normal LLM prompt building
     // ──────────────────────────────────────────────────────────────────────────
 
-    override suspend fun buildPromptWithContext(userQuery: String): String {
+    override suspend fun buildPromptWithContext(
+        userQuery: String,
+        history: List<Pair<String, String>>
+    ): String {
         val toolContext = gatherRelevantContext(userQuery)
         val locale = dateTimeProvider.getLocale()
 
@@ -245,6 +625,15 @@ class SueAgentImpl @Inject constructor(
             appendLine("Current date/time: $currentDateTime")
             appendLine("--- END OF TEMPORAL CONTEXT ---")
             appendLine()
+            if (history.isNotEmpty()) {
+                appendLine("--- RECENT CONVERSATION HISTORY ---")
+                for ((usr, bot) in history.takeLast(10)) {
+                    appendLine("User: $usr")
+                    appendLine("Sue: $bot")
+                }
+                appendLine("--- END OF HISTORY ---")
+                appendLine()
+            }
             if (toolContext.isNotBlank()) {
                 appendLine("--- AVAILABLE DATA ---")
                 appendLine(toolContext)
@@ -273,6 +662,26 @@ class SueAgentImpl @Inject constructor(
     private suspend fun gatherRelevantContext(query: String): String {
         val lowerQuery = query.lowercase()
 
+        // 1. Extract and update context memory variables
+        val matchedStudent = studentTools.extractRelevantStudent(lowerQuery)
+        val studentName = matchedStudent?.name ?: extractStudentName(lowerQuery) ?: extractStudentNameForFinance(lowerQuery)
+        if (studentName != null) {
+            val capitalizedName = studentName.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            lastMentionedStudentName = capitalizedName
+        }
+
+        val relativeDay = extractRelativeDayOfWeek(lowerQuery)
+        val explicitDay = extractDayOfWeek(lowerQuery)
+        val day = relativeDay ?: explicitDay
+        if (day != null) {
+            lastMentionedDayOfWeek = day
+        }
+
+        val time = extractTime(lowerQuery)
+        if (time != null) {
+            lastMentionedTime = time
+        }
+
         return buildString {
             // 1. Schedule queries
             if (containsScheduleKeywords(lowerQuery)) {
@@ -281,12 +690,23 @@ class SueAgentImpl @Inject constructor(
                 } else if (containsFreeSlotKeywords(lowerQuery)) {
                     appendLine(formatResult(scheduleTools.getFreeSlots()))
                 } else {
-                    val relativeDay = extractRelativeDayOfWeek(lowerQuery)
-                    val explicitDay = extractDayOfWeek(lowerQuery)
-                    val targetDay = relativeDay ?: explicitDay
+                    var targetDay = day
+
+                    val timeFilter = extractTime(lowerQuery) ?: extractTimeOfDayFilter(lowerQuery)
+
+                    // If day is missing but we have a student name and a specific time, attempt to resolve the day from the schedules
+                    if (targetDay == null && timeFilter != null && timeFilter.contains(":")) {
+                        val lookupName = lastMentionedStudentName
+                        if (lookupName != null) {
+                            val studentSchedules = scheduleTools.getSchedulesByStudentName(lookupName)
+                            val matchingSchedule = studentSchedules.firstOrNull { it.startTime == timeFilter }
+                            if (matchingSchedule != null) {
+                                targetDay = matchingSchedule.dayOfWeek
+                            }
+                        }
+                    }
 
                     if (targetDay != null) {
-                        val timeFilter = extractTime(lowerQuery) ?: extractTimeOfDayFilter(lowerQuery)
                         appendLine(formatResult(scheduleTools.getScheduleForDay(targetDay, timeFilter)))
                     } else {
                         appendLine(formatResult(scheduleTools.getWeeklySchedule()))
@@ -295,12 +715,11 @@ class SueAgentImpl @Inject constructor(
             }
 
             // 2. Student queries — mutually exclusive branches to avoid data dumping
-            val matchedStudent = studentTools.extractRelevantStudent(lowerQuery)
             val hasSchedule = containsScheduleKeywords(lowerQuery)
 
             when {
-                matchedStudent != null ->
-                    appendLine(formatResult(studentTools.searchStudent(matchedStudent.name)))
+                lastMentionedStudentName != null ->
+                    appendLine(formatResult(studentTools.searchStudent(lastMentionedStudentName!!)))
 
                 containsCountKeywords(lowerQuery) ->
                     appendLine(formatResult(studentTools.getActiveStudentCount()))
@@ -389,6 +808,24 @@ class SueAgentImpl @Inject constructor(
             "total", "número", "numero", "number", "cuánta", "cuenta"
         ).any { it in query }
 
+    private fun containsStartClassKeywords(query: String) =
+        listOf("inicia una clase", "inicia clase", "empieza clase", "comienza clase", "start class").any { it in query }
+
+    private fun containsCreateStudentKeywords(query: String) =
+        listOf("crea un alumno", "crear un alumno", "crea al alumno", "crea el alumno", "añade al alumno", "añade al estudiante", "añadir estudiante", "create student", "add student").any { it in query }
+
+    private fun containsDeleteStudentKeywords(query: String) =
+        listOf("elimina al alumno", "elimina al estudiante", "borra al alumno", "borra al estudiante", "eliminar alumno", "delete student", "remove student").any { it in query }
+
+    private fun containsAddExtraClassKeywords(query: String) =
+        listOf("clase extra", "clase adicional", "tutoría adicional", "tutoria adicional", "extra class", "additional class").any { it in query }
+
+    private fun containsCreateScheduleKeywords(query: String) =
+        listOf("añade un horario", "añadir horario", "programa una clase los", "crear horario", "create schedule", "add schedule").any { it in query }
+
+    private fun containsDeleteScheduleKeywords(query: String) =
+        listOf("elimina el horario", "borra el horario", "quitar horario", "delete schedule", "remove schedule").any { it in query }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Extraction helpers
     // ──────────────────────────────────────────────────────────────────────────
@@ -447,7 +884,23 @@ class SueAgentImpl @Inject constructor(
      * Returns (fromDay, toDay) where each can be null if not found.
      */
     private fun extractTwoDaysOfWeek(query: String): Pair<Int?, Int?> {
-        val dayMappings = mapOf(
+        val today = dateTimeProvider.getNow().dayOfWeek.value
+        val tomorrow = (today % 7) + 1
+        val yesterday = if (today == 1) 7 else today - 1
+
+        val rawKeywords = listOf(
+            "esta mañana" to today,
+            "esta tarde" to today,
+            "esta noche" to today,
+            "tonight" to today,
+            "tomorrow" to tomorrow,
+            "mañana" to tomorrow,
+            "yesterday" to yesterday,
+            "ayer" to yesterday,
+            "later" to today,
+            "luego" to today,
+            "today" to today,
+            "hoy" to today,
             "lunes" to 1, "monday" to 1,
             "martes" to 2, "tuesday" to 2,
             "miércoles" to 3, "miercoles" to 3, "wednesday" to 3,
@@ -456,11 +909,40 @@ class SueAgentImpl @Inject constructor(
             "sábado" to 6, "sabado" to 6, "saturday" to 6,
             "domingo" to 7, "sunday" to 7
         )
-        val found = dayMappings.entries
-            .filter { it.key in query }
-            .sortedBy { query.indexOf(it.key) }
-            .distinctBy { it.value }
-        return Pair(found.getOrNull(0)?.value, found.getOrNull(1)?.value)
+
+        val allKeywords = rawKeywords.sortedByDescending { it.first.length }
+        val matchedIndices = BooleanArray(query.length)
+        val matches = mutableListOf<Pair<Int, Int>>() // Pair(startIndex, dayOfWeek)
+
+        for ((keyword, day) in allKeywords) {
+            var idx = query.indexOf(keyword)
+            while (idx >= 0) {
+                val endIdx = idx + keyword.length
+                var alreadyMatched = false
+                for (i in idx until endIdx) {
+                    if (matchedIndices[i]) {
+                        alreadyMatched = true
+                        break
+                    }
+                }
+                if (!alreadyMatched) {
+                    for (i in idx until endIdx) {
+                        matchedIndices[i] = true
+                    }
+                    matches.add(Pair(idx, day))
+                }
+                idx = query.indexOf(keyword, idx + 1)
+            }
+        }
+
+        val sortedMatches = matches.sortedBy { it.first }
+        val distinctDays = mutableListOf<Int>()
+        for (m in sortedMatches) {
+            if (m.second !in distinctDays) {
+                distinctDays.add(m.second)
+            }
+        }
+        return Pair(distinctDays.getOrNull(0), distinctDays.getOrNull(1))
     }
 
     /**
@@ -468,9 +950,6 @@ class SueAgentImpl @Inject constructor(
      * any known student's first name. Returns the matched full name or null.
      */
     private fun extractStudentName(query: String): String? {
-        // Delegate to StudentTools which already loads all students
-        // We reuse the extractRelevantStudentContext logic but only need the name
-        // We check if any known name keyword appears in the reschedule/cancel phrase
         val commonConnectors = listOf(
             "cancela la clase de ", "cancelar la clase de ", "anula la clase de ",
             "anular la clase de ", "mueve la clase de ", "mover la clase de ",
@@ -480,6 +959,12 @@ class SueAgentImpl @Inject constructor(
             "mover la clase con ", "cambia la clase con ", "cambiar la clase con ",
             "cancela a ", "cancelar a ", "anula a ", "anular a ",
             "mueve a ", "mover a ", "cambia a ", "cambiar a ",
+            "elimina el horario de ", "borra el horario de ", "eliminar el horario de ",
+            "quitar el horario de ", "quita el horario de ",
+            "añade un horario para ", "añadir un horario para ", "crea un horario para ",
+            "crear un horario para ", "horario para ", "horario de ",
+            "elimina al alumno ", "eliminar al alumno ", "borra al alumno ", "borrar al alumno ",
+            "elimina a ", "eliminar a ", "borra a ", "borrar a ",
             "cancel class for ", "cancel the class of ", "move class for ",
             "reschedule class for ", "change class for ", "the class of ",
             "cancel class with ", "cancel the class with ", "move class with ",
@@ -490,7 +975,7 @@ class SueAgentImpl @Inject constructor(
             if (idx >= 0) {
                 val rest = query.substring(idx + connector.length).trim()
                 // Take up to the next preposition or day keyword
-                val stopWords = listOf(" del ", " de ", " el ", " al ", " a ", " en ",
+                val stopWords = listOf(" del ", " de ", " el ", " al ", " a ", " en ", " los ", " las ", " con ",
                                        " from ", " of ", " the ", " to ", " at ", " in ", " on ")
                 var end = rest.length
                 for (stop in stopWords) {
@@ -498,10 +983,73 @@ class SueAgentImpl @Inject constructor(
                     if (stopIdx in 1 until end) end = stopIdx
                 }
                 val name = rest.substring(0, end).trim()
-                if (name.isNotBlank()) return name
+                if (name.isNotBlank()) {
+                    val dayKeywords = setOf(
+                        "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo",
+                        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+                        "hoy", "mañana", "tomorrow", "esta tarde", "esta mañana", "esta noche", "luego", "ayer", "yesterday",
+                        "tarde", "mañana"
+                    )
+                    if (name.lowercase() in dayKeywords || dayKeywords.any { name.lowercase().contains(it) }) {
+                        continue
+                    }
+                    return name
+                }
             }
         }
         return null
+    }
+
+    /**
+     * Resolves AM/PM ambiguity for 12-hour values (1..8) to PM.
+     */
+    private fun resolveHour(h: Int, query: String): Int {
+        val professor = authRepository.currentUser.value
+        val startStr = professor?.workingStartTime ?: "08:00"
+        val endStr = professor?.workingEndTime ?: "23:00"
+        return resolveHourSmart(h, query, startStr, endStr)
+    }
+
+    private fun resolveHourSmart(h: Int, query: String, workingStartTime: String, workingEndTime: String): Int {
+        if (h == 0 || h > 12) {
+            return h
+        }
+        val lower = query.lowercase()
+
+        // 1. Explicit morning keywords (AM)
+        val morningKeywords = listOf("esta mañana", "por la mañana", "de la mañana", "la mañana de", "madrugada", "am", "a.m.", "morning")
+        if (morningKeywords.any { it in lower }) {
+            return if (h == 12) 0 else h
+        }
+
+        // 2. Explicit afternoon/night keywords (PM)
+        val afternoonKeywords = listOf("esta tarde", "esta noche", "por la tarde", "por la noche", "de la tarde", "de la noche", "tarde", "noche", "pm", "p.m.", "afternoon", "evening", "night")
+        if (afternoonKeywords.any { it in lower }) {
+            return if (h == 12) 12 else h + 12
+        }
+
+        // 3. Check working hours fit
+        val workStart = try { LocalTime.parse(workingStartTime) } catch (e: Exception) { LocalTime.of(8, 0) }
+        val workEnd = try { LocalTime.parse(workingEndTime) } catch (e: Exception) { LocalTime.of(23, 0) }
+
+        val amTime = LocalTime.of(if (h == 12) 0 else h, 0)
+        val pmTime = LocalTime.of(if (h == 12) 12 else h + 12, 0)
+
+        val amFits = !amTime.isBefore(workStart) && !amTime.isAfter(workEnd)
+        val pmFits = !pmTime.isBefore(workStart) && !pmTime.isAfter(workEnd)
+
+        if (amFits && !pmFits) {
+            return if (h == 12) 0 else h
+        }
+        if (pmFits && !amFits) {
+            return if (h == 12) 12 else h + 12
+        }
+
+        // 4. Default fallback convention
+        if (h in 1..8) {
+            return h + 12 // PM (13:00 to 20:00)
+        }
+        return h // AM (9:00 to 12:00)
     }
 
     /**
@@ -509,18 +1057,26 @@ class SueAgentImpl @Inject constructor(
      * Recognises patterns like "a las 11:00", "a las 11", "11:00", "11h".
      */
     private fun extractTime(query: String): String? {
+        val lower = query.lowercase()
         // Pattern: HH:mm
         val colonPattern = Regex("""\b(\d{1,2}):(\d{2})\b""")
-        colonPattern.find(query)?.let { match ->
+        colonPattern.find(lower)?.let { match ->
             val h = match.groupValues[1].toInt()
             val m = match.groupValues[2].toInt()
-            if (h in 0..23 && m in 0..59) return "%02d:%02d".format(h, m)
+            if (h in 0..23 && m in 0..59) {
+                val resolvedH = resolveHour(h, lower)
+                return "%02d:%02d".format(resolvedH, m)
+            }
         }
-        // Pattern: "a las NN" (whole hours)
-        val hourPattern = Regex("""a las (\d{1,2})\b""")
-        hourPattern.find(query)?.let { match ->
-            val h = match.groupValues[1].toInt()
-            if (h in 0..23) return "%02d:00".format(h)
+        // Pattern: "a las NN", "las NN", "a la NN", "la NN" (whole hours)
+        val hourPattern = Regex("""\b(?:a\s+)?las\s+(\d{1,2})\b|\b(?:a\s+)?la\s+(\d{1,2})\b""")
+        hourPattern.find(lower)?.let { match ->
+            val hStr = match.groupValues[1].takeIf { it.isNotEmpty() } ?: match.groupValues[2]
+            val h = hStr.toIntOrNull()
+            if (h != null && h in 0..23) {
+                val resolvedH = resolveHour(h, lower)
+                return "%02d:00".format(resolvedH)
+            }
         }
         return null
     }
@@ -559,7 +1115,17 @@ class SueAgentImpl @Inject constructor(
         
         if (splitIdx >= 0) {
             val name = query.substring(splitIdx).trim()
-            if (name.isNotBlank() && !name.first().isDigit()) return name
+            if (name.isNotBlank() && !name.first().isDigit()) {
+                val dayKeywords = listOf(
+                    "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo",
+                    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+                    "hoy", "mañana", "tomorrow", "esta tarde", "esta mañana", "esta noche", "luego", "ayer", "yesterday"
+                )
+                if (dayKeywords.any { name.lowercase().contains(it) || it.contains(name.lowercase()) }) {
+                    return null
+                }
+                return name
+            }
         }
         
         return null
@@ -580,5 +1146,224 @@ class SueAgentImpl @Inject constructor(
             return match.groupValues[1].replace(',', '.').toDoubleOrNull()
         }
         return null
+    }
+
+    private fun extractNameAfter(query: String, keywords: List<String>): String? {
+        for (keyword in keywords) {
+            val idx = query.indexOf(keyword)
+            if (idx >= 0) {
+                val rest = query.substring(idx + keyword.length).trim()
+                val word = rest.substringBefore(" ").trim()
+                if (word.isNotBlank()) return word
+            }
+        }
+        return null
+    }
+
+    private fun extractDurationOptional(query: String): Int? {
+        val pattern = Regex("""\b(\d+)\s*(?:minutos?|min|m)\b""")
+        pattern.find(query)?.let { match ->
+            return match.groupValues[1].toIntOrNull()
+        }
+        val hourPattern = Regex("""\b(\d+)\s*(?:horas?|h)\b""")
+        hourPattern.find(query)?.let { match ->
+            val h = match.groupValues[1].toDoubleOrNull() ?: 1.0
+            return (h * 60).toInt()
+        }
+        return null
+    }
+
+    private fun extractDuration(query: String): Int {
+        return extractDurationOptional(query) ?: 60
+    }
+
+    private fun parseCreateStudent(query: String): SuePendingAction.CreateStudent? {
+        val lower = query.lowercase()
+        val nameKeywords = listOf(
+            "crea al alumno ", "crea el alumno ", "crea al estudiante ", "crea el estudiante ",
+            "crear al alumno ", "crear el alumno ", "añade al alumno ", "añade al estudiante ",
+            "create student ", "add student "
+        )
+        var name = ""
+        for (kw in nameKeywords) {
+            val idx = lower.indexOf(kw)
+            if (idx >= 0) {
+                val rest = query.substring(idx + kw.length).trim()
+                val stopWords = listOf(" de ", " a ", " para ", " in ", " at ", " for ")
+                var end = rest.length
+                for (stop in stopWords) {
+                    val stopIdx = rest.lowercase().indexOf(stop)
+                    if (stopIdx in 1 until end) end = stopIdx
+                }
+                name = rest.substring(0, end).trim()
+                break
+            }
+        }
+        if (name.isBlank()) return null
+        
+        val price = extractAmount(lower) ?: 15.0
+        
+        var subjects = "General"
+        val subjectKeywords = listOf(" de ", " in ", " para ", " for ")
+        for (kw in subjectKeywords) {
+            val idx = lower.indexOf(kw)
+            if (idx >= 0) {
+                val rest = query.substring(idx + kw.length).trim()
+                val stopWords = listOf(" a ", " por ", " at ", " for ")
+                var end = rest.length
+                for (stop in stopWords) {
+                    val stopIdx = rest.lowercase().indexOf(stop)
+                    if (stopIdx in 1 until end) end = stopIdx
+                }
+                val candidate = rest.substring(0, end).trim()
+                if (candidate.isNotBlank() && !candidate.contains(Regex("""\d"""))) {
+                    subjects = candidate
+                    break
+                }
+            }
+        }
+        
+        val courseKeywords = listOf("eso", "bachillerato", "bach", "primaria", "secundaria", "universidad")
+        val course = courseKeywords.find { it in lower } ?: "Other"
+        
+        return SuePendingAction.CreateStudent(name, course, subjects, price)
+    }
+
+    private fun extractTwoTimes(query: String): Pair<String, String>? {
+        val lower = query.lowercase()
+        val timePattern = Regex("""\b(\d{1,2}):(\d{2})\b""")
+        val matches = timePattern.findAll(lower).toList()
+        if (matches.size >= 2) {
+            val h1 = matches[0].groupValues[1].toInt()
+            val m1 = matches[0].groupValues[2].toInt()
+            val h2 = matches[1].groupValues[1].toInt()
+            val m2 = matches[1].groupValues[2].toInt()
+            val resH1 = resolveHour(h1, lower)
+            val resH2 = resolveHour(h2, lower)
+            return Pair("%02d:%02d".format(resH1, m1), "%02d:%02d".format(resH2, m2))
+        }
+        
+        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2})\s+a\s+(\d{1,2})\b""")
+        hourRangePattern.find(lower)?.let { match ->
+            val h1 = match.groupValues[1].toInt()
+            val h2 = match.groupValues[2].toInt()
+            if (h1 in 0..23 && h2 in 0..23) {
+                val resH1 = resolveHour(h1, lower)
+                val resH2 = resolveHour(h2, lower)
+                return Pair("%02d:00".format(resH1), "%02d:00".format(resH2))
+            }
+        }
+        
+        val singleTime = extractTime(query)
+        if (singleTime != null) {
+            val parts = singleTime.split(":")
+            val h = parts[0].toInt()
+            val m = parts[1].toInt()
+            val endH = (h + 1) % 24
+            val endTime = "%02d:%02d".format(endH, m)
+            return Pair(singleTime, endTime)
+        }
+        return null
+    }
+
+    private fun extractAllTimesInQuery(query: String): List<String> {
+        val lower = query.lowercase()
+        val matchedIndices = BooleanArray(lower.length)
+        
+        data class TimeMatch(val index: Int, val timeStr: String)
+        val matches = mutableListOf<TimeMatch>()
+
+        // 1. Match HH:mm pattern (e.g. 17:30, 4:30)
+        val colonPattern = Regex("""\b(\d{1,2}):(\d{2})\b""")
+        for (match in colonPattern.findAll(lower)) {
+            val start = match.range.first
+            val end = match.range.last
+            val h = match.groupValues[1].toInt()
+            val m = match.groupValues[2].toInt()
+            if (h in 0..23 && m in 0..59) {
+                // Mark indices
+                for (i in start..end) {
+                    matchedIndices[i] = true
+                }
+                val resolvedH = resolveHour(h, lower)
+                matches.add(TimeMatch(start, "%02d:%02d".format(resolvedH, m)))
+            }
+        }
+
+        // 2. Match H1 a H2 range (e.g. de 5 a 6, 5 a 6)
+        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2})\s+a\s+(\d{1,2})\b""")
+        for (match in hourRangePattern.findAll(lower)) {
+            val start = match.range.first
+            val end = match.range.last
+            // Check if any index in this match is already matched
+            var overlap = false
+            for (i in start..end) {
+                if (i in matchedIndices.indices && matchedIndices[i]) {
+                    overlap = true
+                    break
+                }
+            }
+            if (!overlap) {
+                val h1 = match.groupValues[1].toInt()
+                val h2 = match.groupValues[2].toInt()
+                if (h1 in 0..23 && h2 in 0..23) {
+                    for (i in start..end) {
+                        matchedIndices[i] = true
+                    }
+                    val resH1 = resolveHour(h1, lower)
+                    val resH2 = resolveHour(h2, lower)
+                    matches.add(TimeMatch(start, "%02d:00".format(resH1)))
+                    matches.add(TimeMatch(start + 1, "%02d:00".format(resH2)))
+                }
+            }
+        }
+
+        // 3. Match single hour patterns (e.g. a las 5, para las 5, de las 5, a la 1)
+        val hourPatterns = listOf(
+            Regex("""\b(?:a\s+)?las\s+(\d{1,2})\b"""),
+            Regex("""\b(?:a\s+)?la\s+(\d{1,2})\b"""),
+            Regex("""\bde\s+las?\s+(\d{1,2})\b"""),
+            Regex("""\bpara\s+las?\s+(\d{1,2})\b""")
+        )
+
+        for (pattern in hourPatterns) {
+            for (match in pattern.findAll(lower)) {
+                val start = match.range.first
+                val end = match.range.last
+                var overlap = false
+                for (i in start..end) {
+                    if (i in matchedIndices.indices && matchedIndices[i]) {
+                        overlap = true
+                        break
+                    }
+                }
+                if (!overlap) {
+                    val hStr = match.groupValues[1]
+                    val h = hStr.toIntOrNull()
+                    if (h != null && h in 0..23) {
+                        for (i in start..end) {
+                            matchedIndices[i] = true
+                        }
+                        val resolvedH = resolveHour(h, lower)
+                        matches.add(TimeMatch(start, "%02d:00".format(resolvedH)))
+                    }
+                }
+            }
+        }
+
+        return matches.sortedBy { it.index }.map { it.timeStr }
+    }
+
+    private fun isQuestionOrQuery(query: String): Boolean {
+        val lower = query.lowercase()
+        if (lower.contains("?")) return true
+        val questionWords = listOf(
+            "qué ", "que ", "cómo ", "como ", "cuándo ", "cuando ", "dónde ", "donde ",
+            "quién ", "quien ", "cuánto ", "cuanto ", "cuál ", "cual ", "horario",
+            "clases", "alumnos", "información", "ver ", "muestra ", "mostrar", "dime",
+            "info", "tengo", "hay", "list", "show", "get", "who", "what", "when", "where",
+            "how", "how much", "how many", "which", "schedule", "classes", "students", "tell me"
+        )
+        return questionWords.any { lower.contains(it) }
     }
 }

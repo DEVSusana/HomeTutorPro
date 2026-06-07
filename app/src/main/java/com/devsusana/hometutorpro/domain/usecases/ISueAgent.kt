@@ -21,7 +21,16 @@ interface ISueAgent {
      * a context-enriched prompt for the LLM.
      *
      * @param userQuery The query provided by the user.
+     * @param history The conversation history list.
      * @return The built prompt with context.
      */
-    suspend fun buildPromptWithContext(userQuery: String): String
+    suspend fun buildPromptWithContext(
+        userQuery: String,
+        history: List<Pair<String, String>> = emptyList()
+    ): String
+
+    /**
+     * Resets the active conversation context values (last mentioned student, time, day).
+     */
+    fun resetConversationContext()
 }

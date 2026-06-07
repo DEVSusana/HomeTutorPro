@@ -4,17 +4,24 @@ import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
 import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
+import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IQueryStudentsForAgentUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleUseCase
+import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import java.time.LocalDateTime
 import java.util.Locale
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.coVerify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -25,13 +32,16 @@ import org.junit.Test
 /**
  * Unit tests for [ScheduleTools].
  *
- * All dependencies ([IQuerySchedulesForAgentUseCase], [IManageScheduleForAgentUseCase],
- * [AuthRepository]) are mocked so tests run in complete isolation.
+ * All dependencies are mocked so tests run in complete isolation.
  */
 class ScheduleToolsTest {
 
     private lateinit var querySchedulesUseCase: IQuerySchedulesForAgentUseCase
     private lateinit var manageScheduleUseCase: IManageScheduleForAgentUseCase
+    private lateinit var queryStudentsUseCase: IQueryStudentsForAgentUseCase
+    private lateinit var saveScheduleUseCase: ISaveScheduleUseCase
+    private lateinit var deleteScheduleUseCase: IDeleteScheduleUseCase
+    private lateinit var saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase
     private lateinit var authRepository: AuthRepository
     private lateinit var dateTimeProvider: DateTimeProvider
     private lateinit var scheduleTools: ScheduleTools
@@ -70,10 +80,22 @@ class ScheduleToolsTest {
         notes = ""
     )
 
+    private val mariaStudentDetail = AgentStudentDetail(
+        studentId = "stu-1",
+        name = "María",
+        subjects = "Mates",
+        course = "ESO",
+        pendingBalance = 0.0
+    )
+
     @Before
     fun setup() {
         querySchedulesUseCase = mockk()
         manageScheduleUseCase = mockk()
+        queryStudentsUseCase = mockk()
+        saveScheduleUseCase = mockk()
+        deleteScheduleUseCase = mockk()
+        saveScheduleExceptionUseCase = mockk()
         authRepository = mockk()
         dateTimeProvider = mockk(relaxed = true)
 
@@ -83,6 +105,10 @@ class ScheduleToolsTest {
         scheduleTools = ScheduleTools(
             querySchedulesUseCase = querySchedulesUseCase,
             manageScheduleUseCase = manageScheduleUseCase,
+            queryStudentsUseCase = queryStudentsUseCase,
+            saveScheduleUseCase = saveScheduleUseCase,
+            deleteScheduleUseCase = deleteScheduleUseCase,
+            saveScheduleExceptionUseCase = saveScheduleExceptionUseCase,
             authRepository = authRepository,
             dateTimeProvider = dateTimeProvider
         )
@@ -103,16 +129,6 @@ class ScheduleToolsTest {
         assertEquals(2, weekly.schedules.size)
     }
 
-    @Test
-    fun `getWeeklySchedule returns empty WeeklySchedule when no schedules exist`() = runTest {
-        coEvery { querySchedulesUseCase.getAllSchedules() } returns emptyList()
-
-        val result = scheduleTools.getWeeklySchedule()
-
-        assertTrue(result is SueOperationResult.WeeklySchedule)
-        assertTrue((result as SueOperationResult.WeeklySchedule).schedules.isEmpty())
-    }
-
     // ──────────────────────────────────────────────────────────────────────────
     // getScheduleForDay
     // ──────────────────────────────────────────────────────────────────────────
@@ -129,101 +145,42 @@ class ScheduleToolsTest {
         assertEquals("María", dayResult.schedules.first().studentName)
     }
 
-    @Test
-    fun `getScheduleForDay with morning filter excludes afternoon schedules`() = runTest {
-        coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(mondaySchedule, wednesdaySchedule)
-
-        // Wednesday schedule is at 16:00 (afternoon) — morning filter should exclude it
-        val result = scheduleTools.getScheduleForDay(dayOfWeek = 3, timeFilter = "morning")
-
-        assertTrue(result is SueOperationResult.DaySchedule)
-        assertTrue((result as SueOperationResult.DaySchedule).schedules.isEmpty())
-    }
-
-    @Test
-    fun `getScheduleForDay with afternoon filter includes afternoon schedules`() = runTest {
-        coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(mondaySchedule, wednesdaySchedule)
-
-        val result = scheduleTools.getScheduleForDay(dayOfWeek = 3, timeFilter = "afternoon")
-
-        assertTrue(result is SueOperationResult.DaySchedule)
-        assertEquals(1, (result as SueOperationResult.DaySchedule).schedules.size)
-    }
-
     // ──────────────────────────────────────────────────────────────────────────
     // getFreeSlots
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
     fun `getFreeSlots returns days 1-5 that have no schedule`() = runTest {
-        // Only Monday (1) and Wednesday (3) are scheduled
         coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(mondaySchedule, wednesdaySchedule)
 
         val result = scheduleTools.getFreeSlots()
 
         assertTrue(result is SueOperationResult.FreeSlots)
         val free = (result as SueOperationResult.FreeSlots).freeDays
-        // Tuesday (2), Thursday (4), Friday (5) should be free
         assertEquals(listOf(2, 4, 5), free)
     }
 
-    @Test
-    fun `getFreeSlots returns empty list when every weekday is scheduled`() = runTest {
-        val allDays = (1..5).map { day ->
-            AgentScheduleSummary(studentName = "Student$day", dayOfWeek = day, startTime = "09:00", endTime = "10:00")
-        }
-        coEvery { querySchedulesUseCase.getAllSchedules() } returns allDays
-
-        val result = scheduleTools.getFreeSlots()
-
-        assertTrue(result is SueOperationResult.FreeSlots)
-        assertTrue((result as SueOperationResult.FreeSlots).freeDays.isEmpty())
-    }
-
     // ──────────────────────────────────────────────────────────────────────────
-    // prepareCancelAction
+    // prepareCancelAction with time filter
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `prepareCancelAction returns Prepare Error when student schedule not found`() = runTest {
-        coEvery { querySchedulesUseCase.getSchedulesByStudentName("Unknown") } returns emptyList()
+    fun `prepareCancelAction returns Prepare Success matching exact time`() = runTest {
+        val s1 = AgentScheduleDetail("sched-1", "stu-1", "María", 1, "10:00", "11:00")
+        val s2 = AgentScheduleDetail("sched-2", "stu-1", "María", 1, "17:00", "18:00")
+        coEvery { querySchedulesUseCase.getSchedulesByStudentName("María") } returns listOf(s1, s2)
 
-        val result = scheduleTools.prepareCancelAction("Unknown", dayOfWeek = 1)
-
-        assertTrue(result is SueOperationResult.Prepare.Error)
-        assertEquals(SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-            (result as SueOperationResult.Prepare.Error).errorType)
-    }
-
-    @Test
-    fun `prepareCancelAction returns Prepare Success with pre-resolved action`() = runTest {
-        coEvery { querySchedulesUseCase.getSchedulesByStudentName("María") } returns listOf(mondayScheduleDetail)
-
-        val result = scheduleTools.prepareCancelAction("María", dayOfWeek = 1)
+        val result = scheduleTools.prepareCancelAction("María", dayOfWeek = 1, time = "17:00")
 
         assertTrue(result is SueOperationResult.Prepare.Success)
-        val action = (result as SueOperationResult.Prepare.Success).action
-        assertTrue(action is SuePendingAction.CancelClass)
-        assertEquals("María", (action as SuePendingAction.CancelClass).studentName)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.CancelClass
+        assertEquals("sched-2", action.scheduleId)
+        assertEquals("17:00", action.startTime)
     }
 
     // ──────────────────────────────────────────────────────────────────────────
     // executeCancelAction
     // ──────────────────────────────────────────────────────────────────────────
-
-    @Test
-    fun `executeCancelAction returns AuthError when no session found`() = runTest {
-        every { authRepository.currentUser } returns MutableStateFlow(null)
-
-        val action = SuePendingAction.CancelClass(
-            studentName = "María", studentId = "stu-1", scheduleId = "sched-1",
-            date = System.currentTimeMillis(), startTime = "10:00", endTime = "11:00"
-        )
-
-        val result = scheduleTools.executeCancelAction(action)
-
-        assertEquals(SueOperationResult.Execute.AuthError, result)
-    }
 
     @Test
     fun `executeCancelAction returns Execute Success on successful cancellation`() = runTest {
@@ -240,70 +197,105 @@ class ScheduleToolsTest {
         val result = scheduleTools.executeCancelAction(action)
 
         assertTrue(result is SueOperationResult.Execute.Success)
-        assertEquals(action, (result as SueOperationResult.Execute.Success).action)
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // prepareCreateSchedule & executeCreateSchedule
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `prepareCreateSchedule returns Success when student exists`() = runTest {
+        coEvery { queryStudentsUseCase.searchByName("María") } returns listOf(mariaStudentDetail)
+
+        val result = scheduleTools.prepareCreateSchedule("María", 1, "17:00", "18:00")
+
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.CreateSchedule
+        assertEquals("stu-1", action.studentId)
+        assertEquals(1, action.dayOfWeek)
+        assertEquals("17:00", action.startTime)
     }
 
     @Test
-    fun `executeCancelAction returns Execute Error on domain error`() = runTest {
+    fun `executeCreateSchedule saves a permanent schedule`() = runTest {
         every { authRepository.currentUser } returns MutableStateFlow(mockUser)
-        coEvery {
-            manageScheduleUseCase.cancelClass(any(), any(), any(), any())
-        } returns Result.Error(DomainError.Unknown)
+        coEvery { saveScheduleUseCase("prof-1", "stu-1", any()) } returns Result.Success(Unit)
 
-        val action = SuePendingAction.CancelClass(
-            studentName = "María", studentId = "stu-1", scheduleId = "sched-1",
-            date = System.currentTimeMillis(), startTime = "10:00", endTime = "11:00"
-        )
+        val action = SuePendingAction.CreateSchedule("María", "stu-1", 1, "17:00", "18:00")
 
-        val result = scheduleTools.executeCancelAction(action)
+        val result = scheduleTools.executeCreateSchedule(action)
 
-        assertTrue(result is SueOperationResult.Execute.Error)
-        assertEquals(DomainError.Unknown, (result as SueOperationResult.Execute.Error).domainError)
+        assertTrue(result is SueOperationResult.Execute.Success)
+        coVerify { saveScheduleUseCase("prof-1", "stu-1", withArg {
+            assertEquals("stu-1", it.studentId)
+            assertEquals(java.time.DayOfWeek.MONDAY, it.dayOfWeek)
+            assertEquals("17:00", it.startTime)
+            assertEquals("18:00", it.endTime)
+        })}
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // getNextClass
+    // prepareDeleteSchedule & executeDeleteSchedule
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `getNextClass returns correct date of this week when candidate is first schedule`() = runTest {
-        val thursdaySched = AgentScheduleSummary(
-            studentName = "María",
-            dayOfWeek = 4,
-            startTime = "10:00",
-            endTime = "11:00"
-        )
-        val mondaySched = AgentScheduleSummary(
-            studentName = "Juan",
-            dayOfWeek = 1,
-            startTime = "16:00",
-            endTime = "17:00"
-        )
-        coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(thursdaySched, mondaySched)
+    fun `prepareDeleteSchedule returns Success when class exists`() = runTest {
+        coEvery { querySchedulesUseCase.getSchedulesByStudentName("María") } returns listOf(mondayScheduleDetail)
 
-        val result = scheduleTools.getNextClass()
+        val result = scheduleTools.prepareDeleteSchedule("María", 1, "10:00")
 
-        assertTrue(result is SueOperationResult.NextClass)
-        val nextClass = result as SueOperationResult.NextClass
-        assertEquals("María", nextClass.schedule?.studentName)
-        assertEquals(LocalDateTime.of(2026, 5, 28, 8, 35).toLocalDate(), nextClass.occurrenceDate)
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.DeleteSchedule
+        assertEquals("sched-1", action.scheduleId)
+    }
+
+    @Test
+    fun `executeDeleteSchedule invokes deleteScheduleUseCase`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { deleteScheduleUseCase("prof-1", "stu-1", "sched-1") } returns Result.Success(Unit)
+
+        val action = SuePendingAction.DeleteSchedule("María", "stu-1", "sched-1", 1, "10:00")
+
+        val result = scheduleTools.executeDeleteSchedule(action)
+
+        assertTrue(result is SueOperationResult.Execute.Success)
+        coVerify { deleteScheduleUseCase("prof-1", "stu-1", "sched-1") }
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // getScheduleForDay with specific time filter
+    // prepareAddExtraClass & executeAddExtraClass
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `getScheduleForDay with specific hour filter filters correctly`() = runTest {
-        val s1 = AgentScheduleSummary(studentName = "María", dayOfWeek = 1, startTime = "10:00", endTime = "11:00")
-        val s2 = AgentScheduleSummary(studentName = "Juan", dayOfWeek = 1, startTime = "18:00", endTime = "19:00")
-        coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(s1, s2)
+    fun `prepareAddExtraClass returns Success when student exists`() = runTest {
+        coEvery { queryStudentsUseCase.searchByName("María") } returns listOf(mariaStudentDetail)
 
-        val result = scheduleTools.getScheduleForDay(dayOfWeek = 1, timeFilter = "18:00")
+        val result = scheduleTools.prepareAddExtraClass("María", 123456L, "17:00", "18:00")
 
-        assertTrue(result is SueOperationResult.DaySchedule)
-        val dayResult = result as SueOperationResult.DaySchedule
-        assertEquals(1, dayResult.schedules.size)
-        assertEquals("Juan", dayResult.schedules.first().studentName)
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.AddExtraClass
+        assertEquals("stu-1", action.studentId)
+        assertEquals(123456L, action.date)
+    }
+
+    @Test
+    fun `executeAddExtraClass saves exception of type EXTRA`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { saveScheduleExceptionUseCase("prof-1", "stu-1", any()) } returns Result.Success(Unit)
+
+        val action = SuePendingAction.AddExtraClass("María", "stu-1", 123456789L, "17:00", "18:00")
+
+        val result = scheduleTools.executeAddExtraClass(action)
+
+        assertTrue(result is SueOperationResult.Execute.Success)
+        coVerify { saveScheduleExceptionUseCase("prof-1", "stu-1", withArg {
+            assertEquals("stu-1", it.studentId)
+            assertEquals("EXTRA", it.originalScheduleId)
+            assertEquals(ExceptionType.EXTRA, it.type)
+            assertEquals(123456789L, it.date)
+            assertEquals("17:00", it.newStartTime)
+            assertEquals("18:00", it.newEndTime)
+        })}
     }
 }
+

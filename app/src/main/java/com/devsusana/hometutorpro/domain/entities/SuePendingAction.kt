@@ -83,4 +83,65 @@ sealed class SuePendingAction {
         val studentId: String,
         val amount: Double
     ) : SuePendingAction()
+
+    /**
+     * The user wants to start a live class for a student.
+     */
+    data class StartClass(
+        val studentName: String,
+        val studentId: String,
+        val durationMinutes: Int
+    ) : SuePendingAction()
+
+    /**
+     * The user wants to create a new student profile.
+     */
+    data class CreateStudent(
+        val name: String,
+        val course: String,
+        val subjects: String,
+        val pricePerHour: Double
+    ) : SuePendingAction()
+
+    /**
+     * The user wants to delete a student profile.
+     */
+    data class DeleteStudent(
+        val studentName: String,
+        val studentId: String
+    ) : SuePendingAction()
+
+    /**
+     * The user wants to add a permanent schedule to a student.
+     */
+    data class CreateSchedule(
+        val studentName: String,
+        val studentId: String,
+        val dayOfWeek: Int,
+        val startTime: String,
+        val endTime: String
+    ) : SuePendingAction()
+
+    /**
+     * The user wants to delete a permanent schedule of a student.
+     */
+    data class DeleteSchedule(
+        val studentName: String,
+        val studentId: String,
+        val scheduleId: String,
+        val dayOfWeek: Int,
+        val startTime: String
+    ) : SuePendingAction()
+
+    /**
+     * The user wants to schedule an extra class (exception of type EXTRA) for a specific date.
+     */
+    data class AddExtraClass(
+        val studentName: String,
+        val studentId: String,
+        val date: Long,
+        val startTime: String,
+        val endTime: String
+    ) : SuePendingAction()
 }
+

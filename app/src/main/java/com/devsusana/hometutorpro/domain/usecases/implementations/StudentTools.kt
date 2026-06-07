@@ -4,11 +4,18 @@ import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.entities.Student
 import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQueryStudentsForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IDeleteStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
+import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,6 +30,10 @@ class StudentTools @Inject constructor(
     private val queryStudentsUseCase: IQueryStudentsForAgentUseCase,
     private val registerPaymentUseCase: IRegisterPaymentUseCase,
     private val addToBalanceUseCase: IAddToBalanceUseCase,
+    private val saveStudentUseCase: ISaveStudentUseCase,
+    private val deleteStudentUseCase: IDeleteStudentUseCase,
+    private val getStudentByIdUseCase: IGetStudentByIdUseCase,
+    private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
     private val authRepository: AuthRepository
 ) {
 
@@ -167,4 +178,135 @@ class StudentTools @Inject constructor(
             is Result.Error -> SueOperationResult.Execute.Error(result.error)
         }
     }
+
+    /**
+     * Prepares a StartClass action for user confirmation.
+     */
+    suspend fun prepareStartClass(
+        studentName: String,
+        durationMinutes: Int
+    ): SueOperationResult.Prepare {
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+
+        if (match == null) {
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+        }
+
+        val action = SuePendingAction.StartClass(
+            studentName = match.name,
+            studentId = match.studentId,
+            durationMinutes = durationMinutes
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes a confirmed StartClass action.
+     */
+    suspend fun executeStartClass(action: SuePendingAction.StartClass): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val student = getStudentByIdUseCase(professorId, action.studentId).first()
+            ?: return SueOperationResult.Execute.Error(DomainError.StudentNotFound)
+
+        val priceToAdd = (action.durationMinutes / 60.0) * student.pricePerHour
+        val newBalance = student.pendingBalance + priceToAdd
+        val updatedStudent = student.copy(pendingBalance = newBalance)
+
+        return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
+            is Result.Success -> {
+                scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
+                SueOperationResult.Execute.Success(action)
+            }
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
+     * Prepares a CreateStudent action for user confirmation.
+     */
+    suspend fun prepareCreateStudent(
+        name: String,
+        course: String,
+        subjects: String,
+        pricePerHour: Double
+    ): SueOperationResult.Prepare {
+        if (name.isBlank()) {
+            return SueOperationResult.Prepare.Error(
+                SueOperationResult.ErrorType.UNKNOWN,
+                "El nombre del alumno no puede estar vacío."
+            )
+        }
+        if (pricePerHour <= 0) {
+            return SueOperationResult.Prepare.Error(
+                SueOperationResult.ErrorType.UNKNOWN,
+                "El precio por hora debe ser mayor que cero."
+            )
+        }
+        val action = SuePendingAction.CreateStudent(
+            name = name,
+            course = course,
+            subjects = subjects,
+            pricePerHour = pricePerHour
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes a confirmed CreateStudent action.
+     */
+    suspend fun executeCreateStudent(action: SuePendingAction.CreateStudent): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val student = Student(
+            professorId = professorId,
+            name = action.name,
+            course = action.course.ifBlank { "Other" },
+            subjects = action.subjects.ifBlank { "General" },
+            pricePerHour = action.pricePerHour,
+            address = "No address", // Business rule mandatory field
+            studentEmail = "${action.name.lowercase().replace(" ", "")}@example.com", // Business rule mandatory field
+            isActive = true
+        )
+
+        return when (val result = saveStudentUseCase(professorId, student)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
+     * Prepares a DeleteStudent action for user confirmation.
+     */
+    suspend fun prepareDeleteStudent(studentName: String): SueOperationResult.Prepare {
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+
+        if (match == null) {
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+        }
+
+        val action = SuePendingAction.DeleteStudent(
+            studentName = match.name,
+            studentId = match.studentId
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes a confirmed DeleteStudent action.
+     */
+    suspend fun executeDeleteStudent(action: SuePendingAction.DeleteStudent): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        return when (val result = deleteStudentUseCase(professorId, action.studentId)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
 }
+

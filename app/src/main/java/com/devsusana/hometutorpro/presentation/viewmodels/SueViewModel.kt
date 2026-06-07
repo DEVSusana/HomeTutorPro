@@ -2,6 +2,7 @@ package com.devsusana.hometutorpro.presentation.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.entities.SpeechState
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
@@ -51,6 +52,9 @@ class SueViewModel @Inject constructor(
     /** Job that resets the speech state after a timeout (Bug-fix #2). */
     private var listeningTimeoutJob: Job? = null
 
+    /** Conversation history list of user query to SUE response. */
+    private val conversationHistory = mutableListOf<Pair<String, String>>()
+
     companion object {
         /** Max milliseconds to remain in LISTENING/PROCESSING before forcing IDLE. */
         private const val LISTENING_TIMEOUT_MS = 15_000L
@@ -78,6 +82,10 @@ class SueViewModel @Inject constructor(
     fun onFabClick() {
         when (_uiState.value.speechState) {
             SpeechState.IDLE, SpeechState.ERROR -> {
+                if (!_uiState.value.isOverlayVisible) {
+                    sueAgent.resetConversationContext()
+                    conversationHistory.clear()
+                }
                 speechService.initializeTts()
                 _uiState.update {
                     it.copy(
@@ -109,6 +117,8 @@ class SueViewModel @Inject constructor(
      * Also clears any pending action.
      */
     fun onDismiss() {
+        sueAgent.resetConversationContext()
+        conversationHistory.clear()
         cancelListeningTimeout()
         speechService.stopListening()
         speechService.stopSpeaking()
@@ -237,6 +247,10 @@ class SueViewModel @Inject constructor(
             if (intentResult != null) {
                 val message = SueResponseFormatter.format(intentResult)
                 val action = (intentResult as? SueOperationResult.Prepare.Success)?.action
+                
+                conversationHistory.add(Pair(transcription, message))
+                while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+
                 _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
                 speechService.speak(message)
             } else {
@@ -255,15 +269,19 @@ class SueViewModel @Inject constructor(
         when {
             AFFIRMATIVE_WORDS.any { it in lower } -> {
                 _uiState.update { it.copy(pendingAction = null) }
-                executePendingAction(pendingAction)
+                executePendingAction(transcription, pendingAction)
             }
             NEGATIVE_WORDS.any { it in lower } -> {
                 val cancelMessage = "De acuerdo, he cancelado la acción."
+                conversationHistory.add(Pair(transcription, cancelMessage))
+                while (conversationHistory.size > 10) conversationHistory.removeAt(0)
                 _uiState.update { it.copy(agentResponse = cancelMessage, pendingAction = null) }
                 speechService.speak(cancelMessage)
             }
             else -> {
                 val askAgain = "No he entendido. Di «sí» para confirmar o «no» para cancelar."
+                conversationHistory.add(Pair(transcription, askAgain))
+                while (conversationHistory.size > 10) conversationHistory.removeAt(0)
                 _uiState.update { it.copy(agentResponse = askAgain) }
                 speechService.speak(askAgain)
             }
@@ -273,7 +291,7 @@ class SueViewModel @Inject constructor(
     /**
      * Executes a confirmed [SuePendingAction] and updates the UI with the result.
      */
-    private suspend fun executePendingAction(action: SuePendingAction) {
+    private suspend fun executePendingAction(transcription: String, action: SuePendingAction) {
         try {
             val executeResult = when (action) {
                 is SuePendingAction.CancelClass ->
@@ -284,12 +302,38 @@ class SueViewModel @Inject constructor(
                     studentTools.executeRegisterPayment(action)
                 is SuePendingAction.AddBalance ->
                     studentTools.executeAddBalance(action)
+                is SuePendingAction.StartClass ->
+                    studentTools.executeStartClass(action)
+                is SuePendingAction.CreateStudent ->
+                    studentTools.executeCreateStudent(action)
+                is SuePendingAction.DeleteStudent ->
+                    studentTools.executeDeleteStudent(action)
+                is SuePendingAction.CreateSchedule ->
+                    scheduleTools.executeCreateSchedule(action)
+                is SuePendingAction.DeleteSchedule ->
+                    scheduleTools.executeDeleteSchedule(action)
+                is SuePendingAction.AddExtraClass ->
+                    scheduleTools.executeAddExtraClass(action)
             }
-            val response = SueResponseFormatter.format(executeResult)
+            val response = if (executeResult is SueOperationResult.Execute.Error && executeResult.domainError is DomainError.ConflictingStudent) {
+                val freeSlotsResult = scheduleTools.getFreeSlots()
+                val freeSlotsText = if (freeSlotsResult is SueOperationResult.FreeSlots) {
+                    SueResponseFormatter.formatFreeDaysList(freeSlotsResult.freeDays)
+                } else {
+                    ""
+                }
+                SueResponseFormatter.formatDomainError(executeResult.domainError, freeSlotsText)
+            } else {
+                SueResponseFormatter.format(executeResult)
+            }
+            conversationHistory.add(Pair(transcription, response))
+            while (conversationHistory.size > 10) conversationHistory.removeAt(0)
             _uiState.update { it.copy(agentResponse = response) }
             speechService.speak(response)
         } catch (e: Exception) {
             val errorMsg = "Lo siento, no se pudo completar la acción."
+            conversationHistory.add(Pair(transcription, errorMsg))
+            while (conversationHistory.size > 10) conversationHistory.removeAt(0)
             _uiState.update { it.copy(agentResponse = errorMsg, errorMessage = e.message) }
             speechService.speak(errorMsg)
         }
@@ -309,7 +353,7 @@ class SueViewModel @Inject constructor(
      */
     private suspend fun processWithAgent(transcription: String) {
         try {
-            val prompt = sueAgent.buildPromptWithContext(transcription)
+            val prompt = sueAgent.buildPromptWithContext(transcription, conversationHistory)
 
             val response = if (_uiState.value.isModelLoaded) {
                 inferenceRepository.generateResponse(prompt)
@@ -317,10 +361,19 @@ class SueViewModel @Inject constructor(
                 extractDataFromPrompt(prompt)
             }
 
+            conversationHistory.add(Pair(transcription, response))
+            while (conversationHistory.size > 10) {
+                conversationHistory.removeAt(0)
+            }
+
             _uiState.update { it.copy(agentResponse = response) }
             speechService.speak(response)
         } catch (e: Exception) {
             val errorResponse = "Lo siento, hubo un error al procesar tu consulta."
+            conversationHistory.add(Pair(transcription, errorResponse))
+            while (conversationHistory.size > 10) {
+                conversationHistory.removeAt(0)
+            }
             _uiState.update {
                 it.copy(agentResponse = errorResponse, errorMessage = e.message)
             }

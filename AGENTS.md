@@ -200,10 +200,7 @@ Gemini DEBE generar las clases en las siguientes ubicaciones específicas, respe
 
 ## 11. Verificación Local mediante Agentes y Habilidades (Skills)
 
-Para asegurar que los desarrollos cumplen con esta guía antes de subirlos y pasar la CI remota, se debe utilizar el orquestador de agentes de auditoría local.
-
-### Regla Obligatoria de Flujo de Trabajo (Para Asistentes de IA / Gemini)
-* **Lanzamiento Automático al Finalizar:** Una vez que el usuario declare completada una tarea o instrucción (utilizando expresiones como "ya está listo", "hecho", "ya quedó", "completado" o similar), el Asistente de IA **DEBE ejecutar automáticamente** el análisis local de los agentes sobre los archivos Kotlin que hayan sido modificados durante la sesión de trabajo. El asistente no debe dar por terminada la respuesta ni dar el trabajo por finalizado hasta haber ejecutado este orquestador y presentado el reporte de análisis al usuario.
+Dispones de un orquestador de agentes de auditoría local en tu máquina que puedes ejecutar de forma **opcional** para comprobar el código antes de subirlo. Dado que el pipeline de la CI remota en GitHub ejecuta exactamente estas mismas validaciones de forma automatizada al abrir o actualizar un Pull Request, la verificación local es puramente de diagnóstico y no forma parte del flujo obligatorio diario del asistente.
 
 ### Prerrequisitos y Configuración
 Los scripts de agentes y habilidades viven en el directorio `agents_dev/`. Requieren configurar la clave de API de Gemini:
@@ -228,6 +225,29 @@ Para ejecutar el análisis local sobre los archivos Kotlin modificados:
    ```
 
 El orquestador ejecutará secuencialmente los 5 agentes de auditoría (**Arquitectura**, **Seguridad**, **Testing**, **KDocs** y **Refactor**), aplicando pausas de 35 segundos para respetar la cuota gratuita de la API.
+
+### Herramientas de Productividad Local (Skills de Soporte)
+Dispones de tres scripts locales en `agents_dev/skills/` para automatizar tareas repetitivas durante el desarrollo:
+
+1. **Generador de Esqueleto de Tests (`test_scaffolder.py`):**
+   Crea el archivo y el esqueleto base para pruebas unitarias (con JUnit, MockK y Coroutines) a partir de una clase Kotlin de producción.
+   ```bash
+   python agents_dev/skills/test_scaffolder.py app/src/main/java/com/devsusana/hometutorpro/domain/usecases/implementations/MyNewUseCase.kt
+   ```
+   *Nota:* Generará el test en la ruta correspondiente bajo `app/src/test/java/...` lista para rellenar.
+
+2. **Validador de Inyección de Hilt (`hilt_checker.py`):**
+   Comprueba rápidamente que las nuevas interfaces de Casos de Uso o Repositorios estén declaradas en los módulos de DI de Hilt del proyecto.
+   ```bash
+   python agents_dev/skills/hilt_checker.py
+   ```
+   *Nota:* Si no se especifican argumentos, escaneará automáticamente todos los archivos Kotlin modificados en Git.
+
+3. **Autocompletador de KDocs (`kdoc_autocompleter.py`):**
+   Identifica clases y funciones públicas indocumentadas y les añade comentarios KDoc bien estructurados de forma automática, sobrescribiendo el archivo.
+   ```bash
+   python agents_dev/skills/kdoc_autocompleter.py app/src/main/java/com/devsusana/hometutorpro/data/repository/MyRepositoryImpl.kt
+   ```
 
 ---
 

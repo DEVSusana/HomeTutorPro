@@ -264,4 +264,37 @@ class SueViewModelConfirmationTest {
         assertEquals(expectedMessage, viewModel.uiState.value.agentResponse)
         coVerify { studentTools.executeAddBalance(addBalanceAction) }
     }
+
+    @Test
+    fun `when execute returns conflict error it should append suggested free slots`() = runTest {
+        val pendingAction = SuePendingAction.CreateSchedule(
+            studentName = "María",
+            studentId = "student1",
+            dayOfWeek = 1,
+            startTime = "09:00",
+            endTime = "10:00"
+        )
+        val conflictError = SueOperationResult.Execute.Error(
+            com.devsusana.hometutorpro.domain.core.DomainError.ConflictingStudent("Pedro", "09:00-10:00")
+        )
+        coEvery { scheduleTools.executeCreateSchedule(pendingAction) } returns conflictError
+        coEvery { scheduleTools.getFreeSlots() } returns SueOperationResult.FreeSlots(listOf(3, 5))
+        coEvery { sueAgent.detectActionIntent(any()) } returns null
+
+        coEvery { sueAgent.detectActionIntent("agenda clase con maría") } returns
+                SueOperationResult.Prepare.Success(pendingAction)
+
+        transcriptionFlow.emit("agenda clase con maría")
+        advanceUntilIdle()
+
+        transcriptionFlow.emit("sí")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        val expectedBase = "No se puede realizar la acción debido a un conflicto de horario. El hueco está ocupado por Pedro de 09:00-10:00."
+        val expectedFree = "Los siguientes días están completamente libres esta semana: miércoles, viernes."
+        assertEquals("$expectedBase $expectedFree", state.agentResponse)
+        coVerify { scheduleTools.executeCreateSchedule(pendingAction) }
+        coVerify { scheduleTools.getFreeSlots() }
+    }
 }
