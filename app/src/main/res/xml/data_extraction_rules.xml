@@ -6,6 +6,7 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
+
         <!-- Include the encrypted database and its security preferences -->
         <include domain="database" path="hometutorpro.db"/>
         <include domain="sharedpref" path="db_security_prefs"/>
