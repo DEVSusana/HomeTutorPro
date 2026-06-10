@@ -69,7 +69,9 @@ class SueViewModelConfirmationTest {
             every { partialTranscriptions } returns partialFlow
             every { errors } returns errorFlow
         }
-        sueAgent = mockk(relaxed = true)
+        sueAgent = mockk(relaxed = true) {
+            coEvery { detectActionIntent(any()) } returns null
+        }
         inferenceRepository = mockk(relaxed = true) {
             every { isModelLoaded } returns modelLoadedFlow
         }
