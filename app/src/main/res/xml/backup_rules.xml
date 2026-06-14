@@ -4,10 +4,6 @@
    See https://developer.android.com/guide/topics/data/autobackup for details.
 -->
 <full-backup-content>
-    <!-- Exclude the encrypted database and its security preferences since data is synced to Firestore -->
-    <exclude domain="database" path="hometutorpro.db"/>
-    <exclude domain="sharedpref" path="db_security_prefs"/>
-    
-    <!-- Include user settings from DataStore -->
+    <!-- Include user settings from DataStore. Everything else is excluded by default. -->
     <include domain="file" path="datastore/"/>
 </full-backup-content>

@@ -16,11 +16,34 @@ android {
     defaultConfig {
         applicationId = "com.devsusana.hometutorpro"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
-        versionName = "1.1"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "com.devsusana.hometutorpro.CustomTestRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystoreFileProp = project.findProperty("RELEASE_STORE_FILE") as? String
+                ?: System.getenv("RELEASE_STORE_FILE")
+            val keystorePasswordProp = project.findProperty("RELEASE_STORE_PASSWORD") as? String
+                ?: System.getenv("RELEASE_STORE_PASSWORD")
+            val keyAliasProp = project.findProperty("RELEASE_KEY_ALIAS") as? String
+                ?: System.getenv("RELEASE_KEY_ALIAS")
+            val keyPasswordProp = project.findProperty("RELEASE_KEY_PASSWORD") as? String
+                ?: System.getenv("RELEASE_KEY_PASSWORD")
+
+            if (!keystoreFileProp.isNullOrBlank() &&
+                !keystorePasswordProp.isNullOrBlank() &&
+                !keyAliasProp.isNullOrBlank() &&
+                !keyPasswordProp.isNullOrBlank()) {
+                storeFile = file(keystoreFileProp)
+                storePassword = keystorePasswordProp
+                keyAlias = keyAliasProp
+                keyPassword = keyPasswordProp
+            }
+        }
     }
 
     buildTypes {
@@ -31,6 +54,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
         }
         debug {
             isMinifyEnabled = false
