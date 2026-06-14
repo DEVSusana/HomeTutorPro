@@ -1,16 +1,26 @@
 package com.devsusana.hometutorpro.navigation
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.res.Configuration
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
@@ -20,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,8 +38,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
@@ -41,6 +56,9 @@ import com.devsusana.hometutorpro.navigation.graphs.scheduleGraph
 import com.devsusana.hometutorpro.navigation.graphs.studentGraph
 import com.devsusana.hometutorpro.presentation.components.BottomNavigationBar
 import com.devsusana.hometutorpro.presentation.components.rememberNavigationItems
+import com.devsusana.hometutorpro.presentation.sue.SueOverlay
+import com.devsusana.hometutorpro.presentation.sue.components.SueFab
+import com.devsusana.hometutorpro.presentation.viewmodels.SueViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -108,30 +126,87 @@ fun NavigationHost() {
         }
     ) {
         CompositionLocalProvider(LocalNavigationControl provides navigationControl) {
+            // Sue ViewModel — scoped at the navigation host level for global persistence
+            val sueViewModel: SueViewModel = hiltViewModel()
+            val sueUiState by sueViewModel.uiState.collectAsState()
+            
+            val context = LocalContext.current
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { isGranted ->
+                if (isGranted) {
+                    sueViewModel.onFabClick()
+                }
+            }
+
             Scaffold(
                 bottomBar = {
                     if (showNavigation && !isLandscape && !forceHideBottomBar) {
                         BottomNavigationBar(navController)
                     }
                 },
-                            floatingActionButton = {
-                                if (showNavigation && isLandscape) {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.cd_menu))
-                            }
+                floatingActionButton = {
+                    if (showNavigation) {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            if (isLandscape) {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.cd_menu))
                                 }
-                            }            ) { paddingValues ->
-                NavHost(
-                    navController = navController, 
-                    startDestination = Route.Splash,
+                            }
+                            
+                            if (isRoute(Route.StudentList)) {
+                                FloatingActionButton(
+                                    onClick = {
+                                        navController.navigate(Route.StudentDetail("new"))
+                                    },
+                                    modifier = Modifier.testTag("add_student_button"),
+                                    elevation = FloatingActionButtonDefaults.elevation(
+                                        defaultElevation = 6.dp,
+                                        pressedElevation = 12.dp
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.student_list_add_student))
+                                }
+                            }
+                            
+                            SueFab(
+                                speechState = sueUiState.speechState,
+                                onClick = { 
+                                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                        sueViewModel.onFabClick()
+                                    } else {
+                                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            ) { paddingValues ->
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                    mainGraph(navController)
-                    authGraph(navController)
-                    studentGraph(navController)
-                    scheduleGraph(navController)
+                    NavHost(
+                        navController = navController, 
+                        startDestination = Route.Splash,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        mainGraph(navController)
+                        authGraph(navController)
+                        studentGraph(navController)
+                        scheduleGraph(navController)
+                    }
+
+                    // Sue overlay renders on top of all navigation content
+                    SueOverlay(
+                        uiState = sueUiState,
+                        onDismiss = { sueViewModel.onDismiss() }
+                    )
                 }
             }
         }

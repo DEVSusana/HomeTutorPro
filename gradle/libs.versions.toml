@@ -5,9 +5,11 @@ hiltAndroid = "2.59"
 hiltAndroidCompiler = "2.59"
 hiltNavigationCompose = "1.3.0"
 hiltLifecycleViewmodelCompose = "1.3.0"
-kotlin = "2.3.0"
+kotlin = "2.3.10"
 serialization = "1.10.0"
-ksp = "2.3.4"
+ksp = "2.3.7"
+koog = "0.8.0"
+mediapipeGenai = "0.10.27"
 coreKtx = "1.17.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
@@ -93,6 +95,12 @@ androidx-security-crypto = { group = "androidx.security", name = "security-crypt
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 androidx-work-testing = { group = "androidx.work", name = "work-testing", version.ref = "workManager" }
 sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
+
+# Koog AI Agent Framework
+koog-agents = { group = "ai.koog", name = "koog-agents", version.ref = "koog" }
+
+# MediaPipe LLM Inference (on-device Gemma)
+mediapipe-tasks-genai = { group = "com.google.mediapipe", name = "tasks-genai", version.ref = "mediapipeGenai" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

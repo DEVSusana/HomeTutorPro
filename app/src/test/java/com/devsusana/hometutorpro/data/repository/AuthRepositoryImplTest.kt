@@ -1,13 +1,9 @@
 package com.devsusana.hometutorpro.data.repository
 
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
-import com.devsusana.hometutorpro.data.sync.DataSynchronizer
-import com.devsusana.hometutorpro.data.sync.SyncScheduler
+import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.User
-import com.devsusana.hometutorpro.data.local.dao.SyncMetadataDao
-import com.devsusana.hometutorpro.data.billing.BillingManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.AuthResult
@@ -41,10 +37,7 @@ class AuthRepositoryImplTest {
     private lateinit var repository: AuthRepositoryImpl
     private lateinit var authManager: SecureAuthManager
     private lateinit var firebaseAuth: FirebaseAuth
-    private lateinit var syncScheduler: SyncScheduler
-    private lateinit var syncMetadataDao: SyncMetadataDao
-    private lateinit var dataSynchronizer: DataSynchronizer
-    private lateinit var billingManager: BillingManager
+    private lateinit var authValidator: com.devsusana.hometutorpro.domain.core.AuthValidator
     private val testDispatcher = StandardTestDispatcher()
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
 
@@ -54,13 +47,9 @@ class AuthRepositoryImplTest {
         Dispatchers.setMain(testDispatcher)
         authManager = mockk(relaxed = true)
         firebaseAuth = mockk(relaxed = true)
-        syncScheduler = mockk(relaxed = true)
-        syncMetadataDao = mockk(relaxed = true)
-        dataSynchronizer = mockk(relaxed = true)
-        billingManager = mockk(relaxed = true)
+        authValidator = mockk(relaxed = true)
         
         // Mock billingManager.isPremium to return a StateFlow
-        every { billingManager.isPremium } returns kotlinx.coroutines.flow.MutableStateFlow(false)
         
         // Mock FirebaseAuth to return null current user and capture listener
         every { firebaseAuth.currentUser } returns null
@@ -82,11 +71,7 @@ class AuthRepositoryImplTest {
     private fun createRepository(scope: kotlinx.coroutines.CoroutineScope) = AuthRepositoryImpl(
         authManager = authManager,
         firebaseAuth = firebaseAuth,
-        syncScheduler = syncScheduler,
-        syncMetadataDao = syncMetadataDao,
-        dataSynchronizer = dataSynchronizer,
-        billingManager = billingManager,
-        internalScope = scope
+        authValidator = authValidator
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -108,8 +93,8 @@ class AuthRepositoryImplTest {
         val userId = "user123"
         val name = "Test User"
 
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns true
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns true
         every { authManager.validateCredentials(email, password) } returns true
         every { authManager.getUserId() } returns userId
         every { authManager.getUserName() } returns name
@@ -133,7 +118,7 @@ class AuthRepositoryImplTest {
         val email = "invalid-email"
         val password = "password123"
 
-        every { authManager.validateEmail(email) } returns false
+        every { authValidator.isValidEmail(email) } returns false
 
         repository = createRepository(backgroundScope)
 
@@ -151,8 +136,8 @@ class AuthRepositoryImplTest {
         val email = "test@test.com"
         val password = "123" // Too short
 
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns false
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns false
 
         repository = createRepository(backgroundScope)
 
@@ -170,8 +155,8 @@ class AuthRepositoryImplTest {
         val email = "test@test.com"
         val password = "wrongpassword"
 
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns true
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns true
         every { authManager.validateCredentials(email, password) } returns false
 
         repository = createRepository(backgroundScope)
@@ -199,11 +184,13 @@ class AuthRepositoryImplTest {
         repository = createRepository(backgroundScope)
 
         val result = repository.updateProfile(
-            name = "New Name",
-            email = "new@domain.com",
-            workingStartTime = "08:00",
-            workingEndTime = "23:00",
-            notes = "notes"
+            com.devsusana.hometutorpro.domain.entities.UpdateUserParams(
+                name = "New Name",
+                email = "new@domain.com",
+                workingStartTime = "08:00",
+                workingEndTime = "23:00",
+                notes = "notes"
+            )
         )
 
         assertTrue(result is Result.Success)
@@ -223,11 +210,13 @@ class AuthRepositoryImplTest {
         repository = createRepository(backgroundScope)
 
         val result = repository.updateProfile(
-            name = "Same Name",
-            email = "same@domain.com",
-            workingStartTime = "08:00",
-            workingEndTime = "23:00",
-            notes = "notes"
+            com.devsusana.hometutorpro.domain.entities.UpdateUserParams(
+                name = "Same Name",
+                email = "same@domain.com",
+                workingStartTime = "08:00",
+                workingEndTime = "23:00",
+                notes = "notes"
+            )
         )
 
         assertTrue(result is Result.Success)
@@ -260,8 +249,8 @@ class AuthRepositoryImplTest {
         every { firebaseAuth.createUserWithEmailAndPassword(any(), any()) } returns Tasks.forResult(mockAuthResult)
 
         // Mock AuthManager methods for user creation and saving
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns true
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns true
         every { authManager.userExists() } returns false
         every { authManager.saveCredentials(email, password, name, userId) } returns userId
         every { authManager.getWorkingStartTime() } returns "08:00"
@@ -300,7 +289,7 @@ class AuthRepositoryImplTest {
         val password = "password123"
         val name = "Test User"
 
-        every { authManager.validateEmail(email) } returns false
+        every { authValidator.isValidEmail(email) } returns false
 
         repository = createRepository(backgroundScope)
 
@@ -319,8 +308,8 @@ class AuthRepositoryImplTest {
         val password = "123"
         val name = "Test User"
 
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns false
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns false
 
         repository = createRepository(backgroundScope)
 
@@ -339,8 +328,8 @@ class AuthRepositoryImplTest {
         val password = "password123"
         val name = ""
 
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns true
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns true
 
         repository = createRepository(backgroundScope)
 
@@ -359,8 +348,8 @@ class AuthRepositoryImplTest {
         val password = "password123"
         val name = "Test User"
 
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns true
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns true
         every { authManager.userExists() } returns true
 
         repository = createRepository(backgroundScope)
@@ -383,8 +372,8 @@ class AuthRepositoryImplTest {
         val email = "test@test.com"
         val password = "password123"
         
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns true
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns true
         every { authManager.validateCredentials(email, password) } returns true
         every { authManager.getUserId() } returns "user123"
         every { authManager.getUserName() } returns "Test User"
@@ -430,8 +419,8 @@ class AuthRepositoryImplTest {
         val userId = "user123"
         val name = "Test User"
 
-        every { authManager.validateEmail(email) } returns true
-        every { authManager.validatePassword(password) } returns true
+        every { authValidator.isValidEmail(email) } returns true
+        every { authValidator.isValidPassword(password) } returns true
         every { authManager.validateCredentials(email, password) } returns true
         every { authManager.getUserId() } returns userId
         every { authManager.getUserName() } returns name

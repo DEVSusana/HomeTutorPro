@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.BuildConfig
 import com.devsusana.hometutorpro.R
-import com.devsusana.hometutorpro.core.settings.SettingsManager
+import com.devsusana.hometutorpro.domain.entities.AppThemeMode
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsItem
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsSectionTitle
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
@@ -104,7 +104,7 @@ fun SettingsContent(
     onClassEndNotificationsToggle: (Boolean) -> Unit,
     onShowTestNotification: () -> Unit,
     onLanguageChange: (String) -> Unit,
-    onThemeModeChange: (SettingsManager.ThemeMode) -> Unit,
+    onThemeModeChange: (AppThemeMode) -> Unit,
     onDebugPremiumToggle: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     onDismissBackupMessage: () -> Unit
@@ -212,9 +212,9 @@ fun SettingsContent(
                 icon = Icons.Default.Palette,
                 title = stringResource(R.string.settings_theme),
                 subtitle = when (state.themeMode) {
-                    SettingsManager.ThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
-                    SettingsManager.ThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
-                    SettingsManager.ThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
+                    AppThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
+                    AppThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
+                    AppThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
                 },
                 onClick = { showThemeDialog = true }
             )
@@ -287,7 +287,7 @@ fun SettingsContent(
                 Column {
                     TextButton(
                         onClick = {
-                            onLanguageChange(SettingsManager.LANGUAGE_ENGLISH)
+                            onLanguageChange("en")
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -302,7 +302,7 @@ fun SettingsContent(
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick = {
-                            onLanguageChange(SettingsManager.LANGUAGE_SPANISH)
+                            onLanguageChange("es")
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -339,9 +339,9 @@ fun SettingsContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.LIGHT,
+                            selected = state.themeMode == AppThemeMode.LIGHT,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.LIGHT)
+                                onThemeModeChange(AppThemeMode.LIGHT)
                                 showThemeDialog = false
                             }
                         )
@@ -361,9 +361,9 @@ fun SettingsContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.DARK,
+                            selected = state.themeMode == AppThemeMode.DARK,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.DARK)
+                                onThemeModeChange(AppThemeMode.DARK)
                                 showThemeDialog = false
                             }
                         )
@@ -380,12 +380,12 @@ fun SettingsContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.SYSTEM,
+                            selected = state.themeMode == AppThemeMode.SYSTEM,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.SYSTEM)
+                                onThemeModeChange(AppThemeMode.SYSTEM)
                                 showThemeDialog = false
                             }
                         )
@@ -423,7 +423,7 @@ private fun SettingsContentPreview() {
         SettingsContent(
             state = SettingsState(
                 language = "en",
-                themeMode = SettingsManager.ThemeMode.SYSTEM
+                themeMode = AppThemeMode.SYSTEM
             ),
             onEditProfileClick = {},
             onExportBackup = {},
