@@ -65,15 +65,19 @@ class SueViewModel @Inject constructor(
         /**
          * Checks whether [text] matches any word in [words] as a whole word
          * (not a substring). For multi-word entries (e.g. "de acuerdo"),
-         * a simple `contains` check is used.
+         * a simple `contains` check is used. Single words are matched by
+         * tokenizing the text on whitespace and stripping punctuation,
+         * which correctly handles Spanish accented characters that
+         * Java's `\b` regex boundary does not recognize.
          */
         private fun containsWord(text: String, words: Set<String>): Boolean {
+            val textTokens = text.split("\\s+".toRegex())
+                .map { it.trim(',', '.', '!', '?', ';', ':', '¿', '¡', '«', '»') }
             return words.any { word ->
                 if (word.contains(' ')) {
                     word in text
                 } else {
-                    // Match whole word using regex word boundaries
-                    Regex("""\b${Regex.escape(word)}\b""").containsMatchIn(text)
+                    word in textTokens
                 }
             }
         }
