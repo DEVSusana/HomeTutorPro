@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -25,13 +27,24 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystoreFileProp = project.findProperty("RELEASE_STORE_FILE") as? String
+            val localProperties = Properties().apply {
+                val localPropertiesFile = rootProject.file("local.properties")
+                if (localPropertiesFile.exists()) {
+                    localPropertiesFile.inputStream().use { load(it) }
+                }
+            }
+
+            val keystoreFileProp = localProperties.getProperty("RELEASE_STORE_FILE")
+                ?: project.findProperty("RELEASE_STORE_FILE") as? String
                 ?: System.getenv("RELEASE_STORE_FILE")
-            val keystorePasswordProp = project.findProperty("RELEASE_STORE_PASSWORD") as? String
+            val keystorePasswordProp = localProperties.getProperty("RELEASE_STORE_PASSWORD")
+                ?: project.findProperty("RELEASE_STORE_PASSWORD") as? String
                 ?: System.getenv("RELEASE_STORE_PASSWORD")
-            val keyAliasProp = project.findProperty("RELEASE_KEY_ALIAS") as? String
+            val keyAliasProp = localProperties.getProperty("RELEASE_KEY_ALIAS")
+                ?: project.findProperty("RELEASE_KEY_ALIAS") as? String
                 ?: System.getenv("RELEASE_KEY_ALIAS")
-            val keyPasswordProp = project.findProperty("RELEASE_KEY_PASSWORD") as? String
+            val keyPasswordProp = localProperties.getProperty("RELEASE_KEY_PASSWORD")
+                ?: project.findProperty("RELEASE_KEY_PASSWORD") as? String
                 ?: System.getenv("RELEASE_KEY_PASSWORD")
 
             if (!keystoreFileProp.isNullOrBlank() &&

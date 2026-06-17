@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidad - HomeTutorPro</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --bg-light: #f8fafc;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 2.5rem 1rem;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.25rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+        }
+
+        header p {
+            margin: 0.5rem 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
+
+        h2 {
+            color: var(--primary);
+            font-size: 1.5rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-top: 2rem;
+            font-weight: 700;
+        }
+
+        h2:first-of-type {
+            margin-top: 0;
+        }
+
+        p, li {
+            font-size: 1rem;
+            color: #334155;
+        }
+
+        ul {
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.75rem;
+        }
+
+        a {
+            color: var(--primary-light);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding: 1.5rem 0;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        .highlight-box {
+            background-color: #f1f5f9;
+            border-left: 4px solid var(--primary-light);
+            padding: 1rem 1.5rem;
+            border-radius: 4px;
+            margin: 1.5rem 0;
+        }
+
+        .highlight-box p {
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 640px) {
+            header h1 {
+                font-size: 1.75rem;
+            }
+            .card {
+                padding: 1.5rem;
+            }
+            .container {
+                margin: 1rem auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>HomeTutorPro</h1>
+        <p>Política de Privacidad</p>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>1. Introducción y Datos del Desarrollador</h2>
+            <p>
+                Esta Política de Privacidad describe cómo se recopilan, utilizan y comparten tus datos personales al usar la aplicación móvil <strong>HomeTutorPro</strong>. La aplicación es propiedad de y está gestionada por <strong>Susana Córdoba Serrano</strong> como desarrolladora independiente y para una cuenta personal.
+            </p>
+            <p>
+                Nos comprometemos a proteger la privacidad de todos los usuarios que acceden a nuestra plataforma. Si tienes cualquier duda acerca de esta política, puedes contactarnos a través del correo electrónico: <a href="mailto:susanacordobaserrano@gmail.com">susanacordobaserrano@gmail.com</a>.
+            </p>
+
+            <h2>2. Información Recopilada y Almacenamiento Local</h2>
+            <p>
+                Nos comprometemos a garantizar la máxima privacidad de tus datos de trabajo. Toda la información operativa de la aplicación se gestiona bajo los siguientes criterios:
+            </p>
+            <ul>
+                <li>
+                    <strong>Almacenamiento Local y Cifrado (Base de Datos Local):</strong> Toda la información que introduces en la aplicación (perfiles de tutores, datos de alumnos, horarios de clases, materias, notas y registros de asistencia) se almacena y procesa <strong>exclusivamente de forma local en la memoria física de tu dispositivo móvil</strong> mediante una base de datos local encriptada. <strong>Ninguno de estos datos operativos se sincroniza, sube o transfiere a ningún servidor externo o a la nube.</strong>
+                </li>
+                <li>
+                    <strong>Autenticación de Usuarios (Firebase Authentication):</strong> Para el acceso seguro a tu perfil en la aplicación, recopilamos y almacenamos tu dirección de correo electrónico y un identificador único de usuario (UID) generado por Firebase. Este es el único dato personal que se transfiere y almacena de forma segura en la nube (Google Firebase).
+                </li>
+                <li>
+                    <strong>Estabilidad y Diagnóstico (Firebase Crashlytics):</strong> En caso de fallo inesperado de la app, recopilamos registros de error anónimos (stack traces, modelo de dispositivo, versión de sistema operativo) únicamente para identificar y corregir fallos técnicos. No contienen datos personales.
+                </li>
+            </ul>
+
+            <div class="highlight-box">
+                <p><strong>Importante:</strong> HomeTutorPro <strong>no</strong> recopila información sensible de pago, datos biométricos, de salud, ni accede a tu ubicación exacta en segundo plano. Los datos de tus tutorías permanecen 100% privados dentro de tu dispositivo.</p>
+            </div>
+
+            <h2>3. Base Legal y Finalidad del Tratamiento</h2>
+            <p>
+                La base legal para el tratamiento del correo y UID de acceso es la ejecución del servicio de autenticación de tu perfil. El tratamiento de los datos anónimos de diagnóstico se fundamenta en nuestro interés legítimo de mantener la aplicación estable, óptima y libre de fallos de rendimiento.
+            </p>
+
+            <h2>4. Seguridad y Transferencia de Datos</h2>
+            <p>
+                La seguridad de tus datos locales se apoya en el cifrado a nivel de hardware del sistema operativo Android y la encriptación local de la base de datos de la aplicación.
+            </p>
+            <p>
+                Respecto a las credenciales de inicio de sesión (email y UID) gestionadas en la nube a través de Google Firebase, estas se transfieren mediante protocolos cifrados en tránsito (HTTPS/TLS) y se almacenan en servidores gestionados por Google Cloud bajo estrictos estándares internacionales de seguridad física y lógica.
+            </p>
+
+            <h2>5. Retención de Datos y Eliminación de Cuentas</h2>
+            <p>
+                Conservamos tu información personal únicamente durante el tiempo que mantengas activa tu cuenta de usuario en HomeTutorPro.
+            </p>
+            <p>
+                En cumplimiento con las directivas de Google Play, <strong>puedes solicitar la eliminación completa de tu cuenta de usuario y de todos tus datos asociados en cualquier momento</strong>. Para hacerlo, puedes:
+            </p>
+            <ul>
+                <li>Utilizar la opción de "Eliminar Cuenta" que se encuentra dentro de la sección de Ajustes en la aplicación.</li>
+                <li>Enviar un correo electrónico con tu solicitud a <a href="mailto:susanacordobaserrano@gmail.com">susanacordobaserrano@gmail.com</a>. Procesaremos la solicitud y eliminaremos de forma definitiva tu registro en un plazo máximo de 7 días laborables.</li>
+            </ul>
+
+            <h2>6. Enlaces a Políticas de Privacidad de Terceros</h2>
+            <p>
+                Nuestra aplicación utiliza servicios de terceros que tienen sus propias políticas de tratamiento de datos. Puedes consultar los detalles en los siguientes enlaces oficiales:
+            </p>
+            <ul>
+                <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Políticas de Privacidad de los Servicios de Google Play</a></li>
+                <li><a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer">Políticas de Privacidad y Seguridad en Firebase</a></li>
+            </ul>
+
+            <h2>7. Cambios en esta Política de Privacidad</h2>
+            <p>
+                Es posible que actualicemos nuestra Política de Privacidad periódicamente para reflejar cambios en nuestras prácticas o exigencias legales. Te recomendamos revisar esta página de vez en cuando para estar informado sobre cualquier actualización.
+            </p>
+
+            <div class="footer">
+                Última actualización: 15 de junio de 2026<br>
+                Contacto: susanacordobaserrano@gmail.com
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
