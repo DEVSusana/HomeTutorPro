@@ -37,6 +37,7 @@ class SettingsViewModel @Inject constructor(
     private val createBackupUseCase: ICreateBackupUseCase,
     private val restoreBackupUseCase: IRestoreBackupUseCase,
     private val showTestNotificationUseCase: IShowTestNotificationUseCase,
+    private val logoutUseCase: com.devsusana.hometutorpro.domain.usecases.ILogoutUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -129,5 +130,12 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissBackupMessage() {
         _backupState.value = false to null
+    }
+
+    fun logout(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            logoutUseCase()
+            onComplete()
+        }
     }
 }

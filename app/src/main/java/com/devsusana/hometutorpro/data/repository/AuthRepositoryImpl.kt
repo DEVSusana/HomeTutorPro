@@ -126,6 +126,7 @@ class AuthRepositoryImpl @Inject constructor(
             return Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
             // Network error or other transient failure — try local fallback
+            android.util.Log.e("AuthRepositoryImpl", "Firebase login failed, trying local fallback", e)
             firebaseError = e
         }
 
@@ -172,12 +173,18 @@ class AuthRepositoryImpl @Inject constructor(
                 _currentUser.value = domainUser
                 Result.Success(domainUser)
             } else {
+                android.util.Log.e("AuthRepositoryImpl", "Registration failed: firebaseUser is null")
                 Result.Error(DomainError.Unknown)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
             // Explicit error: do NOT silently login
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed: user already exists", e)
             Result.Error(DomainError.UserAlreadyExists)
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed: network error", e)
+            Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed with unexpected exception", e)
             Result.Error(DomainError.Unknown)
         }
     }

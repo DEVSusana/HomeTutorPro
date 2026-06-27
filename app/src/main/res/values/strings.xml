@@ -45,6 +45,8 @@
     <string name="register_error_short_password">Password must be at least 6 characters</string>
     <string name="register_error_registration_failed">Registration failed</string>
     <string name="register_error_registration_failed_message">Registration failed. Please try again.</string>
+    <string name="register_error_user_already_exists">User already exists. Please try logging in.</string>
+    <string name="register_error_network">Network error. Please check your internet connection and try again.</string>
 
     <!-- Navigation -->
     <string name="weekly_schedule">Weekly Schedule</string>

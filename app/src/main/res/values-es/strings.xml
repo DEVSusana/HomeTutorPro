@@ -41,6 +41,8 @@
     <string name="register_error_short_password">La contraseña debe tener al menos 6 caracteres</string>
     <string name="register_error_registration_failed">Falló el registro</string>
     <string name="register_error_registration_failed_message">Falló el registro. Por favor, inténtalo de nuevo.</string>
+    <string name="register_error_user_already_exists">El usuario ya existe. Por favor, intenta iniciar sesión.</string>
+    <string name="register_error_network">Error de red. Por favor, comprueba tu conexión a internet e inténtalo de nuevo.</string>
 
     <!-- Navigation -->
     <string name="weekly_schedule">Horario Semanal</string>

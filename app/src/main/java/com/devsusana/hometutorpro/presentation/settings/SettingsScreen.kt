@@ -89,7 +89,11 @@ fun SettingsScreen(
         },
         onThemeModeChange = viewModel::onThemeModeChange,
         onDebugPremiumToggle = viewModel::onDebugPremiumToggle,
-        onLogoutClick = onLogoutClick,
+        onLogoutClick = {
+            viewModel.logout {
+                onLogoutClick()
+            }
+        },
         onDismissBackupMessage = viewModel::dismissBackupMessage
     )
 }
