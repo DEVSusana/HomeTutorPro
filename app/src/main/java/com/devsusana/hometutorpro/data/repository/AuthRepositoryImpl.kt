@@ -126,6 +126,7 @@ class AuthRepositoryImpl @Inject constructor(
             return Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
             // Network error or other transient failure — try local fallback
+            android.util.Log.e("AuthRepositoryImpl", "Firebase login failed, trying local fallback", e)
             firebaseError = e
         }
 
@@ -172,12 +173,18 @@ class AuthRepositoryImpl @Inject constructor(
                 _currentUser.value = domainUser
                 Result.Success(domainUser)
             } else {
+                android.util.Log.e("AuthRepositoryImpl", "Registration failed: firebaseUser is null")
                 Result.Error(DomainError.Unknown)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
             // Explicit error: do NOT silently login
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed: user already exists", e)
             Result.Error(DomainError.UserAlreadyExists)
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed: network error", e)
+            Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed with unexpected exception", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -252,6 +259,27 @@ class AuthRepositoryImpl @Inject constructor(
 
             Result.Success(Unit)
         } catch (e: Exception) {
+            Result.Error(DomainError.Unknown)
+        }
+    }
+
+    override suspend fun deleteAccount(): Result<Unit, DomainError> {
+        return try {
+            val firebaseUser = firebaseAuth.currentUser
+            if (firebaseUser != null) {
+                firebaseUser.delete().await()
+            }
+
+            authManager.clearCredentials()
+            _currentUser.value = null
+
+            kotlinx.coroutines.withContext(Dispatchers.IO) {
+                syncMetadataDao.deleteAllMetadata()
+                syncScheduler.cancelAllSync()
+            }
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account", e)
             Result.Error(DomainError.Unknown)
         }
     }

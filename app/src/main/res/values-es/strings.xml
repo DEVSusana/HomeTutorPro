@@ -41,6 +41,8 @@
     <string name="register_error_short_password">La contraseña debe tener al menos 6 caracteres</string>
     <string name="register_error_registration_failed">Falló el registro</string>
     <string name="register_error_registration_failed_message">Falló el registro. Por favor, inténtalo de nuevo.</string>
+    <string name="register_error_user_already_exists">El usuario ya existe. Por favor, intenta iniciar sesión.</string>
+    <string name="register_error_network">Error de red. Por favor, comprueba tu conexión a internet e inténtalo de nuevo.</string>
 
     <!-- Navigation -->
     <string name="weekly_schedule">Horario Semanal</string>
@@ -459,6 +461,10 @@
     <string name="settings_debug">Depuración</string>
     <string name="settings_account">Cuenta</string>
     <string name="settings_logout">Cerrar sesión</string>
+    <string name="settings_delete_account">Eliminar cuenta</string>
+    <string name="settings_delete_account_confirm_title">¿Eliminar cuenta?</string>
+    <string name="settings_delete_account_confirm_desc">¿Estás seguro de que deseas eliminar tu cuenta de forma permanente? Esta acción no se puede deshacer y todos los datos de tus estudiantes y horarios semanales se borrarán del servidor y de este dispositivo.</string>
+    <string name="settings_delete_account_btn_confirm">Eliminar permanentemente</string>
     <string name="settings_debug_premium">Modo Premium de Depuración</string>
     <string name="settings_premium_status">Estado Premium</string>
     <string name="settings_premium_active">Activo</string>

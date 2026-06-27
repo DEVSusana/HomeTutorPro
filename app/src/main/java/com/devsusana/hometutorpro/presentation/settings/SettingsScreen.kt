@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -67,6 +68,34 @@ fun SettingsScreen(
         uri?.let { viewModel.importBackup(it) }
     }
 
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text(stringResource(R.string.settings_delete_account_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_delete_account_confirm_desc)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        viewModel.deleteAccount {
+                            onLogoutClick()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.settings_delete_account_btn_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
     SettingsContent(
         state = state,
         onEditProfileClick = onEditProfileClick,
@@ -89,7 +118,14 @@ fun SettingsScreen(
         },
         onThemeModeChange = viewModel::onThemeModeChange,
         onDebugPremiumToggle = viewModel::onDebugPremiumToggle,
-        onLogoutClick = onLogoutClick,
+        onLogoutClick = {
+            viewModel.logout {
+                onLogoutClick()
+            }
+        },
+        onDeleteAccountClick = {
+            showDeleteConfirmation = true
+        },
         onDismissBackupMessage = viewModel::dismissBackupMessage
     )
 }
@@ -107,6 +143,7 @@ fun SettingsContent(
     onThemeModeChange: (SettingsManager.ThemeMode) -> Unit,
     onDebugPremiumToggle: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
+    onDeleteAccountClick: () -> Unit,
     onDismissBackupMessage: () -> Unit
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -250,13 +287,22 @@ fun SettingsContent(
                 HorizontalDivider()
             }
             
-            // Logout
+            // Logout & Delete Account
             SettingsSectionTitle("")
             
             SettingsItem(
                 icon = Icons.AutoMirrored.Filled.ExitToApp,
                 title = stringResource(R.string.settings_logout),
                 onClick = onLogoutClick,
+                textColor = MaterialTheme.colorScheme.error
+            )
+            
+            HorizontalDivider()
+            
+            SettingsItem(
+                icon = Icons.Default.Delete,
+                title = stringResource(R.string.settings_delete_account),
+                onClick = onDeleteAccountClick,
                 textColor = MaterialTheme.colorScheme.error
             )
             
@@ -434,6 +480,7 @@ private fun SettingsContentPreview() {
             onThemeModeChange = {},
             onDebugPremiumToggle = {},
             onLogoutClick = {},
+            onDeleteAccountClick = {},
             onDismissBackupMessage = {}
         )
     }
