@@ -442,6 +442,10 @@
     <string name="settings_debug">Debug</string>
     <string name="settings_account">Account</string>
     <string name="settings_logout">Logout</string>
+    <string name="settings_delete_account">Delete Account</string>
+    <string name="settings_delete_account_confirm_title">Delete Account?</string>
+    <string name="settings_delete_account_confirm_desc">Are you sure you want to delete your account permanently? This action cannot be undone and all your student data and weekly schedules will be deleted from the server and this device.</string>
+    <string name="settings_delete_account_btn_confirm">Delete permanently</string>
     <string name="settings_debug_premium">Debug Premium Mode</string>
     <string name="settings_premium_status">Premium Status</string>
     <string name="settings_premium_active">Active</string>

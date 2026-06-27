@@ -263,6 +263,27 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun deleteAccount(): Result<Unit, DomainError> {
+        return try {
+            val firebaseUser = firebaseAuth.currentUser
+            if (firebaseUser != null) {
+                firebaseUser.delete().await()
+            }
+
+            authManager.clearCredentials()
+            _currentUser.value = null
+
+            kotlinx.coroutines.withContext(Dispatchers.IO) {
+                syncMetadataDao.deleteAllMetadata()
+                syncScheduler.cancelAllSync()
+            }
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account", e)
+            Result.Error(DomainError.Unknown)
+        }
+    }
+
     suspend fun linkToFirebase(email: String, password: String, name: String): Result<User, DomainError> {
         return try {
             val result = firebaseAuth.createUserWithEmailAndPassword(email, password).await()

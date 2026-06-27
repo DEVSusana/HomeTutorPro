@@ -38,6 +38,7 @@ class SettingsViewModel @Inject constructor(
     private val restoreBackupUseCase: IRestoreBackupUseCase,
     private val showTestNotificationUseCase: IShowTestNotificationUseCase,
     private val logoutUseCase: com.devsusana.hometutorpro.domain.usecases.ILogoutUseCase,
+    private val deleteAccountUseCase: com.devsusana.hometutorpro.domain.usecases.IDeleteAccountUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -135,6 +136,13 @@ class SettingsViewModel @Inject constructor(
     fun logout(onComplete: () -> Unit) {
         viewModelScope.launch {
             logoutUseCase()
+            onComplete()
+        }
+    }
+
+    fun deleteAccount(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            deleteAccountUseCase()
             onComplete()
         }
     }

@@ -461,6 +461,10 @@
     <string name="settings_debug">Depuración</string>
     <string name="settings_account">Cuenta</string>
     <string name="settings_logout">Cerrar sesión</string>
+    <string name="settings_delete_account">Eliminar cuenta</string>
+    <string name="settings_delete_account_confirm_title">¿Eliminar cuenta?</string>
+    <string name="settings_delete_account_confirm_desc">¿Estás seguro de que deseas eliminar tu cuenta de forma permanente? Esta acción no se puede deshacer y todos los datos de tus estudiantes y horarios semanales se borrarán del servidor y de este dispositivo.</string>
+    <string name="settings_delete_account_btn_confirm">Eliminar permanentemente</string>
     <string name="settings_debug_premium">Modo Premium de Depuración</string>
     <string name="settings_premium_status">Estado Premium</string>
     <string name="settings_premium_active">Activo</string>
