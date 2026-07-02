@@ -450,12 +450,12 @@
     <string name="settings_delete_account_error_recent_login">For security reasons, you must log out and log in again before deleting your account.</string>
     <string name="settings_delete_account_error_network">Network error. Please check your internet connection and try again.</string>
     <string name="settings_delete_account_error_unknown">Failed to delete account. Please try again later.</string>
-    <string name="onboarding_page1_title">Organize Your Classes</string>
-    <string name="onboarding_page1_desc">Easily manage your students, subjects, and weekly tutoring schedules in one place.</string>
+    <string name="onboarding_page1_title">100% Local &amp; Secure</string>
+    <string name="onboarding_page1_desc">All your student data and tutoring schedules are stored safely on your device. Absolutely private and offline-first.</string>
     <string name="onboarding_page2_title">Payments &amp; Balances</string>
     <string name="onboarding_page2_desc">Keep exact track of hours worked, payments received, and pending balances for each student.</string>
-    <string name="onboarding_page3_title">Full Synchronization</string>
-    <string name="onboarding_page3_desc">Your data is always safe. Sync with the cloud (Premium) and work offline whenever you need to.</string>
+    <string name="onboarding_page3_title">Notes &amp; Material</string>
+    <string name="onboarding_page3_desc">Save class notes and keep resources organized. All records are stored locally for fast access anytime.</string>
     <string name="onboarding_btn_skip">Skip</string>
     <string name="onboarding_btn_next">Next</string>
     <string name="onboarding_btn_start">Get Started</string>

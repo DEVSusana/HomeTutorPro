@@ -469,12 +469,12 @@
     <string name="settings_delete_account_error_recent_login">Por razones de seguridad, debes cerrar sesión e iniciar sesión de nuevo antes de eliminar tu cuenta.</string>
     <string name="settings_delete_account_error_network">Error de red. Comprueba tu conexión a Internet e inténtalo de nuevo.</string>
     <string name="settings_delete_account_error_unknown">Error al eliminar la cuenta. Por favor, inténtalo de nuevo más tarde.</string>
-    <string name="onboarding_page1_title">Organiza tus Clases</string>
-    <string name="onboarding_page1_desc">Gestiona tus estudiantes, asignaturas y horarios de tutorías en un solo lugar de forma sencilla.</string>
+    <string name="onboarding_page1_title">100% Local y Seguro</string>
+    <string name="onboarding_page1_desc">Todos los datos de tus alumnos y tus horarios se guardan de forma segura en tu dispositivo. Máxima privacidad sin depender de internet.</string>
     <string name="onboarding_page2_title">Pagos y Balances</string>
     <string name="onboarding_page2_desc">Lleva un control exacto de las horas trabajadas, pagos recibidos y balances pendientes por cada estudiante.</string>
-    <string name="onboarding_page3_title">Sincronización Total</string>
-    <string name="onboarding_page3_desc">Tus datos siempre a salvo. Sincroniza con la nube (Premium) y trabaja sin conexión cuando lo necesites.</string>
+    <string name="onboarding_page3_title">Notas y Materiales</string>
+    <string name="onboarding_page3_desc">Escribe apuntes de tus clases y organiza los materiales compartidos. Todo se almacena localmente para un acceso rápido y fluido.</string>
     <string name="onboarding_btn_skip">Saltar</string>
     <string name="onboarding_btn_next">Siguiente</string>
     <string name="onboarding_btn_start">Comenzar</string>

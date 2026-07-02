@@ -24,6 +24,21 @@ fun NavGraphBuilder.mainGraph(navController: NavController) {
                 navController.navigate(Route.Dashboard) {
                     popUpTo(Route.Splash) { inclusive = true }
                 }
+            },
+            onNavigateToOnboarding = {
+                navController.navigate(Route.Onboarding) {
+                    popUpTo(Route.Splash) { inclusive = true }
+                }
+            }
+        )
+    }
+
+    composable<Route.Onboarding> {
+        com.devsusana.hometutorpro.presentation.onboarding.OnboardingScreen(
+            onOnboardingComplete = {
+                navController.navigate(Route.Login) {
+                    popUpTo(Route.Onboarding) { inclusive = true }
+                }
             }
         )
     }
