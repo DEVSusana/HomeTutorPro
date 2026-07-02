@@ -7,5 +7,5 @@ import com.devsusana.hometutorpro.domain.core.Result
  * Usecase contract for deleting the user account.
  */
 interface IDeleteAccountUseCase {
-    suspend operator fun invoke(): Result<Unit, DomainError>
+    suspend operator fun invoke(password: String): Result<Unit, DomainError>
 }

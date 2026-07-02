@@ -9,5 +9,5 @@ import javax.inject.Inject
  */
 class DeleteAccountUseCase @Inject constructor(private val repository: AuthRepository) :
     IDeleteAccountUseCase {
-    override suspend operator fun invoke() = repository.deleteAccount()
+    override suspend operator fun invoke(password: String) = repository.deleteAccount(password)
 }

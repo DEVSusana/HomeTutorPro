@@ -12,6 +12,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.devsusana.hometutorpro.di.ApplicationScope
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.auth.EmailAuthProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -193,11 +194,7 @@ class AuthRepositoryImpl @Inject constructor(
         firebaseAuth.signOut()
         authManager.clearCredentials()
         _currentUser.value = null
-        
-        kotlinx.coroutines.withContext(Dispatchers.IO) {
-            syncMetadataDao.deleteAllMetadata()
-            syncScheduler.cancelAllSync()
-        }
+        syncScheduler.cancelAllSync()
     }
     
     override suspend fun updateProfile(
@@ -263,21 +260,37 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteAccount(): Result<Unit, DomainError> {
+    override suspend fun deleteAccount(password: String): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
+                val email = firebaseUser.email ?: return Result.Error(DomainError.UserNotFound)
+                val credential = EmailAuthProvider.getCredential(email, password)
+                firebaseUser.reauthenticate(credential).await()
                 firebaseUser.delete().await()
             }
 
             authManager.clearCredentials()
             _currentUser.value = null
 
-            kotlinx.coroutines.withContext(Dispatchers.IO) {
-                syncMetadataDao.deleteAllMetadata()
-                syncScheduler.cancelAllSync()
+            internalScope.launch(Dispatchers.IO) {
+                try {
+                    syncMetadataDao.deleteAllMetadata()
+                    syncScheduler.cancelAllSync()
+                } catch (e: Exception) {
+                    android.util.Log.e("AuthRepositoryImpl", "Failed to clear DB on delete", e)
+                }
             }
             Result.Success(Unit)
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: invalid credentials", e)
+            Result.Error(DomainError.InvalidCredentials)
+        } catch (e: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: recent login required", e)
+            Result.Error(DomainError.RecentLoginRequired)
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: network error", e)
+            Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
             android.util.Log.e("AuthRepositoryImpl", "Failed to delete account", e)
             Result.Error(DomainError.Unknown)

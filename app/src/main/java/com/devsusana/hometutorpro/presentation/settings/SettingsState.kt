@@ -9,5 +9,6 @@ data class SettingsState(
     val isDebugPremium: Boolean = false,
     val isBackupLoading: Boolean = false,
     val backupMessage: String? = null,
-    val isBackupSuccess: Boolean = false
+    val isBackupSuccess: Boolean = false,
+    val deleteAccountError: Int? = null
 )

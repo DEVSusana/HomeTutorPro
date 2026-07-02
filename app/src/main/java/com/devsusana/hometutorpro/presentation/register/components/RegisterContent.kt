@@ -1,11 +1,13 @@
 package com.devsusana.hometutorpro.presentation.register.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
@@ -62,21 +64,11 @@ fun RegisterContent(
             verticalArrangement = Arrangement.Center
         ) {
             // App Logo / Icon
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(80.dp),
-                shadowElevation = 8.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.School,
-                        contentDescription = stringResource(R.string.cd_app_logo),
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-            }
+            Image(
+                painter = painterResource(id = R.drawable.ic_app_icon),
+                contentDescription = stringResource(R.string.cd_app_logo),
+                modifier = Modifier.size(80.dp)
+            )
             
             Spacer(modifier = Modifier.height(24.dp))
             

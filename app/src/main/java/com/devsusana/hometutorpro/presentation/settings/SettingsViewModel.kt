@@ -43,14 +43,24 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _backupState = MutableStateFlow(Pair<Boolean, String?>(false, null))
+    private val _deleteAccountError = MutableStateFlow<Int?>(null)
 
     val state: StateFlow<SettingsState> = combine(
         settingsManager.languageFlow,
         settingsManager.themeModeFlow,
         settingsManager.classEndNotificationsFlow,
         settingsManager.isDebugPremiumFlow,
-        _backupState
-    ) { language, themeMode, classEndNotifications, isDebugPremium, backupInfo ->
+        _backupState,
+        _deleteAccountError
+    ) { array ->
+        val language = array[0] as String
+        val themeMode = array[1] as SettingsManager.ThemeMode
+        val classEndNotifications = array[2] as Boolean
+        val isDebugPremium = array[3] as Boolean
+        @Suppress("UNCHECKED_CAST")
+        val backupInfo = array[4] as Pair<Boolean, String?>
+        val deleteError = array[5] as? Int
+
         SettingsState(
             language = language,
             themeMode = themeMode,
@@ -58,7 +68,8 @@ class SettingsViewModel @Inject constructor(
             isDebugPremium = isDebugPremium,
             isBackupLoading = backupInfo.first,
             backupMessage = backupInfo.second,
-            isBackupSuccess = backupInfo.second != null && !backupInfo.first
+            isBackupSuccess = backupInfo.second != null && !backupInfo.first,
+            deleteAccountError = deleteError
         )
     }.stateIn(
         scope = viewModelScope,
@@ -140,10 +151,31 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun deleteAccount(onComplete: () -> Unit) {
+    fun deleteAccount(password: String, onComplete: () -> Unit) {
         viewModelScope.launch {
-            deleteAccountUseCase()
-            onComplete()
+            _deleteAccountError.value = null
+            when (val result = deleteAccountUseCase(password)) {
+                is com.devsusana.hometutorpro.domain.core.Result.Success -> {
+                    onComplete()
+                }
+                is com.devsusana.hometutorpro.domain.core.Result.Error -> {
+                    val messageRes = when (result.error) {
+                        is com.devsusana.hometutorpro.domain.core.DomainError.InvalidCredentials ->
+                            R.string.login_error_invalid_credentials
+                        is com.devsusana.hometutorpro.domain.core.DomainError.RecentLoginRequired ->
+                            R.string.settings_delete_account_error_recent_login
+                        is com.devsusana.hometutorpro.domain.core.DomainError.NetworkError ->
+                            R.string.settings_delete_account_error_network
+                        else ->
+                            R.string.settings_delete_account_error_unknown
+                    }
+                    _deleteAccountError.value = messageRes
+                }
+            }
         }
+    }
+
+    fun dismissDeleteAccountError() {
+        _deleteAccountError.value = null
     }
 }
