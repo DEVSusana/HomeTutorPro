@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
@@ -169,6 +171,53 @@ fun RegisterContent(
 
                             
                         }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = stringResource(R.string.register_legal_disclaimer),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                        Text(
+                            text = stringResource(R.string.register_legal_terms),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                            ),
+                            modifier = Modifier.clickable {
+                                uriHandler.openUri("https://hometutorpro.web.app/terms_of_use.html")
+                            }
+                        )
+                        Text(
+                            text = "  •  ",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            text = stringResource(R.string.register_legal_privacy),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                            ),
+                            modifier = Modifier.clickable {
+                                uriHandler.openUri("https://hometutorpro.web.app/privacy_policy.html")
+                            }
+                        )
                     }
                 }
             }

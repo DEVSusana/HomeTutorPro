@@ -459,6 +459,12 @@
     <string name="onboarding_btn_skip">Skip</string>
     <string name="onboarding_btn_next">Next</string>
     <string name="onboarding_btn_start">Get Started</string>
+    <string name="settings_legal_title">Legal</string>
+    <string name="settings_terms_of_use">Terms of Use</string>
+    <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="register_legal_disclaimer">By registering, you agree to our</string>
+    <string name="register_legal_terms">Terms of Use</string>
+    <string name="register_legal_privacy">Privacy Policy</string>
     <string name="settings_debug_premium">Debug Premium Mode</string>
     <string name="settings_premium_status">Premium Status</string>
     <string name="settings_premium_active">Active</string>

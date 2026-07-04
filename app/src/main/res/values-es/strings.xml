@@ -478,6 +478,12 @@
     <string name="onboarding_btn_skip">Saltar</string>
     <string name="onboarding_btn_next">Siguiente</string>
     <string name="onboarding_btn_start">Comenzar</string>
+    <string name="settings_legal_title">Legal</string>
+    <string name="settings_terms_of_use">Condiciones de Uso</string>
+    <string name="settings_privacy_policy">Política de Privacidad</string>
+    <string name="register_legal_disclaimer">Al registrarte, aceptas nuestras</string>
+    <string name="register_legal_terms">Condiciones de Uso</string>
+    <string name="register_legal_privacy">Política de Privacidad</string>
     <string name="settings_debug_premium">Modo Premium de Depuración</string>
     <string name="settings_premium_status">Estado Premium</string>
     <string name="settings_premium_active">Activo</string>

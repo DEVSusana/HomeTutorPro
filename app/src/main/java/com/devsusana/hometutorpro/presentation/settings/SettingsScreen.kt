@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -331,6 +333,29 @@ fun SettingsContent(
                 
                 HorizontalDivider()
             }
+            
+            HorizontalDivider()
+
+            // Legal Section
+            SettingsSectionTitle(stringResource(R.string.settings_legal_title))
+            
+            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+
+            SettingsItem(
+                icon = Icons.Default.Description,
+                title = stringResource(R.string.settings_terms_of_use),
+                onClick = { uriHandler.openUri("https://hometutorpro.web.app/terms_of_use.html") }
+            )
+            
+            HorizontalDivider()
+            
+            SettingsItem(
+                icon = Icons.Default.Info,
+                title = stringResource(R.string.settings_privacy_policy),
+                onClick = { uriHandler.openUri("https://hometutorpro.web.app/privacy_policy.html") }
+            )
+
+            HorizontalDivider()
             
             // Logout & Delete Account
             SettingsSectionTitle("")
