@@ -19,8 +19,8 @@ android {
         applicationId = "com.devsusana.hometutorpro"
         minSdk = 24
         targetSdk = 35
-        versionCode = 102
-        versionName = "1.0.2"
+        versionCode = 103
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "com.devsusana.hometutorpro.CustomTestRunner"
     }
@@ -76,6 +76,8 @@ android {
             }
         }
         debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
             isMinifyEnabled = false
             enableUnitTestCoverage = true
             enableAndroidTestCoverage = true

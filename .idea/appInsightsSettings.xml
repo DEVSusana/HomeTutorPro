@@ -23,8 +23,8 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.devsusana.hometutorpro" />
-                  <option name="mobileSdkAppId" value="1:133704532651:android:30c7b0097a8ee110aeedee" />
+                  <option name="appId" value="com.devsusana.hometutorpro.debug" />
+                  <option name="mobileSdkAppId" value="1:133704532651:android:4c213fca03753904aeedee" />
                   <option name="projectId" value="hometutorpro" />
                   <option name="projectNumber" value="133704532651" />
                 </ConnectionSetting>

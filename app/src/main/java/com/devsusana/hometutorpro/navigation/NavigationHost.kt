@@ -114,19 +114,26 @@ fun NavigationHost() {
                         BottomNavigationBar(navController)
                     }
                 },
-                            floatingActionButton = {
-                                if (showNavigation && isLandscape) {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.cd_menu))
-                            }
-                                }
-                            }            ) { paddingValues ->
+                floatingActionButton = {
+                    if (showNavigation && isLandscape) {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.cd_menu))
+                        }
+                    }
+                }
+            ) { paddingValues ->
+                val navHostModifier = if (showNavigation) {
+                    Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                } else {
+                    Modifier.fillMaxSize()
+                }
+
                 NavHost(
                     navController = navController, 
                     startDestination = Route.Splash,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
+                    modifier = navHostModifier
                 ) {
                     mainGraph(navController)
                     authGraph(navController)

@@ -14,6 +14,10 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -69,30 +73,73 @@ fun SettingsScreen(
     }
 
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var confirmPassword by remember { mutableStateOf("") }
+    var isPasswordVisible by remember { mutableStateOf(false) }
 
     if (showDeleteConfirmation) {
         AlertDialog(
-            onDismissRequest = { showDeleteConfirmation = false },
+            onDismissRequest = {
+                showDeleteConfirmation = false
+                confirmPassword = ""
+                isPasswordVisible = false
+            },
             title = { Text(stringResource(R.string.settings_delete_account_confirm_title)) },
-            text = { Text(stringResource(R.string.settings_delete_account_confirm_desc)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.settings_delete_account_confirm_desc))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text(stringResource(R.string.settings_delete_account_confirm_password_label)) },
+                        visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                    contentDescription = if (isPasswordVisible) stringResource(R.string.hide_password) else stringResource(R.string.show_password)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
+                        val pw = confirmPassword
                         showDeleteConfirmation = false
-                        viewModel.deleteAccount {
+                        confirmPassword = ""
+                        isPasswordVisible = false
+                        viewModel.deleteAccount(pw) {
                             onLogoutClick()
                         }
                     },
+                    enabled = confirmPassword.length >= 6,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text(stringResource(R.string.settings_delete_account_btn_confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) {
+                TextButton(onClick = {
+                    showDeleteConfirmation = false
+                    confirmPassword = ""
+                    isPasswordVisible = false
+                }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
+        )
+    }
+
+    if (state.deleteAccountError != null) {
+        FeedbackDialog(
+            isSuccess = false,
+            message = { Text(stringResource(id = state.deleteAccountError!!)) },
+            onDismiss = viewModel::dismissDeleteAccountError
         )
     }
 
@@ -286,6 +333,29 @@ fun SettingsContent(
                 
                 HorizontalDivider()
             }
+            
+            HorizontalDivider()
+
+            // Legal Section
+            SettingsSectionTitle(stringResource(R.string.settings_legal_title))
+            
+            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+
+            SettingsItem(
+                icon = Icons.Default.Description,
+                title = stringResource(R.string.settings_terms_of_use),
+                onClick = { uriHandler.openUri("https://hometutorpro.web.app/terms_of_use.html") }
+            )
+            
+            HorizontalDivider()
+            
+            SettingsItem(
+                icon = Icons.Default.Info,
+                title = stringResource(R.string.settings_privacy_policy),
+                onClick = { uriHandler.openUri("https://hometutorpro.web.app/privacy_policy.html") }
+            )
+
+            HorizontalDivider()
             
             // Logout & Delete Account
             SettingsSectionTitle("")
