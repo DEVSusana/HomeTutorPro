@@ -195,6 +195,13 @@ class AuthRepositoryImpl @Inject constructor(
         authManager.clearCredentials()
         _currentUser.value = null
         syncScheduler.cancelAllSync()
+        internalScope.launch(Dispatchers.IO) {
+            try {
+                syncMetadataDao.deleteAllMetadata()
+            } catch (e: Exception) {
+                android.util.Log.e("AuthRepositoryImpl", "Failed to clear sync metadata on logout", e)
+            }
+        }
     }
     
     override suspend fun updateProfile(
@@ -268,6 +275,13 @@ class AuthRepositoryImpl @Inject constructor(
                 val credential = EmailAuthProvider.getCredential(email, password)
                 firebaseUser.reauthenticate(credential).await()
                 firebaseUser.delete().await()
+            } else {
+                val localEmail = authManager.getEmail()
+                if (localEmail != null) {
+                    if (!authManager.validateCredentials(localEmail, password)) {
+                        return Result.Error(DomainError.InvalidCredentials)
+                    }
+                }
             }
 
             authManager.clearCredentials()
