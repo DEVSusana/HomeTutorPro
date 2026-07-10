@@ -2,6 +2,7 @@ package com.devsusana.hometutorpro.presentation.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Visibility
@@ -25,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -143,9 +146,117 @@ fun SettingsScreen(
         )
     }
 
+    if (state.showChangePasswordDialog) {
+        var newPassword by remember { mutableStateOf("") }
+        var confirmPasswordVal by remember { mutableStateOf("") }
+        var isNewPasswordVisible by remember { mutableStateOf(false) }
+        var isConfirmPasswordVisible by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { viewModel.showChangePasswordDialog(false) },
+            title = {
+                Text(
+                    text = stringResource(R.string.settings_change_password_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = stringResource(R.string.settings_change_password_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text(stringResource(R.string.settings_change_password_new_label)) },
+                        visualTransformation = if (isNewPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { isNewPasswordVisible = !isNewPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isNewPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                    contentDescription = if (isNewPasswordVisible) stringResource(R.string.hide_password) else stringResource(R.string.show_password)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = confirmPasswordVal,
+                        onValueChange = { confirmPasswordVal = it },
+                        label = { Text(stringResource(R.string.settings_change_password_confirm_label)) },
+                        visualTransformation = if (isConfirmPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { isConfirmPasswordVisible = !isConfirmPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isConfirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                    contentDescription = if (isConfirmPasswordVisible) stringResource(R.string.hide_password) else stringResource(R.string.show_password)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    )
+                    if (state.changePasswordError != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(state.changePasswordError!!),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.changePassword(newPassword, confirmPasswordVal) },
+                    enabled = !state.isChangingPassword && newPassword.isNotBlank() && confirmPasswordVal.isNotBlank(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                ) {
+                    if (state.isChangingPassword) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(stringResource(R.string.settings_change_password_submit))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { viewModel.showChangePasswordDialog(false) },
+                    enabled = !state.isChangingPassword
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+        )
+    }
+
+    if (state.changePasswordSuccess) {
+        FeedbackDialog(
+            isSuccess = true,
+            message = { Text(stringResource(R.string.settings_change_password_success)) },
+            onDismiss = viewModel::clearChangePasswordFeedback
+        )
+    }
+
     SettingsContent(
         state = state,
         onEditProfileClick = onEditProfileClick,
+        onChangePasswordClick = { viewModel.showChangePasswordDialog(true) },
         onExportBackup = {
             val fileName = "hometutor_backup_${System.currentTimeMillis()}.json"
             createDocumentLauncher.launch(fileName)
@@ -182,6 +293,7 @@ fun SettingsScreen(
 fun SettingsContent(
     state: SettingsState,
     onEditProfileClick: () -> Unit,
+    onChangePasswordClick: () -> Unit,
     onExportBackup: () -> Unit,
     onImportBackup: () -> Unit,
     onClassEndNotificationsToggle: (Boolean) -> Unit,
@@ -197,9 +309,14 @@ fun SettingsContent(
     var showThemeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) }
+                title = { Text(stringResource(R.string.settings_title)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         }
     ) { padding ->
@@ -211,117 +328,71 @@ fun SettingsContent(
         ) {
             // Account Section
             SettingsSectionTitle(stringResource(R.string.settings_account))
-            
-            // Edit Profile
-            SettingsItem(
-                icon = Icons.Default.Person,
-                title = stringResource(R.string.settings_edit_profile),
-                onClick = onEditProfileClick
-            )
-            
-            HorizontalDivider()
+            Card(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                SettingsItem(
+                    icon = Icons.Default.Person,
+                    title = stringResource(R.string.settings_edit_profile),
+                    onClick = onEditProfileClick
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingsItem(
+                    icon = Icons.Default.Lock,
+                    title = stringResource(R.string.settings_change_password),
+                    onClick = onChangePasswordClick
+                )
+            }
 
             // Backup Section
             SettingsSectionTitle(stringResource(R.string.settings_backup_title))
-            
-            SettingsItem(
-                icon = Icons.Default.Save,
-                title = stringResource(R.string.settings_backup_export),
-                subtitle = stringResource(R.string.settings_backup_desc),
-                onClick = onExportBackup
-            )
-
-            SettingsItem(
-                icon = Icons.Default.UploadFile,
-                title = stringResource(R.string.settings_backup_import),
-                onClick = onImportBackup
-            )
-
-            if (state.isBackupLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Card(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                SettingsItem(
+                    icon = Icons.Default.Save,
+                    title = stringResource(R.string.settings_backup_export),
+                    subtitle = stringResource(R.string.settings_backup_desc),
+                    onClick = onExportBackup
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingsItem(
+                    icon = Icons.Default.UploadFile,
+                    title = stringResource(R.string.settings_backup_import),
+                    onClick = onImportBackup
+                )
+                if (state.isBackupLoading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
             }
-
-            HorizontalDivider()
             
             // Notifications Section
             SettingsSectionTitle(stringResource(R.string.settings_notifications))
-            
-            SettingsItem(
-                icon = Icons.Default.Notifications,
-                title = stringResource(R.string.settings_class_end_notifications),
-                subtitle = stringResource(R.string.settings_class_end_notifications_desc),
-                onClick = { onClassEndNotificationsToggle(!state.classEndNotificationsEnabled) },
-                trailing = {
-                    val stateOnDescription = stringResource(R.string.cd_state_on)
-                    val stateOffDescription = stringResource(R.string.cd_state_off)
-                    Switch(
-                        checked = state.classEndNotificationsEnabled,
-                        onCheckedChange = { onClassEndNotificationsToggle(it) },
-                        modifier = Modifier.semantics {
-                            stateDescription = if (state.classEndNotificationsEnabled) {
-                                stateOnDescription
-                            } else {
-                                stateOffDescription
-                            }
-                        }
-                    )
-                }
-            )
-
-            // Test Notification Button
-            TextButton(
-                onClick = onShowTestNotification,
-                modifier = Modifier.padding(start = 56.dp)
+            Card(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Text(stringResource(R.string.settings_test_alarm))
-            }
-
-            HorizontalDivider()
-            
-            // Preferences Section
-            SettingsSectionTitle(stringResource(R.string.settings_theme_dialog_title))
-            
-            // Language
-            SettingsItem(
-                icon = Icons.Default.Language,
-                title = stringResource(R.string.settings_language),
-                subtitle = if (state.language == "es") "Español" else "English",
-                onClick = { showLanguageDialog = true }
-            )
-            
-            HorizontalDivider()
-            
-            // Theme Mode
-            SettingsItem(
-                icon = Icons.Default.Palette,
-                title = stringResource(R.string.settings_theme),
-                subtitle = when (state.themeMode) {
-                    SettingsManager.ThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
-                    SettingsManager.ThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
-                    SettingsManager.ThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
-                },
-                onClick = { showThemeDialog = true }
-            )
-            
-            HorizontalDivider()
-            
-            // Debug Section (Only in Debug builds)
-            if (BuildConfig.DEBUG && false) {
-                SettingsSectionTitle(stringResource(R.string.settings_debug))
-                
                 SettingsItem(
-                    icon = Icons.Default.BugReport,
-                    title = stringResource(R.string.settings_debug_premium),
-                    subtitle = if (state.isDebugPremium) "ON" else "OFF",
-                    onClick = { onDebugPremiumToggle(!state.isDebugPremium) },
+                    icon = Icons.Default.Notifications,
+                    title = stringResource(R.string.settings_class_end_notifications),
+                    subtitle = stringResource(R.string.settings_class_end_notifications_desc),
+                    onClick = { onClassEndNotificationsToggle(!state.classEndNotificationsEnabled) },
                     trailing = {
                         val stateOnDescription = stringResource(R.string.cd_state_on)
                         val stateOffDescription = stringResource(R.string.cd_state_off)
                         Switch(
-                            checked = state.isDebugPremium,
-                            onCheckedChange = { onDebugPremiumToggle(it) },
+                            checked = state.classEndNotificationsEnabled,
+                            onCheckedChange = { onClassEndNotificationsToggle(it) },
                             modifier = Modifier.semantics {
-                                stateDescription = if (state.isDebugPremium) {
+                                stateDescription = if (state.classEndNotificationsEnabled) {
                                     stateOnDescription
                                 } else {
                                     stateOffDescription
@@ -330,53 +401,88 @@ fun SettingsContent(
                         )
                     }
                 )
-                
-                HorizontalDivider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                TextButton(
+                    onClick = onShowTestNotification,
+                    modifier = Modifier.padding(start = 56.dp, top = 4.dp, bottom = 8.dp)
+                ) {
+                    Text(stringResource(R.string.settings_test_alarm))
+                }
             }
             
-            HorizontalDivider()
+            // Preferences Section
+            SettingsSectionTitle(stringResource(R.string.settings_theme_dialog_title))
+            Card(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                SettingsItem(
+                    icon = Icons.Default.Language,
+                    title = stringResource(R.string.settings_language),
+                    subtitle = if (state.language == "es") "Español" else "English",
+                    onClick = { showLanguageDialog = true }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingsItem(
+                    icon = Icons.Default.Palette,
+                    title = stringResource(R.string.settings_theme),
+                    subtitle = when (state.themeMode) {
+                        SettingsManager.ThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
+                        SettingsManager.ThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
+                        SettingsManager.ThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
+                    },
+                    onClick = { showThemeDialog = true }
+                )
+            }
 
             // Legal Section
             SettingsSectionTitle(stringResource(R.string.settings_legal_title))
-            
             val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-
-            SettingsItem(
-                icon = Icons.Default.Description,
-                title = stringResource(R.string.settings_terms_of_use),
-                onClick = { uriHandler.openUri("https://hometutorpro.web.app/terms_of_use.html") }
-            )
+            Card(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                SettingsItem(
+                    icon = Icons.Default.Description,
+                    title = stringResource(R.string.settings_terms_of_use),
+                    onClick = { uriHandler.openUri("https://hometutorpro.web.app/terms_of_use.html") }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = stringResource(R.string.settings_privacy_policy),
+                    onClick = { uriHandler.openUri("https://hometutorpro.web.app/privacy_policy.html") }
+                )
+            }
             
-            HorizontalDivider()
+            // Actions Section
+            Spacer(modifier = Modifier.height(24.dp))
+            Card(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                SettingsItem(
+                    icon = Icons.AutoMirrored.Filled.ExitToApp,
+                    title = stringResource(R.string.settings_logout),
+                    onClick = onLogoutClick,
+                    textColor = MaterialTheme.colorScheme.error
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingsItem(
+                    icon = Icons.Default.Delete,
+                    title = stringResource(R.string.settings_delete_account),
+                    onClick = onDeleteAccountClick,
+                    textColor = MaterialTheme.colorScheme.error
+                )
+            }
             
-            SettingsItem(
-                icon = Icons.Default.Info,
-                title = stringResource(R.string.settings_privacy_policy),
-                onClick = { uriHandler.openUri("https://hometutorpro.web.app/privacy_policy.html") }
-            )
-
-            HorizontalDivider()
-            
-            // Logout & Delete Account
-            SettingsSectionTitle("")
-            
-            SettingsItem(
-                icon = Icons.AutoMirrored.Filled.ExitToApp,
-                title = stringResource(R.string.settings_logout),
-                onClick = onLogoutClick,
-                textColor = MaterialTheme.colorScheme.error
-            )
-            
-            HorizontalDivider()
-            
-            SettingsItem(
-                icon = Icons.Default.Delete,
-                title = stringResource(R.string.settings_delete_account),
-                onClick = onDeleteAccountClick,
-                textColor = MaterialTheme.colorScheme.error
-            )
-            
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(32.dp))
             
             // Version Info
             Box(
@@ -542,6 +648,7 @@ private fun SettingsContentPreview() {
                 themeMode = SettingsManager.ThemeMode.SYSTEM
             ),
             onEditProfileClick = {},
+            onChangePasswordClick = {},
             onExportBackup = {},
             onImportBackup = {},
             onClassEndNotificationsToggle = {},

@@ -15,6 +15,7 @@ import com.devsusana.hometutorpro.domain.usecases.ISetDebugPremiumUseCase
 import com.devsusana.hometutorpro.domain.usecases.ICreateBackupUseCase
 import com.devsusana.hometutorpro.domain.usecases.IRestoreBackupUseCase
 import com.devsusana.hometutorpro.domain.usecases.IShowTestNotificationUseCase
+import com.devsusana.hometutorpro.domain.usecases.IUpdatePasswordUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,11 +40,20 @@ class SettingsViewModel @Inject constructor(
     private val showTestNotificationUseCase: IShowTestNotificationUseCase,
     private val logoutUseCase: com.devsusana.hometutorpro.domain.usecases.ILogoutUseCase,
     private val deleteAccountUseCase: com.devsusana.hometutorpro.domain.usecases.IDeleteAccountUseCase,
+    private val updatePasswordUseCase: IUpdatePasswordUseCase,
     private val application: Application
 ) : ViewModel() {
 
     private val _backupState = MutableStateFlow(Pair<Boolean, String?>(false, null))
     private val _deleteAccountError = MutableStateFlow<Int?>(null)
+
+    data class ChangePasswordStatus(
+        val showDialog: Boolean = false,
+        val isLoading: Boolean = false,
+        val success: Boolean = false,
+        val error: Int? = null
+    )
+    private val _changePasswordStatus = MutableStateFlow(ChangePasswordStatus())
 
     val state: StateFlow<SettingsState> = combine(
         settingsManager.languageFlow,
@@ -51,7 +61,8 @@ class SettingsViewModel @Inject constructor(
         settingsManager.classEndNotificationsFlow,
         settingsManager.isDebugPremiumFlow,
         _backupState,
-        _deleteAccountError
+        _deleteAccountError,
+        _changePasswordStatus
     ) { array ->
         val language = array[0] as String
         val themeMode = array[1] as SettingsManager.ThemeMode
@@ -60,6 +71,7 @@ class SettingsViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val backupInfo = array[4] as Pair<Boolean, String?>
         val deleteError = array[5] as? Int
+        val pwdStatus = array[6] as ChangePasswordStatus
 
         SettingsState(
             language = language,
@@ -69,13 +81,63 @@ class SettingsViewModel @Inject constructor(
             isBackupLoading = backupInfo.first,
             backupMessage = backupInfo.second,
             isBackupSuccess = backupInfo.second != null && !backupInfo.first,
-            deleteAccountError = deleteError
+            deleteAccountError = deleteError,
+            showChangePasswordDialog = pwdStatus.showDialog,
+            isChangingPassword = pwdStatus.isLoading,
+            changePasswordSuccess = pwdStatus.success,
+            changePasswordError = pwdStatus.error
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SettingsState()
     )
+
+    fun showChangePasswordDialog(show: Boolean) {
+        _changePasswordStatus.update { it.copy(showDialog = show, error = null, success = false) }
+    }
+
+    fun changePassword(newPassword: String, confirm: String) {
+        if (newPassword != confirm) {
+            _changePasswordStatus.update { 
+                it.copy(error = R.string.settings_change_password_error_mismatch) 
+            }
+            return
+        }
+        if (newPassword.length < 6) {
+            _changePasswordStatus.update { 
+                it.copy(error = R.string.settings_change_password_error_short) 
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _changePasswordStatus.update { it.copy(isLoading = true, error = null) }
+            when (val result = updatePasswordUseCase(newPassword)) {
+                is com.devsusana.hometutorpro.domain.core.Result.Success -> {
+                    _changePasswordStatus.update { 
+                        it.copy(
+                            isLoading = false, 
+                            showDialog = false, 
+                            success = true 
+                        ) 
+                    }
+                }
+                is com.devsusana.hometutorpro.domain.core.Result.Error -> {
+                    _changePasswordStatus.update { 
+                        it.copy(
+                            isLoading = false, 
+                            error = R.string.settings_change_password_error_generic 
+                        ) 
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearChangePasswordFeedback() {
+        _changePasswordStatus.update { it.copy(success = false, error = null) }
+    }
 
     fun onLanguageChange(language: String) {
         viewModelScope.launch {

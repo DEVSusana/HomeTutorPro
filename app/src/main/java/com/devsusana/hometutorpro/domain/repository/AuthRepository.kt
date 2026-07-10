@@ -22,4 +22,5 @@ interface AuthRepository {
     ): Result<Unit, DomainError>
     suspend fun updatePassword(newPassword: String): Result<Unit, DomainError>
     suspend fun deleteAccount(password: String): Result<Unit, DomainError>
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit, DomainError>
 }

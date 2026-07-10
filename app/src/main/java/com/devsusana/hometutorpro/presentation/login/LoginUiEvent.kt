@@ -6,4 +6,8 @@ sealed interface LoginUiEvent {
     object OnTogglePasswordVisibility : LoginUiEvent
     object OnLoginClick : LoginUiEvent
     object OnRegisterClick : LoginUiEvent
+    object OnForgotPasswordClick : LoginUiEvent
+    object OnDismissForgotPasswordDialog : LoginUiEvent
+    data class OnSendPasswordResetEmail(val email: String) : LoginUiEvent
+    object OnClearResetStatus : LoginUiEvent
 }

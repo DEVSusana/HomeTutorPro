@@ -469,8 +469,8 @@
     <string name="settings_delete_account_error_recent_login">Por razones de seguridad, debes cerrar sesión e iniciar sesión de nuevo antes de eliminar tu cuenta.</string>
     <string name="settings_delete_account_error_network">Error de red. Comprueba tu conexión a Internet e inténtalo de nuevo.</string>
     <string name="settings_delete_account_error_unknown">Error al eliminar la cuenta. Por favor, inténtalo de nuevo más tarde.</string>
-    <string name="onboarding_page1_title">100% Local y Seguro</string>
-    <string name="onboarding_page1_desc">Todos los datos de tus alumnos y tus horarios se guardan de forma segura en tu dispositivo. Máxima privacidad sin depender de internet.</string>
+    <string name="onboarding_page1_title">Seguro y Offline-First</string>
+    <string name="onboarding_page1_desc">Tu cuenta se almacena de forma segura en la nube, mientras que todos los datos y horarios de tus alumnos se guardan localmente en tu dispositivo. Máxima privacidad.</string>
     <string name="onboarding_page2_title">Pagos y Balances</string>
     <string name="onboarding_page2_desc">Lleva un control exacto de las horas trabajadas, pagos recibidos y balances pendientes por cada estudiante.</string>
     <string name="onboarding_page3_title">Notas y Materiales</string>
@@ -496,6 +496,25 @@
     <string name="settings_theme_system">Sistema</string>
     <string name="settings_theme_dialog_title">Elegir Tema</string>
     <string name="settings_edit_profile">Editar Perfil</string>
+    <string name="login_forgot_password">¿Olvidaste tu contraseña?</string>
+    <string name="login_forgot_password_title">Restablecer Contraseña</string>
+    <string name="login_forgot_password_description">Introduce tu correo electrónico abajo y te enviaremos un enlace para restablecer tu contraseña.</string>
+    <string name="login_forgot_password_send">Enviar Enlace</string>
+    <string name="login_forgot_password_success">Correo de restablecimiento enviado. Revisa tu bandeja de entrada (y la carpeta de spam o correo no deseado si no lo recibes).</string>
+    <string name="login_forgot_password_error_user_not_found">No se encontró ninguna cuenta con este correo electrónico.</string>
+    <string name="login_forgot_password_error_invalid_email">Por favor, introduce un correo electrónico válido.</string>
+    <string name="login_forgot_password_error_generic">Error al enviar el correo. Por favor, inténtalo de nuevo.</string>
+    <string name="login_forgot_password_error_network">Error de red. Por favor, comprueba tu conexión a internet e inténtalo de nuevo.</string>
+    <string name="settings_change_password">Cambiar Contraseña</string>
+    <string name="settings_change_password_title">Cambiar Contraseña</string>
+    <string name="settings_change_password_description">Introduce tu nueva contraseña abajo. Debe tener al menos 6 caracteres.</string>
+    <string name="settings_change_password_new_label">Nueva Contraseña</string>
+    <string name="settings_change_password_confirm_label">Confirmar Nueva Contraseña</string>
+    <string name="settings_change_password_submit">Actualizar Contraseña</string>
+    <string name="settings_change_password_success">Contraseña actualizada con éxito.</string>
+    <string name="settings_change_password_error_mismatch">Las contraseñas no coinciden.</string>
+    <string name="settings_change_password_error_short">La contraseña debe tener al menos 6 caracteres.</string>
+    <string name="settings_change_password_error_generic">Error al actualizar la contraseña. Por favor, inténtalo de nuevo.</string>
 
     <!-- Edit Profile -->
     <string name="edit_profile_title">Editar Perfil</string>

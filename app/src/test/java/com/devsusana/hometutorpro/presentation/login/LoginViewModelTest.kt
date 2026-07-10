@@ -34,6 +34,7 @@ import org.junit.Test
 class LoginViewModelTest {
 
     private lateinit var loginUseCase: ILoginUseCase
+    private lateinit var sendPasswordResetEmailUseCase: com.devsusana.hometutorpro.domain.usecases.ISendPasswordResetEmailUseCase
     private lateinit var viewModel: LoginViewModel
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -41,7 +42,8 @@ class LoginViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         loginUseCase = mockk(relaxed = true)
-        viewModel = LoginViewModel(loginUseCase)
+        sendPasswordResetEmailUseCase = mockk(relaxed = true)
+        viewModel = LoginViewModel(loginUseCase, sendPasswordResetEmailUseCase)
     }
 
     @After

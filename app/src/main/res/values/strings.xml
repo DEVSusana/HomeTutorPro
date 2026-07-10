@@ -450,8 +450,8 @@
     <string name="settings_delete_account_error_recent_login">For security reasons, you must log out and log in again before deleting your account.</string>
     <string name="settings_delete_account_error_network">Network error. Please check your internet connection and try again.</string>
     <string name="settings_delete_account_error_unknown">Failed to delete account. Please try again later.</string>
-    <string name="onboarding_page1_title">100% Local &amp; Secure</string>
-    <string name="onboarding_page1_desc">All your student data and tutoring schedules are stored safely on your device. Absolutely private and offline-first.</string>
+    <string name="onboarding_page1_title">Secure &amp; Offline-First</string>
+    <string name="onboarding_page1_desc">Your account is stored securely in the cloud, while all your students\' data and schedules are kept safely on your device. Absolutely private.</string>
     <string name="onboarding_page2_title">Payments &amp; Balances</string>
     <string name="onboarding_page2_desc">Keep exact track of hours worked, payments received, and pending balances for each student.</string>
     <string name="onboarding_page3_title">Notes &amp; Material</string>
@@ -477,6 +477,25 @@
     <string name="settings_theme_system">System Default</string>
     <string name="settings_theme_dialog_title">Choose Theme</string>
     <string name="settings_edit_profile">Edit Profile</string>
+    <string name="login_forgot_password">Forgot Password?</string>
+    <string name="login_forgot_password_title">Reset Password</string>
+    <string name="login_forgot_password_description">Enter your email address below and we will send you a password reset link.</string>
+    <string name="login_forgot_password_send">Send Link</string>
+    <string name="login_forgot_password_success">Password reset email sent. Please check your inbox (and your spam or junk folder if you don\'t see it).</string>
+    <string name="login_forgot_password_error_user_not_found">No account found with this email.</string>
+    <string name="login_forgot_password_error_invalid_email">Please enter a valid email address.</string>
+    <string name="login_forgot_password_error_generic">Failed to send reset email. Please try again.</string>
+    <string name="login_forgot_password_error_network">Network error. Please check your internet connection and try again.</string>
+    <string name="settings_change_password">Change Password</string>
+    <string name="settings_change_password_title">Change Password</string>
+    <string name="settings_change_password_description">Enter your new password below. It must be at least 6 characters long.</string>
+    <string name="settings_change_password_new_label">New Password</string>
+    <string name="settings_change_password_confirm_label">Confirm New Password</string>
+    <string name="settings_change_password_submit">Update Password</string>
+    <string name="settings_change_password_success">Password updated successfully.</string>
+    <string name="settings_change_password_error_mismatch">Passwords do not match.</string>
+    <string name="settings_change_password_error_short">Password must be at least 6 characters.</string>
+    <string name="settings_change_password_error_generic">Failed to update password. Please try again.</string>
 
     <!-- Edit Profile -->
     <string name="edit_profile_title">Edit Profile</string>

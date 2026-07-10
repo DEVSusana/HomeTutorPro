@@ -311,6 +311,22 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit, DomainError> {
+        return try {
+            firebaseAuth.sendPasswordResetEmail(email).await()
+            Result.Success(Unit)
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidUserException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email: user not found", e)
+            Result.Error(DomainError.UserNotFound)
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email: network error", e)
+            Result.Error(DomainError.NetworkError)
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email", e)
+            Result.Error(DomainError.Unknown)
+        }
+    }
+
     suspend fun linkToFirebase(email: String, password: String, name: String): Result<User, DomainError> {
         return try {
             val result = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
