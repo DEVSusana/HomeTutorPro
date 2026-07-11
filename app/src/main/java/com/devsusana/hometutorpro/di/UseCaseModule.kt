@@ -29,6 +29,7 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.MigrateDataFro
 import com.devsusana.hometutorpro.domain.usecases.implementations.UpdateProfileUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.UpdatePasswordUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.DeleteAccountUseCase
+import com.devsusana.hometutorpro.domain.usecases.implementations.SendPasswordResetEmailUseCase
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -173,4 +174,7 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindDeleteAccountUseCase(impl: DeleteAccountUseCase): IDeleteAccountUseCase
+
+    @Binds
+    abstract fun bindSendPasswordResetEmailUseCase(impl: SendPasswordResetEmailUseCase): ISendPasswordResetEmailUseCase
 }

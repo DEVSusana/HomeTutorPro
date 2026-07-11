@@ -12,7 +12,7 @@ import javax.inject.Inject
 class UpdatePasswordUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) : IUpdatePasswordUseCase {
-    override suspend fun invoke(newPassword: String): Result<Unit, DomainError> {
-        return authRepository.updatePassword(newPassword)
+    override suspend fun invoke(currentPassword: String, newPassword: String): Result<Unit, DomainError> {
+        return authRepository.updatePassword(currentPassword, newPassword)
     }
 }

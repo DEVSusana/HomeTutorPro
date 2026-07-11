@@ -54,6 +54,7 @@ fun EditProfileContent(
 ) {
     Scaffold(
         modifier = Modifier.testTag("edit_profile_screen"),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { 
@@ -72,7 +73,12 @@ fun EditProfileContent(
                             contentDescription = stringResource(R.string.back)
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         }
     ) { padding ->
@@ -135,32 +141,7 @@ fun EditProfileContent(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Password
-                    OutlinedTextField(
-                        value = state.password,
-                        onValueChange = { onEvent(EditProfileUiEvent.PasswordChanged(it)) },
-                        label = { Text(stringResource(R.string.edit_profile_password)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("password_field"),
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                        trailingIcon = {
-                            val icon = if (state.isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
-                            val contentDesc = if (state.isPasswordVisible) stringResource(R.string.hide_password) else stringResource(R.string.show_password)
-                            
-                            IconButton(onClick = { onEvent(EditProfileUiEvent.TogglePasswordVisibility) }) {
-                                Icon(imageVector = icon, contentDescription = contentDesc)
-                            }
-                        },
-                        visualTransformation = if (state.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done
-                        )
-                    )
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Working Hours Section
                     Text(

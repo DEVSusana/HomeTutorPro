@@ -13,5 +13,5 @@ interface IUpdatePasswordUseCase {
     /**
      * Executes the use case.
      */
-    suspend operator fun invoke(newPassword: String): Result<Unit, DomainError>
+    suspend operator fun invoke(currentPassword: String, newPassword: String): Result<Unit, DomainError>
 }
