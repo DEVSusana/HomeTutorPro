@@ -507,13 +507,16 @@
     <string name="login_forgot_password_error_network">Error de red. Por favor, comprueba tu conexión a internet e inténtalo de nuevo.</string>
     <string name="settings_change_password">Cambiar Contraseña</string>
     <string name="settings_change_password_title">Cambiar Contraseña</string>
-    <string name="settings_change_password_description">Introduce tu nueva contraseña abajo. Debe tener al menos 6 caracteres.</string>
+    <string name="settings_change_password_description">Introduce tu contraseña actual y la nueva contraseña abajo. Debe tener al menos 6 caracteres.</string>
+    <string name="settings_change_password_current_label">Contraseña actual</string>
     <string name="settings_change_password_new_label">Nueva Contraseña</string>
     <string name="settings_change_password_confirm_label">Confirmar Nueva Contraseña</string>
     <string name="settings_change_password_submit">Actualizar Contraseña</string>
     <string name="settings_change_password_success">Contraseña actualizada con éxito.</string>
     <string name="settings_change_password_error_mismatch">Las contraseñas no coinciden.</string>
     <string name="settings_change_password_error_short">La contraseña debe tener al menos 6 caracteres.</string>
+    <string name="settings_change_password_error_incorrect_current">La contraseña actual es incorrecta.</string>
+    <string name="settings_change_password_error_current_blank">Por favor, introduce tu contraseña actual.</string>
     <string name="settings_change_password_error_generic">Error al actualizar la contraseña. Por favor, inténtalo de nuevo.</string>
 
     <!-- Edit Profile -->

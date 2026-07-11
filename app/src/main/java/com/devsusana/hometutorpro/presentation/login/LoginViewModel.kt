@@ -40,7 +40,7 @@ class LoginViewModel @Inject constructor(
             is LoginUiEvent.OnRegisterClick -> {
             }
             is LoginUiEvent.OnForgotPasswordClick -> {
-                _state.update { it.copy(showForgotPasswordDialog = true) }
+                _state.update { it.copy(showForgotPasswordDialog = true, error = null, errorMessage = null) }
             }
             is LoginUiEvent.OnDismissForgotPasswordDialog -> {
                 _state.update { it.copy(showForgotPasswordDialog = false, error = null, errorMessage = null) }

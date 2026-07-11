@@ -488,13 +488,16 @@
     <string name="login_forgot_password_error_network">Network error. Please check your internet connection and try again.</string>
     <string name="settings_change_password">Change Password</string>
     <string name="settings_change_password_title">Change Password</string>
-    <string name="settings_change_password_description">Enter your new password below. It must be at least 6 characters long.</string>
+    <string name="settings_change_password_description">Enter your current password and the new password below. It must be at least 6 characters long.</string>
+    <string name="settings_change_password_current_label">Current Password</string>
     <string name="settings_change_password_new_label">New Password</string>
     <string name="settings_change_password_confirm_label">Confirm New Password</string>
     <string name="settings_change_password_submit">Update Password</string>
     <string name="settings_change_password_success">Password updated successfully.</string>
     <string name="settings_change_password_error_mismatch">Passwords do not match.</string>
     <string name="settings_change_password_error_short">Password must be at least 6 characters.</string>
+    <string name="settings_change_password_error_incorrect_current">Incorrect current password.</string>
+    <string name="settings_change_password_error_current_blank">Please enter your current password.</string>
     <string name="settings_change_password_error_generic">Failed to update password. Please try again.</string>
 
     <!-- Edit Profile -->

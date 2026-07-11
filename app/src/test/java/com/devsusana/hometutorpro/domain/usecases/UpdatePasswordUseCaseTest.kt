@@ -17,18 +17,18 @@ class UpdatePasswordUseCaseTest {
 
     @Test
     fun `invoke returns Success when repository updatePassword succeeds`() = runTest {
-        coEvery { repository.updatePassword("newPassword") } returns Result.Success(Unit)
+        coEvery { repository.updatePassword("currentPassword", "newPassword") } returns Result.Success(Unit)
 
-        val result = updatePasswordUseCase("newPassword")
+        val result = updatePasswordUseCase("currentPassword", "newPassword")
 
         assert(result is Result.Success)
     }
 
     @Test
     fun `invoke returns Error when repository updatePassword fails`() = runTest {
-        coEvery { repository.updatePassword("newPassword") } returns Result.Error(DomainError.Unknown)
+        coEvery { repository.updatePassword("currentPassword", "newPassword") } returns Result.Error(DomainError.Unknown)
 
-        val result = updatePasswordUseCase("newPassword")
+        val result = updatePasswordUseCase("currentPassword", "newPassword")
 
         assert(result is Result.Error)
         assertEquals(DomainError.Unknown, (result as Result.Error).error)

@@ -251,18 +251,32 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updatePassword(newPassword: String): Result<Unit, DomainError> {
+    override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
+                val email = firebaseUser.email ?: return Result.Error(DomainError.UserNotFound)
+                val credential = EmailAuthProvider.getCredential(email, currentPassword)
+                firebaseUser.reauthenticate(credential).await()
                 firebaseUser.updatePassword(newPassword).await()
+            } else {
+                val localEmail = authManager.getEmail()
+                if (localEmail != null) {
+                    if (!authManager.validateCredentials(localEmail, currentPassword)) {
+                        return Result.Error(DomainError.InvalidCredentials)
+                    }
+                }
             }
 
             // Always update local manager
             authManager.updatePassword(newPassword)
 
             Result.Success(Unit)
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to update password: invalid credentials", e)
+            Result.Error(DomainError.InvalidCredentials)
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to update password", e)
             Result.Error(DomainError.Unknown)
         }
     }

@@ -147,8 +147,10 @@ fun SettingsScreen(
     }
 
     if (state.showChangePasswordDialog) {
+        var currentPassword by remember { mutableStateOf("") }
         var newPassword by remember { mutableStateOf("") }
         var confirmPasswordVal by remember { mutableStateOf("") }
+        var isCurrentPasswordVisible by remember { mutableStateOf(false) }
         var isNewPasswordVisible by remember { mutableStateOf(false) }
         var isConfirmPasswordVisible by remember { mutableStateOf(false) }
 
@@ -169,6 +171,25 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = currentPassword,
+                        onValueChange = { currentPassword = it },
+                        label = { Text(stringResource(R.string.settings_change_password_current_label)) },
+                        visualTransformation = if (isCurrentPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { isCurrentPasswordVisible = !isCurrentPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isCurrentPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                    contentDescription = if (isCurrentPasswordVisible) stringResource(R.string.hide_password) else stringResource(R.string.show_password)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
                         value = newPassword,
                         onValueChange = { newPassword = it },
@@ -218,8 +239,8 @@ fun SettingsScreen(
             },
             confirmButton = {
                 Button(
-                    onClick = { viewModel.changePassword(newPassword, confirmPasswordVal) },
-                    enabled = !state.isChangingPassword && newPassword.isNotBlank() && confirmPasswordVal.isNotBlank(),
+                    onClick = { viewModel.changePassword(currentPassword, newPassword, confirmPasswordVal) },
+                    enabled = !state.isChangingPassword && currentPassword.isNotBlank() && newPassword.isNotBlank() && confirmPasswordVal.isNotBlank(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 ) {
                     if (state.isChangingPassword) {

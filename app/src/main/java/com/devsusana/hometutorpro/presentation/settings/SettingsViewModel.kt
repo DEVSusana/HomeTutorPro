@@ -97,7 +97,13 @@ class SettingsViewModel @Inject constructor(
         _changePasswordStatus.update { it.copy(showDialog = show, error = null, success = false) }
     }
 
-    fun changePassword(newPassword: String, confirm: String) {
+    fun changePassword(currentPassword: String, newPassword: String, confirm: String) {
+        if (currentPassword.isBlank()) {
+            _changePasswordStatus.update { 
+                it.copy(error = R.string.settings_change_password_error_current_blank) 
+            }
+            return
+        }
         if (newPassword != confirm) {
             _changePasswordStatus.update { 
                 it.copy(error = R.string.settings_change_password_error_mismatch) 
@@ -113,7 +119,7 @@ class SettingsViewModel @Inject constructor(
 
         viewModelScope.launch {
             _changePasswordStatus.update { it.copy(isLoading = true, error = null) }
-            when (val result = updatePasswordUseCase(newPassword)) {
+            when (val result = updatePasswordUseCase(currentPassword, newPassword)) {
                 is com.devsusana.hometutorpro.domain.core.Result.Success -> {
                     _changePasswordStatus.update { 
                         it.copy(
@@ -124,10 +130,16 @@ class SettingsViewModel @Inject constructor(
                     }
                 }
                 is com.devsusana.hometutorpro.domain.core.Result.Error -> {
+                    val errorRes = when (result.error) {
+                        is com.devsusana.hometutorpro.domain.core.DomainError.InvalidCredentials -> 
+                            R.string.settings_change_password_error_incorrect_current
+                        else -> 
+                            R.string.settings_change_password_error_generic
+                    }
                     _changePasswordStatus.update { 
                         it.copy(
                             isLoading = false, 
-                            error = R.string.settings_change_password_error_generic 
+                            error = errorRes 
                         ) 
                     }
                 }
