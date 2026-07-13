@@ -36,4 +36,12 @@ fun LoginScreen(
             onDismiss = viewModel::clearFeedback
         )
     }
+
+    if (state.passwordResetSuccessMessage != null) {
+        com.devsusana.hometutorpro.presentation.components.FeedbackDialog(
+            isSuccess = true,
+            message = { Text(stringResource(id = state.passwordResetSuccessMessage!!)) },
+            onDismiss = { viewModel.onEvent(LoginUiEvent.OnClearResetStatus) }
+        )
+    }
 }

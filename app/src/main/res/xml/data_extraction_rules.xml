@@ -6,18 +6,12 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Exclude the encrypted database and its security preferences since data is synced to Firestore -->
-        <exclude domain="database" path="hometutorpro.db"/>
-        <exclude domain="sharedpref" path="db_security_prefs"/>
-
-        <!-- Include user settings from DataStore -->
+        <!-- Include user settings from DataStore. Everything else is excluded by default. -->
         <include domain="file" path="datastore/"/>
     </cloud-backup>
 
     <device-transfer>
-        <!-- Similar rules for device transfer to maintain security and consistency -->
-        <exclude domain="database" path="hometutorpro.db"/>
-        <exclude domain="sharedpref" path="db_security_prefs"/>
+        <!-- Include user settings from DataStore. Everything else is excluded by default. -->
         <include domain="file" path="datastore/"/>
     </device-transfer>
 </data-extraction-rules>

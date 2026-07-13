@@ -12,6 +12,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.devsusana.hometutorpro.di.ApplicationScope
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.auth.EmailAuthProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -126,6 +127,7 @@ class AuthRepositoryImpl @Inject constructor(
             return Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
             // Network error or other transient failure — try local fallback
+            android.util.Log.e("AuthRepositoryImpl", "Firebase login failed, trying local fallback", e)
             firebaseError = e
         }
 
@@ -172,12 +174,18 @@ class AuthRepositoryImpl @Inject constructor(
                 _currentUser.value = domainUser
                 Result.Success(domainUser)
             } else {
+                android.util.Log.e("AuthRepositoryImpl", "Registration failed: firebaseUser is null")
                 Result.Error(DomainError.Unknown)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
             // Explicit error: do NOT silently login
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed: user already exists", e)
             Result.Error(DomainError.UserAlreadyExists)
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed: network error", e)
+            Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Registration failed with unexpected exception", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -186,10 +194,13 @@ class AuthRepositoryImpl @Inject constructor(
         firebaseAuth.signOut()
         authManager.clearCredentials()
         _currentUser.value = null
-        
-        kotlinx.coroutines.withContext(Dispatchers.IO) {
-            syncMetadataDao.deleteAllMetadata()
-            syncScheduler.cancelAllSync()
+        syncScheduler.cancelAllSync()
+        internalScope.launch(Dispatchers.IO) {
+            try {
+                syncMetadataDao.deleteAllMetadata()
+            } catch (e: Exception) {
+                android.util.Log.e("AuthRepositoryImpl", "Failed to clear sync metadata on logout", e)
+            }
         }
     }
     
@@ -240,18 +251,92 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updatePassword(newPassword: String): Result<Unit, DomainError> {
+    override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
+                val email = firebaseUser.email ?: return Result.Error(DomainError.UserNotFound)
+                val credential = EmailAuthProvider.getCredential(email, currentPassword)
+                firebaseUser.reauthenticate(credential).await()
                 firebaseUser.updatePassword(newPassword).await()
+            } else {
+                val localEmail = authManager.getEmail()
+                if (localEmail != null) {
+                    if (!authManager.validateCredentials(localEmail, currentPassword)) {
+                        return Result.Error(DomainError.InvalidCredentials)
+                    }
+                }
             }
 
             // Always update local manager
             authManager.updatePassword(newPassword)
 
             Result.Success(Unit)
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to update password: invalid credentials", e)
+            Result.Error(DomainError.InvalidCredentials)
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to update password", e)
+            Result.Error(DomainError.Unknown)
+        }
+    }
+
+    override suspend fun deleteAccount(password: String): Result<Unit, DomainError> {
+        return try {
+            val firebaseUser = firebaseAuth.currentUser
+            if (firebaseUser != null) {
+                val email = firebaseUser.email ?: return Result.Error(DomainError.UserNotFound)
+                val credential = EmailAuthProvider.getCredential(email, password)
+                firebaseUser.reauthenticate(credential).await()
+                firebaseUser.delete().await()
+            } else {
+                val localEmail = authManager.getEmail()
+                if (localEmail != null) {
+                    if (!authManager.validateCredentials(localEmail, password)) {
+                        return Result.Error(DomainError.InvalidCredentials)
+                    }
+                }
+            }
+
+            authManager.clearCredentials()
+            _currentUser.value = null
+
+            internalScope.launch(Dispatchers.IO) {
+                try {
+                    syncMetadataDao.deleteAllMetadata()
+                    syncScheduler.cancelAllSync()
+                } catch (e: Exception) {
+                    android.util.Log.e("AuthRepositoryImpl", "Failed to clear DB on delete", e)
+                }
+            }
+            Result.Success(Unit)
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: invalid credentials", e)
+            Result.Error(DomainError.InvalidCredentials)
+        } catch (e: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: recent login required", e)
+            Result.Error(DomainError.RecentLoginRequired)
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: network error", e)
+            Result.Error(DomainError.NetworkError)
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account", e)
+            Result.Error(DomainError.Unknown)
+        }
+    }
+
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit, DomainError> {
+        return try {
+            firebaseAuth.sendPasswordResetEmail(email).await()
+            Result.Success(Unit)
+        } catch (e: com.google.firebase.auth.FirebaseAuthInvalidUserException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email: user not found", e)
+            Result.Error(DomainError.UserNotFound)
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email: network error", e)
+            Result.Error(DomainError.NetworkError)
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email", e)
             Result.Error(DomainError.Unknown)
         }
     }

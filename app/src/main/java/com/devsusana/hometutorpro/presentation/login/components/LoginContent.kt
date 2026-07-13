@@ -1,8 +1,11 @@
 package com.devsusana.hometutorpro.presentation.login.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
@@ -14,6 +17,8 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -58,21 +63,11 @@ fun LoginContent(
             verticalArrangement = Arrangement.Center
         ) {
             // App Logo / Icon
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(80.dp),
-                shadowElevation = 8.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.School,
-                        contentDescription = stringResource(R.string.cd_app_logo),
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-            }
+            Image(
+                painter = painterResource(id = R.drawable.ic_app_icon),
+                contentDescription = stringResource(R.string.cd_app_logo),
+                modifier = Modifier.size(80.dp)
+            )
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -126,7 +121,25 @@ fun LoginContent(
                         singleLine = true
                     )
                     
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        Text(
+                            text = stringResource(R.string.login_forgot_password),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            modifier = Modifier
+                                .clickable { onEvent(LoginUiEvent.OnForgotPasswordClick) }
+                                .padding(vertical = 4.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
                     
                     Button(
                         onClick = { onEvent(LoginUiEvent.OnLoginClick) },
@@ -161,6 +174,74 @@ fun LoginContent(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.register))
             }
+        }
+
+        if (state.showForgotPasswordDialog) {
+            var emailInput by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+            
+            AlertDialog(
+                onDismissRequest = { onEvent(LoginUiEvent.OnDismissForgotPasswordDialog) },
+                title = {
+                    Text(
+                        text = stringResource(R.string.login_forgot_password_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.login_forgot_password_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = emailInput,
+                            onValueChange = { emailInput = it },
+                            label = { Text(stringResource(R.string.email)) },
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        if (state.error != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(state.error),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { onEvent(LoginUiEvent.OnSendPasswordResetEmail(emailInput)) },
+                        enabled = !state.isSendingPasswordReset && emailInput.isNotBlank(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (state.isSendingPasswordReset) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(stringResource(R.string.login_forgot_password_send))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { onEvent(LoginUiEvent.OnDismissForgotPasswordDialog) },
+                        enabled = !state.isSendingPasswordReset
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+                shape = RoundedCornerShape(16.dp)
+            )
         }
     }
 }

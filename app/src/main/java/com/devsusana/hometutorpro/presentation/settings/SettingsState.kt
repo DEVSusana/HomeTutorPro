@@ -9,5 +9,10 @@ data class SettingsState(
     val isDebugPremium: Boolean = false,
     val isBackupLoading: Boolean = false,
     val backupMessage: String? = null,
-    val isBackupSuccess: Boolean = false
+    val isBackupSuccess: Boolean = false,
+    val deleteAccountError: Int? = null,
+    val showChangePasswordDialog: Boolean = false,
+    val isChangingPassword: Boolean = false,
+    val changePasswordSuccess: Boolean = false,
+    val changePasswordError: Int? = null
 )

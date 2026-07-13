@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import javax.inject.Inject
@@ -48,7 +49,7 @@ class BackupManager @Inject constructor(
             
             Result.success(Unit)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SafeLogger.e("BackupManager", "Failed to restore backup", e)
             Result.failure(e)
         }
     }

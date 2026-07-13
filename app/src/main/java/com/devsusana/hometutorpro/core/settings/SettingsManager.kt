@@ -24,6 +24,7 @@ class SettingsManager @Inject constructor(
         val DEBUG_PREMIUM_KEY = booleanPreferencesKey("debug_premium")
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         val CLASS_END_NOTIFICATIONS_KEY = booleanPreferencesKey("class_end_notifications")
+        val ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("onboarding_completed")
         
         const val LANGUAGE_ENGLISH = "en"
         const val LANGUAGE_SPANISH = "es"
@@ -110,6 +111,13 @@ class SettingsManager @Inject constructor(
 
         }
 
+    val isOnboardingCompletedFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[ONBOARDING_COMPLETED_KEY] ?: false
     }
 
-    
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[ONBOARDING_COMPLETED_KEY] = completed
+        }
+    }
+}

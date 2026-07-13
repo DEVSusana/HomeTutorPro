@@ -32,7 +32,8 @@ import kotlinx.coroutines.delay
 fun SplashScreen(
     viewModel: SplashViewModel = hiltViewModel(),
     onNavigateToLogin: () -> Unit,
-    onNavigateToHome: () -> Unit
+    onNavigateToHome: () -> Unit,
+    onNavigateToOnboarding: () -> Unit
 ) {
     val scale = remember { Animatable(0f) }
 
@@ -50,7 +51,11 @@ fun SplashScreen(
         if (viewModel.isUserLoggedIn()) {
             onNavigateToHome()
         } else {
-            onNavigateToLogin()
+            if (viewModel.isOnboardingCompleted()) {
+                onNavigateToLogin()
+            } else {
+                onNavigateToOnboarding()
+            }
         }
     }
 

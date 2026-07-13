@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.ILoginUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISendPasswordResetEmailUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +16,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val loginUseCase: ILoginUseCase
+    private val loginUseCase: ILoginUseCase,
+    private val sendPasswordResetEmailUseCase: ISendPasswordResetEmailUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LoginState())
@@ -36,6 +38,60 @@ class LoginViewModel @Inject constructor(
                 login()
             }
             is LoginUiEvent.OnRegisterClick -> {
+            }
+            is LoginUiEvent.OnForgotPasswordClick -> {
+                _state.update { it.copy(showForgotPasswordDialog = true, error = null, errorMessage = null) }
+            }
+            is LoginUiEvent.OnDismissForgotPasswordDialog -> {
+                _state.update { it.copy(showForgotPasswordDialog = false, error = null, errorMessage = null) }
+            }
+            is LoginUiEvent.OnSendPasswordResetEmail -> {
+                sendPasswordReset(event.email)
+            }
+            is LoginUiEvent.OnClearResetStatus -> {
+                _state.update { it.copy(passwordResetSuccessMessage = null, error = null, errorMessage = null) }
+            }
+        }
+    }
+
+    private fun sendPasswordReset(email: String) {
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+            _state.update { 
+                it.copy(
+                    error = R.string.login_forgot_password_error_invalid_email,
+                    errorMessage = R.string.login_forgot_password_error_invalid_email
+                )
+            }
+            return
+        }
+        
+        viewModelScope.launch {
+            _state.update { it.copy(isSendingPasswordReset = true, error = null, errorMessage = null) }
+            when (val result = sendPasswordResetEmailUseCase(trimmedEmail)) {
+                is Result.Success -> {
+                    _state.update { 
+                        it.copy(
+                            isSendingPasswordReset = false,
+                            showForgotPasswordDialog = false,
+                            passwordResetSuccessMessage = R.string.login_forgot_password_success
+                        ) 
+                    }
+                }
+                is Result.Error -> {
+                    val errorMsg = when (result.error) {
+                        com.devsusana.hometutorpro.domain.core.DomainError.UserNotFound -> R.string.login_forgot_password_error_user_not_found
+                        com.devsusana.hometutorpro.domain.core.DomainError.NetworkError -> R.string.login_forgot_password_error_network
+                        else -> R.string.login_forgot_password_error_generic
+                    }
+                    _state.update { 
+                        it.copy(
+                            isSendingPasswordReset = false,
+                            error = errorMsg,
+                            errorMessage = errorMsg
+                        ) 
+                    }
+                }
             }
         }
     }
