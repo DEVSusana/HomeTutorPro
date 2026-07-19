@@ -23,17 +23,33 @@ class SecureAuthManager(
     fun saveCredentials(email: String, password: String, name: String, userId: String? = null): String {
         val idToSave = userId ?: UUID.randomUUID().toString()
         val salt = generateSalt()
-        val passwordToHash = if (password.isBlank()) "GOOGLE_AUTH_${UUID.randomUUID()}" else password
-        val hashedPassword = hashPassword(passwordToHash, salt)
-        sharedPreferences.edit().apply {
+        val editor = sharedPreferences.edit()
+
+        if (password.isNotBlank()) {
+            val hashedPassword = hashPassword(password, salt)
+            editor.putString(KEY_PASSWORD_HASH, hashedPassword)
+            editor.putString(KEY_PASSWORD_SALT, salt)
+        } else {
+            val existingHash = sharedPreferences.getString(KEY_PASSWORD_HASH, null)
+            if (existingHash.isNullOrBlank()) {
+                val dummyPassword = "GOOGLE_AUTH_${UUID.randomUUID()}"
+                val hashedPassword = hashPassword(dummyPassword, salt)
+                editor.putString(KEY_PASSWORD_HASH, hashedPassword)
+                editor.putString(KEY_PASSWORD_SALT, salt)
+            }
+        }
+
+        editor.apply {
             putString(KEY_EMAIL, email)
-            putString(KEY_PASSWORD_HASH, hashedPassword)
-            putString(KEY_PASSWORD_SALT, salt)
             putString(KEY_NAME, name)
             putString(KEY_USER_ID, idToSave)
             putBoolean(KEY_IS_LOGGED_IN, true)
-            putString(KEY_WORKING_START_TIME, "08:00")
-            putString(KEY_WORKING_END_TIME, "23:00")
+            if (sharedPreferences.getString(KEY_WORKING_START_TIME, null) == null) {
+                putString(KEY_WORKING_START_TIME, "08:00")
+            }
+            if (sharedPreferences.getString(KEY_WORKING_END_TIME, null) == null) {
+                putString(KEY_WORKING_END_TIME, "23:00")
+            }
             apply()
         }
         return idToSave

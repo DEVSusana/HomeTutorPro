@@ -163,6 +163,21 @@ class SecureAuthManagerTest {
     }
 
     @Test
+    fun `saveCredentials with empty password for Google Sign In should NOT overwrite existing password hash`() {
+        // Given: User registers with password
+        val email = "user@example.com"
+        val password = "MyOriginalPassword123!"
+        authManager.saveCredentials(email, password, "User Name", "user_123")
+        assertTrue(authManager.validateCredentials(email, password))
+
+        // When: User later logs in via Google Sign In
+        authManager.saveCredentials(email, "", "User Name", "user_123")
+
+        // Then: Original password should STILL be valid
+        assertTrue(authManager.validateCredentials(email, password))
+    }
+
+    @Test
     fun `encrypt and decrypt PII should handle null or empty`() {
         // When
         assertEquals("", authManager.encryptPII(null))
