@@ -22,17 +22,26 @@ class SecureAuthManager(
 
     fun saveCredentials(email: String, password: String, name: String, userId: String? = null): String {
         val idToSave = userId ?: UUID.randomUUID().toString()
-        val salt = generateSalt()
-        val hashedPassword = hashPassword(password, salt)
-        sharedPreferences.edit().apply {
+        val editor = sharedPreferences.edit()
+
+        if (password.isNotBlank()) {
+            val salt = generateSalt()
+            val hashedPassword = hashPassword(password, salt)
+            editor.putString(KEY_PASSWORD_HASH, hashedPassword)
+            editor.putString(KEY_PASSWORD_SALT, salt)
+        }
+
+        editor.apply {
             putString(KEY_EMAIL, email)
-            putString(KEY_PASSWORD_HASH, hashedPassword)
-            putString(KEY_PASSWORD_SALT, salt)
             putString(KEY_NAME, name)
             putString(KEY_USER_ID, idToSave)
             putBoolean(KEY_IS_LOGGED_IN, true)
-            putString(KEY_WORKING_START_TIME, "08:00")
-            putString(KEY_WORKING_END_TIME, "23:00")
+            if (sharedPreferences.getString(KEY_WORKING_START_TIME, null) == null) {
+                putString(KEY_WORKING_START_TIME, "08:00")
+            }
+            if (sharedPreferences.getString(KEY_WORKING_END_TIME, null) == null) {
+                putString(KEY_WORKING_END_TIME, "23:00")
+            }
             apply()
         }
         return idToSave
@@ -61,7 +70,7 @@ class SecureAuthManager(
         val storedEmail = sharedPreferences.getString(KEY_EMAIL, null)
         val storedHash = sharedPreferences.getString(KEY_PASSWORD_HASH, null)
         val storedSalt = sharedPreferences.getString(KEY_PASSWORD_SALT, null)
-        if (storedEmail == null || storedHash == null || storedSalt == null) return false
+        if (storedEmail == null || storedHash.isNullOrBlank() || storedSalt.isNullOrBlank()) return false
         return email == storedEmail && verifyPassword(password, storedHash, storedSalt)
     }
 

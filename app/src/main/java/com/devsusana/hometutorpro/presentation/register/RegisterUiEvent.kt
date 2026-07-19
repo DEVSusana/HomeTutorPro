@@ -7,4 +7,6 @@ sealed interface RegisterUiEvent {
     object OnTogglePasswordVisibility : RegisterUiEvent
     object OnRegisterClick : RegisterUiEvent
     object OnBackClick : RegisterUiEvent
+    data class OnGoogleSignInSuccess(val idToken: String) : RegisterUiEvent
+    data class OnGoogleSignInError(val message: String? = null) : RegisterUiEvent
 }
