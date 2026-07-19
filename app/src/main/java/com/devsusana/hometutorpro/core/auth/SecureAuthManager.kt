@@ -23,7 +23,8 @@ class SecureAuthManager(
     fun saveCredentials(email: String, password: String, name: String, userId: String? = null): String {
         val idToSave = userId ?: UUID.randomUUID().toString()
         val salt = generateSalt()
-        val hashedPassword = hashPassword(password, salt)
+        val passwordToHash = if (password.isBlank()) "GOOGLE_AUTH_${UUID.randomUUID()}" else password
+        val hashedPassword = hashPassword(passwordToHash, salt)
         sharedPreferences.edit().apply {
             putString(KEY_EMAIL, email)
             putString(KEY_PASSWORD_HASH, hashedPassword)
