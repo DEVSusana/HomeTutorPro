@@ -48,13 +48,8 @@ class SettingsManager @Inject constructor(
 
     val languageFlow: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[LANGUAGE_KEY] ?: run {
-            val systemLocale = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                context.resources.configuration.locales[0]
-            } else {
-                @Suppress("DEPRECATION")
-                context.resources.configuration.locale
-            }
-            val deviceLang = systemLocale?.language ?: ""
+            val systemLocale = androidx.core.os.ConfigurationCompat.getLocales(context.resources.configuration)[0] ?: java.util.Locale.getDefault()
+            val deviceLang = systemLocale.language ?: ""
             if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
                 LANGUAGE_SPANISH
             } else {

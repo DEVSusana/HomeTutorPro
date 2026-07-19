@@ -31,11 +31,17 @@ object LocaleHelper {
      * @return Language code (e.g., "en", "es")
      */
     fun getCurrentLanguage(context: Context): String {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            context.resources.configuration.locales[0].language
+        val primaryLocale = androidx.core.os.ConfigurationCompat.getLocales(context.resources.configuration)[0] ?: Locale.getDefault()
+        return primaryLocale.language
+    }
+
+    private fun detectFallbackLanguage(context: Context): String {
+        val primaryLocale = androidx.core.os.ConfigurationCompat.getLocales(context.resources.configuration)[0] ?: Locale.getDefault()
+        val deviceLang = primaryLocale.language ?: ""
+        return if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
+            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
         } else {
-            @Suppress("DEPRECATION")
-            context.resources.configuration.locale.language
+            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_ENGLISH
         }
     }
 
@@ -47,38 +53,10 @@ object LocaleHelper {
         val language = try {
             kotlinx.coroutines.runBlocking {
                 val savedLanguage = context.dataStore.data.first()[com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_KEY]
-                if (savedLanguage != null) {
-                    savedLanguage
-                } else {
-                    val systemLocale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        context.resources.configuration.locales[0]
-                    } else {
-                        @Suppress("DEPRECATION")
-                        context.resources.configuration.locale
-                    }
-                    val deviceLang = systemLocale?.language ?: ""
-                    if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
-                        com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
-                    } else {
-                        com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_ENGLISH
-                    }
-                }
+                savedLanguage ?: detectFallbackLanguage(context)
             }
         } catch (e: Exception) {
-            // If DataStore is not available yet (e.g., during app initialization),
-            // fall back to checking system locale
-            val systemLocale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                context.resources.configuration.locales[0]
-            } else {
-                @Suppress("DEPRECATION")
-                context.resources.configuration.locale
-            }
-            val deviceLang = systemLocale?.language ?: ""
-            if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
-                com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
-            } else {
-                com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_ENGLISH
-            }
+            detectFallbackLanguage(context)
         }
         
         val locale = Locale(language)

@@ -22,21 +22,13 @@ class SecureAuthManager(
 
     fun saveCredentials(email: String, password: String, name: String, userId: String? = null): String {
         val idToSave = userId ?: UUID.randomUUID().toString()
-        val salt = generateSalt()
         val editor = sharedPreferences.edit()
 
         if (password.isNotBlank()) {
+            val salt = generateSalt()
             val hashedPassword = hashPassword(password, salt)
             editor.putString(KEY_PASSWORD_HASH, hashedPassword)
             editor.putString(KEY_PASSWORD_SALT, salt)
-        } else {
-            val existingHash = sharedPreferences.getString(KEY_PASSWORD_HASH, null)
-            if (existingHash.isNullOrBlank()) {
-                val dummyPassword = "GOOGLE_AUTH_${UUID.randomUUID()}"
-                val hashedPassword = hashPassword(dummyPassword, salt)
-                editor.putString(KEY_PASSWORD_HASH, hashedPassword)
-                editor.putString(KEY_PASSWORD_SALT, salt)
-            }
         }
 
         editor.apply {
@@ -78,7 +70,7 @@ class SecureAuthManager(
         val storedEmail = sharedPreferences.getString(KEY_EMAIL, null)
         val storedHash = sharedPreferences.getString(KEY_PASSWORD_HASH, null)
         val storedSalt = sharedPreferences.getString(KEY_PASSWORD_SALT, null)
-        if (storedEmail == null || storedHash == null || storedSalt == null) return false
+        if (storedEmail == null || storedHash.isNullOrBlank() || storedSalt.isNullOrBlank()) return false
         return email == storedEmail && verifyPassword(password, storedHash, storedSalt)
     }
 
