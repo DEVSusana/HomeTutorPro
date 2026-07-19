@@ -14,6 +14,7 @@ sealed class DomainError {
     data object InvalidCredentials : DomainError()
     data object UserNotFound : DomainError()
     data object UserAlreadyExists : DomainError()
+    data object RecentLoginRequired : DomainError()
     
     // Resource errors
     data object FileNotFound : DomainError()

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -17,10 +19,44 @@ android {
         applicationId = "com.devsusana.hometutorpro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.1"
+        versionCode = 104
+        versionName = "1.0.4"
 
         testInstrumentationRunner = "com.devsusana.hometutorpro.CustomTestRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            val localProperties = Properties().apply {
+                val localPropertiesFile = rootProject.file("local.properties")
+                if (localPropertiesFile.exists()) {
+                    localPropertiesFile.inputStream().use { load(it) }
+                }
+            }
+
+            val keystoreFileProp = localProperties.getProperty("RELEASE_STORE_FILE")
+                ?: project.findProperty("RELEASE_STORE_FILE") as? String
+                ?: System.getenv("RELEASE_STORE_FILE")
+            val keystorePasswordProp = localProperties.getProperty("RELEASE_STORE_PASSWORD")
+                ?: project.findProperty("RELEASE_STORE_PASSWORD") as? String
+                ?: System.getenv("RELEASE_STORE_PASSWORD")
+            val keyAliasProp = localProperties.getProperty("RELEASE_KEY_ALIAS")
+                ?: project.findProperty("RELEASE_KEY_ALIAS") as? String
+                ?: System.getenv("RELEASE_KEY_ALIAS")
+            val keyPasswordProp = localProperties.getProperty("RELEASE_KEY_PASSWORD")
+                ?: project.findProperty("RELEASE_KEY_PASSWORD") as? String
+                ?: System.getenv("RELEASE_KEY_PASSWORD")
+
+            if (!keystoreFileProp.isNullOrBlank() &&
+                !keystorePasswordProp.isNullOrBlank() &&
+                !keyAliasProp.isNullOrBlank() &&
+                !keyPasswordProp.isNullOrBlank()) {
+                storeFile = file(keystoreFileProp)
+                storePassword = keystorePasswordProp
+                keyAlias = keyAliasProp
+                keyPassword = keyPasswordProp
+            }
+        }
     }
 
     buildTypes {
@@ -31,8 +67,17 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
         }
         debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
             isMinifyEnabled = false
             enableUnitTestCoverage = true
             enableAndroidTestCoverage = true

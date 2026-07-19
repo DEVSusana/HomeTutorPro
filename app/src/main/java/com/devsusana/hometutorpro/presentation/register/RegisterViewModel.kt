@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.core.AuthValidator
+import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.IRegisterUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -68,16 +69,21 @@ class RegisterViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null, errorMessage = null) }
             
-            when (registerUseCase(email, password, name)) {
+            when (val result = registerUseCase(email, password, name)) {
                 is Result.Success -> {
                     _state.update { it.copy(isLoading = false, registerSuccess = true) }
                 }
                 is Result.Error -> {
+                    val messageRes = when (result.error) {
+                        is DomainError.UserAlreadyExists -> R.string.register_error_user_already_exists
+                        is DomainError.NetworkError -> R.string.register_error_network
+                        else -> R.string.register_error_registration_failed_message
+                    }
                     _state.update { 
                         it.copy(
                             isLoading = false, 
                             error = R.string.register_error_registration_failed,
-                            errorMessage = R.string.register_error_registration_failed_message
+                            errorMessage = messageRes
                         ) 
                     }
                 }

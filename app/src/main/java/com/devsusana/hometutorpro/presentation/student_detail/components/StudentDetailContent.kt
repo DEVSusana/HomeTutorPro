@@ -175,6 +175,7 @@ fun StudentDetailContent(
 
     Scaffold(
         modifier = Modifier.testTag("student_detail_screen"),
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
@@ -204,10 +205,10 @@ fun StudentDetailContent(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },

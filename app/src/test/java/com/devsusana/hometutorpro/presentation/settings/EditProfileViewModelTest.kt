@@ -5,7 +5,6 @@ import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
-import com.devsusana.hometutorpro.domain.usecases.IUpdatePasswordUseCase
 import com.devsusana.hometutorpro.domain.usecases.IUpdateProfileUseCase
 import io.mockk.coEvery
 import io.mockk.every
@@ -31,7 +30,6 @@ class EditProfileViewModelTest {
 
     private lateinit var getCurrentUserUseCase: IGetCurrentUserUseCase
     private lateinit var updateProfileUseCase: IUpdateProfileUseCase
-    private lateinit var updatePasswordUseCase: IUpdatePasswordUseCase
     private lateinit var application: Application
     private lateinit var viewModel: EditProfileViewModel
     private val dispatcher = UnconfinedTestDispatcher()
@@ -44,20 +42,17 @@ class EditProfileViewModelTest {
 
         getCurrentUserUseCase = mockk()
         updateProfileUseCase = mockk()
-        updatePasswordUseCase = mockk()
 
         every { application.getString(R.string.edit_profile_success) } returns "Profile updated successfully!"
         every { application.getString(R.string.edit_profile_email_verify_notice) } returns
             "Profile updated. Please verify the new email to complete the change."
         every { getCurrentUserUseCase.invoke() } returns userFlow
         coEvery { updateProfileUseCase(any()) } returns Result.Success(Unit)
-        coEvery { updatePasswordUseCase(any()) } returns Result.Success(Unit)
 
         userFlow.value = User(uid = "u1", email = "user@domain.com", displayName = "User")
         viewModel = EditProfileViewModel(
             getCurrentUserUseCase = getCurrentUserUseCase,
             updateProfileUseCase = updateProfileUseCase,
-            updatePasswordUseCase = updatePasswordUseCase,
             application = application
         )
     }

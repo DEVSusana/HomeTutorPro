@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
-import com.devsusana.hometutorpro.domain.usecases.IUpdatePasswordUseCase
 import com.devsusana.hometutorpro.domain.usecases.IUpdateProfileUseCase
 import com.devsusana.hometutorpro.R
 import android.app.Application
@@ -18,7 +17,6 @@ import javax.inject.Inject
 class EditProfileViewModel @Inject constructor(
     private val getCurrentUserUseCase: IGetCurrentUserUseCase,
     private val updateProfileUseCase: IUpdateProfileUseCase,
-    private val updatePasswordUseCase: IUpdatePasswordUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -52,12 +50,7 @@ class EditProfileViewModel @Inject constructor(
             is EditProfileUiEvent.EmailChanged -> {
                 _state.update { it.copy(email = event.email) }
             }
-            is EditProfileUiEvent.PasswordChanged -> {
-                _state.update { it.copy(password = event.password) }
-            }
-            is EditProfileUiEvent.TogglePasswordVisibility -> {
-                _state.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
-            }
+
             is EditProfileUiEvent.WorkingStartTimeChanged -> {
                 _state.update { it.copy(workingStartTime = event.time) }
             }
@@ -92,14 +85,7 @@ class EditProfileViewModel @Inject constructor(
                 return@launch
             }
 
-            // 2. Update Password if provided
-            if (state.value.password.isNotEmpty()) {
-                    val passwordResult = updatePasswordUseCase(state.value.password)
-                if (passwordResult is Result.Error) {
-                    _state.update { it.copy(isLoading = false, errorMessage = application.getString(R.string.edit_profile_password_error)) }
-                    return@launch
-                }
-            }
+
 
             _state.update { 
                 val emailChanged = it.email.isNotBlank() && it.email != it.originalEmail

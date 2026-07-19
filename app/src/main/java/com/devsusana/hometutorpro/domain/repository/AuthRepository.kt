@@ -15,5 +15,7 @@ interface AuthRepository {
     suspend fun logout()
     /** Updates user profile data in both Firebase and local persistent storage. */
     suspend fun updateProfile(params: com.devsusana.hometutorpro.domain.entities.UpdateUserParams): Result<Unit, DomainError>
-    suspend fun updatePassword(newPassword: String): Result<Unit, DomainError>
+    suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit, DomainError>
+    suspend fun deleteAccount(password: String): Result<Unit, DomainError>
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit, DomainError>
 }

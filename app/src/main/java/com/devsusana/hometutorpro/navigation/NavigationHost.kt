@@ -186,10 +186,16 @@ fun NavigationHost() {
                     }
                 }
             ) { paddingValues ->
-                Box(
-                    modifier = Modifier
+                val containerModifier = if (showNavigation) {
+                    Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
+                } else {
+                    Modifier.fillMaxSize()
+                }
+
+                Box(
+                    modifier = containerModifier
                 ) {
                     NavHost(
                         navController = navController, 

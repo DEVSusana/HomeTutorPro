@@ -37,9 +37,14 @@ fun StudentListContent(
 ) {
     Scaffold(
         modifier = Modifier.testTag("student_list_screen"),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.my_students)) }
+                title = { Text(stringResource(R.string.my_students)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         }
     ) { padding ->

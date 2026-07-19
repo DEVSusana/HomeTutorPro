@@ -34,7 +34,7 @@ jobs:
     - name: Create Dummy Google Services JSON
       run: |
         mkdir -p app/
-        echo '{"project_info":{"project_number":"123456789","project_id":"dummy-id"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789:android:123456789","android_client_info":{"package_name":"com.devsusana.hometutorpro"}},"api_key":[{"current_key":"dummy-key"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > app/google-services.json
+        echo '{"project_info":{"project_number":"123456789","project_id":"dummy-id"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789:android:123456789","android_client_info":{"package_name":"com.devsusana.hometutorpro"}},"api_key":[{"current_key":"dummy-key"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},{"client_info":{"mobilesdk_app_id":"1:123456789:android:987654321","android_client_info":{"package_name":"com.devsusana.hometutorpro.debug"}},"api_key":[{"current_key":"dummy-key"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > app/google-services.json
     
     # Lint temporarily disabled to isolate compiler issues
     # - name: Run Lint
