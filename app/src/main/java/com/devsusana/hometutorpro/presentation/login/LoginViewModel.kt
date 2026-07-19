@@ -6,6 +6,7 @@ import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.ILoginUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISendPasswordResetEmailUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISignInWithGoogleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val loginUseCase: ILoginUseCase,
-    private val sendPasswordResetEmailUseCase: ISendPasswordResetEmailUseCase
+    private val sendPasswordResetEmailUseCase: ISendPasswordResetEmailUseCase,
+    private val signInWithGoogleUseCase: ISignInWithGoogleUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LoginState())
@@ -50,6 +52,36 @@ class LoginViewModel @Inject constructor(
             }
             is LoginUiEvent.OnClearResetStatus -> {
                 _state.update { it.copy(passwordResetSuccessMessage = null, error = null, errorMessage = null) }
+            }
+            is LoginUiEvent.OnGoogleSignInSuccess -> {
+                signInWithGoogle(event.idToken)
+            }
+            is LoginUiEvent.OnGoogleSignInError -> {
+                _state.update { 
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = R.string.google_sign_in_error
+                    ) 
+                }
+            }
+        }
+    }
+
+    private fun signInWithGoogle(idToken: String) {
+        _state.update { it.copy(isLoading = true, error = null, errorMessage = null) }
+        viewModelScope.launch {
+            when (val result = signInWithGoogleUseCase(idToken)) {
+                is Result.Success -> {
+                    _state.update { it.copy(isLoading = false, loginSuccess = true) }
+                }
+                is Result.Error -> {
+                    _state.update { 
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = R.string.google_sign_in_error
+                        ) 
+                    }
+                }
             }
         }
     }

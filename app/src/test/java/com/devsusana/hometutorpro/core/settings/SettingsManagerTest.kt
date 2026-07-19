@@ -61,15 +61,38 @@ class SettingsManagerTest {
         context.preferencesDataStoreFile("test_settings").delete()
     }
 
-    // Language Tests
+    private fun setTestContextLocale(languageCode: String) {
+        val locale = java.util.Locale(languageCode)
+        java.util.Locale.setDefault(locale)
+        val config = context.resources.configuration
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            config.setLocales(android.os.LocaleList(locale))
+        } else {
+            @Suppress("DEPRECATION")
+            config.locale = locale
+        }
+        context.resources.updateConfiguration(config, context.resources.displayMetrics)
+    }
 
     @Test
-    fun languageFlow_defaultsToSpanish() = testScope.runTest {
-        // When: Reading language without setting it
+    fun languageFlow_defaultsToSpanish_whenSystemLocaleIsSpanish() = testScope.runTest {
+        setTestContextLocale("es")
         val language = settingsManager.languageFlow.first()
-
-        // Then: Should default to Spanish
         assertEquals(SettingsManager.LANGUAGE_SPANISH, language)
+    }
+
+    @Test
+    fun languageFlow_defaultsToSpanish_whenSystemLocaleIsCatalan() = testScope.runTest {
+        setTestContextLocale("ca")
+        val language = settingsManager.languageFlow.first()
+        assertEquals(SettingsManager.LANGUAGE_SPANISH, language)
+    }
+
+    @Test
+    fun languageFlow_defaultsToEnglish_whenSystemLocaleIsEnglish() = testScope.runTest {
+        setTestContextLocale("en")
+        val language = settingsManager.languageFlow.first()
+        assertEquals(SettingsManager.LANGUAGE_ENGLISH, language)
     }
 
     @Test

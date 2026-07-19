@@ -46,13 +46,39 @@ object LocaleHelper {
     fun onAttach(context: Context): Context {
         val language = try {
             kotlinx.coroutines.runBlocking {
-                context.dataStore.data.first()[com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_KEY]
-                    ?: com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
+                val savedLanguage = context.dataStore.data.first()[com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_KEY]
+                if (savedLanguage != null) {
+                    savedLanguage
+                } else {
+                    val systemLocale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        context.resources.configuration.locales[0]
+                    } else {
+                        @Suppress("DEPRECATION")
+                        context.resources.configuration.locale
+                    }
+                    val deviceLang = systemLocale?.language ?: ""
+                    if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
+                        com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
+                    } else {
+                        com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_ENGLISH
+                    }
+                }
             }
         } catch (e: Exception) {
             // If DataStore is not available yet (e.g., during app initialization),
-            // fall back to Spanish as default
-            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
+            // fall back to checking system locale
+            val systemLocale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                context.resources.configuration.locales[0]
+            } else {
+                @Suppress("DEPRECATION")
+                context.resources.configuration.locale
+            }
+            val deviceLang = systemLocale?.language ?: ""
+            if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
+                com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
+            } else {
+                com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_ENGLISH
+            }
         }
         
         val locale = Locale(language)

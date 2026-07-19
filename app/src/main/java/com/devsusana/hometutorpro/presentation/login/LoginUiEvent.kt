@@ -10,4 +10,6 @@ sealed interface LoginUiEvent {
     object OnDismissForgotPasswordDialog : LoginUiEvent
     data class OnSendPasswordResetEmail(val email: String) : LoginUiEvent
     object OnClearResetStatus : LoginUiEvent
+    data class OnGoogleSignInSuccess(val idToken: String) : LoginUiEvent
+    data class OnGoogleSignInError(val message: String? = null) : LoginUiEvent
 }

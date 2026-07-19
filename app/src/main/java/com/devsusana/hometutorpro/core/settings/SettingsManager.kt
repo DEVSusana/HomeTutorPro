@@ -47,7 +47,20 @@ class SettingsManager @Inject constructor(
     }
 
     val languageFlow: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[LANGUAGE_KEY] ?: LANGUAGE_SPANISH
+        preferences[LANGUAGE_KEY] ?: run {
+            val systemLocale = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                context.resources.configuration.locales[0]
+            } else {
+                @Suppress("DEPRECATION")
+                context.resources.configuration.locale
+            }
+            val deviceLang = systemLocale?.language ?: ""
+            if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
+                LANGUAGE_SPANISH
+            } else {
+                LANGUAGE_ENGLISH
+            }
+        }
     }
 
     val isGridViewFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->

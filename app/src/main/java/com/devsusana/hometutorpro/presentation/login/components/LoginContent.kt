@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.presentation.login.LoginState
 import com.devsusana.hometutorpro.presentation.login.LoginUiEvent
+import com.devsusana.hometutorpro.presentation.utils.GoogleSignInHelper
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 
 @Composable
@@ -41,6 +42,8 @@ fun LoginContent(
     onEvent: (LoginUiEvent) -> Unit,
     onRegisterClick: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -52,6 +55,8 @@ fun LoginContent(
                     )
                 )
             )
+            .systemBarsPadding()
+            .imePadding()
             .testTag("login_screen"),
         contentAlignment = Alignment.Center
     ) {
@@ -160,6 +165,50 @@ fun LoginContent(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.login))
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                        Text(
+                            text = stringResource(R.string.or_divider),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            GoogleSignInHelper.launchGoogleSignIn(
+                                context = context,
+                                scope = scope,
+                                onSuccess = { idToken -> onEvent(LoginUiEvent.OnGoogleSignInSuccess(idToken)) },
+                                onError = { err -> onEvent(LoginUiEvent.OnGoogleSignInError(err)) }
+                            )
+                        },
+                        enabled = !state.isLoading,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("google_login_button"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_google_logo),
+                            contentDescription = stringResource(R.string.google_sign_in),
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.google_sign_in))
                     }
                 }
             }
