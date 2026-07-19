@@ -158,7 +158,7 @@ fun RegisterContent(
                     Button(
                         onClick = { onEvent(RegisterUiEvent.OnRegisterClick) },
                         enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth().height(50.dp).testTag("register_button"),
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 50.dp).heightIn(min = 50.dp).testTag("register_button"),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (state.isLoading) {
@@ -206,7 +206,8 @@ fun RegisterContent(
                         enabled = !state.isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
+                            .defaultMinSize(minHeight = 50.dp)
+                            .heightIn(min = 50.dp)
                             .testTag("google_register_button"),
                         shape = RoundedCornerShape(12.dp)
                     ) {
