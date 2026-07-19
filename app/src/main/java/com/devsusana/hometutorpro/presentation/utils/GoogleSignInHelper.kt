@@ -6,7 +6,6 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
-import com.devsusana.hometutorpro.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.CoroutineScope
@@ -21,13 +20,13 @@ object GoogleSignInHelper {
         onError: (String?) -> Unit
     ) {
         val credentialManager = CredentialManager.create(context)
-        val webClientId = try {
-            context.getString(R.string.default_web_client_id)
-        } catch (e: Exception) {
-            Log.e("GoogleSignInHelper", "Default web client ID not found in resources", e)
+        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        if (resId == 0) {
+            Log.e("GoogleSignInHelper", "Default web client ID resource 'default_web_client_id' not found in resources")
             onError("Web client ID missing")
             return
         }
+        val webClientId = context.getString(resId)
 
         val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
