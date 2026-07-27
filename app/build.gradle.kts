@@ -18,7 +18,7 @@ android {
     defaultConfig {
         applicationId = "com.devsusana.hometutorpro"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 105
         versionName = "1.0.5"
 
@@ -72,7 +72,7 @@ android {
                 signingConfig = releaseSigning
             }
             ndk {
-                debugSymbolLevel = "SYMBOL_TABLE"
+                debugSymbolLevel = "FULL"
             }
         }
         debug {
