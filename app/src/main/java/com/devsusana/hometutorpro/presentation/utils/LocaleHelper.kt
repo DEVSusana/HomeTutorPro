@@ -31,11 +31,17 @@ object LocaleHelper {
      * @return Language code (e.g., "en", "es")
      */
     fun getCurrentLanguage(context: Context): String {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            context.resources.configuration.locales[0].language
+        val primaryLocale = androidx.core.os.ConfigurationCompat.getLocales(context.resources.configuration)[0] ?: Locale.getDefault()
+        return primaryLocale.language
+    }
+
+    private fun detectFallbackLanguage(context: Context): String {
+        val primaryLocale = androidx.core.os.ConfigurationCompat.getLocales(context.resources.configuration)[0] ?: Locale.getDefault()
+        val deviceLang = primaryLocale.language ?: ""
+        return if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
+            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
         } else {
-            @Suppress("DEPRECATION")
-            context.resources.configuration.locale.language
+            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_ENGLISH
         }
     }
 
@@ -46,13 +52,11 @@ object LocaleHelper {
     fun onAttach(context: Context): Context {
         val language = try {
             kotlinx.coroutines.runBlocking {
-                context.dataStore.data.first()[com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_KEY]
-                    ?: com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
+                val savedLanguage = context.dataStore.data.first()[com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_KEY]
+                savedLanguage ?: detectFallbackLanguage(context)
             }
         } catch (e: Exception) {
-            // If DataStore is not available yet (e.g., during app initialization),
-            // fall back to Spanish as default
-            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
+            detectFallbackLanguage(context)
         }
         
         val locale = Locale(language)

@@ -4,7 +4,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.presentation.login.LoginState
 import com.devsusana.hometutorpro.presentation.login.LoginUiEvent
+import com.devsusana.hometutorpro.presentation.utils.GoogleSignInHelper
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 
 @Composable
@@ -41,6 +44,8 @@ fun LoginContent(
     onEvent: (LoginUiEvent) -> Unit,
     onRegisterClick: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -52,12 +57,15 @@ fun LoginContent(
                     )
                 )
             )
+            .systemBarsPadding()
+            .imePadding()
             .testTag("login_screen"),
         contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -144,7 +152,7 @@ fun LoginContent(
                     Button(
                         onClick = { onEvent(LoginUiEvent.OnLoginClick) },
                         enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth().height(50.dp).testTag("login_button"),
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 50.dp).heightIn(min = 50.dp).testTag("login_button"),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (state.isLoading) {
@@ -160,6 +168,51 @@ fun LoginContent(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.login))
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                        Text(
+                            text = stringResource(R.string.or_divider),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            GoogleSignInHelper.launchGoogleSignIn(
+                                context = context,
+                                scope = scope,
+                                onSuccess = { idToken -> onEvent(LoginUiEvent.OnGoogleSignInSuccess(idToken)) },
+                                onError = { err -> onEvent(LoginUiEvent.OnGoogleSignInError(err)) }
+                            )
+                        },
+                        enabled = !state.isLoading,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 50.dp)
+                            .heightIn(min = 50.dp)
+                            .testTag("google_login_button"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_google_logo),
+                            contentDescription = stringResource(R.string.google_sign_in),
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.google_sign_in))
                     }
                 }
             }

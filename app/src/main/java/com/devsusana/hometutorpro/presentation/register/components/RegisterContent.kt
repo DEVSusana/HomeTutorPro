@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.presentation.register.RegisterState
 import com.devsusana.hometutorpro.presentation.register.RegisterUiEvent
+import com.devsusana.hometutorpro.presentation.utils.GoogleSignInHelper
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
 
 @Composable
@@ -43,6 +44,8 @@ fun RegisterContent(
     onEvent: (RegisterUiEvent) -> Unit,
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -54,6 +57,8 @@ fun RegisterContent(
                     )
                 )
             )
+            .systemBarsPadding()
+            .imePadding()
             .testTag("register_screen"),
         contentAlignment = Alignment.Center
     ) {
@@ -153,7 +158,7 @@ fun RegisterContent(
                     Button(
                         onClick = { onEvent(RegisterUiEvent.OnRegisterClick) },
                         enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth().height(50.dp).testTag("register_button"),
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 50.dp).heightIn(min = 50.dp).testTag("register_button"),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (state.isLoading) {
@@ -168,11 +173,54 @@ fun RegisterContent(
                             Icon(Icons.Default.PersonAdd, contentDescription = stringResource(R.string.cd_register_icon))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.register))
-
-                            
                         }
                     }
-                    
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                        Text(
+                            text = stringResource(R.string.or_divider),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            GoogleSignInHelper.launchGoogleSignIn(
+                                context = context,
+                                scope = scope,
+                                onSuccess = { idToken -> onEvent(RegisterUiEvent.OnGoogleSignInSuccess(idToken)) },
+                                onError = { err -> onEvent(RegisterUiEvent.OnGoogleSignInError(err)) }
+                            )
+                        },
+                        enabled = !state.isLoading,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 50.dp)
+                            .heightIn(min = 50.dp)
+                            .testTag("google_register_button"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_google_logo),
+                            contentDescription = stringResource(R.string.google_sign_in),
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.google_sign_in))
+                    }
+
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(

@@ -13,6 +13,7 @@ import com.devsusana.hometutorpro.di.ApplicationScope
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.EmailAuthProvider
+import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -337,6 +338,30 @@ class AuthRepositoryImpl @Inject constructor(
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
             android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email", e)
+            Result.Error(DomainError.Unknown)
+        }
+    }
+
+    override suspend fun signInWithGoogle(idToken: String): Result<User, DomainError> {
+        return try {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = firebaseAuth.signInWithCredential(credential).await()
+            val firebaseUser = authResult.user ?: return Result.Error(DomainError.UserNotFound)
+            val user = User(
+                uid = firebaseUser.uid,
+                email = firebaseUser.email ?: "",
+                displayName = firebaseUser.displayName ?: ""
+            )
+
+            authManager.saveCredentials(user.email ?: "", "", user.displayName ?: "", user.uid)
+
+            _currentUser.value = user
+            Result.Success(user)
+        } catch (e: com.google.firebase.FirebaseNetworkException) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to sign in with Google: network error", e)
+            Result.Error(DomainError.NetworkError)
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Failed to sign in with Google", e)
             Result.Error(DomainError.Unknown)
         }
     }
