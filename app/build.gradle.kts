@@ -72,7 +72,7 @@ android {
                 signingConfig = releaseSigning
             }
             ndk {
-                debugSymbolLevel = "SYMBOL_TABLE"
+                debugSymbolLevel = "FULL"
             }
         }
         debug {
