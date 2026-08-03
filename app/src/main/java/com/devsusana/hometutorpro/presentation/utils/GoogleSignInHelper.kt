@@ -39,25 +39,42 @@ object GoogleSignInHelper {
             .build()
 
         scope.launch {
-            try {
-                val result = credentialManager.getCredential(
-                    request = request,
-                    context = context
-                )
-                val credential = result.credential
-                if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                    onSuccess(googleIdTokenCredential.idToken)
-                } else {
-                    Log.e("GoogleSignInHelper", "Unsupported credential type: ${credential.type}")
-                    onError("Unsupported credential type")
+            var retries = 1
+            var success = false
+            while (retries >= 0 && !success) {
+                try {
+                    val result = credentialManager.getCredential(
+                        request = request,
+                        context = context
+                    )
+                    val credential = result.credential
+                    if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                        val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                        onSuccess(googleIdTokenCredential.idToken)
+                        success = true
+                    } else {
+                        Log.e("GoogleSignInHelper", "Unsupported credential type: ${credential.type}")
+                        onError("Unsupported credential type")
+                        break
+                    }
+                } catch (e: androidx.credentials.exceptions.NoCredentialException) {
+                    Log.w("GoogleSignInHelper", "NoCredentialException caught. Retries left: $retries", e)
+                    if (retries > 0) {
+                        retries--
+                        kotlinx.coroutines.delay(500) // Small delay to let Play Services warm up
+                    } else {
+                        onError(e.message)
+                        break
+                    }
+                } catch (e: GetCredentialException) {
+                    Log.e("GoogleSignInHelper", "Credential Manager error: ${e.type}", e)
+                    onError(e.message)
+                    break
+                } catch (e: Exception) {
+                    Log.e("GoogleSignInHelper", "Sign in error", e)
+                    onError(e.message)
+                    break
                 }
-            } catch (e: GetCredentialException) {
-                Log.e("GoogleSignInHelper", "Credential Manager error: ${e.type}", e)
-                onError(e.message)
-            } catch (e: Exception) {
-                Log.e("GoogleSignInHelper", "Sign in error", e)
-                onError(e.message)
             }
         }
     }
