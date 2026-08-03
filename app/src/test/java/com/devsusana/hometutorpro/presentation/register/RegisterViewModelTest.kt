@@ -22,6 +22,7 @@ import org.junit.Test
 class RegisterViewModelTest {
 
     private lateinit var registerUseCase: IRegisterUseCase
+    private lateinit var signInWithGoogleUseCase: com.devsusana.hometutorpro.domain.usecases.ISignInWithGoogleUseCase
     private lateinit var viewModel: RegisterViewModel
     private val testDispatcher = StandardTestDispatcher()
 
@@ -29,7 +30,8 @@ class RegisterViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         registerUseCase = mockk()
-        viewModel = RegisterViewModel(registerUseCase)
+        signInWithGoogleUseCase = mockk(relaxed = true)
+        viewModel = RegisterViewModel(registerUseCase, signInWithGoogleUseCase)
     }
 
     @After

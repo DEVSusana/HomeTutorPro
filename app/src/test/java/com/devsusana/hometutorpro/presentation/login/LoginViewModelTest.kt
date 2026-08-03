@@ -35,6 +35,7 @@ class LoginViewModelTest {
 
     private lateinit var loginUseCase: ILoginUseCase
     private lateinit var sendPasswordResetEmailUseCase: com.devsusana.hometutorpro.domain.usecases.ISendPasswordResetEmailUseCase
+    private lateinit var signInWithGoogleUseCase: com.devsusana.hometutorpro.domain.usecases.ISignInWithGoogleUseCase
     private lateinit var viewModel: LoginViewModel
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -43,7 +44,8 @@ class LoginViewModelTest {
         Dispatchers.setMain(testDispatcher)
         loginUseCase = mockk(relaxed = true)
         sendPasswordResetEmailUseCase = mockk(relaxed = true)
-        viewModel = LoginViewModel(loginUseCase, sendPasswordResetEmailUseCase)
+        signInWithGoogleUseCase = mockk(relaxed = true)
+        viewModel = LoginViewModel(loginUseCase, sendPasswordResetEmailUseCase, signInWithGoogleUseCase)
     }
 
     @After

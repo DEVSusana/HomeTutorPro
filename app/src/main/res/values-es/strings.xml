@@ -36,6 +36,9 @@
     <string name="login_error_invalid_email">Formato de correo electrónico no válido</string>
     <string name="login_error_password_too_short">La contraseña debe tener al menos 6 caracteres</string>
     <string name="login_error_empty_fields">Por favor, rellena todos los campos</string>
+    <string name="google_sign_in">Continuar con Google</string>
+    <string name="or_divider">o</string>
+    <string name="google_sign_in_error">Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.</string>
     <string name="register_error_name_empty">El nombre no puede estar vacío</string>
     <string name="register_error_invalid_email">Formato de correo electrónico no válido</string>
     <string name="register_error_short_password">La contraseña debe tener al menos 6 caracteres</string>

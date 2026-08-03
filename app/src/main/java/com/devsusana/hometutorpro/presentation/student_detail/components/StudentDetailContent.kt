@@ -216,7 +216,8 @@ fun StudentDetailContent(
             if (isEditMode && student != null) {
                 Surface(
                     tonalElevation = 8.dp,
-                    shadowElevation = 8.dp
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.navigationBarsPadding()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Button(
