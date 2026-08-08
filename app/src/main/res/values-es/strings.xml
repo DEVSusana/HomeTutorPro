@@ -633,4 +633,14 @@
     <string name="premium_error_not_found">No se encontraron los detalles del producto. Por favor, comprueba tu conexión a internet o inténtalo de nuevo más tarde.</string>
     <string name="premium_go_back">Volver</string>
     <string name="manage_your_students_efficiently">Gestiona tus alumnos de forma eficiente.</string>
+
+    <!-- Widget strings -->
+    <string name="widget_title">Cronómetro de Clase</string>
+    <string name="widget_description">Muestra el tiempo restante de la clase actual y el siguiente alumno.</string>
+    <string name="widget_no_active_class">Sin clase activa</string>
+    <string name="widget_next_student">Siguiente: %s</string>
+    <string name="widget_no_upcoming_class">Sin clases programadas</string>
+    <string name="widget_start_class">Iniciar</string>
+    <string name="widget_stop_class">Terminar</string>
+    <string name="widget_ongoing_class">Actual: %s</string>
 </resources>

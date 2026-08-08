@@ -35,6 +35,21 @@
             android:enabled="true"
             android:exported="false" />
 
+        <receiver
+            android:name=".presentation.widget.ClassTimerWidget"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/widget_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.devsusana.hometutorpro.ACTION_START_CLASS" />
+                <action android:name="com.devsusana.hometutorpro.ACTION_STOP_CLASS" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_class_timer_info" />
+        </receiver>
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
