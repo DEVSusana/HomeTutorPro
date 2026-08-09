@@ -193,4 +193,7 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindGetNextClassUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetNextClassUseCase): IGetNextClassUseCase
+
+    @Binds
+    abstract fun bindCancelClassEndNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CancelClassEndNotificationUseCase): ICancelClassEndNotificationUseCase
 }

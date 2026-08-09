@@ -9,6 +9,7 @@ import android.content.Intent
 import android.view.View
 import android.widget.RemoteViews
 import com.devsusana.hometutorpro.R
+import android.os.SystemClock
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.usecases.IGetActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetNextClassUseCase
@@ -18,6 +19,7 @@ import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
+import com.devsusana.hometutorpro.domain.usecases.ICancelClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.core.Result
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +58,9 @@ class ClassTimerWidget : AppWidgetProvider() {
 
     @Inject
     lateinit var scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase
+
+    @Inject
+    lateinit var cancelClassEndNotificationUseCase: ICancelClassEndNotificationUseCase
 
     private val job = SupervisorJob()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + job)
@@ -142,6 +147,7 @@ class ClassTimerWidget : AppWidgetProvider() {
     }
 
     private fun handleStopClass(context: Context) {
+        cancelClassEndNotificationUseCase()
         stopActiveSessionUseCase()
         updateWidget(context)
     }
@@ -162,10 +168,11 @@ class ClassTimerWidget : AppWidgetProvider() {
                 context.getString(R.string.widget_ongoing_class, activeSession.studentName)
             )
 
-            // Setup native chronometer countdown
-            val endTime = activeSession.startTimeMillis + activeSession.durationMinutes * 60 * 1000
+            // Setup native chronometer countdown using relative system elapsed time
+            val remainingTimeMillis = (activeSession.startTimeMillis + activeSession.durationMinutes * 60 * 1000) - System.currentTimeMillis()
+            val baseElapsedRealtime = SystemClock.elapsedRealtime() + remainingTimeMillis
             views.setChronometerCountDown(R.id.widget_chronometer, true)
-            views.setChronometer(R.id.widget_chronometer, endTime, null, true)
+            views.setChronometer(R.id.widget_chronometer, baseElapsedRealtime, null, true)
 
             // Stop button pending intent
             val stopIntent = Intent(context, ClassTimerWidget::class.java).apply {
