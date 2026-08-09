@@ -70,7 +70,7 @@ class SueViewModelConfirmationTest {
             every { errors } returns errorFlow
         }
         sueAgent = mockk(relaxed = true) {
-            coEvery { detectActionIntent(any()) } returns null
+            coEvery { parseLlmActionResponse(any()) } returns null
         }
         inferenceRepository = mockk(relaxed = true) {
             every { isModelLoaded } returns modelLoadedFlow
@@ -104,11 +104,11 @@ class SueViewModelConfirmationTest {
         )
         val executeResult = SueOperationResult.Execute.Success(pendingAction)
         coEvery { scheduleTools.executeCancelAction(pendingAction) } returns executeResult
-        coEvery { sueAgent.detectActionIntent(any()) } returns null
+        coEvery { sueAgent.parseLlmActionResponse(any()) } returns null
 
         // Inject the pending action into the VM's state
-        // We do this by first having the agent return it from detectActionIntent
-        coEvery { sueAgent.detectActionIntent("cancela la clase de María el lunes") } returns
+        // We do this by first having the agent return it from parseLlmActionResponse
+        coEvery { sueAgent.parseLlmActionResponse("cancela la clase de María el lunes") } returns
                 SueOperationResult.Prepare.Success(pendingAction)
 
         // Simulate first transcription — sets pending action
@@ -142,7 +142,7 @@ class SueViewModelConfirmationTest {
             startTime = "11:00",
             endTime = "12:00"
         )
-        coEvery { sueAgent.detectActionIntent("cancela la clase de Juan el martes") } returns
+        coEvery { sueAgent.parseLlmActionResponse("cancela la clase de Juan el martes") } returns
                 SueOperationResult.Prepare.Success(pendingAction)
 
         transcriptionFlow.emit("cancela la clase de Juan el martes")
@@ -169,7 +169,7 @@ class SueViewModelConfirmationTest {
             studentName = "Ana", studentId = "s3", scheduleId = "sch3",
             date = 1700000000000L, startTime = "10:00", endTime = "11:00"
         )
-        coEvery { sueAgent.detectActionIntent("cancela la clase de Ana el miércoles") } returns
+        coEvery { sueAgent.parseLlmActionResponse("cancela la clase de Ana el miércoles") } returns
                 SueOperationResult.Prepare.Success(pendingAction)
 
         transcriptionFlow.emit("cancela la clase de Ana el miércoles")
@@ -196,7 +196,7 @@ class SueViewModelConfirmationTest {
             studentName = "Pedro", studentId = "s4", scheduleId = "sch4",
             date = 1700000000000L, startTime = "16:00", endTime = "17:00"
         )
-        coEvery { sueAgent.detectActionIntent("cancela la clase de Pedro el jueves") } returns
+        coEvery { sueAgent.parseLlmActionResponse("cancela la clase de Pedro el jueves") } returns
                 SueOperationResult.Prepare.Success(pendingAction)
         transcriptionFlow.emit("cancela la clase de Pedro el jueves")
         advanceUntilIdle()
@@ -224,9 +224,9 @@ class SueViewModelConfirmationTest {
         )
         val executeResult = SueOperationResult.Execute.Success(paymentAction)
         coEvery { studentTools.executeRegisterPayment(paymentAction) } returns executeResult
-        coEvery { sueAgent.detectActionIntent(any()) } returns null
+        coEvery { sueAgent.parseLlmActionResponse(any()) } returns null
 
-        coEvery { sueAgent.detectActionIntent("registra un pago de maría") } returns
+        coEvery { sueAgent.parseLlmActionResponse("registra un pago de maría") } returns
                 SueOperationResult.Prepare.Success(paymentAction)
         
         transcriptionFlow.emit("registra un pago de maría")
@@ -250,9 +250,9 @@ class SueViewModelConfirmationTest {
         )
         val executeResult = SueOperationResult.Execute.Success(addBalanceAction)
         coEvery { studentTools.executeAddBalance(addBalanceAction) } returns executeResult
-        coEvery { sueAgent.detectActionIntent(any()) } returns null
+        coEvery { sueAgent.parseLlmActionResponse(any()) } returns null
 
-        coEvery { sueAgent.detectActionIntent("suma 15.5 euros a la deuda de Juan") } returns
+        coEvery { sueAgent.parseLlmActionResponse("suma 15.5 euros a la deuda de Juan") } returns
                 SueOperationResult.Prepare.Success(addBalanceAction)
         
         transcriptionFlow.emit("suma 15.5 euros a la deuda de Juan")
@@ -281,9 +281,9 @@ class SueViewModelConfirmationTest {
         )
         coEvery { scheduleTools.executeCreateSchedule(pendingAction) } returns conflictError
         coEvery { scheduleTools.getFreeSlots() } returns SueOperationResult.FreeSlots(listOf(3, 5))
-        coEvery { sueAgent.detectActionIntent(any()) } returns null
+        coEvery { sueAgent.parseLlmActionResponse(any()) } returns null
 
-        coEvery { sueAgent.detectActionIntent("agenda clase con maría") } returns
+        coEvery { sueAgent.parseLlmActionResponse("agenda clase con maría") } returns
                 SueOperationResult.Prepare.Success(pendingAction)
 
         transcriptionFlow.emit("agenda clase con maría")
@@ -318,7 +318,7 @@ class SueViewModelConfirmationTest {
             newStartTime = "18:30",
             newEndTime = "20:30"
         )
-        coEvery { sueAgent.detectActionIntent("reprograma la clase de Christian al lunes") } returns
+        coEvery { sueAgent.parseLlmActionResponse("reprograma la clase de Christian al lunes") } returns
                 SueOperationResult.Prepare.Success(rescheduleAction)
 
         // Set up the cancel action that should be returned for the second query
@@ -330,7 +330,7 @@ class SueViewModelConfirmationTest {
             startTime = "18:30",
             endTime = "20:30"
         )
-        coEvery { sueAgent.detectActionIntent("cancela la clase de Christian de esta tarde") } returns
+        coEvery { sueAgent.parseLlmActionResponse("cancela la clase de Christian de esta tarde") } returns
                 SueOperationResult.Prepare.Success(cancelAction)
 
         // First turn: reschedule intent → sets pending reschedule
@@ -363,7 +363,7 @@ class SueViewModelConfirmationTest {
             newStartTime = "16:00",
             newEndTime = "17:00"
         )
-        coEvery { sueAgent.detectActionIntent("mueve la clase de Ana al martes") } returns
+        coEvery { sueAgent.parseLlmActionResponse("mueve la clase de Ana al martes") } returns
                 SueOperationResult.Prepare.Success(rescheduleAction)
 
         // Cancel action from the combined message
@@ -375,7 +375,7 @@ class SueViewModelConfirmationTest {
             startTime = "16:00",
             endTime = "17:00"
         )
-        coEvery { sueAgent.detectActionIntent("no, cancela la clase de Ana de esta tarde") } returns
+        coEvery { sueAgent.parseLlmActionResponse("no, cancela la clase de Ana de esta tarde") } returns
                 SueOperationResult.Prepare.Success(cancelAction)
 
         // First turn: reschedule

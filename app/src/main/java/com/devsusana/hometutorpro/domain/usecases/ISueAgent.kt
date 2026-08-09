@@ -8,13 +8,13 @@ import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 interface ISueAgent {
 
     /**
-     * Detects an action intent (schedule or financial) from [query] and prepares the
-     * corresponding [SueOperationResult.Prepare] with all data pre-resolved.
+     * Parses the LLM response to detect if it contains an action intent tag like `[ACTION: TYPE, ...]`
+     * and prepares the corresponding [SueOperationResult.Prepare].
      *
-     * @param query The raw user query.
-     * @return A prepared operation result, or null if no action intent is detected.
+     * @param response The response from the LLM.
+     * @return A prepared operation result, or null if no action tag is found.
      */
-    suspend fun detectActionIntent(query: String): SueOperationResult.Prepare?
+    suspend fun parseLlmActionResponse(response: String): SueOperationResult.Prepare?
 
     /**
      * Processes a user query by routing it to the appropriate tools and building

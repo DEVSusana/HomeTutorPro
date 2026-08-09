@@ -123,3 +123,27 @@ interface IGetDebugPremiumUseCase {
      */
     operator fun invoke(): Flow<Boolean>
 }
+
+/**
+ * Use case to observe whether onboarding is completed.
+ */
+interface IGetOnboardingCompletedUseCase {
+    /**
+     * Observes the onboarding completed stream.
+     *
+     * @return Flow emitting boolean completed states.
+     */
+    operator fun invoke(): Flow<Boolean>
+}
+
+/**
+ * Use case to set whether onboarding is completed.
+ */
+interface ISetOnboardingCompletedUseCase {
+    /**
+     * Executes the onboarding completed change.
+     *
+     * @param completed True if onboarding is completed, false otherwise.
+     */
+    suspend operator fun invoke(completed: Boolean)
+}

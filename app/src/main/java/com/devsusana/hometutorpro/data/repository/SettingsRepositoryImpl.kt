@@ -33,6 +33,7 @@ class SettingsRepositoryImpl @Inject constructor(
         private val DEBUG_PREMIUM_KEY = booleanPreferencesKey("debug_premium")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val CLASS_END_NOTIFICATIONS_KEY = booleanPreferencesKey("class_end_notifications")
+        private val ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("onboarding_completed")
 
         private const val LANGUAGE_ENGLISH = "en"
         private const val LANGUAGE_SPANISH = "es"
@@ -57,6 +58,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val classEndNotificationsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[CLASS_END_NOTIFICATIONS_KEY] ?: true
+    }
+
+    override val isOnboardingCompletedFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[ONBOARDING_COMPLETED_KEY] ?: false
     }
 
     override suspend fun setLanguage(language: String) {
@@ -86,6 +91,12 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setClassEndNotifications(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[CLASS_END_NOTIFICATIONS_KEY] = enabled
+        }
+    }
+
+    override suspend fun setOnboardingCompleted(completed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[ONBOARDING_COMPLETED_KEY] = completed
         }
     }
 }

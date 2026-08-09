@@ -1,8 +1,8 @@
 package com.devsusana.hometutorpro.presentation.splash
 
-import com.devsusana.hometutorpro.core.settings.SettingsManager
 import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetOnboardingCompletedUseCase
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +12,7 @@ import org.junit.Test
 
 class SplashViewModelTest {
 
-    private val settingsManager = mockk<SettingsManager>(relaxed = true)
+    private val getOnboardingCompletedUseCase = mockk<IGetOnboardingCompletedUseCase>(relaxed = true)
 
     @Test
     fun `isUserLoggedIn should return true when user is not null`() {
@@ -21,7 +21,7 @@ class SplashViewModelTest {
         val fakeUseCase = object : IGetCurrentUserUseCase {
             override fun invoke() = MutableStateFlow(user)
         }
-        val viewModel = SplashViewModel(fakeUseCase, settingsManager)
+        val viewModel = SplashViewModel(fakeUseCase, getOnboardingCompletedUseCase)
 
         // When
         val result = viewModel.isUserLoggedIn()
@@ -36,7 +36,7 @@ class SplashViewModelTest {
         val fakeUseCase = object : IGetCurrentUserUseCase {
             override fun invoke() = MutableStateFlow<User?>(null)
         }
-        val viewModel = SplashViewModel(fakeUseCase, settingsManager)
+        val viewModel = SplashViewModel(fakeUseCase, getOnboardingCompletedUseCase)
 
         // When
         val result = viewModel.isUserLoggedIn()

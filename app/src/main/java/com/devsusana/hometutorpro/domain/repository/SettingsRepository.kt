@@ -24,6 +24,16 @@ interface SettingsRepository {
     /** Emits whether notifications at the end of classes are enabled. */
     val classEndNotificationsFlow: Flow<Boolean>
 
+    /** Emits whether onboarding is completed. */
+    val isOnboardingCompletedFlow: Flow<Boolean>
+
+    /**
+     * Updates the onboarding completed status.
+     *
+     * @param completed True if onboarding is completed.
+     */
+    suspend fun setOnboardingCompleted(completed: Boolean)
+
     /**
      * Updates the selected language.
      *

@@ -116,3 +116,25 @@ class GetDebugPremiumUseCase @Inject constructor(
         return settingsRepository.isDebugPremiumFlow
     }
 }
+
+/**
+ * Implementation of [IGetOnboardingCompletedUseCase] that observes onboarding from [SettingsRepository].
+ */
+class GetOnboardingCompletedUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
+) : IGetOnboardingCompletedUseCase {
+    override fun invoke(): Flow<Boolean> {
+        return settingsRepository.isOnboardingCompletedFlow
+    }
+}
+
+/**
+ * Implementation of [ISetOnboardingCompletedUseCase] that delegates onboarding completed updates to [SettingsRepository].
+ */
+class SetOnboardingCompletedUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
+) : ISetOnboardingCompletedUseCase {
+    override suspend operator fun invoke(completed: Boolean) {
+        settingsRepository.setOnboardingCompleted(completed)
+    }
+}

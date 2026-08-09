@@ -77,19 +77,35 @@ class SueAgentImpl @Inject constructor(
 
                 Limitaciones:
                 - Solo conoces los datos del profesor que está usando la app.
+
+                INSTRUCCIÓN MUY IMPORTANTE (EXTRACCIÓN DE INTENCIONES):
+                Si la frase del usuario requiere ejecutar una acción en la app (crear, modificar o borrar clases, estudiantes o pagos), debes devolver UNA ÚNICA LÍNEA AL PRINCIPIO de tu respuesta con el siguiente formato exacto:
+                [ACTION: TIPO_DE_ACCION, parametro1: valor, parametro2: valor]
+                
+                Tipos de acción soportados: START_CLASS, CREATE_STUDENT, DELETE_STUDENT, ADD_EXTRA_CLASS, CREATE_SCHEDULE, DELETE_SCHEDULE, CANCEL_CLASS, RESCHEDULE_CLASS, REGISTER_PAYMENT, ADD_BALANCE
+                
+                Ejemplos de acciones:
+                Usuario: "Añade a Marcos para dar clases de inglés a 15 la hora."
+                Tú: [ACTION: CREATE_STUDENT, student: "Marcos", course: "General", subjects: "inglés", price: "15.0"]
+                
+                Usuario: "Cambia la clase de Ana de hoy a mañana a las 5."
+                Tú: [ACTION: RESCHEDULE_CLASS, student: "Ana", fromDay: "hoy", toDay: "mañana", targetTime: "17:00"]
+                
+                Usuario: "Mueve la clase de Luis a las 18:00."
+                Tú: [ACTION: RESCHEDULE_CLASS, student: "Luis", targetTime: "18:00"]
+                
+                Usuario: "Cancela la clase de María del viernes."
+                Tú: [ACTION: CANCEL_CLASS, student: "María", day: "viernes"]
+                
+                Usuario: "Ana me ha pagado 30 euros en efectivo."
+                Tú: [ACTION: REGISTER_PAYMENT, student: "Ana", amount: "30.0", type: "EFFECTIVE"]
+                
+                Usuario: "Ponle una clase extra a Carlos el viernes a las 10."
+                Tú: [ACTION: ADD_EXTRA_CLASS, student: "Carlos", day: "viernes", targetTime: "10:00"]
+                
+                Si la frase es solo una pregunta (ej. "¿Qué clases tengo?"), responde de forma natural SIN incluir la etiqueta [ACTION: ...].
             """.trimIndent()
         }
-    }    private enum class IntentType {
-        START_CLASS,
-        CREATE_STUDENT,
-        DELETE_STUDENT,
-        ADD_EXTRA_CLASS,
-        CREATE_SCHEDULE,
-        DELETE_SCHEDULE,
-        CANCEL_CLASS,
-        RESCHEDULE_CLASS,
-        REGISTER_PAYMENT,
-        ADD_BALANCE
     }
 
     private var lastMentionedStudentName: String? = null
@@ -100,7 +116,6 @@ class SueAgentImpl @Inject constructor(
     private var lastMentionedPrice: Double? = null
     private var lastMentionedSubjects: String? = null
     private var lastMentionedCourse: String? = null
-    private var lastActiveIntentType: IntentType? = null
 
     override fun resetConversationContext() {
         lastMentionedStudentName = null
@@ -111,524 +126,9 @@ class SueAgentImpl @Inject constructor(
         lastMentionedPrice = null
         lastMentionedSubjects = null
         lastMentionedCourse = null
-        lastActiveIntentType = null
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Schedule management intent detection
-    // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Detects an action intent (schedule or financial) from [query] and prepares the
-     * corresponding [SueOperationResult.Prepare] with all data pre-resolved.
-     *
-     * Returns null if no action intent is detected, meaning the
-     * caller should fall through to normal LLM processing.
-     *
-     * Returns [SueOperationResult.Prepare] with the resolved action and confirmation data,
-     * or with an error descriptor if the intent was detected but the data could not be resolved.
-     */
-    override suspend fun detectActionIntent(query: String): SueOperationResult.Prepare? {
-        val lower = query.lowercase().trim()
-
-        // 1. If we have a pending intent type, check if the user wants to abort or change topic
-        if (lastActiveIntentType != null) {
-            val abortWords = listOf("no", "nada", "olvídalo", "olvida", "déjalo", "abortar", "aborta")
-            if (abortWords.any { it == lower }) {
-                resetConversationContext()
-                return null
-            }
-            if (isQuestionOrQuery(lower)) {
-                lastActiveIntentType = null
-            }
-        }
-
-        // 2. Extract and update context memory variables
-        val matchedStudent = studentTools.extractRelevantStudent(lower)
-        val matchedName = matchedStudent?.name ?: extractStudentName(lower) ?: extractStudentNameForFinance(lower) ?: extractNameAfter(lower, listOf("inicia una clase para ", "inicia clase para ", "empieza clase para ", "start class for "))
-        if (matchedName != null) {
-            val capitalizedName = matchedName.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            lastMentionedStudentName = capitalizedName
-        }
-
-        val relativeDay = extractRelativeDayOfWeek(lower)
-        val explicitDay = extractDayOfWeek(lower)
-        val matchedDay = relativeDay ?: explicitDay
-        if (matchedDay != null) {
-            lastMentionedDayOfWeek = matchedDay
-        }
-
-        val matchedTime = extractTime(lower)
-        if (matchedTime != null) {
-            lastMentionedTime = matchedTime
-        }
-
-        val matchedAmount = extractAmount(lower)
-        if (matchedAmount != null) {
-            lastMentionedAmount = matchedAmount
-        }
-
-        val matchedDuration = extractDurationOptional(lower)
-        if (matchedDuration != null) {
-            lastMentionedDuration = matchedDuration
-        }
-
-        // 3. Determine the intent to process (explicit or fallback to last active intent)
-        val explicitIntent = when {
-            containsStartClassKeywords(lower) -> IntentType.START_CLASS
-            containsCreateStudentKeywords(lower) -> IntentType.CREATE_STUDENT
-            containsDeleteStudentKeywords(lower) -> IntentType.DELETE_STUDENT
-            containsAddExtraClassKeywords(lower) -> IntentType.ADD_EXTRA_CLASS
-            containsCreateScheduleKeywords(lower) -> IntentType.CREATE_SCHEDULE
-            containsDeleteScheduleKeywords(lower) -> IntentType.DELETE_SCHEDULE
-            containsCancelKeywords(lower) -> IntentType.CANCEL_CLASS
-            containsRescheduleKeywords(lower) -> IntentType.RESCHEDULE_CLASS
-            containsRegisterPaymentKeywords(lower) -> IntentType.REGISTER_PAYMENT
-            containsAddBalanceKeywords(lower) -> IntentType.ADD_BALANCE
-            else -> null
-        }
-
-        val activeIntent = explicitIntent ?: lastActiveIntentType
-        if (activeIntent == null) {
-            return null
-        }
-
-        // Set the active intent so if it fails (due to missing info), we persist it for the next turn
-        lastActiveIntentType = activeIntent
-
-        val result = when (activeIntent) {
-            IntentType.START_CLASS -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿Para qué alumno quieres iniciar la clase?"
-                    )
-                } else {
-                    val duration = lastMentionedDuration
-                    if (duration == null) {
-                        SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.UNKNOWN,
-                            "¿De cuántos minutos será la clase con $studentName?"
-                        )
-                    } else {
-                        studentTools.prepareStartClass(studentName, duration)
-                    }
-                }
-            }
-
-            IntentType.CREATE_STUDENT -> {
-                val queryWithoutKeywords = lower
-                    .replace("crear un estudiante", "")
-                    .replace("crear un alumno", "")
-                    .replace("crea un estudiante", "")
-                    .replace("crea un alumno", "")
-                    .replace("crear al estudiante", "")
-                    .replace("crear al alumno", "")
-                    .replace("crea al estudiante", "")
-                    .replace("crea al alumno", "")
-                    .replace("crear el estudiante", "")
-                    .replace("crear el alumno", "")
-                    .replace("crea el estudiante", "")
-                    .replace("crea el alumno", "")
-                    .replace("añadir un estudiante", "")
-                    .replace("añadir un alumno", "")
-                    .replace("añade un estudiante", "")
-                    .replace("añade un alumno", "")
-                    .replace("añadir al estudiante", "")
-                    .replace("añadir al alumno", "")
-                    .replace("añade al estudiante", "")
-                    .replace("añade al alumno", "")
-                    .replace("añadir estudiante", "")
-                    .replace("añadir alumno", "")
-                    .replace("añade estudiante", "")
-                    .replace("añade alumno", "")
-                    .replace("create student", "")
-                    .replace("add student", "")
-                    .trim()
-
-                if (lastMentionedStudentName == null) {
-                    val stopWords = listOf(" de ", " a ", " para ", " in ", " at ", " for ")
-                    var nameCandidate = queryWithoutKeywords
-                    for (stop in stopWords) {
-                        val stopIdx = nameCandidate.indexOf(stop)
-                        if (stopIdx >= 0) {
-                            nameCandidate = nameCandidate.substring(0, stopIdx).trim()
-                        }
-                    }
-                    if (nameCandidate.isNotBlank() && !nameCandidate.contains(Regex("""\d"""))) {
-                        lastMentionedStudentName = nameCandidate.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                    }
-                }
-
-                val price = extractAmount(lower)
-                if (price != null) {
-                    lastMentionedPrice = price
-                }
-
-                val subjectKeywords = listOf(" de ", " in ", " para ", " for ")
-                for (kw in subjectKeywords) {
-                    val idx = lower.indexOf(kw)
-                    if (idx >= 0) {
-                        val rest = query.substring(idx + kw.length).trim()
-                        val stopWords = listOf(" a ", " por ", " at ", " for ")
-                        var end = rest.length
-                        for (stop in stopWords) {
-                            val stopIdx = rest.lowercase().indexOf(stop)
-                            if (stopIdx in 1 until end) end = stopIdx
-                        }
-                        val candidate = rest.substring(0, end).trim()
-                        if (candidate.isNotBlank() && !candidate.contains(Regex("""\d""")) && 
-                            !listOf("lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo").any { it in candidate.lowercase() }) {
-                            lastMentionedSubjects = candidate
-                            break
-                        }
-                    }
-                }
-
-                val courseKeywords = listOf("eso", "bachillerato", "bach", "primaria", "secundaria", "universidad")
-                val courseMatch = courseKeywords.find { it in lower }
-                if (courseMatch != null) {
-                    lastMentionedCourse = courseMatch
-                }
-
-                val studentName = lastMentionedStudentName
-                if (studentName.isNullOrBlank()) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.UNKNOWN,
-                        "¿Cómo se llama el nuevo alumno?"
-                    )
-                } else {
-                    val priceVal = lastMentionedPrice
-                    if (priceVal == null) {
-                        SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.UNKNOWN,
-                            "¿Cuál será el precio por hora de $studentName?"
-                        )
-                    } else {
-                        val finalCourse = lastMentionedCourse ?: "Other"
-                        val finalSubjects = lastMentionedSubjects ?: "General"
-                        studentTools.prepareCreateStudent(studentName, finalCourse, finalSubjects, priceVal)
-                    }
-                }
-            }
-
-            IntentType.DELETE_STUDENT -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿De qué alumno quieres eliminar el perfil?"
-                    )
-                } else {
-                    studentTools.prepareDeleteStudent(studentName)
-                }
-            }
-
-            IntentType.ADD_EXTRA_CLASS -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿Para qué alumno quieres programar la clase extra?"
-                    )
-                } else {
-                    val dayOfWeek = lastMentionedDayOfWeek ?: dateTimeProvider.getNow().dayOfWeek.value
-                    val targetDate = dateTimeProvider.getNow().toLocalDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.of(dayOfWeek)))
-                    val dateMillis = targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-                    val times = extractTwoTimes(lower) ?: lastMentionedTime?.let { lastTime ->
-                        val parts = lastTime.split(":")
-                        val h = parts[0].toInt()
-                        val m = parts[1].toInt()
-                        val endH = (h + 1) % 24
-                        val endTime = "%02d:%02d".format(endH, m)
-                        Pair(lastTime, endTime)
-                    }
-                    if (times == null) {
-                        SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.UNKNOWN,
-                            "¿A qué hora quieres programar la clase extra de $studentName?"
-                        )
-                    } else {
-                        scheduleTools.prepareAddExtraClass(studentName, dateMillis, times.first, times.second)
-                    }
-                }
-            }
-
-            IntentType.CREATE_SCHEDULE -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿Para qué alumno deseas configurar el horario?"
-                    )
-                } else {
-                    val dayOfWeek = lastMentionedDayOfWeek
-                    if (dayOfWeek == null) {
-                        SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.UNKNOWN,
-                            "¿Qué día de la semana será la clase de $studentName?"
-                        )
-                    } else {
-                        val times = extractTwoTimes(lower) ?: lastMentionedTime?.let { lastTime ->
-                            val parts = lastTime.split(":")
-                            val h = parts[0].toInt()
-                            val m = parts[1].toInt()
-                            val endH = (h + 1) % 24
-                            val endTime = "%02d:%02d".format(endH, m)
-                            Pair(lastTime, endTime)
-                        }
-                        if (times == null) {
-                            val dayName = when(dayOfWeek) {
-                                1 -> "lunes"
-                                2 -> "martes"
-                                3 -> "miércoles"
-                                4 -> "jueves"
-                                5 -> "viernes"
-                                6 -> "sábado"
-                                7 -> "domingo"
-                                else -> "ese día"
-                            }
-                            SueOperationResult.Prepare.Error(
-                                SueOperationResult.ErrorType.UNKNOWN,
-                                "¿A qué hora será la clase de $studentName los $dayName?"
-                            )
-                        } else {
-                            scheduleTools.prepareCreateSchedule(studentName, dayOfWeek, times.first, times.second)
-                        }
-                    }
-                }
-            }
-
-            IntentType.DELETE_SCHEDULE -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿De qué alumno quieres eliminar el horario?"
-                    )
-                } else {
-                    val dayOfWeek = lastMentionedDayOfWeek
-                    if (dayOfWeek == null) {
-                        SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.UNKNOWN,
-                            "¿Qué día de la semana es el horario que quieres eliminar?"
-                        )
-                    } else {
-                        val time = lastMentionedTime
-                        scheduleTools.prepareDeleteSchedule(studentName, dayOfWeek, time)
-                    }
-                }
-            }
-
-            IntentType.CANCEL_CLASS -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿De qué alumno quieres cancelar la clase?"
-                    )
-                } else {
-                    var dayOfWeek = lastMentionedDayOfWeek
-                    val time = lastMentionedTime
-
-                    if (dayOfWeek == null) {
-                        val schedules = scheduleTools.getSchedulesByStudentName(studentName)
-                        if (schedules.isEmpty()) {
-                            SueOperationResult.Prepare.Error(
-                                SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                                "No he encontrado ninguna clase programada para $studentName."
-                            )
-                        } else if (schedules.size == 1) {
-                            dayOfWeek = schedules.first().dayOfWeek
-                            scheduleTools.prepareCancelAction(studentName, dayOfWeek, time)
-                        } else {
-                            SueOperationResult.Prepare.Error(
-                                SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                                "¿Qué día es la clase de $studentName que quieres cancelar?"
-                            )
-                        }
-                    } else {
-                        scheduleTools.prepareCancelAction(studentName, dayOfWeek, time)
-                    }
-                }
-            }
-
-            IntentType.RESCHEDULE_CLASS -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿De qué alumno quieres mover la clase?"
-                    )
-                } else {
-                    val days = extractTwoDaysOfWeek(lower)
-                    var fromDay: Int? = null
-                    var toDay: Int? = null
-
-                    val schedules = scheduleTools.getSchedulesByStudentName(studentName)
-                    if (schedules.isEmpty()) {
-                        SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                            "No he encontrado ninguna clase programada para $studentName."
-                        )
-                    } else {
-                        if (days.first != null && days.second != null) {
-                            fromDay = days.first
-                            toDay = days.second
-                        } else if (days.first != null) {
-                            val singleDay = days.first!!
-                            val hasClassOnSingleDay = schedules.any { it.dayOfWeek == singleDay }
-                            if (hasClassOnSingleDay) {
-                                if (isTargetDay(lower, singleDay)) {
-                                    toDay = singleDay
-                                } else {
-                                    fromDay = singleDay
-                                }
-                            } else {
-                                toDay = singleDay
-                            }
-                        }
-
-                        // Resolve fromDay if null
-                        if (fromDay == null) {
-                            if (schedules.size == 1) {
-                                fromDay = schedules.first().dayOfWeek
-                            } else {
-                                val fallbackDay = lastMentionedDayOfWeek ?: dateTimeProvider.getNow().dayOfWeek.value
-                                val hasClassOnFallback = schedules.any { it.dayOfWeek == fallbackDay }
-                                if (hasClassOnFallback) {
-                                    fromDay = fallbackDay
-                                } else {
-                                    val todayDay = dateTimeProvider.getNow().dayOfWeek.value
-                                    val todayMatch = schedules.firstOrNull { it.dayOfWeek == todayDay }
-                                    if (todayMatch != null) {
-                                        fromDay = todayDay
-                                    } else {
-                                        fromDay = schedules.firstOrNull()?.dayOfWeek
-                                    }
-                                }
-                            }
-                        }
-
-                        if (fromDay == null) {
-                            return SueOperationResult.Prepare.Error(
-                                SueOperationResult.ErrorType.CLASS_NOT_FOUND,
-                                "¿Qué día es la clase de $studentName que quieres mover?"
-                            )
-                        }
-
-                        if (toDay == null) {
-                            toDay = fromDay
-                        }
-
-                        // Resolve times
-                        val times = extractAllTimesInQuery(lower)
-                        var fromTime: String? = null
-                        var targetTime: String? = null
-
-                        if (times.size >= 2) {
-                            fromTime = times[0]
-                            targetTime = times[1]
-                        } else if (times.size == 1) {
-                            val singleTime = times[0]
-                            val daySchedules = schedules.filter { it.dayOfWeek == fromDay }
-                            val hasClassAtTime = daySchedules.any {
-                                it.startTime == singleTime || it.startTime.substringBefore(":") == singleTime.substringBefore(":")
-                            }
-                            if (hasClassAtTime) {
-                                fromTime = singleTime
-                                targetTime = singleTime // move day, keep same time
-                            } else {
-                                fromTime = null
-                                targetTime = singleTime // move to new time
-                            }
-                        } else {
-                            fromTime = null
-                            targetTime = lastMentionedTime
-                        }
-
-                        // If targetTime is still null, default to the original class start time on fromDay!
-                        if (targetTime == null) {
-                            val daySchedules = schedules.filter { it.dayOfWeek == fromDay }
-                            if (fromTime == null && daySchedules.size > 1) {
-                                return SueOperationResult.Prepare.Error(
-                                    SueOperationResult.ErrorType.UNKNOWN,
-                                    "¿Qué clase de $studentName quieres mover? Tiene varias ese día."
-                                )
-                            }
-                            val match = if (fromTime != null) {
-                                daySchedules.firstOrNull { it.startTime == fromTime }
-                                    ?: daySchedules.firstOrNull { it.startTime.substringBefore(":") == fromTime.substringBefore(":") }
-                                    ?: daySchedules.firstOrNull()
-                            } else {
-                                daySchedules.firstOrNull()
-                            }
-                            if (match != null) {
-                                targetTime = match.startTime
-                            }
-                        }
-
-                        if (targetTime == null) {
-                            SueOperationResult.Prepare.Error(
-                                SueOperationResult.ErrorType.UNKNOWN,
-                                "¿A qué hora quieres programar la clase de $studentName?"
-                            )
-                        } else {
-                            scheduleTools.prepareRescheduleAction(studentName, fromDay, toDay, targetTime, fromTime)
-                        }
-                    }
-                }
-            }
-
-            IntentType.REGISTER_PAYMENT -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿De qué alumno quieres registrar el pago?"
-                    )
-                } else {
-                    val amount = lastMentionedAmount
-                    if (amount == null) {
-                        SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.UNKNOWN,
-                            "¿De cuánto es el pago de $studentName?"
-                        )
-                    } else {
-                        val paymentType = if (lower.contains("bizum")) PaymentType.BIZUM else PaymentType.EFFECTIVE
-                        studentTools.prepareRegisterPayment(studentName, amount, paymentType)
-                    }
-                }
-            }
-
-            IntentType.ADD_BALANCE -> {
-                val studentName = lastMentionedStudentName
-                if (studentName == null) {
-                    SueOperationResult.Prepare.Error(
-                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
-                        "¿A qué alumno le quieres sumar saldo?"
-                    )
-                } else {
-                    val amount = lastMentionedAmount
-                    if (amount == null) {
-                        SueOperationResult.Prepare.Error(
-                            SueOperationResult.ErrorType.UNKNOWN,
-                            "¿Cuánto saldo deseas sumarle a $studentName?"
-                        )
-                    } else {
-                        studentTools.prepareAddBalance(studentName, amount)
-                    }
-                }
-            }
-        }
-
-        if (result is SueOperationResult.Prepare.Success) {
-            lastActiveIntentType = null
-        }
-        return result
-    }
 
     // ──────────────────────────────────────────────────────────────────────────
     // Normal LLM prompt building
@@ -1440,5 +940,74 @@ class SueAgentImpl @Inject constructor(
             "how", "how much", "how many", "which", "schedule", "classes", "students", "tell me"
         )
         return questionWords.any { lower.contains(it) }
+    }
+
+    override suspend fun parseLlmActionResponse(response: String): SueOperationResult.Prepare? {
+        val pattern = """\[ACTION:\s*([A-Z_]+)(?:,\s*(.*))?]""".toRegex(RegexOption.IGNORE_CASE)
+        val match = pattern.find(response) ?: return null
+
+        val actionType = match.groupValues[1].trim()
+        val paramsString = match.groupValues.getOrNull(2) ?: ""
+
+        val params = mutableMapOf<String, String>()
+        if (paramsString.isNotBlank()) {
+            // Only split by commas that are outside quotes, but a simple split is fine for now as prompt doesn't generate commas in values
+            val paramPairs = paramsString.split(",")
+            for (pair in paramPairs) {
+                val kv = pair.split(":")
+                if (kv.size == 2) {
+                    val key = kv[0].trim()
+                    val value = kv[1].trim().removeSurrounding("\"").trim()
+                    params[key] = value
+                }
+            }
+        }
+
+        val student = params["student"]
+        return when (actionType) {
+            "START_CLASS" -> {
+                if (student != null) studentTools.prepareStartClass(student, params["duration"]?.toIntOrNull() ?: 60) else null
+            }
+            "CREATE_STUDENT" -> {
+                if (student != null) studentTools.prepareCreateStudent(student, params["course"] ?: "General", params["subjects"] ?: "General", params["price"]?.toDoubleOrNull() ?: 0.0) else null
+            }
+            "DELETE_STUDENT" -> {
+                if (student != null) studentTools.prepareDeleteStudent(student) else null
+            }
+            "REGISTER_PAYMENT" -> {
+                if (student != null) {
+                    val type = if (params["type"] == "EFFECTIVE") com.devsusana.hometutorpro.domain.entities.PaymentType.EFFECTIVE else com.devsusana.hometutorpro.domain.entities.PaymentType.BIZUM
+                    studentTools.prepareRegisterPayment(student, params["amount"]?.toDoubleOrNull() ?: 0.0, type)
+                } else null
+            }
+            "ADD_BALANCE" -> {
+                if (student != null) studentTools.prepareAddBalance(student, params["amount"]?.toDoubleOrNull() ?: 0.0) else null
+            }
+            "CANCEL_CLASS" -> {
+                if (student != null) scheduleTools.prepareCancelAction(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, params["time"]) else null
+            }
+            "DELETE_SCHEDULE" -> {
+                if (student != null) scheduleTools.prepareDeleteSchedule(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, params["time"]) else null
+            }
+            "CREATE_SCHEDULE" -> {
+                if (student != null) scheduleTools.prepareCreateSchedule(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, params["startTime"] ?: "", params["endTime"] ?: "") else null
+            }
+            "ADD_EXTRA_CLASS" -> {
+                if (student != null) {
+                    val dayOfWeek = extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
+                    val targetDate = dateTimeProvider.getNow().toLocalDate().with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.of(dayOfWeek)))
+                    val dateMillis = targetDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    scheduleTools.prepareAddExtraClass(student, dateMillis, params["targetTime"] ?: "", params["endTime"] ?: "")
+                } else null
+            }
+            "RESCHEDULE_CLASS" -> {
+                if (student != null) {
+                    val fromDay = extractDayOfWeek(params["fromDay"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
+                    val toDay = extractDayOfWeek(params["toDay"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
+                    scheduleTools.prepareRescheduleAction(student, fromDay, toDay, params["targetTime"] ?: "", params["fromTime"])
+                } else null
+            }
+            else -> null
+        }
     }
 }
