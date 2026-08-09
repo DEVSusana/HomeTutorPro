@@ -19,8 +19,8 @@ android {
         applicationId = "com.devsusana.hometutorpro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 104
-        versionName = "1.0.4"
+        versionCode = 106
+        versionName = "1.0.6"
 
         testInstrumentationRunner = "com.devsusana.hometutorpro.CustomTestRunner"
     }
@@ -72,7 +72,7 @@ android {
                 signingConfig = releaseSigning
             }
             ndk {
-                debugSymbolLevel = "SYMBOL_TABLE"
+                debugSymbolLevel = "FULL"
             }
         }
         debug {
@@ -134,13 +134,16 @@ dependencies {
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // Firebase
+    // Firebase & Auth
     implementation(platform(libs.firebase.bom))
     implementation(libs.google.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.storage)
     implementation(libs.firebase.crashlytics)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     // Google Play Billing
     implementation(libs.billing.ktx)

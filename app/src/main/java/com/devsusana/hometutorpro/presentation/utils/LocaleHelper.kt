@@ -32,12 +32,8 @@ object LocaleHelper {
      * @return Language code (e.g., "en", "es")
      */
     fun getCurrentLanguage(context: Context): String {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            context.resources.configuration.locales[0].language
-        } else {
-            @Suppress("DEPRECATION")
-            context.resources.configuration.locale.language
-        }
+        val primaryLocale = androidx.core.os.ConfigurationCompat.getLocales(context.resources.configuration)[0] ?: Locale.getDefault()
+        return primaryLocale.language
     }
 
     /**

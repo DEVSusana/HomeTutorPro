@@ -40,6 +40,9 @@
     <string name="login_error_invalid_email">Invalid email format</string>
     <string name="login_error_password_too_short">Password must be at least 6 characters</string>
     <string name="login_error_empty_fields">Please fill in all fields</string>
+    <string name="google_sign_in">Continue with Google</string>
+    <string name="or_divider">or</string>
+    <string name="google_sign_in_error">Google sign-in failed. Please try again.</string>
     <string name="register_error_name_empty">Name cannot be empty</string>
     <string name="register_error_invalid_email">Invalid email format</string>
     <string name="register_error_short_password">Password must be at least 6 characters</string>

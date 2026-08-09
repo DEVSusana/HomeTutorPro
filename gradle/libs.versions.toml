@@ -27,7 +27,7 @@ coroutinesTest = "1.10.2"
 mockk = "1.14.9"
 composeUiGraphics = "1.10.2"
 androidDesugarJdkLibs = "2.1.5"
-datastorePreferences = "1.2.0"
+datastorePreferences = "1.2.1"
 room = "2.8.4"
 securityCrypto = "1.1.0"
 workManager = "2.11.1"
@@ -35,8 +35,10 @@ hiltWork = "1.3.0"
 turbine = "1.2.1"
 robolectric = "4.16.1"
 sqlcipher = "4.13.0"
-billing = "7.1.1"
+billing = "9.1.0"
 googleServices = "4.4.4"
+credentials = "1.3.0"
+googleid = "1.1.1"
 
 firebaseCrashlyticsPlugin = "3.0.6"
 
@@ -90,6 +92,11 @@ androidx-room-testing = { group = "androidx.room", name = "room-testing", versio
 
 # Security
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+
+# Credentials & Google Auth
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
+googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 
 # WorkManager
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }

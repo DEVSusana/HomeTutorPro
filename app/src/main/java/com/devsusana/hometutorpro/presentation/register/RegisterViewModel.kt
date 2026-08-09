@@ -7,6 +7,7 @@ import com.devsusana.hometutorpro.domain.core.AuthValidator
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.usecases.IRegisterUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISignInWithGoogleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val registerUseCase: IRegisterUseCase
+    private val registerUseCase: IRegisterUseCase,
+    private val signInWithGoogleUseCase: ISignInWithGoogleUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RegisterState())
@@ -42,6 +44,36 @@ class RegisterViewModel @Inject constructor(
             }
             is RegisterUiEvent.OnBackClick -> {
                 // Handled by UI
+            }
+            is RegisterUiEvent.OnGoogleSignInSuccess -> {
+                signInWithGoogle(event.idToken)
+            }
+            is RegisterUiEvent.OnGoogleSignInError -> {
+                _state.update { 
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = R.string.google_sign_in_error
+                    ) 
+                }
+            }
+        }
+    }
+
+    private fun signInWithGoogle(idToken: String) {
+        _state.update { it.copy(isLoading = true, error = null, errorMessage = null) }
+        viewModelScope.launch {
+            when (val result = signInWithGoogleUseCase(idToken)) {
+                is Result.Success -> {
+                    _state.update { it.copy(isLoading = false, registerSuccess = true) }
+                }
+                is Result.Error -> {
+                    _state.update { 
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = R.string.google_sign_in_error
+                        ) 
+                    }
+                }
             }
         }
     }

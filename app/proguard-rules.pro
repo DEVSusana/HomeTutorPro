@@ -68,49 +68,15 @@
 -dontwarn kotlinx.coroutines.**
 
 # ============================================================================
-# Jetpack Compose
+# Jetpack Compose, Hilt, Room, Play Services, and Security Crypto
 # ============================================================================
+# Handled automatically by bundled library consumer rules.
+# R8 is allowed to optimize, shrink, and obfuscate these packages.
 
--keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
-
-# ============================================================================
-# Hilt
-# ============================================================================
-
--keep class dagger.hilt.** { *; }
--keep class javax.inject.** { *; }
 -dontwarn com.google.errorprone.annotations.**
-
-# Keep all classes that use @Inject
--keepclasseswithmembers class * {
-    @javax.inject.* <fields>;
-}
--keepclasseswithmembers class * {
-    @javax.inject.* <methods>;
-}
-
-# ============================================================================
-# Google Play Services
-# ============================================================================
-
--keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
-
-# ============================================================================
-# Room Database
-# ============================================================================
-
--keep class * extends androidx.room.RoomDatabase
--keep @androidx.room.Entity class *
 -dontwarn androidx.room.paging.**
-
-# ============================================================================
-# Security: Encrypted SharedPreferences
-# ============================================================================
-
--keep class androidx.security.crypto.** { *; }
--keep class com.google.crypto.tink.** { *; }
 -dontwarn com.google.api.client.http.**
 -dontwarn org.joda.time.**
 

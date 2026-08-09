@@ -139,6 +139,53 @@ class SecureAuthManagerTest {
     }
 
     @Test
+    fun `saveCredentials with empty password for Google Sign In should persist session`() {
+        // Given
+        val email = "googleuser@example.com"
+        val emptyPassword = ""
+        val name = "Google User"
+        val userId = "google_user_123"
+
+        // When
+        val savedId = authManager.saveCredentials(email, emptyPassword, name, userId)
+
+        // Then
+        assertEquals(userId, savedId)
+        assertEquals(userId, authManager.getUserId())
+        assertEquals(name, authManager.getUserName())
+        assertEquals(email, authManager.getEmail())
+        assertTrue(authManager.isUserLoggedIn())
+    }
+
+    @Test
+    fun `validateCredentials for Google Sign In user with random password should return false`() {
+        // Given
+        val email = "googleuser@example.com"
+        authManager.saveCredentials(email, "", "Google User", "google_123")
+
+        // When: Trying to validate credentials with a typed password
+        val isValid = authManager.validateCredentials(email, "somePassword123")
+
+        // Then: Should fail since Google Auth user does not use local password
+        assertFalse(isValid)
+    }
+
+    @Test
+    fun `saveCredentials with empty password for Google Sign In should NOT overwrite existing password hash`() {
+        // Given: User registers with password
+        val email = "user@example.com"
+        val password = "MyOriginalPassword123!"
+        authManager.saveCredentials(email, password, "User Name", "user_123")
+        assertTrue(authManager.validateCredentials(email, password))
+
+        // When: User later logs in via Google Sign In
+        authManager.saveCredentials(email, "", "User Name", "user_123")
+
+        // Then: Original password should STILL be valid
+        assertTrue(authManager.validateCredentials(email, password))
+    }
+
+    @Test
     fun `encrypt and decrypt PII should handle null or empty`() {
         // When
         assertEquals("", authManager.encryptPII(null))
