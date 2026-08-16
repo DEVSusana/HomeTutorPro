@@ -2,6 +2,7 @@ package com.devsusana.hometutorpro.presentation.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.entities.SpeechState
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
@@ -258,7 +259,21 @@ class SueViewModel @Inject constructor(
         if (pendingAction != null) {
             handleConfirmation(transcription, pendingAction)
         } else {
-            processWithAgent(transcription)
+            // 1. Try local rule-based intent parsing (fast, offline, reliable)
+            val intentResult = sueAgent.detectActionIntent(transcription)
+            if (intentResult != null) {
+                val message = SueResponseFormatter.format(intentResult)
+                val action = (intentResult as? SueOperationResult.Prepare.Success)?.action
+                
+                conversationHistory.add(Pair(transcription, message))
+                while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+
+                _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                speechService.speak(message)
+            } else {
+                // 2. Fallback to local LLM
+                processWithAgent(transcription)
+            }
         }
     }
 
@@ -279,7 +294,17 @@ class SueViewModel @Inject constructor(
                 
                 // If the user says more than just "no", they might be giving a new command
                 if (lower.split("\\s+".toRegex()).size > 2) {
-                    processWithAgent(transcription)
+                    val newIntentResult = sueAgent.detectActionIntent(transcription)
+                    if (newIntentResult != null) {
+                        val message = SueResponseFormatter.format(newIntentResult)
+                        val action = (newIntentResult as? SueOperationResult.Prepare.Success)?.action
+                        conversationHistory.add(Pair(transcription, message))
+                        while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+                        _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                        speechService.speak(message)
+                    } else {
+                        processWithAgent(transcription)
+                    }
                 } else {
                     val cancelMessage = "De acuerdo, he cancelado la acción."
                     conversationHistory.add(Pair(transcription, cancelMessage))
@@ -290,8 +315,22 @@ class SueViewModel @Inject constructor(
             }
             else -> {
                 // User didn't say yes/no, so maybe they changed their mind and gave a new intent
-                _uiState.update { it.copy(pendingAction = null) }
-                processWithAgent(transcription)
+                val newIntentResult = sueAgent.detectActionIntent(transcription)
+                if (newIntentResult != null) {
+                    _uiState.update { it.copy(pendingAction = null) }
+                    val message = SueResponseFormatter.format(newIntentResult)
+                    val action = (newIntentResult as? SueOperationResult.Prepare.Success)?.action
+                    conversationHistory.add(Pair(transcription, message))
+                    while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+                    _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                    speechService.speak(message)
+                } else {
+                    val askAgain = "No he entendido. Di «sí» para confirmar o «no» para cancelar."
+                    conversationHistory.add(Pair(transcription, askAgain))
+                    while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+                    _uiState.update { it.copy(agentResponse = askAgain) }
+                    speechService.speak(askAgain)
+                }
             }
         }
     }
@@ -361,19 +400,30 @@ class SueViewModel @Inject constructor(
      */
     private suspend fun processWithAgent(transcription: String) {
         try {
+            SafeLogger.d("SueVM", "Processing transcription: '$transcription'")
             val prompt = sueAgent.buildPromptWithContext(transcription, conversationHistory)
+            SafeLogger.d("SueVM", "Generated Prompt:\n$prompt")
 
-            val rawResponse = if (_uiState.value.isModelLoaded) {
-                inferenceRepository.generateResponse(prompt)
+            val modelLoaded = _uiState.value.isModelLoaded
+            SafeLogger.d("SueVM", "Is Model Loaded: $modelLoaded")
+
+            val rawResponse = if (modelLoaded) {
+                val resp = inferenceRepository.generateResponse(prompt)
+                SafeLogger.d("SueVM", "LLM Raw Response: '$resp'")
+                resp
             } else {
-                extractDataFromPrompt(prompt)
+                val fallback = extractDataFromPrompt(prompt)
+                SafeLogger.d("SueVM", "LLM not loaded. Fallback Response: '$fallback'")
+                fallback
             }
 
             val intentResult = sueAgent.parseLlmActionResponse(rawResponse)
+            SafeLogger.d("SueVM", "Parsed intent result: $intentResult")
             
             if (intentResult != null) {
                 val message = SueResponseFormatter.format(intentResult)
                 val action = (intentResult as? SueOperationResult.Prepare.Success)?.action
+                SafeLogger.d("SueVM", "Formated confirmation message: '$message'")
                 
                 conversationHistory.add(Pair(transcription, message))
                 while (conversationHistory.size > 10) conversationHistory.removeAt(0)

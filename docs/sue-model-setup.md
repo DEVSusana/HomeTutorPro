@@ -58,8 +58,22 @@ Si dice `unauthorized`, desbloquea el móvil y acepta el diálogo de depuración
 
 Navega en Terminal a la carpeta donde descargaste el modelo y ejecuta:
 
+**Para la versión de depuración (Debug) que corre desde Android Studio (Recomendado):**
 ```bash
-adb push gemma-2b-it-gpu-int4.bin /data/local/tmp/gemma-model.bin
+# Crea la carpeta de destino en el dispositivo (nótese el sufijo .debug)
+adb shell mkdir -p /sdcard/Android/data/com.devsusana.hometutorpro.debug/files/sue_model/
+
+# Transfiere el modelo
+adb push gemma-2b-it-gpu-int4.bin /sdcard/Android/data/com.devsusana.hometutorpro.debug/files/sue_model/gemma-2b-it-gpu-int4.bin
+```
+
+**Para la versión de producción (Release):**
+```bash
+# Crea la carpeta de destino en el dispositivo
+adb shell mkdir -p /sdcard/Android/data/com.devsusana.hometutorpro/files/sue_model/
+
+# Transfiere el modelo
+adb push gemma-2b-it-gpu-int4.bin /sdcard/Android/data/com.devsusana.hometutorpro/files/sue_model/gemma-2b-it-gpu-int4.bin
 ```
 
 > ⏱ Esto puede tardar 1-3 minutos dependiendo de la velocidad USB.
@@ -70,16 +84,12 @@ adb push gemma-2b-it-gpu-int4.bin /data/local/tmp/gemma-model.bin
 
 ### Paso 3: Arranca la app
 
-La app detectará automáticamente el modelo en `/data/local/tmp/gemma-model.bin` y lo
-copiará a su almacenamiento privado interno (`context.filesDir/sue/`).
-
-Una vez copiado, el archivo de `/data/local/tmp/` se puede borrar (la app lo hace
-automáticamente).
+La app detectará automáticamente el modelo en su carpeta externa de archivos (`/sdcard/Android/data/com.devsusana.hometutorpro/files/sue_model/gemma-2b-it-gpu-int4.bin`) y lo cargará en memoria.
 
 ### Paso 4: Verifica
 
 Pulsa el FAB de Sue en cualquier pantalla y habla. Si el modelo está cargado
-correctamente, Sue responderá.
+correctamente, Sue responderá. En el Logcat de Android Studio verás el mensaje: `Model loaded successfully`.
 
 ---
 

@@ -76,7 +76,9 @@ class PremiumBillingServiceTest {
             every { offerDetails.pricingPhases } returns pricingPhases
             every { mockDetails.subscriptionOfferDetails } returns listOf(offerDetails)
             
-            callbackSlot.captured.onProductDetailsResponse(billingResult, listOf(mockDetails))
+            val productDetailsResult = mockk<QueryProductDetailsResult>()
+            every { productDetailsResult.productDetailsList } returns listOf(mockDetails)
+            callbackSlot.captured.onProductDetailsResponse(billingResult, productDetailsResult)
         }
 
         val product = manager.getPremiumProduct()
@@ -99,7 +101,9 @@ class PremiumBillingServiceTest {
         } answers {
             val billingResult = mockk<BillingResult>()
             every { billingResult.responseCode } returns BillingClient.BillingResponseCode.ERROR
-            callbackSlot.captured.onProductDetailsResponse(billingResult, emptyList())
+            val productDetailsResult = mockk<QueryProductDetailsResult>()
+            every { productDetailsResult.productDetailsList } returns emptyList()
+            callbackSlot.captured.onProductDetailsResponse(billingResult, productDetailsResult)
         }
 
         val product = manager.getPremiumProduct()

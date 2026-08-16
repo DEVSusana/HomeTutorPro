@@ -18,6 +18,8 @@ class NotifyClassEndUseCaseImplTest {
         override val isGridViewFlow: Flow<Boolean> = flowOf(false)
         override val isDebugPremiumFlow: Flow<Boolean> = flowOf(false)
         override val themeModeFlow: Flow<AppThemeMode> = flowOf(AppThemeMode.SYSTEM)
+        override val isOnboardingCompletedFlow: Flow<Boolean> = flowOf(false)
+        override suspend fun setOnboardingCompleted(completed: Boolean) {}
         override suspend fun setClassEndNotifications(enabled: Boolean) {}
         override suspend fun setLanguage(language: String) {}
         override suspend fun setViewMode(isGridView: Boolean) {}

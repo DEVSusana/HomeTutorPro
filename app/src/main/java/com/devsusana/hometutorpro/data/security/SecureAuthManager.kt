@@ -19,17 +19,23 @@ class SecureAuthManager(
 
     fun saveCredentials(email: String, credentialsToken: String, name: String, userId: String? = null): String {
         val idToSave = userId ?: UUID.randomUUID().toString()
-        val salt = passwordHasher.generateSalt()
-        val hashedPassword = passwordHasher.hashPassword(credentialsToken, salt)
         encryptedSharedPreferences.edit().apply {
             putString(KEY_EMAIL, email)
-            putString(KEY_PASSWORD_HASH, hashedPassword)
-            putString(KEY_PASSWORD_SALT, salt)
+            if (credentialsToken.isNotEmpty()) {
+                val salt = passwordHasher.generateSalt()
+                val hashedPassword = passwordHasher.hashPassword(credentialsToken, salt)
+                putString(KEY_PASSWORD_HASH, hashedPassword)
+                putString(KEY_PASSWORD_SALT, salt)
+            }
             putString(KEY_NAME, name)
             putString(KEY_USER_ID, idToSave)
             putBoolean(KEY_IS_LOGGED_IN, true)
-            putString(KEY_WORKING_START_TIME, "08:00")
-            putString(KEY_WORKING_END_TIME, "23:00")
+            if (!encryptedSharedPreferences.contains(KEY_WORKING_START_TIME)) {
+                putString(KEY_WORKING_START_TIME, "08:00")
+            }
+            if (!encryptedSharedPreferences.contains(KEY_WORKING_END_TIME)) {
+                putString(KEY_WORKING_END_TIME, "23:00")
+            }
             apply()
         }
         return idToSave
