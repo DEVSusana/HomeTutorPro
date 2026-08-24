@@ -644,4 +644,5 @@
     <string name="sue_cancel">Cancel</string>
     <string name="sue_error_permission">Microphone permission is required for Sue to listen.</string>
     <string name="sue_error_model_not_loaded">AI model is not loaded. Please check the setup guide.</string>
+    <string name="sue_loading_assistant_brain">Initializing assistant brain…</string>
 </resources>

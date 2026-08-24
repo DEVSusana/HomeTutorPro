@@ -641,4 +641,5 @@
     <string name="sue_cancel">Cancelar</string>
     <string name="sue_error_permission">Se necesita permiso del micrófono para que Sue pueda escucharte.</string>
     <string name="sue_error_model_not_loaded">El modelo de IA no está cargado. Consulta la guía de configuración.</string>
+    <string name="sue_loading_assistant_brain">Iniciando cerebro de la asistente…</string>
 </resources>
