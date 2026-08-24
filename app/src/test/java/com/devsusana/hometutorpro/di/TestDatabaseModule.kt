@@ -46,6 +46,12 @@ object TestDatabaseModule {
     fun provideSharedResourceDao(database: AppDatabase): SharedResourceDao = database.sharedResourceDao()
 
     @Provides
+    fun provideClassLogDao(database: AppDatabase): ClassLogDao = database.classLogDao()
+
+    @Provides
+    fun provideTransactionLogDao(database: AppDatabase): TransactionLogDao = database.transactionLogDao()
+
+    @Provides
     @Singleton
     fun provideCryptographyProvider(): com.devsusana.hometutorpro.core.auth.CryptographyProvider {
         return object : com.devsusana.hometutorpro.core.auth.CryptographyProvider {

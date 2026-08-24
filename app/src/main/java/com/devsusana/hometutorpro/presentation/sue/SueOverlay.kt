@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.devsusana.hometutorpro.domain.entities.SpeechState
+import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 
 /**
  * Full-screen overlay container for Sue's conversational interface.
@@ -28,11 +29,15 @@ import com.devsusana.hometutorpro.domain.entities.SpeechState
  *
  * @param uiState The current [SueUiState] from the ViewModel.
  * @param onDismiss Callback when the overlay should be dismissed.
+ * @param onConfirmAction Callback when the user confirms the pending action manually.
+ * @param onCancelAction Callback when the user cancels the pending action manually.
  */
 @Composable
 fun SueOverlay(
     uiState: SueUiState,
     onDismiss: () -> Unit,
+    onConfirmAction: () -> Unit = {},
+    onCancelAction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
@@ -68,6 +73,10 @@ fun SueOverlay(
                     finalTranscription = uiState.finalTranscription,
                     agentResponse = uiState.agentResponse,
                     errorMessage = uiState.errorMessage,
+                    pendingAction = uiState.pendingAction,
+                    isModelLoading = uiState.isModelLoading,
+                    onConfirmAction = onConfirmAction,
+                    onCancelAction = onCancelAction,
                     onCancel = onDismiss
                 )
             }

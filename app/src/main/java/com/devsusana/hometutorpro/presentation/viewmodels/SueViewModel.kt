@@ -60,8 +60,19 @@ class SueViewModel @Inject constructor(
         /** Max milliseconds to remain in LISTENING/PROCESSING before forcing IDLE. */
         private const val LISTENING_TIMEOUT_MS = 15_000L
 
-        private val AFFIRMATIVE_WORDS = setOf("sí", "si", "yes", "confirmar", "confirmo", "ok", "vale", "correcto", "adelante", "de acuerdo")
-        private val NEGATIVE_WORDS = setOf("no", "nope", "negativo", "olvídalo", "olvida", "déjalo")
+        private val AFFIRMATIVE_WORDS = setOf(
+            "sí", "si", "yes", "confirmar", "confirmo", "ok", "vale", "correcto", "adelante", "de acuerdo",
+            "claro", "por supuesto", "sisi", "sísí", "efectivamente", "acepto", "aceptar", "okey", "okay"
+        )
+        private val NEGATIVE_WORDS = setOf(
+            "no", "nope", "negativo", "olvídalo", "olvida", "déjalo", "dejalo",
+            "cancelar", "cancela", "abortar", "aborta", "nada"
+        )
+
+        private fun stripAccents(str: String): String {
+            val normalized = java.text.Normalizer.normalize(str, java.text.Normalizer.Form.NFD)
+            return normalized.replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+        }
 
         /**
          * Checks whether [text] matches any word in [words] as a whole word
@@ -70,15 +81,18 @@ class SueViewModel @Inject constructor(
          * tokenizing the text on whitespace and stripping punctuation,
          * which correctly handles Spanish accented characters that
          * Java's `\b` regex boundary does not recognize.
+         * Accent-insensitive matching is applied to ensure robustness.
          */
         private fun containsWord(text: String, words: Set<String>): Boolean {
-            val textTokens = text.split("\\s+".toRegex())
+            val normalizedText = stripAccents(text.lowercase())
+            val textTokens = normalizedText.split("\\s+".toRegex())
                 .map { it.trim(',', '.', '!', '?', ';', ':', '¿', '¡', '«', '»') }
             return words.any { word ->
-                if (word.contains(' ')) {
-                    word in text
+                val normalizedWord = stripAccents(word.lowercase())
+                if (normalizedWord.contains(' ')) {
+                    normalizedWord in normalizedText
                 } else {
-                    word in textTokens
+                    normalizedWord in textTokens
                 }
             }
         }
@@ -90,7 +104,6 @@ class SueViewModel @Inject constructor(
         collectPartialTranscriptions()
         collectErrors()
         collectModelState()
-        preloadModel()
     }
 
     /**
@@ -106,6 +119,10 @@ class SueViewModel @Inject constructor(
                 if (!_uiState.value.isOverlayVisible) {
                     sueAgent.resetConversationContext()
                     conversationHistory.clear()
+                }
+                // Lazy-load Gemma only when the user opens the assistant
+                if (!_uiState.value.isModelLoaded && !_uiState.value.isModelLoading) {
+                    preloadModel()
                 }
                 speechService.initializeTts()
                 _uiState.update {
@@ -147,9 +164,38 @@ class SueViewModel @Inject constructor(
             it.copy(
                 isOverlayVisible = false,
                 errorMessage = null,
-                pendingAction = null
+                pendingActions = emptyList()
             )
         }
+    }
+
+    /**
+     * Executes the pending action when the user clicks 'Confirm' manually.
+     */
+    fun onConfirmAction() {
+        val actions = _uiState.value.pendingActions
+        if (actions.isNotEmpty()) {
+            viewModelScope.launch {
+                _uiState.update { it.copy(pendingActions = emptyList()) }
+                if (actions.size == 1) {
+                    executePendingAction("Confirmación manual", actions.first())
+                } else {
+                    executeMultipleActions("Confirmación manual", actions)
+                }
+            }
+        }
+    }
+
+    /**
+     * Cancels the pending action when the user clicks 'Cancel' manually.
+     */
+    fun onCancelAction() {
+        _uiState.update { it.copy(pendingActions = emptyList()) }
+        val cancelMessage = "De acuerdo, he cancelado la acción."
+        conversationHistory.add(Pair("Cancelación manual", cancelMessage))
+        while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+        _uiState.update { it.copy(agentResponse = cancelMessage) }
+        speechService.speak(cancelMessage)
     }
 
     /** Clears any displayed error message and resets speech state if needed. */
@@ -222,6 +268,11 @@ class SueViewModel @Inject constructor(
                 _uiState.update { it.copy(isModelLoaded = loaded) }
             }
         }
+        viewModelScope.launch {
+            inferenceRepository.isLoading.collect { loading ->
+                _uiState.update { it.copy(isModelLoading = loading) }
+            }
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -254,21 +305,25 @@ class SueViewModel @Inject constructor(
     // ──────────────────────────────────────────────────────────────────────────
 
     private suspend fun handleTranscription(transcription: String) {
-        val pendingAction = _uiState.value.pendingAction
+        val actions = _uiState.value.pendingActions
 
-        if (pendingAction != null) {
-            handleConfirmation(transcription, pendingAction)
+        if (actions.isNotEmpty()) {
+            handleConfirmation(transcription, actions)
         } else {
             // 1. Try local rule-based intent parsing (fast, offline, reliable)
             val intentResult = sueAgent.detectActionIntent(transcription)
             if (intentResult != null) {
                 val message = SueResponseFormatter.format(intentResult)
-                val action = (intentResult as? SueOperationResult.Prepare.Success)?.action
+                val nextActions = when (intentResult) {
+                    is SueOperationResult.Prepare.Success -> listOf(intentResult.action)
+                    is SueOperationResult.Prepare.MultipleSuccess -> intentResult.actions
+                    else -> emptyList()
+                }
                 
                 conversationHistory.add(Pair(transcription, message))
                 while (conversationHistory.size > 10) conversationHistory.removeAt(0)
 
-                _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
                 speechService.speak(message)
             } else {
                 // 2. Fallback to local LLM
@@ -281,26 +336,34 @@ class SueViewModel @Inject constructor(
      * Handles a user response to a pending-action confirmation.
      * "sí" → execute; "no" → cancel; anything else → ask again or process as new query.
      */
-    private suspend fun handleConfirmation(transcription: String, pendingAction: SuePendingAction) {
+    private suspend fun handleConfirmation(transcription: String, actions: List<SuePendingAction>) {
         val lower = transcription.lowercase().trim()
 
         when {
             containsWord(lower, AFFIRMATIVE_WORDS) -> {
-                _uiState.update { it.copy(pendingAction = null) }
-                executePendingAction(transcription, pendingAction)
+                _uiState.update { it.copy(pendingActions = emptyList()) }
+                if (actions.size == 1) {
+                    executePendingAction(transcription, actions.first())
+                } else {
+                    executeMultipleActions(transcription, actions)
+                }
             }
             containsWord(lower, NEGATIVE_WORDS) -> {
-                _uiState.update { it.copy(pendingAction = null) }
+                _uiState.update { it.copy(pendingActions = emptyList()) }
                 
                 // If the user says more than just "no", they might be giving a new command
                 if (lower.split("\\s+".toRegex()).size > 2) {
                     val newIntentResult = sueAgent.detectActionIntent(transcription)
                     if (newIntentResult != null) {
                         val message = SueResponseFormatter.format(newIntentResult)
-                        val action = (newIntentResult as? SueOperationResult.Prepare.Success)?.action
+                        val nextActions = when (newIntentResult) {
+                            is SueOperationResult.Prepare.Success -> listOf(newIntentResult.action)
+                            is SueOperationResult.Prepare.MultipleSuccess -> newIntentResult.actions
+                            else -> emptyList()
+                        }
                         conversationHistory.add(Pair(transcription, message))
                         while (conversationHistory.size > 10) conversationHistory.removeAt(0)
-                        _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                        _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
                         speechService.speak(message)
                     } else {
                         processWithAgent(transcription)
@@ -317,12 +380,16 @@ class SueViewModel @Inject constructor(
                 // User didn't say yes/no, so maybe they changed their mind and gave a new intent
                 val newIntentResult = sueAgent.detectActionIntent(transcription)
                 if (newIntentResult != null) {
-                    _uiState.update { it.copy(pendingAction = null) }
+                    _uiState.update { it.copy(pendingActions = emptyList()) }
                     val message = SueResponseFormatter.format(newIntentResult)
-                    val action = (newIntentResult as? SueOperationResult.Prepare.Success)?.action
+                    val nextActions = when (newIntentResult) {
+                        is SueOperationResult.Prepare.Success -> listOf(newIntentResult.action)
+                        is SueOperationResult.Prepare.MultipleSuccess -> newIntentResult.actions
+                        else -> emptyList()
+                    }
                     conversationHistory.add(Pair(transcription, message))
                     while (conversationHistory.size > 10) conversationHistory.removeAt(0)
-                    _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                    _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
                     speechService.speak(message)
                 } else {
                     val askAgain = "No he entendido. Di «sí» para confirmar o «no» para cancelar."
@@ -361,6 +428,8 @@ class SueViewModel @Inject constructor(
                     scheduleTools.executeDeleteSchedule(action)
                 is SuePendingAction.AddExtraClass ->
                     scheduleTools.executeAddExtraClass(action)
+                is SuePendingAction.UpdateStudentNotes ->
+                    studentTools.executeUpdateNotesAction(action)
             }
             val response = if (executeResult is SueOperationResult.Execute.Error && executeResult.domainError is DomainError.ConflictingStudent) {
                 val freeSlotsResult = scheduleTools.getFreeSlots()
@@ -377,6 +446,60 @@ class SueViewModel @Inject constructor(
             while (conversationHistory.size > 10) conversationHistory.removeAt(0)
             _uiState.update { it.copy(agentResponse = response) }
             speechService.speak(response)
+        } catch (e: Exception) {
+            val errorMsg = "Lo siento, no se pudo completar la acción."
+            conversationHistory.add(Pair(transcription, errorMsg))
+            while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+            _uiState.update { it.copy(agentResponse = errorMsg, errorMessage = e.message) }
+            speechService.speak(errorMsg)
+        }
+    }
+
+    /**
+     * Executes multiple confirmed [SuePendingAction]s sequentially and updates UI.
+     */
+    private suspend fun executeMultipleActions(transcription: String, actions: List<SuePendingAction>) {
+        try {
+            val successCount = mutableListOf<SuePendingAction>()
+            val errors = mutableListOf<String>()
+
+            for (action in actions) {
+                val executeResult = when (action) {
+                    is SuePendingAction.CancelClass -> scheduleTools.executeCancelAction(action)
+                    is SuePendingAction.RescheduleClass -> scheduleTools.executeRescheduleAction(action)
+                    is SuePendingAction.RegisterPayment -> studentTools.executeRegisterPayment(action)
+                    is SuePendingAction.AddBalance -> studentTools.executeAddBalance(action)
+                    is SuePendingAction.StartClass -> studentTools.executeStartClass(action)
+                    is SuePendingAction.CreateStudent -> studentTools.executeCreateStudent(action)
+                    is SuePendingAction.DeleteStudent -> studentTools.executeDeleteStudent(action)
+                    is SuePendingAction.CreateSchedule -> scheduleTools.executeCreateSchedule(action)
+                    is SuePendingAction.DeleteSchedule -> scheduleTools.executeDeleteSchedule(action)
+                    is SuePendingAction.AddExtraClass -> scheduleTools.executeAddExtraClass(action)
+                    is SuePendingAction.UpdateStudentNotes -> studentTools.executeUpdateNotesAction(action)
+                }
+                if (executeResult is SueOperationResult.Execute.Success) {
+                    successCount.add(action)
+                } else {
+                    val errorResponse = SueResponseFormatter.format(executeResult)
+                    errors.add(errorResponse)
+                }
+            }
+
+            val response = StringBuilder()
+            if (successCount.isNotEmpty()) {
+                response.append("He completado con éxito ${successCount.size} de las ${actions.size} acciones solicitadas.\n")
+            }
+            if (errors.isNotEmpty()) {
+                response.append("Hubo problemas con algunas acciones:\n")
+                errors.forEach { err ->
+                    response.append("- $err\n")
+                }
+            }
+            val responseStr = response.toString().trim()
+            conversationHistory.add(Pair(transcription, responseStr))
+            while (conversationHistory.size > 10) conversationHistory.removeAt(0)
+            _uiState.update { it.copy(agentResponse = responseStr) }
+            speechService.speak(responseStr)
         } catch (e: Exception) {
             val errorMsg = "Lo siento, no se pudo completar la acción."
             conversationHistory.add(Pair(transcription, errorMsg))
@@ -422,13 +545,17 @@ class SueViewModel @Inject constructor(
             
             if (intentResult != null) {
                 val message = SueResponseFormatter.format(intentResult)
-                val action = (intentResult as? SueOperationResult.Prepare.Success)?.action
+                val nextActions = when (intentResult) {
+                    is SueOperationResult.Prepare.Success -> listOf(intentResult.action)
+                    is SueOperationResult.Prepare.MultipleSuccess -> intentResult.actions
+                    else -> emptyList()
+                }
                 SafeLogger.d("SueVM", "Formated confirmation message: '$message'")
                 
                 conversationHistory.add(Pair(transcription, message))
                 while (conversationHistory.size > 10) conversationHistory.removeAt(0)
 
-                _uiState.update { it.copy(agentResponse = message, pendingAction = action) }
+                _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
                 speechService.speak(message)
             } else {
                 conversationHistory.add(Pair(transcription, rawResponse))

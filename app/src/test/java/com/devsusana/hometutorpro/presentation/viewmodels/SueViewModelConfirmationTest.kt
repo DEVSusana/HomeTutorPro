@@ -54,6 +54,7 @@ class SueViewModelConfirmationTest {
     private val partialFlow = MutableSharedFlow<String>()
     private val errorFlow = MutableSharedFlow<String>()
     private val modelLoadedFlow = MutableStateFlow(false)
+    private val modelLoadingFlow = MutableStateFlow(false)
 
     @Before
     fun setup() {
@@ -75,6 +76,7 @@ class SueViewModelConfirmationTest {
         }
         inferenceRepository = mockk(relaxed = true) {
             every { isModelLoaded } returns modelLoadedFlow
+            every { isLoading } returns modelLoadingFlow
         }
         scheduleTools = mockk(relaxed = true)
         studentTools = mockk(relaxed = true)

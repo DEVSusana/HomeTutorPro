@@ -23,6 +23,10 @@ data class SueUiState(
     val agentResponse: String = "",
     val isOverlayVisible: Boolean = false,
     val isModelLoaded: Boolean = false,
+    val isModelLoading: Boolean = false,
     val errorMessage: String? = null,
-    val pendingAction: SuePendingAction? = null
-)
+    val pendingActions: List<SuePendingAction> = emptyList()
+) {
+    val pendingAction: SuePendingAction?
+        get() = pendingActions.firstOrNull()
+}

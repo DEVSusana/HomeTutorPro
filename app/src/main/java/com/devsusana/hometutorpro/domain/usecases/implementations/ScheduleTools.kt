@@ -88,11 +88,47 @@ class ScheduleTools @Inject constructor(
     }
 
     /**
+     * Returns all recurring weekly sessions for a specific student, grouped by day.
+     * Used to answer queries like "¿cuántas clases tengo de [alumno] a la semana?".
+     *
+     * @param studentName The student's name (partial match, accent-insensitive).
+     */
+    suspend fun getWeeklyClassesForStudent(studentName: String): SueOperationResult {
+        val normalizedFilter = java.text.Normalizer.normalize(
+            studentName.lowercase(), java.text.Normalizer.Form.NFD
+        ).replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+
+        val allSchedules = querySchedulesUseCase.getAllSchedules()
+        val studentSchedules = allSchedules.filter { schedule ->
+            val normalizedName = java.text.Normalizer.normalize(
+                schedule.studentName.lowercase(), java.text.Normalizer.Form.NFD
+            ).replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+            normalizedName.contains(normalizedFilter)
+        }
+
+        return if (studentSchedules.isEmpty()) {
+            SueOperationResult.ReadSuccess("No he encontrado clases semanales registradas para un alumno llamado \"$studentName\".")
+        } else {
+            SueOperationResult.WeeklyClassesForStudent(studentName, studentSchedules)
+        }
+    }
+
+    /**
      * Returns the next upcoming class from the current moment.
      * Searches the current week first, then wraps to the following week.
      */
-    suspend fun getNextClass(): SueOperationResult {
-        val schedules = querySchedulesUseCase.getAllSchedules()
+    suspend fun getNextClass(studentNameFilter: String? = null): SueOperationResult {
+        var schedules = querySchedulesUseCase.getAllSchedules()
+        if (studentNameFilter != null) {
+            val normalizedFilter = java.text.Normalizer.normalize(studentNameFilter.lowercase(), java.text.Normalizer.Form.NFD)
+                .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+            schedules = schedules.filter { s ->
+                val sName = s.studentName ?: ""
+                val normalizedName = java.text.Normalizer.normalize(sName.lowercase(), java.text.Normalizer.Form.NFD)
+                    .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+                normalizedName.contains(normalizedFilter) || normalizedFilter.contains(normalizedName)
+            }
+        }
         if (schedules.isEmpty()) return SueOperationResult.NextClass(null, null)
 
         val now = dateTimeProvider.getNow().toLocalDate()

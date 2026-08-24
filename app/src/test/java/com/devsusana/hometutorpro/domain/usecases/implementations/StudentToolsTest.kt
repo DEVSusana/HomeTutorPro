@@ -44,7 +44,8 @@ class StudentToolsTest {
     private lateinit var deleteStudentUseCase: IDeleteStudentUseCase
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
     private lateinit var scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase
-    private lateinit var authRepository: AuthRepository
+    private lateinit var getSharedResourcesUseCase: com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
+    private lateinit var agentContextRepository: com.devsusana.hometutorpro.domain.repository.AgentContextRepository
     private lateinit var studentTools: StudentTools
 
     private val mariaDetail = AgentStudentDetail(
@@ -96,6 +97,8 @@ class StudentToolsTest {
         isActive = true
     )
 
+    private lateinit var authRepository: AuthRepository
+
     @Before
     fun setup() {
         queryStudentsUseCase = mockk()
@@ -106,6 +109,8 @@ class StudentToolsTest {
         getStudentByIdUseCase = mockk()
         scheduleClassEndNotificationUseCase = mockk(relaxed = true)
         authRepository = mockk()
+        getSharedResourcesUseCase = mockk()
+        agentContextRepository = mockk()
 
         studentTools = StudentTools(
             queryStudentsUseCase = queryStudentsUseCase,
@@ -115,7 +120,9 @@ class StudentToolsTest {
             deleteStudentUseCase = deleteStudentUseCase,
             getStudentByIdUseCase = getStudentByIdUseCase,
             scheduleClassEndNotificationUseCase = scheduleClassEndNotificationUseCase,
-            authRepository = authRepository
+            authRepository = authRepository,
+            getSharedResourcesUseCase = getSharedResourcesUseCase,
+            agentContextRepository = agentContextRepository
         )
     }
 

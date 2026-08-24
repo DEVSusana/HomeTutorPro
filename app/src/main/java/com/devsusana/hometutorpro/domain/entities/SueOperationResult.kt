@@ -47,6 +47,18 @@ sealed interface SueOperationResult {
     /** Results containing the count of active students. */
     data class ActiveStudentCount(val count: Int) : SueOperationResult
 
+    /** Results containing all recurring weekly sessions for a specific student. */
+    data class WeeklyClassesForStudent(
+        val studentName: String,
+        val schedules: List<AgentScheduleSummary>
+    ) : SueOperationResult
+
+    /**
+     * Generic read result containing a plain text message, used for simple
+     * informational responses that don't need a structured data class.
+     */
+    data class ReadSuccess(val message: String) : SueOperationResult
+
     // ──────────────────────────────────────────────────────────────────────────
     // WRITE Operation Results — Step 1: Preparation (Confirmation Request)
     // ──────────────────────────────────────────────────────────────────────────
@@ -54,6 +66,9 @@ sealed interface SueOperationResult {
     sealed interface Prepare : SueOperationResult {
         /** Ready for user confirmation. */
         data class Success(val action: SuePendingAction) : Prepare
+
+        /** Multiple actions ready for user confirmation. */
+        data class MultipleSuccess(val actions: List<SuePendingAction>) : Prepare
 
         /** Preparation failed (e.g. entity not found). */
         data class Error(val errorType: ErrorType, val details: String? = null) : Prepare

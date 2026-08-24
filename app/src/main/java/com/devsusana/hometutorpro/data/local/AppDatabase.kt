@@ -19,9 +19,11 @@ import com.devsusana.hometutorpro.data.local.entities.*
         ScheduleExceptionEntity::class,
         ResourceEntity::class,
         SharedResourceEntity::class,
-        SyncMetadataEntity::class
+        SyncMetadataEntity::class,
+        ClassLogEntity::class,
+        TransactionLogEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(AppTypeConverters::class)
@@ -44,4 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     /** @return [SyncMetadataDao] interface for interacting with the sync metadata table. */
     abstract fun syncMetadataDao(): SyncMetadataDao
+
+    abstract fun classLogDao(): ClassLogDao
+    abstract fun transactionLogDao(): TransactionLogDao
 }

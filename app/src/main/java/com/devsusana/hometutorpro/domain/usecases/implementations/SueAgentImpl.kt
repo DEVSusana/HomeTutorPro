@@ -32,6 +32,11 @@ class SueAgentImpl @Inject constructor(
     private val authRepository: AuthRepository
 ) : ISueAgent {
 
+    private fun stripAccents(str: String): String {
+        val normalized = java.text.Normalizer.normalize(str, java.text.Normalizer.Form.NFD)
+        return normalized.replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+    }
+
     companion object {
 
         /**
@@ -55,26 +60,28 @@ class SueAgentImpl @Inject constructor(
 
             if (isQuestion) {
                 return """
-                    Eres Sue, la asistente inteligente de HomeTutorPro.
+                    Eres la asistente inteligente de HomeTutorPro.
                     Tu rol es responder a las preguntas del profesor de forma breve, amable y concisa.
                     NUNCA inventes datos. Usa SOLO la información provista en la sección --- AVAILABLE DATA ---.
                     Si no hay datos en esa sección o la sección está vacía, dile al profesor que no tienes clases o información registrada sobre eso.
+                    NUNCA uses la palabra "Sue" en tus respuestas, ni te refieras a ti misma con ese nombre bajo ninguna circunstancia.
                     $languageInstruction
                 """.trimIndent()
             }
 
             return """
-                Eres Sue, la asistente inteligente de HomeTutorPro. Tu rol es ayudar a profesores particulares a gestionar su trabajo de forma eficiente.
+                Eres la asistente inteligente de HomeTutorPro. Tu rol es ayudar a profesores particulares a gestionar su trabajo de forma eficiente.
 
                 Tu personalidad:
                 - Eres profesional, amable y concisa.
                 - Evitas respuestas largas — sé directa y útil.
                 - Si no puedes ayudar con algo, dilo claramente.
-                - NO te describes a ti misma como IA. Compórtate como la asistente Sue de forma natural.
+                - NO te describes a ti misma como IA. Compórtate como asistente de forma natural.
+                - NUNCA digas la palabra "Sue" ni te refieras a ti misma con ese nombre en tus respuestas.
                 - $languageInstruction
 
                 Tus capacidades:
-                - Consultar la lista de alumnos (nombres, asignaturas, cursos, precios, saldos).
+                - Consultar la lista de alumnos (nombres, asignaturas, cursos, precios, saldos, notas).
                 - Buscar alumnos específicos por nombre.
                 - Consultar los horarios semanales y la próxima clase.
                 - Informar sobre saldos pendientes.
@@ -84,15 +91,16 @@ class SueAgentImpl @Inject constructor(
                 - Crear o eliminar perfiles de alumnos.
                 - Configurar o eliminar horarios recurrentes permanentes de clases.
                 - Programar clases extra y registrar el inicio de clases en directo.
+                - Guardar, añadir o actualizar notas y observaciones sobre los alumnos.
 
                 Limitaciones:
                 - Solo conoces los datos del profesor que está usando la app.
 
                 INSTRUCCIÓN MUY IMPORTANTE (EXTRACCIÓN DE INTENCIONES):
-                Si la frase del usuario requiere ejecutar una acción en la app (crear, modificar o borrar clases, estudiantes o pagos), debes devolver UNA ÚNICA LÍNEA AL PRINCIPIO de tu respuesta con el siguiente formato exacto:
+                Si la frase del usuario requiere ejecutar una acción en la app (crear, modificar o borrar clases, estudiantes o pagos, o actualizar sus notas), debes devolver UNA ÚNICA LÍNEA AL PRINCIPIO de tu respuesta con el siguiente formato exacto:
                 [ACTION: TIPO_DE_ACCION, parametro1: valor, parametro2: valor]
                 
-                Tipos de acción soportados: START_CLASS, CREATE_STUDENT, DELETE_STUDENT, ADD_EXTRA_CLASS, CREATE_SCHEDULE, DELETE_SCHEDULE, CANCEL_CLASS, RESCHEDULE_CLASS, REGISTER_PAYMENT, ADD_BALANCE
+                Tipos de acción soportados: START_CLASS, CREATE_STUDENT, DELETE_STUDENT, ADD_EXTRA_CLASS, CREATE_SCHEDULE, DELETE_SCHEDULE, CANCEL_CLASS, RESCHEDULE_CLASS, REGISTER_PAYMENT, ADD_BALANCE, UPDATE_STUDENT_NOTES
                 
                 Ejemplos de acciones:
                 Usuario: "Añade a Marcos para dar clases de inglés a 15 la hora."
@@ -118,6 +126,9 @@ class SueAgentImpl @Inject constructor(
                 
                 Usuario: "Ponle una clase extra a Carlos el viernes a las 10."
                 Tú: [ACTION: ADD_EXTRA_CLASS, student: "Carlos", day: "viernes", targetTime: "10:00"]
+
+                Usuario: "pon una nota en Carlos que diga que tiene que estudiar verbos."
+                Tú: [ACTION: UPDATE_STUDENT_NOTES, student: "Carlos", notes: "tiene que estudiar verbos"]
                 
                 Si la frase es solo una pregunta (ej. "¿Qué clases tengo?"), responde de forma natural SIN incluir la etiqueta [ACTION: ...].
             """.trimIndent()
@@ -135,13 +146,18 @@ class SueAgentImpl @Inject constructor(
         RESCHEDULE_CLASS,
         REGISTER_PAYMENT,
         ADD_BALANCE,
-        
+        UPDATE_STUDENT_NOTES,
+
         // Read Queries
-        QUERY_DAY_SCHEDULE,
+        QUERY_STUDENT_WEEKLY_CLASSES,
+        QUERY_TODAY_SUMMARY,
         QUERY_NEXT_CLASS,
         QUERY_FREE_SLOTS,
+        QUERY_STUDENTS_WITH_BALANCE,
+        QUERY_STUDENT_BALANCE,
         QUERY_STUDENT_COUNT,
-        QUERY_STUDENT_DETAILS
+        QUERY_STUDENT_DETAILS,
+        QUERY_DAY_SCHEDULE
     }
 
     private var lastMentionedStudentName: String? = null
@@ -226,7 +242,7 @@ class SueAgentImpl @Inject constructor(
      * letting the LLM respond gracefully without raw data.
      */
     private suspend fun gatherRelevantContext(query: String): String {
-        val lowerQuery = query.lowercase()
+        val lowerQuery = stripAccents(query.lowercase())
 
         // 1. Extract and update context memory variables
         val matchedStudent = studentTools.extractRelevantStudent(lowerQuery)
@@ -291,9 +307,144 @@ class SueAgentImpl @Inject constructor(
             // 2. Student queries — mutually exclusive branches to avoid data dumping
             val hasSchedule = containsScheduleKeywords(lowerQuery)
 
+            // 2a. Finance/earnings queries — inject global transaction history
+            val isFinanceQuery = listOf(
+                "ganado", "ingresos", "facturado", "facturacion", "facturación",
+                "cobrado", "recibido", "earnings", "income", "caja",
+                "cuanto he ganado", "cuánto he ganado",
+                "cuánto llevo", "cuanto llevo",
+                "cuánto he cobrado", "cuanto he cobrado",
+                "total de pagos", "pagos del mes"
+            ).any { it in lowerQuery }
+
+            if (isFinanceQuery) {
+                val allTxs = studentTools.getAllTransactions()
+                appendLine("--- HISTORIAL GENERAL DE TRANSACCIONES / INGRESOS ---")
+                if (allTxs.isNotEmpty()) {
+                    val totalEarnings = allTxs.filter { it.type == "PAYMENT" }.sumOf { it.amount }
+                    appendLine("Total ganado (pagos recibidos): $totalEarnings euros")
+                    allTxs.take(15).forEach { t ->
+                        val dateStr = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(java.util.Date(t.timestamp))
+                        val typeStr = if (t.type == "PAYMENT") "PAGO" else "DEUDA"
+                        val payTypeStr = t.paymentType?.let { " ($it)" } ?: ""
+                        appendLine("- $dateStr: $typeStr de ${t.amount} euros$payTypeStr")
+                    }
+                } else {
+                    appendLine("Total ganado (pagos recibidos): 0 euros")
+                    appendLine("No se han registrado pagos o facturas todavía en la aplicación (el balance es cero).")
+                }
+                appendLine("--- FIN HISTORIAL GENERAL ---")
+
+                // Inyectar saldos y deudas actuales de los alumnos
+                val balanceResult = studentTools.getStudentsWithBalance()
+                if (balanceResult is SueOperationResult.StudentsWithBalance && balanceResult.students.isNotEmpty()) {
+                    appendLine("--- DEUDAS Y SALDOS PENDIENTES DE ALUMNOS (FACTURACIÓN POR COBRAR) ---")
+                    balanceResult.students.forEach { s ->
+                        val prefix = if (s.pendingBalance < 0.0) "saldo a favor de" else "debe"
+                        appendLine("- ${s.name}: ${"%.2f".format(Math.abs(s.pendingBalance))} euros ($prefix)")
+                    }
+                    appendLine("--- FIN DEUDAS Y SALDOS ---")
+                }
+            }
+
+            // 2b. Global class history queries — inject all class logs when no student is named
+            val isGlobalClassHistoryQuery = listOf(
+                "cuántas clases he dado", "cuantas clases he dado",
+                "total de clases", "clases del mes", "clases este mes",
+                "cuántas he impartido", "cuantas he impartido",
+                "histórico de clases", "historico de clases",
+                "cuántas clases llevo", "cuantas clases llevo"
+            ).any { it in lowerQuery }
+
+            if (isGlobalClassHistoryQuery && lastMentionedStudentName == null) {
+                val allLogs = studentTools.getAllClassLogs()
+                appendLine("--- HISTORIAL GLOBAL DE CLASES IMPARTIDAS ---")
+                if (allLogs.isNotEmpty()) {
+                    val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                    appendLine("Total de clases registradas: ${allLogs.size}")
+                    allLogs.take(20).forEach { l ->
+                        appendLine("- ${sdf.format(java.util.Date(l.date))}: clase de ${l.startTime} a ${l.endTime}")
+                    }
+                } else {
+                    appendLine("Total de clases registradas: 0")
+                    appendLine("No hay registros de asistencia ni clases finalizadas en el historial.")
+                }
+                appendLine("--- FIN HISTORIAL GLOBAL ---")
+            }
+
+            // 2c. Global debt queries without a specific student — inject all pending balances
+            val isGlobalDebtQuery = listOf(
+                "no han pagado", "no ha pagado", "sin pagar",
+                "pendiente de pago", "deudas pendientes", "quién debe",
+                "quien debe", "who owes"
+            ).any { it in lowerQuery }
+
+            if (isGlobalDebtQuery && lastMentionedStudentName == null) {
+                val balanceResult = studentTools.getStudentsWithBalance()
+                appendLine("--- ALUMNOS CON SALDO PENDIENTE ---")
+                if (balanceResult is SueOperationResult.StudentsWithBalance && balanceResult.students.isNotEmpty()) {
+                    balanceResult.students.forEach { s ->
+                        appendLine("- ${s.name}: ${"%.2f".format(s.pendingBalance)} € pendientes")
+                    }
+                } else {
+                    appendLine("Todos los alumnos están al corriente de pago. No hay deudas pendientes en este momento.")
+                }
+                appendLine("--- FIN SALDOS PENDIENTES ---")
+            }
+
             when {
-                lastMentionedStudentName != null ->
+                lastMentionedStudentName != null -> {
                     appendLine(formatResult(studentTools.searchStudent(lastMentionedStudentName!!)))
+                    val studentSchedules = scheduleTools.getSchedulesByStudentName(lastMentionedStudentName!!)
+                    if (studentSchedules.isNotEmpty()) {
+                        appendLine("--- WEEKLY CLASSES FOR $lastMentionedStudentName ---")
+                        studentSchedules.forEach { s ->
+                            val summary = com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary(
+                                studentName = s.studentName,
+                                dayOfWeek = s.dayOfWeek,
+                                startTime = s.startTime,
+                                endTime = s.endTime
+                            )
+                            appendLine(formatResult(SueOperationResult.DaySchedule(s.dayOfWeek, null, listOf(summary))))
+                        }
+                        appendLine("--- END OF WEEKLY CLASSES ---")
+                    }
+
+                    // Shared resources injection
+                    val resources = studentTools.getSharedResources(lastMentionedStudentName!!)
+                    if (resources.isNotEmpty()) {
+                        appendLine("--- RECURSOS COMPARTIDOS CON $lastMentionedStudentName ---")
+                        resources.forEach { r ->
+                            appendLine("- ${r.fileName} (${r.fileType}) compartido vía ${r.sharedVia}")
+                        }
+                        appendLine("--- FIN RECURSOS COMPARTIDOS ---")
+                    }
+
+                    // Completed classes logs injection
+                    val logs = studentTools.getClassLogs(lastMentionedStudentName!!)
+                    if (logs.isNotEmpty()) {
+                        appendLine("--- CLASES COMPLETADAS PARA $lastMentionedStudentName ---")
+                        appendLine("Total de clases dadas: ${logs.size}")
+                        logs.forEach { l ->
+                            val dateStr = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(java.util.Date(l.date))
+                            appendLine("- Clase del $dateStr a las ${l.startTime} (Duración: de ${l.startTime} a ${l.endTime})")
+                        }
+                        appendLine("--- FIN CLASES COMPLETADAS ---")
+                    }
+
+                    // Student transactions log injection
+                    val txs = studentTools.getTransactions(lastMentionedStudentName!!)
+                    if (txs.isNotEmpty()) {
+                        appendLine("--- TRANSACCIONES / PAGOS DE $lastMentionedStudentName ---")
+                        txs.forEach { t ->
+                            val dateStr = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(java.util.Date(t.timestamp))
+                            val typeStr = if (t.type == "PAYMENT") "PAGO RECIBIDO" else "DEUDA SUMADA"
+                            val payTypeStr = t.paymentType?.let { " ($it)" } ?: ""
+                            appendLine("- $dateStr: $typeStr de ${t.amount} euros$payTypeStr")
+                        }
+                        appendLine("--- FIN TRANSACCIONES ---")
+                    }
+                }
 
                 containsCountKeywords(lowerQuery) ->
                     appendLine(formatResult(studentTools.getActiveStudentCount()))
@@ -336,11 +487,17 @@ class SueAgentImpl @Inject constructor(
             "cuándo tengo", "cuándo es", "cuándo empieza", "next class"
         ).any { it in query }
 
+    /**
+     * Detects intent to query free time slots in the schedule.
+     * Bare "libre" and "disponible" are excluded to avoid capturing casual conversation
+     * like "estoy libre esta tarde" or "tengo una hora libre". Only compound forms are accepted.
+     */
     private fun containsFreeSlotKeywords(query: String) =
         listOf(
             "hueco libre", "huecos libres", "día libre", "días libres",
-            "disponible", "disponibles", "libre", "libres", "espacio libre",
-            "free slot", "available"
+            "tengo libre", "estoy libre", "tengo disponible", "estoy disponible",
+            "espacio libre", "rato libre", "momento libre",
+            "free slot", "available slot", "am i free", "am i available"
         ).any { it in query }
 
     private fun containsCancelKeywords(query: String) =
@@ -348,21 +505,98 @@ class SueAgentImpl @Inject constructor(
                "cancel", "remove class", "delete class")
             .any { it in query }
 
-    private fun containsRescheduleKeywords(query: String) =
-        listOf("mueve", "mover", "cambia", "cambiar", "pasa", "pasar", "traslada", "trasladar",
-               "reprograma", "reprogramar", "reprograme", "pospone", "posponer", "pospón", "adelanta", "adelantar",
-               "move", "change", "reschedule", "postpone")
-            .any { it in query }
+    /**
+     * Detects intent to reschedule a class.
+     * "cambia" and "cambiar" are intentionally excluded as standalone keywords because they are
+     * too generic and collide with UPDATE_STUDENT_NOTES ("cambia las notas de...").
+     * Only schedule-specific compound forms are allowed.
+     */
+    private fun containsRescheduleKeywords(query: String): Boolean {
+        // High-specificity standalone keywords — safe to match alone
+        val specificKeywords = listOf(
+            "mueve", "mover", "traslada", "trasladar",
+            "reprograma", "reprogramar", "reprograme",
+            "pospone", "posponer", "pospón",
+            "adelanta", "adelantar",
+            "reschedule", "postpone"
+        )
+        if (specificKeywords.any { it in query }) return true
 
-    private fun containsRegisterPaymentKeywords(query: String) =
-        listOf("registra un pago", "registrar un pago", "ha pagado", "abonó", "abono", "pagó", "pago de",
-               "register payment", "made a payment", "paid", "payment of")
-            .any { it in query }
+        // "cambia" / "cambiar" only allowed with a schedule-context word to avoid collision
+        val hasChangeVerb = listOf("cambia", "cambiar", "change", "move").any { it in query }
+        val hasScheduleContext = listOf(
+            "la clase", "el horario", "la hora", "al lunes", "al martes", "al miércoles",
+            "al miercoles", "al jueves", "al viernes", "al sábado", "al sabado", "al domingo",
+            "para el lunes", "para el martes", "para el jueves", "para el viernes"
+        ).any { it in query }
+        return hasChangeVerb && hasScheduleContext
+    }
+
+    /**
+     * Detects intent to register a payment.
+     * "pagó" alone is excluded to avoid capturing historical queries like
+     * "¿cuánto pagó Juan el mes pasado?". It is only allowed in compound forms
+     * that imply a present-tense action or a specific amount.
+     */
+    private fun containsRegisterPaymentKeywords(query: String): Boolean {
+        // Safe multi-word phrases
+        val safeKeywords = listOf(
+            "registra un pago", "registrar un pago",
+            "ha pagado", "abonó", "abono", "pago de",
+            "register payment", "made a payment", "payment of"
+        )
+        if (safeKeywords.any { it in query }) return true
+
+        // "pagó" only accepted when followed by a time reference (implies present action)
+        val hasPago = "pagó" in query || "paid" in query
+        val hasTimeOrAmount = listOf(
+            "hoy", "ayer", "esta semana", "acaba de", "ahora",
+            "€", "euro", "euros", "dollar", "dollars"
+        ).any { it in query }
+        return hasPago && hasTimeOrAmount
+    }
 
     private fun containsAddBalanceKeywords(query: String) =
         listOf("suma saldo", "sumar saldo", "añade saldo", "añadir saldo", "suma a la deuda", "añade a la deuda", "súmale", "sumale",
                "add balance", "add to debt", "add to balance", "add to the debt")
             .any { it in query }
+
+    /**
+     * Detects intent to update student notes/observations.
+     * Generic words like "nota" and "comentario" are only accepted when combined with an
+     * explicit write verb to avoid capturing conversational phrases like
+     * "toma nota de que mañana no hay clase" (which should route to CANCEL_CLASS).
+     */
+    private fun containsUpdateNotesKeywords(query: String): Boolean {
+        // Safe multi-word phrases that unambiguously refer to student notes
+        val safeKeywords = listOf(
+            "apunte", "apuntes", "observacion", "observaciones",
+            "observation", "observations"
+        )
+        if (safeKeywords.any { it in query }) return true
+
+        // "nota", "comentario", "note", "comment" only accepted with an explicit write verb
+        val hasNoteWord = listOf("nota", "notas", "comentario", "comentarios", "note", "notes", "comment", "comments").any { it in query }
+        val hasWriteVerb = listOf(
+            "añade", "añadir", "agrega", "agregar", "pon", "poner",
+            "escribe", "escribir", "actualiza", "actualizar",
+            "modifica", "modificar", "cambia", "cambiar",
+            "add", "write", "update", "change"
+        ).any { it in query }
+        return hasNoteWord && hasWriteVerb
+    }
+
+    private fun extractNotesText(query: String): String? {
+        val markers = listOf("que diga que ", "que diga ", "observacion: ", "observaciones: ", "nota: ", "notas: ", "apunte: ", "apuntes: ", "comentario: ", "comentarios: ", "que ", "para: ", "nota ", "notas ")
+        for (marker in markers) {
+            val idx = query.indexOf(marker)
+            if (idx >= 0) {
+                val text = query.substring(idx + marker.length).trim()
+                if (text.isNotBlank()) return text
+            }
+        }
+        return null
+    }
 
     private fun containsAllStudentsKeywords(query: String) =
         listOf(
@@ -399,7 +633,11 @@ class SueAgentImpl @Inject constructor(
         listOf("añade un horario", "añadir horario", "programa una clase los", "crear horario", "create schedule", "add schedule").any { it in query }
 
     private fun containsDeleteScheduleKeywords(query: String) =
-        listOf("elimina el horario", "borra el horario", "quitar horario", "delete schedule", "remove schedule").any { it in query }
+        listOf(
+            "elimina el horario", "borra el horario",
+            "quita el horario", "quitar el horario",
+            "quitar horario", "delete schedule", "remove schedule"
+        ).any { it in query }
 
     // ──────────────────────────────────────────────────────────────────────────
     // Extraction helpers
@@ -732,6 +970,15 @@ class SueAgentImpl @Inject constructor(
         barePattern.find(query)?.let { match ->
             return match.groupValues[1].replace(',', '.').toDoubleOrNull()
         }
+
+        // Resolución de pronombres conversacionales
+        val hasQuantityPronoun = listOf("esa cantidad", "esa suma", "eso", "todo", "su deuda", "el total", "el saldo").any { it in query }
+        if (hasQuantityPronoun) {
+            val fallback = lastMentionedAmount
+            if (fallback != null && fallback > 0.0) {
+                return fallback
+            }
+        }
         return null
     }
 
@@ -1011,81 +1258,114 @@ class SueAgentImpl @Inject constructor(
 
     override suspend fun parseLlmActionResponse(response: String): SueOperationResult.Prepare? {
         val pattern = """\[ACTION:\s*([A-Z_]+)(?:,\s*(.*))?]""".toRegex(RegexOption.IGNORE_CASE)
-        val match = pattern.find(response) ?: return null
+        val matches = pattern.findAll(response).toList()
+        if (matches.isEmpty()) return null
 
-        val actionType = match.groupValues[1].trim()
-        val paramsString = match.groupValues.getOrNull(2) ?: ""
+        val preparedActions = mutableListOf<SuePendingAction>()
 
-        val params = mutableMapOf<String, String>()
-        if (paramsString.isNotBlank()) {
-            // Only split by commas that are outside quotes, but a simple split is fine for now as prompt doesn't generate commas in values
-            val paramPairs = paramsString.split(",")
-            for (pair in paramPairs) {
-                val kv = pair.split(":")
-                if (kv.size == 2) {
-                    val key = kv[0].trim()
-                    val value = kv[1].trim().removeSurrounding("\"").trim()
-                    params[key] = value
+        for (match in matches) {
+            val actionType = match.groupValues[1].trim()
+            val paramsString = match.groupValues.getOrNull(2) ?: ""
+
+            val params = mutableMapOf<String, String>()
+            if (paramsString.isNotBlank()) {
+                val paramPairs = paramsString.split(",")
+                for (pair in paramPairs) {
+                    val kv = pair.split(":")
+                    if (kv.size == 2) {
+                        val key = kv[0].trim()
+                        val value = kv[1].trim().removeSurrounding("\"").trim()
+                        params[key] = value
+                    }
                 }
+            }
+
+            val student = params["student"]
+            val time = normalizeLlmTime(params["time"])
+            val startTime = normalizeLlmTime(params["startTime"])
+            val endTime = normalizeLlmTime(params["endTime"])
+            val targetTime = normalizeLlmTime(params["targetTime"])
+            val fromTime = normalizeLlmTime(params["fromTime"])
+
+            // Sincronizar memoria a corto plazo del RAG con la extracción del LLM
+            if (student != null) lastMentionedStudentName = student
+            if (time != null) lastMentionedTime = time
+            if (startTime != null) lastMentionedTime = startTime
+            if (targetTime != null) lastMentionedTime = targetTime
+            params["amount"]?.toDoubleOrNull()?.let { lastMentionedAmount = it }
+            params["price"]?.toDoubleOrNull()?.let { lastMentionedPrice = it }
+            params["duration"]?.toIntOrNull()?.let { lastMentionedDuration = it }
+            params["subjects"]?.let { lastMentionedSubjects = it }
+            params["course"]?.let { lastMentionedCourse = it }
+            params["day"]?.let { extractDayOfWeek(it)?.let { d -> lastMentionedDayOfWeek = d } }
+
+            val prepResult = when (actionType) {
+                "START_CLASS" -> {
+                    if (student != null) studentTools.prepareStartClass(student, params["duration"]?.toIntOrNull() ?: 60) else null
+                }
+                "CREATE_STUDENT" -> {
+                    if (student != null) studentTools.prepareCreateStudent(student, params["course"] ?: "General", params["subjects"] ?: "General", params["price"]?.toDoubleOrNull() ?: 0.0) else null
+                }
+                "DELETE_STUDENT" -> {
+                    if (student != null) studentTools.prepareDeleteStudent(student) else null
+                }
+                "REGISTER_PAYMENT" -> {
+                    if (student != null) {
+                        val type = if (params["type"] == "EFFECTIVE") com.devsusana.hometutorpro.domain.entities.PaymentType.EFFECTIVE else com.devsusana.hometutorpro.domain.entities.PaymentType.BIZUM
+                        studentTools.prepareRegisterPayment(student, params["amount"]?.toDoubleOrNull() ?: 0.0, type)
+                    } else null
+                }
+                "ADD_BALANCE" -> {
+                    if (student != null) studentTools.prepareAddBalance(student, params["amount"]?.toDoubleOrNull() ?: 0.0) else null
+                }
+                "CANCEL_CLASS" -> {
+                    if (student != null) scheduleTools.prepareCancelAction(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, time) else null
+                }
+                "DELETE_SCHEDULE" -> {
+                    if (student != null) scheduleTools.prepareDeleteSchedule(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, time) else null
+                }
+                "CREATE_SCHEDULE" -> {
+                    if (student != null) scheduleTools.prepareCreateSchedule(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, startTime ?: "", endTime ?: "") else null
+                }
+                "ADD_EXTRA_CLASS" -> {
+                    if (student != null) {
+                        val dayOfWeek = extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
+                        val targetDate = dateTimeProvider.getNow().toLocalDate().with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.of(dayOfWeek)))
+                        val dateMillis = targetDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        scheduleTools.prepareAddExtraClass(student, dateMillis, targetTime ?: "", endTime ?: "")
+                    } else null
+                }
+                "RESCHEDULE_CLASS" -> {
+                    if (student != null) {
+                        val fromDay = extractDayOfWeek(params["fromDay"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
+                        val toDay = extractDayOfWeek(params["toDay"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
+                        scheduleTools.prepareRescheduleAction(student, fromDay, toDay, targetTime ?: "", fromTime)
+                    } else null
+                }
+                "UPDATE_STUDENT_NOTES" -> {
+                    if (student != null) studentTools.prepareUpdateNotesAction(student, params["notes"] ?: "") else null
+                }
+                else -> null
+            }
+
+            if (prepResult is SueOperationResult.Prepare.Success) {
+                preparedActions.add(prepResult.action)
+            } else if (prepResult is SueOperationResult.Prepare.Error) {
+                return prepResult
             }
         }
 
-        val student = params["student"]
-        val time = normalizeLlmTime(params["time"])
-        val startTime = normalizeLlmTime(params["startTime"])
-        val endTime = normalizeLlmTime(params["endTime"])
-        val targetTime = normalizeLlmTime(params["targetTime"])
-        val fromTime = normalizeLlmTime(params["fromTime"])
-
-        return when (actionType) {
-            "START_CLASS" -> {
-                if (student != null) studentTools.prepareStartClass(student, params["duration"]?.toIntOrNull() ?: 60) else null
-            }
-            "CREATE_STUDENT" -> {
-                if (student != null) studentTools.prepareCreateStudent(student, params["course"] ?: "General", params["subjects"] ?: "General", params["price"]?.toDoubleOrNull() ?: 0.0) else null
-            }
-            "DELETE_STUDENT" -> {
-                if (student != null) studentTools.prepareDeleteStudent(student) else null
-            }
-            "REGISTER_PAYMENT" -> {
-                if (student != null) {
-                    val type = if (params["type"] == "EFFECTIVE") com.devsusana.hometutorpro.domain.entities.PaymentType.EFFECTIVE else com.devsusana.hometutorpro.domain.entities.PaymentType.BIZUM
-                    studentTools.prepareRegisterPayment(student, params["amount"]?.toDoubleOrNull() ?: 0.0, type)
-                } else null
-            }
-            "ADD_BALANCE" -> {
-                if (student != null) studentTools.prepareAddBalance(student, params["amount"]?.toDoubleOrNull() ?: 0.0) else null
-            }
-            "CANCEL_CLASS" -> {
-                if (student != null) scheduleTools.prepareCancelAction(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, time) else null
-            }
-            "DELETE_SCHEDULE" -> {
-                if (student != null) scheduleTools.prepareDeleteSchedule(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, time) else null
-            }
-            "CREATE_SCHEDULE" -> {
-                if (student != null) scheduleTools.prepareCreateSchedule(student, extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value, startTime ?: "", endTime ?: "") else null
-            }
-            "ADD_EXTRA_CLASS" -> {
-                if (student != null) {
-                    val dayOfWeek = extractDayOfWeek(params["day"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
-                    val targetDate = dateTimeProvider.getNow().toLocalDate().with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.of(dayOfWeek)))
-                    val dateMillis = targetDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-                    scheduleTools.prepareAddExtraClass(student, dateMillis, targetTime ?: "", endTime ?: "")
-                } else null
-            }
-            "RESCHEDULE_CLASS" -> {
-                if (student != null) {
-                    val fromDay = extractDayOfWeek(params["fromDay"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
-                    val toDay = extractDayOfWeek(params["toDay"] ?: "") ?: dateTimeProvider.getNow().dayOfWeek.value
-                    scheduleTools.prepareRescheduleAction(student, fromDay, toDay, targetTime ?: "", fromTime)
-                } else null
-            }
-            else -> null
+        return if (preparedActions.size == 1) {
+            SueOperationResult.Prepare.Success(preparedActions.first())
+        } else if (preparedActions.isNotEmpty()) {
+            SueOperationResult.Prepare.MultipleSuccess(preparedActions)
+        } else {
+            null
         }
     }
 
     override suspend fun detectActionIntent(query: String): SueOperationResult? {
-        val lower = query.lowercase().trim()
+        val lower = stripAccents(query.lowercase().trim())
 
         // 1. If we have a pending intent type, check if the user wants to abort or change topic
         if (lastActiveIntentType != null) {
@@ -1141,8 +1421,13 @@ class SueAgentImpl @Inject constructor(
             containsRescheduleKeywords(lower) -> IntentType.RESCHEDULE_CLASS
             containsRegisterPaymentKeywords(lower) -> IntentType.REGISTER_PAYMENT
             containsAddBalanceKeywords(lower) -> IntentType.ADD_BALANCE
+            containsUpdateNotesKeywords(lower) -> IntentType.UPDATE_STUDENT_NOTES
 
-            // Read queries
+            // Read queries — most specific first to avoid catch-all collision
+            containsStudentsWithBalanceKeywords(lower) -> IntentType.QUERY_STUDENTS_WITH_BALANCE
+            containsStudentBalanceKeywords(lower) -> IntentType.QUERY_STUDENT_BALANCE
+            containsStudentWeeklyClassesKeywords(lower) -> IntentType.QUERY_STUDENT_WEEKLY_CLASSES
+            containsTodaySummaryKeywords(lower) -> IntentType.QUERY_TODAY_SUMMARY
             containsNextClassKeywords(lower) -> IntentType.QUERY_NEXT_CLASS
             containsFreeSlotKeywords(lower) -> IntentType.QUERY_FREE_SLOTS
             containsStudentCountKeywords(lower) -> IntentType.QUERY_STUDENT_COUNT
@@ -1160,6 +1445,10 @@ class SueAgentImpl @Inject constructor(
                 activeIntent == IntentType.QUERY_FREE_SLOTS ||
                 activeIntent == IntentType.QUERY_STUDENT_COUNT ||
                 activeIntent == IntentType.QUERY_STUDENT_DETAILS ||
+                activeIntent == IntentType.QUERY_STUDENT_WEEKLY_CLASSES ||
+                activeIntent == IntentType.QUERY_TODAY_SUMMARY ||
+                activeIntent == IntentType.QUERY_STUDENTS_WITH_BALANCE ||
+                activeIntent == IntentType.QUERY_STUDENT_BALANCE ||
                 activeIntent == IntentType.QUERY_DAY_SCHEDULE
 
         if (!isReadQuery) {
@@ -1590,9 +1879,36 @@ class SueAgentImpl @Inject constructor(
                 }
             }
 
+            IntentType.UPDATE_STUDENT_NOTES -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres actualizar las notas?"
+                    )
+                } else {
+                    val noteText = extractNotesText(lower)
+                    if (noteText == null) {
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿Qué notas o apuntes quieres añadir para $studentName?"
+                        )
+                    } else {
+                        studentTools.prepareUpdateNotesAction(studentName, noteText)
+                    }
+                }
+            }
+
             // READ QUERIES IMPLEMENTATION
             IntentType.QUERY_NEXT_CLASS -> {
-                scheduleTools.getNextClass()
+                val nextClassResult = scheduleTools.getNextClass(lastMentionedStudentName)
+                if (nextClassResult is SueOperationResult.NextClass && nextClassResult.schedule != null) {
+                    val s = nextClassResult.schedule
+                    lastMentionedStudentName = s.studentName
+                    lastMentionedDayOfWeek = s.dayOfWeek
+                    lastMentionedTime = s.startTime
+                }
+                nextClassResult
             }
 
             IntentType.QUERY_FREE_SLOTS -> {
@@ -1608,7 +1924,13 @@ class SueAgentImpl @Inject constructor(
                 if (studentName == null) {
                     SueOperationResult.StudentDetails(query, emptyList())
                 } else {
-                    studentTools.searchStudent(studentName)
+                    val detailsResult = studentTools.searchStudent(studentName)
+                    if (detailsResult is SueOperationResult.StudentDetails && detailsResult.students.isNotEmpty()) {
+                        val s = detailsResult.students.first()
+                        lastMentionedStudentName = s.name
+                        lastMentionedAmount = s.pendingBalance
+                    }
+                    detailsResult
                 }
             }
 
@@ -1616,6 +1938,62 @@ class SueAgentImpl @Inject constructor(
                 val day = lastMentionedDayOfWeek ?: dateTimeProvider.getNow().dayOfWeek.value
                 val timeFilter = extractTime(lower) ?: extractTimeOfDayFilter(lower)
                 scheduleTools.getScheduleForDay(day, timeFilter)
+            }
+
+            IntentType.QUERY_STUDENT_WEEKLY_CLASSES -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.ReadSuccess("No he identificado de qué alumno quieres saber las clases. ¿Puedes decirme su nombre?")
+                } else {
+                    scheduleTools.getWeeklyClassesForStudent(studentName)
+                }
+            }
+
+            IntentType.QUERY_STUDENTS_WITH_BALANCE -> {
+                studentTools.getStudentsWithBalance()
+            }
+
+            IntentType.QUERY_STUDENT_BALANCE -> {
+                val studentName = lastMentionedStudentName
+                if (studentName == null) {
+                    SueOperationResult.ReadSuccess("¿De qué alumno quieres saber el saldo pendiente?")
+                } else {
+                    val details = studentTools.searchStudent(studentName)
+                    if (details is SueOperationResult.StudentDetails && details.students.isNotEmpty()) {
+                        val student = details.students.first()
+                        lastMentionedStudentName = student.name
+                        lastMentionedAmount = student.pendingBalance // Memorize pending balance amount!
+                        if (student.pendingBalance <= 0.0) {
+                            SueOperationResult.ReadSuccess("${student.name} está al corriente de pago. No tiene ningún saldo pendiente.")
+                        } else {
+                            SueOperationResult.ReadSuccess("${student.name} tiene un saldo pendiente de ${"%.2f".format(student.pendingBalance)} €.")
+                        }
+                    } else {
+                        SueOperationResult.ReadSuccess("No he encontrado ningún alumno llamado \"$studentName\".")
+                    }
+                }
+            }
+
+            IntentType.QUERY_TODAY_SUMMARY -> {
+                val today = dateTimeProvider.getNow().dayOfWeek.value
+                val todayResult = scheduleTools.getScheduleForDay(today, null)
+                val scheduleText = com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter.format(todayResult)
+
+                val debtors = studentTools.getStudentsWithBalance()
+                val debtorResult = debtors as? SueOperationResult.StudentsWithBalance
+
+                val debtAlert = if (debtorResult != null && debtorResult.students.isNotEmpty()) {
+                    val todayNames = if (todayResult is SueOperationResult.DaySchedule) {
+                        todayResult.schedules.map { it.studentName.lowercase() }.toSet()
+                    } else emptySet()
+                    val debtorsToday = debtorResult.students.filter { it.name.lowercase() in todayNames }
+                    if (debtorsToday.isNotEmpty()) {
+                        "\n\n⚠️ Tienen saldo pendiente y clase hoy: " +
+                        debtorsToday.joinToString(", ") { "${it.name} (${"%.2f".format(it.pendingBalance)} €)" }
+                    } else ""
+                } else ""
+
+                SueOperationResult.ReadSuccess(scheduleText + debtAlert)
             }
         }
 
@@ -1631,6 +2009,62 @@ class SueAgentImpl @Inject constructor(
     private fun containsStudentDetailsKeywords(query: String) =
         listOf("información de", "ficha de", "datos de", "detalles de", "info de").any { it in query }
 
+    /**
+     * Detects queries about how many weekly sessions a specific student has.
+     * Must be checked BEFORE [containsDayScheduleKeywords] to avoid the word "clases"
+     * being mistakenly routed to the day schedule handler.
+     */
+    private fun containsStudentWeeklyClassesKeywords(query: String): Boolean {
+        val hasQuantityWord = listOf("cuántas", "cuantas", "cuántos", "cuantos").any { it in query }
+        val hasClassWord = listOf("clase", "clases", "sesión", "sesiones", "veces").any { it in query }
+        val hasStudentReference = listOf("de ", "con ", "tiene ", "tengo de ", "tengo con ").any { it in query }
+        return hasQuantityWord && hasClassWord && hasStudentReference
+    }
+
     private fun containsDayScheduleKeywords(query: String) =
         listOf("clase", "clases", "horario", "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo", "hoy", "mañana").any { it in query }
+
+    /**
+     * Detects queries asking which students owe money (global view, no specific student).
+     * Must be evaluated BEFORE [containsStudentBalanceKeywords] which is more specific.
+     */
+    private fun containsStudentsWithBalanceKeywords(query: String) =
+        listOf(
+            "quién me debe", "quien me debe",
+            "quiénes me deben", "quienes me deben",
+            "quién debe", "quien debe",
+            "tienen deuda", "deben dinero",
+            "pendiente de pago", "sin pagar",
+            "no han pagado", "no ha pagado",
+            "who owes me", "who hasn't paid"
+        ).any { it in query }
+
+    /**
+     * Detects queries about a specific student's outstanding balance.
+     * Requires the presence of a balance-specific phrase; student name is resolved
+     * from [lastMentionedStudentName] in the handler.
+     */
+    private fun containsStudentBalanceKeywords(query: String) =
+        listOf(
+            "cuánto me debe", "cuanto me debe",
+            "cuánto debe", "cuanto debe",
+            "qué me debe", "que me debe",
+            "saldo de", "deuda de", "balance de",
+            "cuánto tiene pendiente", "cuanto tiene pendiente",
+            "how much does", "how much owes"
+        ).any { it in query }
+
+    /**
+     * Detects queries requesting a holistic summary of today's work session,
+     * including schedule AND debt alerts for today's students.
+     * Must be evaluated BEFORE [containsDayScheduleKeywords] to take priority.
+     */
+    private fun containsTodaySummaryKeywords(query: String) =
+        listOf(
+            "resumen de hoy", "resumen hoy",
+            "cómo está mi día", "como esta mi dia",
+            "cómo va mi día", "como va mi dia",
+            "qué tengo hoy", "que tengo hoy",
+            "summary today", "today's summary"
+        ).any { it in query }
 }

@@ -5,6 +5,8 @@ import com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail
 import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
 import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
 import com.devsusana.hometutorpro.domain.entities.AgentStudentSummary
+import com.devsusana.hometutorpro.domain.entities.AgentClassLog
+import com.devsusana.hometutorpro.domain.entities.AgentTransactionLog
 
 /**
  * Repository contract for providing contextual data to the Sue AI agent.
@@ -41,4 +43,16 @@ interface AgentContextRepository {
      * asks to cancel or reschedule a class by student name.
      */
     suspend fun getSchedulesByStudentName(studentName: String): List<AgentScheduleDetail>
+
+    /** Returns class logs for a specific student. */
+    suspend fun getClassLogsForStudent(studentId: String): List<AgentClassLog>
+
+    /** Returns all class logs. */
+    suspend fun getAllClassLogs(): List<AgentClassLog>
+
+    /** Returns transactions for a specific student. */
+    suspend fun getTransactionsForStudent(studentId: String): List<AgentTransactionLog>
+
+    /** Returns all transactions. */
+    suspend fun getAllTransactions(): List<AgentTransactionLog>
 }

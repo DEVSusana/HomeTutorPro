@@ -143,5 +143,14 @@ sealed class SuePendingAction {
         val startTime: String,
         val endTime: String
     ) : SuePendingAction()
+
+    /**
+     * The user wants to update a student's notes.
+     */
+    data class UpdateStudentNotes(
+        val studentId: String,
+        val studentName: String,
+        val notes: String
+    ) : SuePendingAction()
 }
 

@@ -208,10 +208,11 @@ fun NavigationHost() {
                         scheduleGraph(navController)
                     }
 
-                    // Sue overlay renders on top of all navigation content
                     SueOverlay(
                         uiState = sueUiState,
-                        onDismiss = { sueViewModel.onDismiss() }
+                        onDismiss = { sueViewModel.onDismiss() },
+                        onConfirmAction = { sueViewModel.onConfirmAction() },
+                        onCancelAction = { sueViewModel.onCancelAction() }
                     )
                 }
             }

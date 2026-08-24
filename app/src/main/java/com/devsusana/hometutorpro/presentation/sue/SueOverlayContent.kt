@@ -34,8 +34,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.entities.SpeechState
+import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.presentation.sue.components.SueListeningOverlay
 import com.devsusana.hometutorpro.presentation.sue.components.SueResponseBubble
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.fillMaxSize
 
 /**
  * Pure presentation composable for Sue's conversational overlay.
@@ -55,6 +64,7 @@ import com.devsusana.hometutorpro.presentation.sue.components.SueResponseBubble
  * @param agentResponse Sue's textual response.
  * @param errorMessage Optional error message.
  * @param onCancel Callback to dismiss the overlay.
+ * @param isModelLoading Whether the AI LLM model is currently loading into memory.
  */
 @Composable
 fun SueOverlayContent(
@@ -64,7 +74,11 @@ fun SueOverlayContent(
     agentResponse: String,
     errorMessage: String?,
     onCancel: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    pendingAction: SuePendingAction? = null,
+    isModelLoading: Boolean = false,
+    onConfirmAction: () -> Unit = {},
+    onCancelAction: () -> Unit = {}
 ) {
     val gradientBrush = Brush.verticalGradient(
         colors = listOf(
@@ -124,10 +138,32 @@ fun SueOverlayContent(
                 .heightIn(max = maxHeight)
                 .verticalScroll(rememberScrollState())
         ) {
+            // Model Loading State Indicator
+            if (isModelLoading) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.sue_loading_assistant_brain),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
             // Listening state — waveform + partial transcription
             SueListeningOverlay(
                 partialTranscription = partialTranscription,
-                isVisible = speechState == SpeechState.LISTENING,
+                isVisible = speechState == SpeechState.LISTENING && !isModelLoading,
                 onCancel = onCancel
             )
 
@@ -147,6 +183,38 @@ fun SueOverlayContent(
                         speechState == SpeechState.SPEAKING ||
                         (speechState == SpeechState.IDLE && agentResponse.isNotBlank())
             )
+
+            // Confirmation buttons for pending actions
+            if (pendingAction != null && speechState == SpeechState.IDLE) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onCancelAction,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                    Button(
+                        onClick = onConfirmAction,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                }
+            }
 
             // Error message
             if (errorMessage != null) {

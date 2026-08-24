@@ -19,6 +19,9 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
+import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
+
 /**
  * Tool definitions for student-related queries and finance operations.
  *
@@ -34,7 +37,9 @@ class StudentTools @Inject constructor(
     private val deleteStudentUseCase: IDeleteStudentUseCase,
     private val getStudentByIdUseCase: IGetStudentByIdUseCase,
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val getSharedResourcesUseCase: IGetSharedResourcesUseCase,
+    private val agentContextRepository: AgentContextRepository
 ) {
 
     /**
@@ -325,5 +330,86 @@ class StudentTools @Inject constructor(
             is Result.Error -> SueOperationResult.Execute.Error(result.error)
         }
     }
+
+    /**
+     * Prepares an action to update a student's notes.
+     */
+    suspend fun prepareUpdateNotesAction(studentName: String, notes: String): SueOperationResult.Prepare {
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+
+        if (match == null) {
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+        }
+
+        val action = SuePendingAction.UpdateStudentNotes(
+            studentId = match.studentId,
+            studentName = match.name,
+            notes = notes
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes the update student notes action.
+     */
+    suspend fun executeUpdateNotesAction(action: SuePendingAction.UpdateStudentNotes): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val studentFlow = getStudentByIdUseCase(professorId, action.studentId)
+        val student = studentFlow.first()
+            ?: return SueOperationResult.Execute.Error(DomainError.StudentNotFound)
+
+        val updatedStudent = student.copy(notes = action.notes)
+        return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
+     * Returns the list of resources shared with a student.
+     */
+    suspend fun getSharedResources(studentName: String): List<com.devsusana.hometutorpro.domain.entities.SharedResource> {
+        val professorId = authRepository.currentUser.value?.uid ?: return emptyList()
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) } ?: return emptyList()
+        return getSharedResourcesUseCase(professorId, match.studentId).first()
+    }
+
+    /**
+     * Returns the list of completed class logs for a student.
+     */
+    suspend fun getClassLogs(studentName: String): List<com.devsusana.hometutorpro.domain.entities.AgentClassLog> {
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) } ?: return emptyList()
+        return agentContextRepository.getClassLogsForStudent(match.studentId)
+    }
+
+    /**
+     * Returns the list of transactions for a student.
+     */
+    suspend fun getTransactions(studentName: String): List<com.devsusana.hometutorpro.domain.entities.AgentTransactionLog> {
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) } ?: return emptyList()
+        return agentContextRepository.getTransactionsForStudent(match.studentId)
+    }
+
+    /**
+     * Returns all transactions for the current professor.
+     */
+    suspend fun getAllTransactions(): List<com.devsusana.hometutorpro.domain.entities.AgentTransactionLog> {
+        return agentContextRepository.getAllTransactions()
+    }
+
+    /**
+     * Returns all completed class logs for the current professor across every student.
+     * Used to answer global historical queries like "¿cuántas clases he dado este mes?".
+     */
+    suspend fun getAllClassLogs(): List<com.devsusana.hometutorpro.domain.entities.AgentClassLog> {
+        return agentContextRepository.getAllClassLogs()
+    }
 }
+
 

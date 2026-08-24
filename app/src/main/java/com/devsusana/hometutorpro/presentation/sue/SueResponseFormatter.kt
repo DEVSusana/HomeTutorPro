@@ -36,7 +36,14 @@ object SueResponseFormatter {
         is SueOperationResult.StudentDetails -> formatStudentDetails(result)
         is SueOperationResult.StudentsWithBalance -> formatStudentsWithBalance(result)
         is SueOperationResult.ActiveStudentCount -> "Actualmente tienes ${result.count} alumnos activos."
+        is SueOperationResult.WeeklyClassesForStudent -> formatWeeklyClassesForStudent(result)
+        is SueOperationResult.ReadSuccess -> result.message
         is SueOperationResult.Prepare.Success -> formatPreparationConfirmation(result.action)
+        is SueOperationResult.Prepare.MultipleSuccess -> {
+            result.actions.mapIndexed { index, action ->
+                "${index + 1}. ${formatPreparationConfirmation(action).replace("Di sí para confirmar o no para cancelar.", "").trim()}"
+            }.joinToString("\n") + "\n\n¿Confirmas todas estas acciones? Di sí para confirmar o no para cancelar."
+        }
         is SueOperationResult.Prepare.Error -> formatPreparationError(result)
         is SueOperationResult.Execute.Success -> formatExecutionSuccess(result.action)
         is SueOperationResult.Execute.Error -> formatDomainError(result.domainError)
@@ -59,6 +66,23 @@ object SueResponseFormatter {
                 daySchedules.forEach { s -> appendLine("  ${s.startTime}–${s.endTime}: ${s.studentName}") }
             }
         }
+    }
+
+    /**
+     * Formats the weekly recurring sessions for a specific student, clearly stating
+     * the total count and the day-by-day breakdown.
+     */
+    private fun formatWeeklyClassesForStudent(result: SueOperationResult.WeeklyClassesForStudent): String {
+        val name = result.studentName.replaceFirstChar { it.uppercaseChar() }
+        val count = result.schedules.size
+        val byDay = result.schedules.sortedBy { it.dayOfWeek }.groupBy { it.dayOfWeek }
+        return buildString {
+            appendLine("Tienes $count ${if (count == 1) "clase" else "clases"} semanales con $name:")
+            byDay.forEach { (day, sessions) ->
+                val dayName = dayName(day)
+                sessions.forEach { s -> appendLine("  $dayName: ${s.startTime}–${s.endTime}") }
+            }
+        }.trim()
     }
 
     private fun formatDaySchedule(result: SueOperationResult.DaySchedule): String {
@@ -139,6 +163,9 @@ object SueResponseFormatter {
                 } else {
                     appendLine("  Último pago: Nunca")
                 }
+                if (student.notes.isNotBlank()) {
+                    appendLine("  Notas/Observaciones: ${student.notes}")
+                }
                 appendLine()
             }
         }
@@ -206,6 +233,10 @@ object SueResponseFormatter {
             "¿Confirmas añadir una clase extra para ${action.studentName} el $dayLabel de ${action.startTime} a ${action.endTime}? " +
                 "Di sí para confirmar o no para cancelar."
         }
+        is SuePendingAction.UpdateStudentNotes -> {
+            "¿Confirmas actualizar las notas de ${action.studentName} a: '${action.notes}'? " +
+                "Di sí para confirmar o no para cancelar."
+        }
     }
 
     private fun formatPreparationError(result: SueOperationResult.Prepare.Error): String {
@@ -257,6 +288,9 @@ object SueResponseFormatter {
         is SuePendingAction.AddExtraClass -> {
             val dayLabel = epochMillisToLabel(action.date)
             "Hecho. Se ha agendado la clase extra para ${action.studentName} el $dayLabel de ${action.startTime} a ${action.endTime}."
+        }
+        is SuePendingAction.UpdateStudentNotes -> {
+            "Hecho. Se han actualizado las notas de ${action.studentName}."
         }
     }
 

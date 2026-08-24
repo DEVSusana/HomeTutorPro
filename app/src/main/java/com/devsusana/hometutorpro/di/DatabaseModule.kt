@@ -41,6 +41,7 @@ object DatabaseModule {
                 DatabaseMigrations.MIGRATION_7_8,
                 DatabaseMigrations.MIGRATION_8_9
             )
+            .fallbackToDestructiveMigration()
             .build()
     }
 
@@ -72,6 +73,16 @@ object DatabaseModule {
     @Provides
     fun provideSharedResourceDao(database: AppDatabase): SharedResourceDao {
         return database.sharedResourceDao()
+    }
+
+    @Provides
+    fun provideClassLogDao(database: AppDatabase): ClassLogDao {
+        return database.classLogDao()
+    }
+
+    @Provides
+    fun provideTransactionLogDao(database: AppDatabase): TransactionLogDao {
+        return database.transactionLogDao()
     }
 
 

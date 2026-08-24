@@ -42,7 +42,8 @@ data class AgentStudentDetail(
     val subjects: String,
     val course: String,
     val pendingBalance: Double,
-    val lastPaymentDate: Long? = null
+    val lastPaymentDate: Long? = null,
+    val notes: String = ""
 )
 
 /**
@@ -56,4 +57,21 @@ data class AgentScheduleDetail(
     val dayOfWeek: Int,
     val startTime: String,
     val endTime: String
+)
+
+data class AgentClassLog(
+    val studentId: String,
+    val scheduleId: String,
+    val date: Long,
+    val startTime: String,
+    val endTime: String,
+    val isExtra: Boolean
+)
+
+data class AgentTransactionLog(
+    val studentId: String,
+    val type: String, // "PAYMENT" or "BALANCE_ADD"
+    val amount: Double,
+    val paymentType: String?, // "EFFECTIVE", "BIZUM" or null
+    val timestamp: Long
 )
