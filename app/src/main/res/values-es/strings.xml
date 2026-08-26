@@ -337,6 +337,7 @@
     <string name="weekly_schedule_no_classes_grid">Sin clases</string>
     <string name="weekly_schedule_cancelled">Cancelada</string>
     <string name="weekly_schedule_rescheduled">Reprogramada</string>
+    <string name="weekly_schedule_extra">Clase Extra</string>
     <string name="weekly_schedule_success_exception_saved">Excepción guardada con éxito</string>
     <string name="weekly_schedule_error_schedule_conflict">¡Conflicto de horario! Este horario ya está ocupado.</string>
     <string name="weekly_schedule_error_conflicting_student_format">¡Conflicto de horario! %1$s tiene una clase a las %2$s</string>

@@ -35,6 +35,18 @@ sealed interface SueOperationResult {
     /** Results containing weekdays (1..5) with no classes scheduled. */
     data class FreeSlots(val freeDays: List<Int>) : SueOperationResult
 
+    /**
+     * Results containing both fully-free days and intra-day gap descriptions computed
+     * by [ScheduleTools.getFreeSlots] using the professor's actual working hours.
+     *
+     * @param freeDays  ISO weekday numbers (1=Mon…5=Fri) with zero classes at all.
+     * @param gapLines  Human-readable gap descriptions, e.g. "Jueves: hueco libre de 09:00 a 10:30".
+     */
+    data class FreeSlotsDetailed(
+        val freeDays: List<Int>,
+        val gapLines: List<String>
+    ) : SueOperationResult
+
     /** Results containing summaries of all students. */
     data class AllStudentsSummary(val students: List<AgentStudentSummary>) : SueOperationResult
 

@@ -32,6 +32,7 @@ object SueResponseFormatter {
         is SueOperationResult.DaySchedule -> formatDaySchedule(result)
         is SueOperationResult.NextClass -> formatNextClass(result)
         is SueOperationResult.FreeSlots -> formatFreeSlots(result)
+        is SueOperationResult.FreeSlotsDetailed -> formatFreeSlotsDetailed(result)
         is SueOperationResult.AllStudentsSummary -> formatAllStudents(result)
         is SueOperationResult.StudentDetails -> formatStudentDetails(result)
         is SueOperationResult.StudentsWithBalance -> formatStudentsWithBalance(result)
@@ -119,6 +120,28 @@ object SueResponseFormatter {
             result.freeDays.forEach { day -> appendLine("  • ${dayName(day)}") }
         }
     }
+
+    private fun formatFreeSlotsDetailed(result: SueOperationResult.FreeSlotsDetailed): String {
+        val hasFreeDays = result.freeDays.isNotEmpty()
+        val hasGaps = result.gapLines.isNotEmpty()
+
+        if (!hasFreeDays && !hasGaps) {
+            return "No hay huecos libres dentro de tu horario laboral. Tienes clases programadas en todas las franjas disponibles."
+        }
+
+        return buildString {
+            if (hasFreeDays) {
+                appendLine("Días completamente libres (sin clases):")
+                result.freeDays.forEach { day -> appendLine("  • ${dayName(day)}") }
+            }
+            if (hasGaps) {
+                if (hasFreeDays) appendLine()
+                appendLine("Huecos libres dentro de tu jornada laboral:")
+                result.gapLines.forEach { line -> appendLine("  • $line") }
+            }
+        }.trim()
+    }
+
 
     private fun formatAllStudents(result: SueOperationResult.AllStudentsSummary): String {
         if (result.students.isEmpty()) return "No se encontraron alumnos."

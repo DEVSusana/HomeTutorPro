@@ -29,7 +29,7 @@ class MediaPipeModelRepository @Inject constructor(
         private const val TAG = "MediaPipeModelRepo"
         private const val MODEL_DIRECTORY = "sue_model"
         private const val MODEL_FILENAME = "gemma-2b-it-gpu-int4.bin"
-        private const val MAX_TOKENS = 1024
+        private const val MAX_TOKENS = 2048
         private const val TEMPERATURE = 0.7f
         private const val TOP_K = 40
     }
@@ -124,18 +124,32 @@ class MediaPipeModelRepository @Inject constructor(
     }
 
     private fun findModelFile(): String? {
-        // App-specific internal files directory
-        val internalPath = File(context.filesDir, "$MODEL_DIRECTORY/$MODEL_FILENAME")
-        if (internalPath.exists()) {
-            return internalPath.absolutePath
+        val dirs = listOf(
+            File(context.filesDir, MODEL_DIRECTORY),
+            context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
+        ).filterNotNull()
+
+        // 1. Look for specific default name first
+        for (dir in dirs) {
+            if (dir.exists() && dir.isDirectory) {
+                val defaultFile = File(dir, MODEL_FILENAME)
+                if (defaultFile.exists()) {
+                    return defaultFile.absolutePath
+                }
+            }
         }
 
-        // External files directory (accessible via adb push)
-        val externalPath = context.getExternalFilesDir(null)?.let {
-            File(it, "$MODEL_DIRECTORY/$MODEL_FILENAME")
-        }
-        if (externalPath?.exists() == true) {
-            return externalPath.absolutePath
+        // 2. Fallback: auto-detect any file ending with .bin or .task
+        for (dir in dirs) {
+            if (dir.exists() && dir.isDirectory) {
+                val candidate = dir.listFiles { _, name ->
+                    name.endsWith(".bin", ignoreCase = true) || name.endsWith(".task", ignoreCase = true)
+                }?.firstOrNull()
+                if (candidate != null) {
+                    Log.i(TAG, "Autodetected model file: ${candidate.name}")
+                    return candidate.absolutePath
+                }
+            }
         }
 
         return null

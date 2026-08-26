@@ -6,6 +6,7 @@ import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.ISueAgent
+import kotlinx.coroutines.flow.first
 import java.time.temporal.TemporalAdjusters
 import java.time.DayOfWeek
 import java.time.ZoneId
@@ -60,24 +61,24 @@ class SueAgentImpl @Inject constructor(
 
             if (isQuestion) {
                 return """
-                    Eres la asistente inteligente de HomeTutorPro.
+                    Eres Sue, la asistente inteligente de HomeTutorPro.
                     Tu rol es responder a las preguntas del profesor de forma breve, amable y concisa.
                     NUNCA inventes datos. Usa SOLO la información provista en la sección --- AVAILABLE DATA ---.
                     Si no hay datos en esa sección o la sección está vacía, dile al profesor que no tienes clases o información registrada sobre eso.
-                    NUNCA uses la palabra "Sue" en tus respuestas, ni te refieras a ti misma con ese nombre bajo ninguna circunstancia.
+                    NUNCA llames "Sue" al profesor (tú eres Sue; él es el usuario o profesor).
                     $languageInstruction
                 """.trimIndent()
             }
 
             return """
-                Eres la asistente inteligente de HomeTutorPro. Tu rol es ayudar a profesores particulares a gestionar su trabajo de forma eficiente.
+                Eres Sue, la asistente inteligente de HomeTutorPro. Tu rol es ayudar a profesores particulares a gestionar su trabajo de forma eficiente.
 
                 Tu personalidad:
                 - Eres profesional, amable y concisa.
                 - Evitas respuestas largas — sé directa y útil.
                 - Si no puedes ayudar con algo, dilo claramente.
                 - NO te describes a ti misma como IA. Compórtate como asistente de forma natural.
-                - NUNCA digas la palabra "Sue" ni te refieras a ti misma con ese nombre en tus respuestas.
+                - Tú eres Sue. Puedes referirte a ti misma como Sue si es natural, pero NUNCA te dirijas al profesor como "Sue".
                 - $languageInstruction
 
                 Tus capacidades:
@@ -192,7 +193,6 @@ class SueAgentImpl @Inject constructor(
         userQuery: String,
         history: List<Pair<String, String>>
     ): String {
-        val toolContext = gatherRelevantContext(userQuery)
         val locale = dateTimeProvider.getLocale()
         val isQuestion = isQuestionOrQuery(userQuery)
 
@@ -200,12 +200,41 @@ class SueAgentImpl @Inject constructor(
         val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy, HH:mm", locale)
         val currentDateTime = dateTimeProvider.getNow().format(formatter)
 
+        val firebaseUid = try {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        } catch (e: Exception) {
+            null
+        }
+
+        // Read working hours robustly: wait up to 2s for the StateFlow to emit a non-null user
+        val professor = authRepository.currentUser.value
+            ?: kotlinx.coroutines.withTimeoutOrNull(2000L) {
+                authRepository.currentUser.first { it != null }
+            }
+        val workingStart = professor?.workingStartTime?.takeIf { it.isNotBlank() } ?: "08:00"
+        val workingEnd   = professor?.workingEndTime?.takeIf { it.isNotBlank() } ?: "23:00"
+
+        val toolContext = gatherRelevantContext(userQuery, workingStart, workingEnd)
+
+        android.util.Log.d("SueAgentImpl", "--- SUE DEBUG LOG ---")
+        android.util.Log.d("SueAgentImpl", "User Query: $userQuery")
+        android.util.Log.d("SueAgentImpl", "Firebase UID: $firebaseUid | AuthRepository UID: ${professor?.uid}")
+        android.util.Log.d("SueAgentImpl", "Working hours: $workingStart – $workingEnd")
+        android.util.Log.d("SueAgentImpl", "RAG Context:\n$toolContext")
+        android.util.Log.d("SueAgentImpl", "----------------------")
+
+
         return buildString {
+            append("<start_of_turn>user\n") // Gemma Template user start
             appendLine(buildSystemPrompt(locale, isQuestion))
             appendLine()
             appendLine("--- TEMPORAL CONTEXT ---")
             appendLine("Current date/time: $currentDateTime")
             appendLine("--- END OF TEMPORAL CONTEXT ---")
+            appendLine()
+            appendLine("--- PROFESSOR WORKING HOURS (AGENDA BOUNDARIES) ---")
+            appendLine("Working hours limit: from $workingStart to $workingEnd")
+            appendLine("--- END OF WORKING HOURS ---")
             appendLine()
             if (history.isNotEmpty()) {
                 appendLine("--- RECENT CONVERSATION HISTORY ---")
@@ -223,6 +252,7 @@ class SueAgentImpl @Inject constructor(
             }
             appendLine()
             appendLine("User query: $userQuery")
+            append("<end_of_turn>\n<start_of_turn>model\n") // Gemma Template model start
         }
     }
 
@@ -235,13 +265,14 @@ class SueAgentImpl @Inject constructor(
      *
      * This is a `suspend` function because the tool methods perform database I/O.
      *
-     * **Bug-fix:** The previous implementation had a fallback `if (isEmpty())`
-     * block that called [StudentTools.getAllStudentsSummary] for ANY unrecognised
-     * query (including questions about a specific student where the name wasn't
-     * detected). The new version returns an empty string when no keyword matches,
+     * The implementation returns an empty string when no keyword matches,
      * letting the LLM respond gracefully without raw data.
      */
-    private suspend fun gatherRelevantContext(query: String): String {
+    private suspend fun gatherRelevantContext(
+        query: String,
+        workingStart: String = "08:00",
+        workingEnd: String = "23:00"
+    ): String {
         val lowerQuery = stripAccents(query.lowercase())
 
         // 1. Extract and update context memory variables
@@ -266,25 +297,55 @@ class SueAgentImpl @Inject constructor(
 
         return buildString {
             // 1. Schedule queries
-            if (containsScheduleKeywords(lowerQuery)) {
+            if (containsScheduleKeywords(lowerQuery) || containsCancelledQueryKeywords(lowerQuery)) {
+                val isAskingPurelyAboutCancellations = containsCancelledQueryKeywords(lowerQuery) &&
+                    !listOf("activa", "activas", "no cancelada", "no canceladas", "todas las clases", "horario completo").any { it in lowerQuery }
+
                 if (containsNextClassKeywords(lowerQuery)) {
                     appendLine(formatResult(scheduleTools.getNextClass()))
+                } else if (isAskingPurelyAboutCancellations) {
+                    // Exclusive branch: user is asking ONLY about cancelled/rescheduled classes.
+                    // Do NOT inject the normal schedule — only inject exceptions so the LLM
+                    // does not confuse active classes with cancelled ones.
+                    val exceptionsCtx = scheduleTools.getCancelledClassesDescription(day, studentName)
+                    if (exceptionsCtx.isNotBlank()) {
+                        appendLine(exceptionsCtx)
+                    } else {
+                        val dayLabel = if (day != null) {
+                            when (day) {
+                                1 -> "el lunes"; 2 -> "el martes"; 3 -> "el miércoles"
+                                4 -> "el jueves"; 5 -> "el viernes"; 6 -> "el sábado"
+                                else -> "el domingo"
+                            }
+                        } else if (studentName != null) {
+                            "con $studentName"
+                        } else "esta semana"
+                        appendLine("No hay clases canceladas ni reprogramadas registradas $dayLabel.")
+                    }
+                } else if (containsFreeSlotWithDayKeywords(lowerQuery)) {
+                    // "¿tengo algún hueco el jueves?" — compute gaps for that specific day
+                    appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd, day)))
                 } else if (containsFreeSlotKeywords(lowerQuery)) {
-                    appendLine(formatResult(scheduleTools.getFreeSlots()))
+                    // General free slot query without a day — compute gaps for all week
+                    appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd)))
                 } else {
                     val daysToInject = mutableSetOf<Int>()
-                    daysToInject.add(dateTimeProvider.getNow().dayOfWeek.value)
 
-                    if (day != null) {
-                        daysToInject.add(day)
+                    val isGeneralWeeklyQuery = listOf("semana", "semanal", "horario", "agenda", "calendario", "mis clases", "que clases tengo").any { it in lowerQuery }
+                    if (isGeneralWeeklyQuery && day == null) {
+                        daysToInject.addAll(1..5)
+                    } else {
+                        daysToInject.add(dateTimeProvider.getNow().dayOfWeek.value)
+                        if (day != null) {
+                            daysToInject.add(day)
+                        }
+                        if (lastMentionedDayOfWeek != null) {
+                            daysToInject.add(lastMentionedDayOfWeek!!)
+                        }
+                        val extractedDays = extractTwoDaysOfWeek(lowerQuery)
+                        if (extractedDays.first != null) daysToInject.add(extractedDays.first!!)
+                        if (extractedDays.second != null) daysToInject.add(extractedDays.second!!)
                     }
-                    if (lastMentionedDayOfWeek != null) {
-                        daysToInject.add(lastMentionedDayOfWeek!!)
-                    }
-
-                    val extractedDays = extractTwoDaysOfWeek(lowerQuery)
-                    if (extractedDays.first != null) daysToInject.add(extractedDays.first!!)
-                    if (extractedDays.second != null) daysToInject.add(extractedDays.second!!)
 
                     val timeFilter = extractTime(lowerQuery) ?: extractTimeOfDayFilter(lowerQuery)
                     if (day == null && timeFilter != null && timeFilter.contains(":")) {
@@ -300,6 +361,11 @@ class SueAgentImpl @Inject constructor(
 
                     for (d in daysToInject.sorted()) {
                         appendLine(formatResult(scheduleTools.getScheduleForDay(d, timeFilter)))
+                    }
+                    // For general schedule queries also inject any exceptions as extra context
+                    val exceptionsCtx = scheduleTools.getCancelledClassesDescription(day)
+                    if (exceptionsCtx.isNotBlank()) {
+                        appendLine(exceptionsCtx)
                     }
                 }
             }
@@ -319,18 +385,24 @@ class SueAgentImpl @Inject constructor(
 
             if (isFinanceQuery) {
                 val allTxs = studentTools.getAllTransactions()
+                val studentsResult = studentTools.getAllStudentsSummary()
+                val students = (studentsResult as? SueOperationResult.AllStudentsSummary)?.students ?: emptyList()
+                val schedules = scheduleTools.getScheduleDetails()
+                val logs = studentTools.getAllClassLogs()
+
                 appendLine("--- HISTORIAL GENERAL DE TRANSACCIONES / INGRESOS ---")
                 if (allTxs.isNotEmpty()) {
                     val totalEarnings = allTxs.filter { it.type == "PAYMENT" }.sumOf { it.amount }
-                    appendLine("Total ganado (pagos recibidos): $totalEarnings euros")
+                    appendLine("Total cobrado (pagos recibidos): $totalEarnings euros")
                     allTxs.take(15).forEach { t ->
                         val dateStr = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(java.util.Date(t.timestamp))
                         val typeStr = if (t.type == "PAYMENT") "PAGO" else "DEUDA"
                         val payTypeStr = t.paymentType?.let { " ($it)" } ?: ""
-                        appendLine("- $dateStr: $typeStr de ${t.amount} euros$payTypeStr")
+                        val studentName = schedules.firstOrNull { it.studentId == t.studentId }?.studentName ?: "Alumno"
+                        appendLine("- $dateStr: $typeStr de ${t.amount} euros$payTypeStr de $studentName")
                     }
                 } else {
-                    appendLine("Total ganado (pagos recibidos): 0 euros")
+                    appendLine("Total cobrado (pagos recibidos): 0 euros")
                     appendLine("No se han registrado pagos o facturas todavía en la aplicación (el balance es cero).")
                 }
                 appendLine("--- FIN HISTORIAL GENERAL ---")
@@ -345,6 +417,20 @@ class SueAgentImpl @Inject constructor(
                     }
                     appendLine("--- FIN DEUDAS Y SALDOS ---")
                 }
+
+                // Inyectar historial de clases completadas
+                appendLine("--- HISTORIAL DE CLASES IMPARTIDAS (COMPLETADAS) ---")
+                if (logs.isNotEmpty()) {
+                    logs.take(20).forEach { l ->
+                        val dateStr = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(java.util.Date(l.date))
+                        val studentName = schedules.firstOrNull { it.studentId == l.studentId }?.studentName ?: "Alumno"
+                        val studentPrice = students.firstOrNull { it.name.lowercase() == studentName.lowercase() }?.pricePerHour ?: 0.0
+                        appendLine("- $dateStr: Clase impartida a $studentName de ${l.startTime} a ${l.endTime} (tarifa habitual: $studentPrice €/hora)")
+                    }
+                } else {
+                    appendLine("No hay registro de clases completadas o impartidas este mes.")
+                }
+                appendLine("--- FIN HISTORIAL CLASES ---")
             }
 
             // 2b. Global class history queries — inject all class logs when no student is named
@@ -491,19 +577,67 @@ class SueAgentImpl @Inject constructor(
      * Detects intent to query free time slots in the schedule.
      * Bare "libre" and "disponible" are excluded to avoid capturing casual conversation
      * like "estoy libre esta tarde" or "tengo una hora libre". Only compound forms are accepted.
+     * Days of the week are excluded here — use [containsFreeSlotWithDayKeywords] for day-specific queries.
      */
-    private fun containsFreeSlotKeywords(query: String) =
-        listOf(
+    private fun containsFreeSlotKeywords(query: String): Boolean {
+        val days = listOf("lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo", "hoy", "mañana")
+        if (days.any { it in query }) {
+            return false
+        }
+        return listOf(
             "hueco libre", "huecos libres", "día libre", "días libres",
             "tengo libre", "estoy libre", "tengo disponible", "estoy disponible",
             "espacio libre", "rato libre", "momento libre",
             "free slot", "available slot", "am i free", "am i available"
         ).any { it in query }
+    }
 
-    private fun containsCancelKeywords(query: String) =
-        listOf("cancela", "cancelar", "anula", "anular", "quitar la clase", "quita la clase",
+    /**
+     * Detects a free-slot query that also names a specific day, e.g.
+     * "¿tengo algún hueco el jueves?" or "¿estoy libre el viernes?".
+     * This is checked BEFORE [containsFreeSlotKeywords] so day-specific queries
+     * are routed to the targeted [ScheduleTools.getFreeSlots] call.
+     */
+    private fun containsFreeSlotWithDayKeywords(query: String): Boolean {
+        val hasFreeIntent = listOf(
+            "hueco", "huecos", "libre", "libres", "disponible", "disponibles",
+            "espacio", "rato", "momento", "free", "available"
+        ).any { it in query }
+        val hasDay = listOf(
+            "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes",
+            "sábado", "sabado", "domingo", "hoy", "mañana"
+        ).any { it in query }
+        return hasFreeIntent && hasDay
+    }
+
+    private fun containsCancelKeywords(query: String): Boolean {
+        if (listOf("cancelada", "canceladas", "cancelado", "cancelados").any { it in query }) {
+            return false
+        }
+        return listOf("cancela", "cancelar", "anula", "anular", "quitar la clase", "quita la clase",
                "cancel", "remove class", "delete class")
             .any { it in query }
+    }
+
+    /**
+     * Detects queries about existing cancelled/rescheduled classes, e.g.
+     * "¿tengo alguna clase cancelada el jueves?" or "¿hay algo cancelado esta semana?".
+     * These are INFORMATIONAL queries — the user wants to know what is cancelled,
+     * NOT to cancel something. Distinguished from [containsCancelKeywords] which
+     * detects imperative cancel actions.
+     */
+    private fun containsCancelledQueryKeywords(query: String): Boolean {
+        return listOf(
+            "cancelada", "canceladas", "cancelado", "cancelados",
+            "reprogramada", "reprogramadas", "reprogramado",
+            "clase cancelada", "clases canceladas",
+            "hay cancelada", "tengo cancelada", "tengo canceladas",
+            "algo cancelado", "algo cancelada",
+            "cancele", "cancelé", "he cancelado", "he cancelada",
+            "anulada", "anuladas", "anulado", "anulados", "anule", "anulé",
+            "cancelacion", "cancelación"
+        ).any { it in query }
+    }
 
     /**
      * Detects intent to reschedule a class.
@@ -668,11 +802,11 @@ class SueAgentImpl @Inject constructor(
         val today = dateTimeProvider.getNow().dayOfWeek.value
         return when {
             "hoy" in query || "today" in query ||
-            "esta tarde" in query || "esta mañana" in query ||
+            "esta tarde" in query || "esta mañana" in query || "esta manana" in query ||
             "esta noche" in query || "tonight" in query ||
             "luego" in query || "later" in query -> today
 
-            "mañana" in query || "tomorrow" in query -> (today % 7) + 1
+            "mañana" in query || "manana" in query || "tomorrow" in query -> (today % 7) + 1
 
             "ayer" in query || "yesterday" in query -> if (today == 1) 7 else today - 1
 
@@ -686,7 +820,7 @@ class SueAgentImpl @Inject constructor(
      */
     fun extractTimeOfDayFilter(query: String): String? = when {
         "tarde" in query || "afternoon" in query || "evening" in query -> "afternoon"
-        "mañana" in query && ("esta" in query || "por la" in query) -> "morning"
+        ("mañana" in query || "manana" in query) && ("esta" in query || "por la" in query) -> "morning"
         "morning" in query -> "morning"
         else -> null
     }
@@ -703,11 +837,13 @@ class SueAgentImpl @Inject constructor(
 
         val rawKeywords = listOf(
             "esta mañana" to today,
+            "esta manana" to today,
             "esta tarde" to today,
             "esta noche" to today,
             "tonight" to today,
             "tomorrow" to tomorrow,
             "mañana" to tomorrow,
+            "manana" to tomorrow,
             "yesterday" to yesterday,
             "ayer" to yesterday,
             "later" to today,
@@ -2021,8 +2157,15 @@ class SueAgentImpl @Inject constructor(
         return hasQuantityWord && hasClassWord && hasStudentReference
     }
 
-    private fun containsDayScheduleKeywords(query: String) =
-        listOf("clase", "clases", "horario", "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo", "hoy", "mañana").any { it in query }
+    private fun containsDayScheduleKeywords(query: String): Boolean {
+        // Exclude cancellation/free slot questions so they go to the LLM (which has access to exceptions/cancellations RAG context)
+        val excludes = listOf("cancelada", "canceladas", "cancelado", "cancelados", "hueco", "huecos", "libre", "libres")
+        if (excludes.any { it in query }) {
+            return false
+        }
+        return listOf("clase", "clases", "horario", "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo", "hoy", "mañana")
+            .any { it in query }
+    }
 
     /**
      * Detects queries asking which students owe money (global view, no specific student).

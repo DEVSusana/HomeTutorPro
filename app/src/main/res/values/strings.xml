@@ -341,6 +341,7 @@
     <string name="weekly_schedule_no_classes_grid">No classes</string>
     <string name="weekly_schedule_cancelled">Cancelled</string>
     <string name="weekly_schedule_rescheduled">⚠️ Rescheduled</string>
+    <string name="weekly_schedule_extra">Extra Class</string>
     <string name="weekly_schedule_success_exception_saved">Exception saved successfully</string>
     <string name="weekly_schedule_error_schedule_conflict">Schedule conflict! This time slot is already taken.</string>
     <string name="weekly_schedule_error_conflicting_student_format">Schedule conflict! %1$s has a class at %2$s</string>

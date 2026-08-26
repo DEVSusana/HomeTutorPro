@@ -36,6 +36,7 @@ class ScheduleTools @Inject constructor(
     private val saveScheduleUseCase: ISaveScheduleUseCase,
     private val deleteScheduleUseCase: IDeleteScheduleUseCase,
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
+    private val exceptionRepository: com.devsusana.hometutorpro.domain.repository.ScheduleExceptionRepository,
     private val authRepository: AuthRepository,
     private val dateTimeProvider: DateTimeProvider
 ) {
@@ -123,7 +124,7 @@ class ScheduleTools @Inject constructor(
             val normalizedFilter = java.text.Normalizer.normalize(studentNameFilter.lowercase(), java.text.Normalizer.Form.NFD)
                 .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
             schedules = schedules.filter { s ->
-                val sName = s.studentName ?: ""
+                val sName = s.studentName
                 val normalizedName = java.text.Normalizer.normalize(sName.lowercase(), java.text.Normalizer.Form.NFD)
                     .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
                 normalizedName.contains(normalizedFilter) || normalizedFilter.contains(normalizedName)
@@ -165,14 +166,116 @@ class ScheduleTools @Inject constructor(
     }
 
     /**
-     * Returns the weekdays (Monday–Friday) that have NO classes scheduled.
+     * Returns free time gaps within the professor's working hours.
+     *
+     * If [dayOfWeek] is provided, only that day is analysed. Otherwise all
+     * weekdays (Monday–Friday) are checked. The function computes inter-class
+     * gaps for each day and also lists days with zero classes (fully free days).
+     *
+     * @param workingStart Start of the working day in "HH:mm" format (e.g. "08:00").
+     * @param workingEnd   End of the working day in "HH:mm" format (e.g. "23:00").
+     * @param dayOfWeek    Optional ISO day value (1=Monday … 7=Sunday) to restrict the search.
      */
-    suspend fun getFreeSlots(): SueOperationResult {
-        val schedules = querySchedulesUseCase.getAllSchedules()
-        val scheduledDays = schedules.map { it.dayOfWeek }.toSet()
-        val freeDays = (1..5).filter { it !in scheduledDays }
+    suspend fun getFreeSlots(
+        workingStart: String = "08:00",
+        workingEnd: String = "23:00",
+        dayOfWeek: Int? = null
+    ): SueOperationResult {
+        val allScheduleDetails = querySchedulesUseCase.getScheduleDetails()
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() }
+        val allExceptions = if (professorId != null) exceptionRepository.getAllExceptions(professorId) else emptyList()
 
-        return SueOperationResult.FreeSlots(freeDays)
+        val daysToCheck = if (dayOfWeek != null) listOf(dayOfWeek) else (1..5).toList()
+
+        val workStart = runCatching { LocalTime.parse(workingStart, TIME_FORMATTER) }.getOrElse { LocalTime.of(8, 0) }
+        val workEnd   = runCatching { LocalTime.parse(workingEnd,   TIME_FORMATTER) }.getOrElse { LocalTime.of(23, 0) }
+
+        val freeSlotLines = mutableListOf<String>()
+        val freeDays = mutableListOf<Int>()
+
+        for (day in daysToCheck) {
+            val targetDate = nextOccurrenceDate(java.time.DayOfWeek.of(day))
+            val dayExceptions = allExceptions.filter { exc ->
+                val localDate = java.time.Instant.ofEpochMilli(exc.date)
+                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                localDate == targetDate
+            }
+
+            val activeIntervals = mutableListOf<Pair<LocalTime, LocalTime>>()
+
+            // 1. Regular schedules for this day (excluding cancelled ones)
+            for (sched in allScheduleDetails.filter { it.dayOfWeek == day }) {
+                val matchingExc = dayExceptions.find {
+                    (it.originalScheduleId == sched.scheduleId || it.studentId == sched.studentId)
+                }
+                if (matchingExc != null && matchingExc.type == ExceptionType.CANCELLED) {
+                    // Cancelled class does NOT occupy time
+                    continue
+                }
+                if (matchingExc != null && matchingExc.type == ExceptionType.RESCHEDULED) {
+                    val newStart = runCatching { LocalTime.parse(matchingExc.newStartTime, TIME_FORMATTER) }.getOrNull()
+                    val newEnd = runCatching { LocalTime.parse(matchingExc.newEndTime, TIME_FORMATTER) }.getOrNull()
+                    if (newStart != null && newEnd != null) {
+                        activeIntervals.add(newStart to newEnd)
+                    }
+                    continue
+                }
+
+                val clsStart = runCatching { LocalTime.parse(sched.startTime, TIME_FORMATTER) }.getOrNull() ?: continue
+                val clsEnd   = runCatching { LocalTime.parse(sched.endTime,   TIME_FORMATTER) }.getOrNull() ?: continue
+                activeIntervals.add(clsStart to clsEnd)
+            }
+
+            // 2. Extra classes for this date
+            for (exc in dayExceptions.filter { it.type == ExceptionType.EXTRA }) {
+                val clsStart = runCatching { LocalTime.parse(exc.newStartTime, TIME_FORMATTER) }.getOrNull() ?: continue
+                val clsEnd   = runCatching { LocalTime.parse(exc.newEndTime,   TIME_FORMATTER) }.getOrNull() ?: continue
+                activeIntervals.add(clsStart to clsEnd)
+            }
+
+            if (activeIntervals.isEmpty()) {
+                // Whole day is free within working hours
+                freeDays.add(day)
+                continue
+            }
+
+            activeIntervals.sortBy { it.first }
+
+            // Compute gaps: [workStart .. first class start] and [class end .. next class start] and [last class end .. workEnd]
+            val gaps = mutableListOf<Pair<LocalTime, LocalTime>>()
+            var cursor = workStart
+
+            for ((clsStart, clsEnd) in activeIntervals) {
+                if (clsStart.isAfter(cursor)) {
+                    gaps.add(cursor to clsStart)
+                }
+                if (clsEnd.isAfter(cursor)) cursor = clsEnd
+            }
+            if (cursor.isBefore(workEnd)) {
+                gaps.add(cursor to workEnd)
+            }
+
+            // Only surface gaps of at least 60 minutes (1 hour)
+            val meaningfulGaps = gaps.filter { (s, e) -> java.time.Duration.between(s, e).toMinutes() >= 60 }
+            if (meaningfulGaps.isNotEmpty()) {
+                val dayName = when (day) {
+                    1 -> "Lunes"; 2 -> "Martes"; 3 -> "Miércoles"
+                    4 -> "Jueves"; 5 -> "Viernes"; 6 -> "Sábado"; else -> "Domingo"
+                }
+                meaningfulGaps.forEach { (s, e) ->
+                    freeSlotLines.add("$dayName: hueco libre de ${s.format(TIME_FORMATTER)} a ${e.format(TIME_FORMATTER)}")
+                }
+            }
+        }
+
+        return SueOperationResult.FreeSlotsDetailed(freeDays, freeSlotLines)
+    }
+
+    /**
+     * Returns all schedules with detailed entity mappings (IDs and names).
+     */
+    suspend fun getScheduleDetails(): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail> {
+        return querySchedulesUseCase.getScheduleDetails()
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -267,11 +370,20 @@ class ScheduleTools @Inject constructor(
         return SueOperationResult.Prepare.Success(action)
     }
 
+    private fun getProfessorId(): String {
+        val firebaseUid = try {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        } catch (e: Exception) {
+            null
+        }
+        return firebaseUid ?: authRepository.currentUser.value?.uid ?: ""
+    }
+
     /**
      * Executes a confirmed [SuePendingAction.CancelClass].
      */
     suspend fun executeCancelAction(action: SuePendingAction.CancelClass): SueOperationResult.Execute {
-        val professorId = authRepository.currentUser.value?.uid
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() }
             ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = manageScheduleUseCase.cancelClass(
@@ -289,7 +401,7 @@ class ScheduleTools @Inject constructor(
      * Executes a confirmed [SuePendingAction.RescheduleClass].
      */
     suspend fun executeRescheduleAction(action: SuePendingAction.RescheduleClass): SueOperationResult.Execute {
-        val professorId = authRepository.currentUser.value?.uid
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() }
             ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = manageScheduleUseCase.rescheduleClass(
@@ -340,7 +452,7 @@ class ScheduleTools @Inject constructor(
      * Executes a confirmed CreateSchedule action.
      */
     suspend fun executeCreateSchedule(action: SuePendingAction.CreateSchedule): SueOperationResult.Execute {
-        val professorId = authRepository.currentUser.value?.uid
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() }
             ?: return SueOperationResult.Execute.AuthError
 
         val schedule = Schedule(
@@ -394,7 +506,7 @@ class ScheduleTools @Inject constructor(
      * Executes a confirmed DeleteSchedule action.
      */
     suspend fun executeDeleteSchedule(action: SuePendingAction.DeleteSchedule): SueOperationResult.Execute {
-        val professorId = authRepository.currentUser.value?.uid
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() }
             ?: return SueOperationResult.Execute.AuthError
 
         return when (val result = deleteScheduleUseCase(professorId, action.studentId, action.scheduleId)) {
@@ -433,7 +545,7 @@ class ScheduleTools @Inject constructor(
      * Executes a confirmed AddExtraClass action.
      */
     suspend fun executeAddExtraClass(action: SuePendingAction.AddExtraClass): SueOperationResult.Execute {
-        val professorId = authRepository.currentUser.value?.uid
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() }
             ?: return SueOperationResult.Execute.AuthError
 
         val exception = ScheduleException(
@@ -449,6 +561,97 @@ class ScheduleTools @Inject constructor(
         return when (val result = saveScheduleExceptionUseCase(professorId, action.studentId, exception)) {
             is Result.Success -> SueOperationResult.Execute.Success(action)
             is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
+     * Returns a human-readable description of cancelled/rescheduled/extra class exceptions.
+     *
+     * @param dayOfWeek Optional ISO day (1=Monday…7=Sunday). When provided, only exceptions
+     *                  for that specific day are returned so the LLM receives focused context.
+     */
+    /**
+     * Returns a human-readable description of cancelled/rescheduled/extra class exceptions.
+     *
+     * @param dayOfWeek Optional ISO day (1=Monday…7=Sunday). When provided, only exceptions
+     *                  for that specific day are returned so the LLM receives focused context.
+     * @param studentNameFilter Optional student name filter. When provided, only exceptions
+     *                          for that specific student are matched.
+     */
+    suspend fun getCancelledClassesDescription(
+        dayOfWeek: Int? = null,
+        studentNameFilter: String? = null
+    ): String {
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() } ?: return ""
+        val allExceptions = exceptionRepository.getAllExceptions(professorId)
+        if (allExceptions.isEmpty()) return ""
+
+        val students = queryStudentsUseCase.searchByName("")
+        val schedules = querySchedulesUseCase.getScheduleDetails()
+
+        val matchingStudentIds = if (!studentNameFilter.isNullOrBlank()) {
+            students.filter { it.name.contains(studentNameFilter, ignoreCase = true) }
+                .map { it.studentId }
+                .toSet()
+        } else null
+
+        val today = dateTimeProvider.getNow().toLocalDate()
+        val startOfWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+
+        val exceptions = allExceptions.filter { exc ->
+            val localDate = java.time.Instant.ofEpochMilli(exc.date)
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+
+            val matchesDay = if (dayOfWeek != null) {
+                val targetDate = nextOccurrenceDate(java.time.DayOfWeek.of(dayOfWeek))
+                localDate == targetDate
+            } else {
+                // Whole week from Monday onwards (not past weeks)
+                !localDate.isBefore(startOfWeek)
+            }
+
+            val matchesStudent = if (matchingStudentIds != null && matchingStudentIds.isNotEmpty()) {
+                exc.studentId in matchingStudentIds
+            } else true
+
+            matchesDay && matchesStudent
+        }
+
+        if (exceptions.isEmpty()) return ""
+
+        return buildString {
+            appendLine("--- EXCEPCIONES Y CAMBIOS DEL CALENDARIO ---")
+            exceptions.forEach { exc ->
+                val localDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                val dayOfWeekEs = when (localDate.dayOfWeek) {
+                    java.time.DayOfWeek.MONDAY -> "Lunes"
+                    java.time.DayOfWeek.TUESDAY -> "Martes"
+                    java.time.DayOfWeek.WEDNESDAY -> "Miércoles"
+                    java.time.DayOfWeek.THURSDAY -> "Jueves"
+                    java.time.DayOfWeek.FRIDAY -> "Viernes"
+                    java.time.DayOfWeek.SATURDAY -> "Sábado"
+                    java.time.DayOfWeek.SUNDAY -> "Domingo"
+                }
+                val dateStr = "$dayOfWeekEs ${localDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                val studentName = schedules.firstOrNull { it.studentId == exc.studentId }?.studentName
+                    ?: students.firstOrNull { it.studentId == exc.studentId }?.name
+                    ?: "Alumno"
+                val schedule = schedules.firstOrNull { it.scheduleId == exc.originalScheduleId || it.studentId == exc.studentId }
+                val timeInfo = if (schedule != null) " (${schedule.startTime} - ${schedule.endTime})" else ""
+
+                when (exc.type) {
+                    ExceptionType.CANCELLED -> {
+                        appendLine("- Fecha $dateStr: [CLASE CANCELADA] La clase con $studentName$timeInfo está CANCELADA (no se imparte).")
+                    }
+                    ExceptionType.RESCHEDULED -> {
+                        appendLine("- Fecha $dateStr: [CLASE REPROGRAMADA] La clase con $studentName se ha movido al nuevo horario: ${exc.newStartTime} - ${exc.newEndTime}.")
+                    }
+                    ExceptionType.EXTRA -> {
+                        appendLine("- Fecha $dateStr: [CLASE EXTRA ACTIVA] Se ha añadido una clase extra con $studentName de ${exc.newStartTime} a ${exc.newEndTime} (ESTA CLASE SÍ SE IMPARTE, es una clase activa añadida).")
+                    }
+                }
+            }
+            appendLine("--- FIN EXCEPCIONES ---")
         }
     }
 

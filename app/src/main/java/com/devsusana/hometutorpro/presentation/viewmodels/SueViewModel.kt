@@ -104,6 +104,7 @@ class SueViewModel @Inject constructor(
         collectPartialTranscriptions()
         collectErrors()
         collectModelState()
+        preloadModel(3000L)
     }
 
     /**
@@ -120,8 +121,9 @@ class SueViewModel @Inject constructor(
                     sueAgent.resetConversationContext()
                     conversationHistory.clear()
                 }
-                // Lazy-load Gemma only when the user opens the assistant
-                if (!_uiState.value.isModelLoaded && !_uiState.value.isModelLoading) {
+                
+                val modelLoaded = _uiState.value.isModelLoaded
+                if (!modelLoaded && !_uiState.value.isModelLoading) {
                     preloadModel()
                 }
                 speechService.initializeTts()
@@ -134,8 +136,11 @@ class SueViewModel @Inject constructor(
                         agentResponse = ""
                     )
                 }
-                speechService.startListening()
-                startListeningTimeout()
+                
+                if (modelLoaded) {
+                    speechService.startListening()
+                    startListeningTimeout()
+                }
             }
             SpeechState.LISTENING -> {
                 cancelListeningTimeout()
@@ -213,8 +218,13 @@ class SueViewModel @Inject constructor(
         inferenceRepository.release()
     }
 
-    private fun preloadModel() {
-        viewModelScope.launch { inferenceRepository.loadModel() }
+    private fun preloadModel(delayMs: Long = 0) {
+        viewModelScope.launch {
+            if (delayMs > 0) {
+                delay(delayMs)
+            }
+            inferenceRepository.loadModel()
+        }
     }
 
     private fun collectSpeechState() {
@@ -266,6 +276,11 @@ class SueViewModel @Inject constructor(
         viewModelScope.launch {
             inferenceRepository.isModelLoaded.collect { loaded ->
                 _uiState.update { it.copy(isModelLoaded = loaded) }
+                // Auto-start listening if the user is looking at the overlay and waiting for the model
+                if (loaded && _uiState.value.isOverlayVisible && _uiState.value.speechState == SpeechState.IDLE) {
+                    speechService.startListening()
+                    startListeningTimeout()
+                }
             }
         }
         viewModelScope.launch {
@@ -432,13 +447,18 @@ class SueViewModel @Inject constructor(
                     studentTools.executeUpdateNotesAction(action)
             }
             val response = if (executeResult is SueOperationResult.Execute.Error && executeResult.domainError is DomainError.ConflictingStudent) {
+                // Use a simple default for working hours in conflict feedback —
+                // the full working-hours-aware getFreeSlots is handled in the RAG context.
                 val freeSlotsResult = scheduleTools.getFreeSlots()
-                val freeSlotsText = if (freeSlotsResult is SueOperationResult.FreeSlots) {
-                    SueResponseFormatter.formatFreeDaysList(freeSlotsResult.freeDays)
-                } else {
-                    ""
+                val freeSlotsText = when (freeSlotsResult) {
+                    is SueOperationResult.FreeSlotsDetailed ->
+                        SueResponseFormatter.formatFreeDaysList(freeSlotsResult.freeDays)
+                    is SueOperationResult.FreeSlots ->
+                        SueResponseFormatter.formatFreeDaysList(freeSlotsResult.freeDays)
+                    else -> ""
                 }
                 SueResponseFormatter.formatDomainError(executeResult.domainError, freeSlotsText)
+
             } else {
                 SueResponseFormatter.format(executeResult)
             }
@@ -558,13 +578,14 @@ class SueViewModel @Inject constructor(
                 _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
                 speechService.speak(message)
             } else {
-                conversationHistory.add(Pair(transcription, rawResponse))
+                val cleanResponse = rawResponse.replace(Regex("^(?i)sue:\\s*"), "")
+                conversationHistory.add(Pair(transcription, cleanResponse))
                 while (conversationHistory.size > 10) {
                     conversationHistory.removeAt(0)
                 }
 
-                _uiState.update { it.copy(agentResponse = rawResponse) }
-                speechService.speak(rawResponse)
+                _uiState.update { it.copy(agentResponse = cleanResponse) }
+                speechService.speak(cleanResponse)
             }
         } catch (e: Exception) {
             val errorResponse = "Lo siento, hubo un error al procesar tu consulta."

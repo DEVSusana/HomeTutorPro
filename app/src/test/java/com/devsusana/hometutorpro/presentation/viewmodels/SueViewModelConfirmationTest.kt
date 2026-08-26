@@ -283,7 +283,7 @@ class SueViewModelConfirmationTest {
             com.devsusana.hometutorpro.domain.core.DomainError.ConflictingStudent("Pedro", "09:00-10:00")
         )
         coEvery { scheduleTools.executeCreateSchedule(pendingAction) } returns conflictError
-        coEvery { scheduleTools.getFreeSlots() } returns SueOperationResult.FreeSlots(listOf(3, 5))
+        coEvery { scheduleTools.getFreeSlots() } returns SueOperationResult.FreeSlotsDetailed(listOf(3, 5), emptyList())
         coEvery { sueAgent.detectActionIntent(any()) } returns null
 
         coEvery { sueAgent.detectActionIntent("agenda clase con maría") } returns
@@ -301,6 +301,7 @@ class SueViewModelConfirmationTest {
         assertEquals("$expectedBase $expectedFree", state.agentResponse)
         coVerify { scheduleTools.executeCreateSchedule(pendingAction) }
         coVerify { scheduleTools.getFreeSlots() }
+
     }
 
     // ──────────────────────────────────────────────────────────────────────────

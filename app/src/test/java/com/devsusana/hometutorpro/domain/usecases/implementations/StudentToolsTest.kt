@@ -190,6 +190,33 @@ class StudentToolsTest {
         assertEquals(christianDetail, result)
     }
 
+    @Test
+    fun `extractRelevantStudent returns match for consonant skeleton similarity (Arantxa vs Arntxa)`() = runTest {
+        val arntxaSummary = AgentStudentSummary(
+            name = "Arntxa Mendi",
+            subjects = "Math",
+            course = "ESO",
+            pricePerHour = 20.0,
+            pendingBalance = 15.0,
+            isActive = true,
+            lastPaymentDate = null
+        )
+        val arntxaDetail = AgentStudentDetail(
+            studentId = "stu-4",
+            name = "Arntxa Mendi",
+            subjects = "Math",
+            course = "ESO",
+            pendingBalance = 15.0,
+            lastPaymentDate = null
+        )
+        coEvery { queryStudentsUseCase.getAllStudents() } returns listOf(mariaSummary, juanSummary, arntxaSummary)
+        coEvery { queryStudentsUseCase.searchByName("Arntxa Mendi") } returns listOf(arntxaDetail)
+
+        val result = studentTools.extractRelevantStudent("cuánto me debe arantxa")
+
+        assertEquals(arntxaDetail, result)
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // prepareRegisterPayment
     // ──────────────────────────────────────────────────────────────────────────

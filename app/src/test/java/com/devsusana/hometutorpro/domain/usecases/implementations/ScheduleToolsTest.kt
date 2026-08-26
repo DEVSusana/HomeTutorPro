@@ -8,6 +8,7 @@ import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
+import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
@@ -42,6 +43,7 @@ class ScheduleToolsTest {
     private lateinit var saveScheduleUseCase: ISaveScheduleUseCase
     private lateinit var deleteScheduleUseCase: IDeleteScheduleUseCase
     private lateinit var saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase
+    private lateinit var exceptionRepository: com.devsusana.hometutorpro.domain.repository.ScheduleExceptionRepository
     private lateinit var authRepository: AuthRepository
     private lateinit var dateTimeProvider: DateTimeProvider
     private lateinit var scheduleTools: ScheduleTools
@@ -96,11 +98,13 @@ class ScheduleToolsTest {
         saveScheduleUseCase = mockk()
         deleteScheduleUseCase = mockk()
         saveScheduleExceptionUseCase = mockk()
+        exceptionRepository = mockk()
         authRepository = mockk()
         dateTimeProvider = mockk(relaxed = true)
 
         every { dateTimeProvider.getNow() } returns LocalDateTime.of(2026, 5, 27, 8, 35) // Wednesday
         every { dateTimeProvider.getLocale() } returns Locale.US
+        coEvery { queryStudentsUseCase.searchByName(any()) } returns listOf(mariaStudentDetail)
 
         scheduleTools = ScheduleTools(
             querySchedulesUseCase = querySchedulesUseCase,
@@ -109,6 +113,7 @@ class ScheduleToolsTest {
             saveScheduleUseCase = saveScheduleUseCase,
             deleteScheduleUseCase = deleteScheduleUseCase,
             saveScheduleExceptionUseCase = saveScheduleExceptionUseCase,
+            exceptionRepository = exceptionRepository,
             authRepository = authRepository,
             dateTimeProvider = dateTimeProvider
         )
@@ -150,14 +155,62 @@ class ScheduleToolsTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `getFreeSlots returns days 1-5 that have no schedule`() = runTest {
-        coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(mondaySchedule, wednesdaySchedule)
+    fun `getFreeSlots returns days 1-5 that have no schedule as fully free`() = runTest {
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(
+            mondayScheduleDetail,
+            AgentScheduleDetail("s-wed", "stu-2", "Juan", 3, "16:00", "17:00")
+        )
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns emptyList()
 
-        val result = scheduleTools.getFreeSlots()
+        val result = scheduleTools.getFreeSlots(workingStart = "08:00", workingEnd = "11:00")
 
-        assertTrue(result is SueOperationResult.FreeSlots)
-        val free = (result as SueOperationResult.FreeSlots).freeDays
-        assertEquals(listOf(2, 4, 5), free)
+        assertTrue(result is SueOperationResult.FreeSlotsDetailed)
+        val detailed = result as SueOperationResult.FreeSlotsDetailed
+        // Tuesday (2), Thursday (4) and Friday (5) have no classes at all
+        assertTrue(detailed.freeDays.containsAll(listOf(2, 4, 5)))
+    }
+
+    @Test
+    fun `getFreeSlots detects intra-day gap between two classes`() = runTest {
+        // Monday has class 08:00-09:00 and 10:30-11:00 → gap 09:00-10:30 (90 min)
+        val cls1 = AgentScheduleDetail("s1", "stu-1", "Alice", 1, "08:00", "09:00")
+        val cls2 = AgentScheduleDetail("s2", "stu-2", "Bob",   1, "10:30", "11:00")
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(cls1, cls2)
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns emptyList()
+
+        val result = scheduleTools.getFreeSlots(workingStart = "08:00", workingEnd = "11:00", dayOfWeek = 1)
+
+        assertTrue(result is SueOperationResult.FreeSlotsDetailed)
+        val gaps = (result as SueOperationResult.FreeSlotsDetailed).gapLines
+        assertTrue(gaps.any { it.contains("09:00") && it.contains("10:30") })
+    }
+
+    @Test
+    fun `getFreeSlots treats cancelled classes as free time`() = runTest {
+        // Thursday has class 10:00-11:00 but it is CANCELLED -> whole 08:00-11:00 is free
+        val cls = AgentScheduleDetail("s1", "stu-1", "Alice", 4, "10:00", "11:00")
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(cls)
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        // Next Thursday millis
+        val targetThursdayMillis = java.time.LocalDateTime.of(2026, 5, 28, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            ScheduleException(
+                id = "exc-1",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = targetThursdayMillis,
+                type = ExceptionType.CANCELLED
+            )
+        )
+
+        val result = scheduleTools.getFreeSlots(workingStart = "08:00", workingEnd = "11:00", dayOfWeek = 4)
+
+        assertTrue(result is SueOperationResult.FreeSlotsDetailed)
+        val detailed = result as SueOperationResult.FreeSlotsDetailed
+        assertTrue(detailed.freeDays.contains(4))
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -296,6 +349,114 @@ class ScheduleToolsTest {
             assertEquals("17:00", it.newStartTime)
             assertEquals("18:00", it.newEndTime)
         })}
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // getCancelledClassesDescription
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `getCancelledClassesDescription returns formatted cancellations`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            ScheduleException(
+                id = "exc-1",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = 1787700000000L,
+                type = ExceptionType.CANCELLED
+            )
+        )
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(mondayScheduleDetail)
+
+        val result = scheduleTools.getCancelledClassesDescription()
+
+        assertTrue(result.contains("--- EXCEPCIONES Y CAMBIOS DEL CALENDARIO"))
+        assertTrue(result.contains("La clase con María"))
+        assertTrue(result.contains("está CANCELADA"))
+    }
+
+    @Test
+    fun `getCancelledClassesDescription with dayOfWeek filters by upcoming date of that weekday`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        // dateTimeProvider is Wednesday 2026-05-27. Next Thursday (dayOfWeek=4) is 2026-05-28.
+        val targetThursdayMillis = java.time.LocalDateTime.of(2026, 5, 28, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val pastThursdayMillis = java.time.LocalDateTime.of(2026, 2, 26, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            ScheduleException(
+                id = "exc-past",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = pastThursdayMillis,
+                type = ExceptionType.CANCELLED
+            ),
+            ScheduleException(
+                id = "exc-target",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = targetThursdayMillis,
+                type = ExceptionType.CANCELLED
+            )
+        )
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(mondayScheduleDetail)
+
+        // Request specifically for Thursday (day 4)
+        val result = scheduleTools.getCancelledClassesDescription(dayOfWeek = 4)
+
+        assertTrue(result.contains("28/05/2026"))
+        assertTrue(!result.contains("26/02/2026"))
+    }
+
+    @Test
+    fun `getCancelledClassesDescription with studentNameFilter filters by student name`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        val juanStudentDetail = AgentStudentDetail(
+            studentId = "stu-2",
+            name = "Juan",
+            subjects = "Inglés",
+            course = "1º",
+            pendingBalance = 0.0
+        )
+        coEvery { queryStudentsUseCase.searchByName("") } returns listOf(mariaStudentDetail, juanStudentDetail)
+
+        val targetThursdayMillis = java.time.LocalDateTime.of(2026, 5, 28, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            ScheduleException(
+                id = "exc-maria",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = targetThursdayMillis,
+                type = ExceptionType.CANCELLED
+            ),
+            ScheduleException(
+                id = "exc-juan",
+                studentId = "stu-2",
+                professorId = "prof-1",
+                date = targetThursdayMillis,
+                type = ExceptionType.CANCELLED
+            )
+        )
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(mondayScheduleDetail)
+
+        val result = scheduleTools.getCancelledClassesDescription(studentNameFilter = "Juan")
+
+        assertTrue(result.contains("Juan"))
+        assertTrue(!result.contains("María"))
+    }
+
+    @Test
+    fun `getCancelledClassesDescription returns empty string when no exceptions`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns emptyList()
+
+        val result = scheduleTools.getCancelledClassesDescription()
+
+        assertEquals("", result)
     }
 }
 

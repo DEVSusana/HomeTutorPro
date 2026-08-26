@@ -90,6 +90,11 @@ class StudentTools @Inject constructor(
             .trim()
     }
 
+    private fun normalizeConsonants(name: String): String {
+        val norm = normalizeName(name)
+        return norm.replace(Regex("[aeiou]"), "")
+    }
+
     suspend fun extractRelevantStudent(query: String): AgentStudentDetail? {
         val students = queryStudentsUseCase.getAllStudents()
         val normalizedQuery = normalizeName(query)
@@ -100,11 +105,21 @@ class StudentTools @Inject constructor(
             normFirst.length >= 3 && Regex("\\b${Regex.escape(normFirst)}\\b").containsMatchIn(normalizedQuery)
         }
 
-        val matchedStudent = exactMatch
+        val substringMatch = exactMatch
             ?: students.find { student ->
                 val firstName = student.name.substringBefore(" ")
                 val normFirst = normalizeName(firstName)
                 normFirst.length >= 4 && normalizedQuery.contains(normFirst)
+            }
+
+        // Tercer paso: Coincidencia fonética por consonantes (consonant skeleton match)
+        // Permite casar "Arantxa" con "Arntxa" quitando las vocales
+        val matchedStudent = substringMatch
+            ?: students.find { student ->
+                val firstName = student.name.substringBefore(" ")
+                val normFirst = normalizeConsonants(firstName)
+                val queryConsonants = normalizeConsonants(query)
+                normFirst.length >= 3 && queryConsonants.contains(normFirst)
             }
 
         return matchedStudent?.let { student ->
