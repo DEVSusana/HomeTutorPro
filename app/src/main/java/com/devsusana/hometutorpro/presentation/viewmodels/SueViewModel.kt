@@ -53,12 +53,21 @@ class SueViewModel @Inject constructor(
     /** Job that resets the speech state after a timeout (Bug-fix #2). */
     private var listeningTimeoutJob: Job? = null
 
+    /** Job that unloads the LLM model after a period of user inactivity to conserve RAM. */
+    private var idleReleaseJob: Job? = null
+
     /** Conversation history list of user query to SUE response. */
     private val conversationHistory = mutableListOf<Pair<String, String>>()
 
     companion object {
         /** Max milliseconds to remain in LISTENING/PROCESSING before forcing IDLE. */
         private const val LISTENING_TIMEOUT_MS = 15_000L
+
+        /** Milliseconds of inactivity before the on-device LLM is unloaded to free RAM. */
+        private const val IDLE_RELEASE_TIMEOUT_MS = 120_000L // 2 minutes
+
+        /** Milliseconds after dismissing overlay before the model is released. */
+        private const val DISMISS_RELEASE_TIMEOUT_MS = 30_000L // 30 seconds
 
         private val AFFIRMATIVE_WORDS = setOf(
             "sí", "si", "yes", "confirmar", "confirmo", "ok", "vale", "correcto", "adelante", "de acuerdo",
@@ -104,7 +113,6 @@ class SueViewModel @Inject constructor(
         collectPartialTranscriptions()
         collectErrors()
         collectModelState()
-        preloadModel(3000L)
     }
 
     /**
@@ -115,6 +123,7 @@ class SueViewModel @Inject constructor(
      * - Other → Show overlay if hidden.
      */
     fun onFabClick() {
+        cancelIdleReleaseTimer()
         when (_uiState.value.speechState) {
             SpeechState.IDLE, SpeechState.ERROR -> {
                 if (!_uiState.value.isOverlayVisible) {
@@ -157,7 +166,7 @@ class SueViewModel @Inject constructor(
 
     /**
      * Dismisses the overlay and stops any active operations.
-     * Also clears any pending action.
+     * Also clears any pending action and schedules model unload.
      */
     fun onDismiss() {
         sueAgent.resetConversationContext()
@@ -172,6 +181,7 @@ class SueViewModel @Inject constructor(
                 pendingActions = emptyList()
             )
         }
+        startIdleReleaseTimer(DISMISS_RELEASE_TIMEOUT_MS)
     }
 
     /**
@@ -213,9 +223,24 @@ class SueViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        cancelIdleReleaseTimer()
         cancelListeningTimeout()
         speechService.release()
         inferenceRepository.release()
+    }
+
+    private fun startIdleReleaseTimer(timeoutMs: Long = IDLE_RELEASE_TIMEOUT_MS) {
+        cancelIdleReleaseTimer()
+        idleReleaseJob = viewModelScope.launch {
+            delay(timeoutMs)
+            SafeLogger.d("SueVM", "Idle timeout reached ($timeoutMs ms): releasing LLM model to free RAM.")
+            inferenceRepository.release()
+        }
+    }
+
+    private fun cancelIdleReleaseTimer() {
+        idleReleaseJob?.cancel()
+        idleReleaseJob = null
     }
 
     private fun preloadModel(delayMs: Long = 0) {
@@ -234,6 +259,11 @@ class SueViewModel @Inject constructor(
                 // Cancel the timeout once we leave LISTENING/PROCESSING
                 if (state == SpeechState.IDLE || state == SpeechState.SPEAKING) {
                     cancelListeningTimeout()
+                }
+                if (state == SpeechState.IDLE) {
+                    startIdleReleaseTimer()
+                } else {
+                    cancelIdleReleaseTimer()
                 }
             }
         }

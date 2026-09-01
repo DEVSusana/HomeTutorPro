@@ -1,5 +1,7 @@
 package com.devsusana.hometutorpro.data.repository
 
+import android.app.Application
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.util.Log
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
@@ -40,6 +42,24 @@ class MediaPipeModelRepository @Inject constructor(
 
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    init {
+        (context.applicationContext as? Application)?.registerComponentCallbacks(object : ComponentCallbacks2 {
+            override fun onTrimMemory(level: Int) {
+                if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+                    Log.d(TAG, "onTrimMemory (level $level) triggered: releasing LLM inference to free RAM.")
+                    release()
+                }
+            }
+
+            override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {}
+
+            override fun onLowMemory() {
+                Log.d(TAG, "onLowMemory triggered: releasing LLM inference immediately.")
+                release()
+            }
+        })
+    }
 
     override suspend fun loadModel(): Boolean = withContext(Dispatchers.IO) {
         if (_isModelLoaded.value) {

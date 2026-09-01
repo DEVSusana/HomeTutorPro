@@ -396,4 +396,22 @@ class SueViewModelConfirmationTest {
         assertEquals(cancelAction, state.pendingAction)
         coVerify(exactly = 0) { scheduleTools.executeRescheduleAction(any()) }
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Idle Release & Lifecycle RAM Optimization Tests
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `onDismiss schedules model release and executes release after timeout`() = runTest {
+        viewModel.onDismiss()
+        advanceUntilIdle()
+        verify(atLeast = 1) { inferenceRepository.release() }
+    }
+
+    @Test
+    fun `onFabClick triggers model preload in parallel`() = runTest {
+        viewModel.onFabClick()
+        advanceUntilIdle()
+        coVerify { inferenceRepository.loadModel() }
+    }
 }

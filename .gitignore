@@ -30,3 +30,8 @@ agents_dev/skills/PENDING_TASKS.md
 __pycache__/
 *.py[cod]
 .aider*
+
+# Local SQLite databases
+*.db
+*.db-shm
+*.db-wal

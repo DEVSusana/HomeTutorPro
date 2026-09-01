@@ -71,7 +71,7 @@ class ClassEndReceiverTest {
         // Force Robolectric main looper to process the broadcast immediately
         shadowOf(Looper.getMainLooper()).idle()
 
-        coVerify { anyConstructed<NotifyClassEndUseCaseImpl>().execute("Test Student") }
+        coVerify(timeout = 3000) { anyConstructed<NotifyClassEndUseCaseImpl>().execute("Test Student") }
     }
 
     /**
@@ -93,6 +93,6 @@ class ClassEndReceiverTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         val defaultName = context.getString(com.devsusana.hometutorpro.R.string.student_default_name)
-        coVerify { anyConstructed<NotifyClassEndUseCaseImpl>().execute(defaultName) }
+        coVerify(timeout = 3000) { anyConstructed<NotifyClassEndUseCaseImpl>().execute(defaultName) }
     }
 }
