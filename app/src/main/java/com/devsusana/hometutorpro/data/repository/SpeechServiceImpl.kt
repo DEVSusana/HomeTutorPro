@@ -127,8 +127,17 @@ class SpeechServiceImpl @Inject constructor(
             return
         }
 
+        // Clean markdown symbols (like *, •, #, _) so TTS doesn't read literal words like "asterisco"
+        // and replace newlines with periods to force a natural pause in TTS between lines
+        val cleanText = text
+            .replace("\n", ". ")
+            .replace(Regex("[*#_•]+"), "")
+            .replace(Regex("\\s+"), " ")
+            .replace(". .", ".")
+            .trim()
+
         val utteranceId = UUID.randomUUID().toString()
-        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+        textToSpeech?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
     override fun stopSpeaking() {

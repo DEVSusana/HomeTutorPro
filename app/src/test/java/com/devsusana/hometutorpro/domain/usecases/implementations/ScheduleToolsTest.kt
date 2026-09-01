@@ -213,6 +213,33 @@ class ScheduleToolsTest {
         assertTrue(detailed.freeDays.contains(4))
     }
 
+    @Test
+    fun `getFreeSlots includes reasons for cancelled classes in gap lines`() = runTest {
+        // Monday has class 08:00-09:00 (active), 09:30-10:30 (cancelled Alice), 11:00-12:00 (active)
+        val cls1 = AgentScheduleDetail("s1", "stu-1", "Alice", 1, "09:30", "10:30")
+        val cls2 = AgentScheduleDetail("s2", "stu-2", "Bob",   1, "08:00", "09:00")
+        val cls3 = AgentScheduleDetail("s3", "stu-3", "Charlie", 1, "11:00", "12:00")
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(cls1, cls2, cls3)
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        val targetMondayMillis = java.time.LocalDateTime.of(2026, 6, 1, 9, 30)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            ScheduleException(
+                id = "exc-1",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = targetMondayMillis,
+                type = ExceptionType.CANCELLED
+            )
+        )
+
+        val result = scheduleTools.getFreeSlots(workingStart = "08:00", workingEnd = "12:00", dayOfWeek = 1)
+
+        assertTrue(result is SueOperationResult.FreeSlotsDetailed)
+        val gaps = (result as SueOperationResult.FreeSlotsDetailed).gapLines
+        assertTrue(gaps.any { it.contains("09:00") && it.contains("11:00") && it.contains("libre por cancelación de Alice") })
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // prepareCancelAction with time filter
     // ──────────────────────────────────────────────────────────────────────────
@@ -371,9 +398,9 @@ class ScheduleToolsTest {
 
         val result = scheduleTools.getCancelledClassesDescription()
 
-        assertTrue(result.contains("--- EXCEPCIONES Y CAMBIOS DEL CALENDARIO"))
-        assertTrue(result.contains("La clase con María"))
-        assertTrue(result.contains("está CANCELADA"))
+        assertTrue(result.contains("Clases canceladas"))
+        assertTrue(result.contains("María"))
+        assertTrue(result.contains("cancelada"))
     }
 
     @Test

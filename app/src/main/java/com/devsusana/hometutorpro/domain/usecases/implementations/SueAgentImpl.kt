@@ -64,6 +64,7 @@ class SueAgentImpl @Inject constructor(
                     Eres Sue, la asistente inteligente de HomeTutorPro.
                     Tu rol es responder a las preguntas del profesor de forma breve, amable y concisa.
                     NUNCA inventes datos. Usa SOLO la información provista en la sección --- AVAILABLE DATA ---.
+                    Si el usuario pregunta por clases de hoy o canceladas, lee la sección correspondiente en --- AVAILABLE DATA --- y responde enumerando con claridad a los alumnos y sus horas.
                     Si no hay datos en esa sección o la sección está vacía, dile al profesor que no tienes clases o información registrada sobre eso.
                     NUNCA llames "Sue" al profesor (tú eres Sue; él es el usuario o profesor).
                     $languageInstruction
@@ -158,7 +159,8 @@ class SueAgentImpl @Inject constructor(
         QUERY_STUDENT_BALANCE,
         QUERY_STUDENT_COUNT,
         QUERY_STUDENT_DETAILS,
-        QUERY_DAY_SCHEDULE
+        QUERY_DAY_SCHEDULE,
+        QUERY_CANCELLED_CLASSES
     }
 
     private var lastMentionedStudentName: String? = null
@@ -1560,12 +1562,13 @@ class SueAgentImpl @Inject constructor(
             containsUpdateNotesKeywords(lower) -> IntentType.UPDATE_STUDENT_NOTES
 
             // Read queries — most specific first to avoid catch-all collision
+            containsCancelledQueryKeywords(lower) -> IntentType.QUERY_CANCELLED_CLASSES
             containsStudentsWithBalanceKeywords(lower) -> IntentType.QUERY_STUDENTS_WITH_BALANCE
             containsStudentBalanceKeywords(lower) -> IntentType.QUERY_STUDENT_BALANCE
             containsStudentWeeklyClassesKeywords(lower) -> IntentType.QUERY_STUDENT_WEEKLY_CLASSES
             containsTodaySummaryKeywords(lower) -> IntentType.QUERY_TODAY_SUMMARY
             containsNextClassKeywords(lower) -> IntentType.QUERY_NEXT_CLASS
-            containsFreeSlotKeywords(lower) -> IntentType.QUERY_FREE_SLOTS
+            containsFreeSlotWithDayKeywords(lower) || containsFreeSlotKeywords(lower) -> IntentType.QUERY_FREE_SLOTS
             containsStudentCountKeywords(lower) -> IntentType.QUERY_STUDENT_COUNT
             containsStudentDetailsKeywords(lower) -> IntentType.QUERY_STUDENT_DETAILS
             containsDayScheduleKeywords(lower) -> IntentType.QUERY_DAY_SCHEDULE
@@ -1585,7 +1588,8 @@ class SueAgentImpl @Inject constructor(
                 activeIntent == IntentType.QUERY_TODAY_SUMMARY ||
                 activeIntent == IntentType.QUERY_STUDENTS_WITH_BALANCE ||
                 activeIntent == IntentType.QUERY_STUDENT_BALANCE ||
-                activeIntent == IntentType.QUERY_DAY_SCHEDULE
+                activeIntent == IntentType.QUERY_DAY_SCHEDULE ||
+                activeIntent == IntentType.QUERY_CANCELLED_CLASSES
 
         if (!isReadQuery) {
             lastActiveIntentType = activeIntent
@@ -2048,7 +2052,11 @@ class SueAgentImpl @Inject constructor(
             }
 
             IntentType.QUERY_FREE_SLOTS -> {
-                scheduleTools.getFreeSlots()
+                val day = lastMentionedDayOfWeek
+                val professor = authRepository.currentUser.value
+                val workingStart = professor?.workingStartTime?.takeIf { it.isNotBlank() } ?: "08:00"
+                val workingEnd   = professor?.workingEndTime?.takeIf { it.isNotBlank() } ?: "23:00"
+                scheduleTools.getFreeSlots(workingStart, workingEnd, day)
             }
 
             IntentType.QUERY_STUDENT_COUNT -> {
@@ -2130,6 +2138,23 @@ class SueAgentImpl @Inject constructor(
                 } else ""
 
                 SueOperationResult.ReadSuccess(scheduleText + debtAlert)
+            }
+
+            IntentType.QUERY_CANCELLED_CLASSES -> {
+                val day = lastMentionedDayOfWeek
+                val studentName = lastMentionedStudentName
+                val cancelledDesc = scheduleTools.getCancelledClassesDescription(day, studentName)
+                if (cancelledDesc.isNotBlank()) {
+                    SueOperationResult.ReadSuccess(cancelledDesc)
+                } else {
+                    val dayLabel = if (day != null) {
+                        val dayNames = listOf("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+                        "el ${dayNames.getOrElse(day - 1) { "día seleccionado" }}"
+                    } else if (studentName != null) {
+                        "con $studentName"
+                    } else "esta semana"
+                    SueOperationResult.ReadSuccess("No hay clases canceladas ni reprogramadas registradas $dayLabel.")
+                }
             }
         }
 

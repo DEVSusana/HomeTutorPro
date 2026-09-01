@@ -693,13 +693,28 @@ fun SettingsContent(
                             "\"Añade un estudiante llamado Ana de bachillerato a 15 la hora\""
                         )
                     )
-                    
                     HelpExampleItem(
                         intent = "Consultar Horario",
                         examples = listOf(
                             "\"¿Qué clases tengo el viernes?\"",
                             "\"¿Qué clase tengo hoy a las 1800?\"",
                             "\"¿Cuál es mi siguiente clase?\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Consultar Huecos Libres",
+                        examples = listOf(
+                            "\"¿Tengo huecos libres hoy?\"",
+                            "\"¿Qué huecos libres tengo esta semana?\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Consultar Clases Canceladas",
+                        examples = listOf(
+                            "\"¿Qué clases tengo canceladas hoy?\"",
+                            "\"¿Tengo alguna clase cancelada el jueves?\""
                         )
                     )
                     

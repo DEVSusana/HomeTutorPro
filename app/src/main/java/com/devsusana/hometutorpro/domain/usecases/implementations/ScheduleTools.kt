@@ -202,6 +202,7 @@ class ScheduleTools @Inject constructor(
             }
 
             val activeIntervals = mutableListOf<Pair<LocalTime, LocalTime>>()
+            val cancelledOrRescheduledClasses = mutableListOf<Triple<LocalTime, LocalTime, String>>()
 
             // 1. Regular schedules for this day (excluding cancelled ones)
             for (sched in allScheduleDetails.filter { it.dayOfWeek == day }) {
@@ -210,9 +211,19 @@ class ScheduleTools @Inject constructor(
                 }
                 if (matchingExc != null && matchingExc.type == ExceptionType.CANCELLED) {
                     // Cancelled class does NOT occupy time
+                    val sStart = runCatching { LocalTime.parse(sched.startTime, TIME_FORMATTER) }.getOrNull()
+                    val sEnd   = runCatching { LocalTime.parse(sched.endTime,   TIME_FORMATTER) }.getOrNull()
+                    if (sStart != null && sEnd != null) {
+                        cancelledOrRescheduledClasses.add(Triple(sStart, sEnd, "libre por cancelación de ${sched.studentName}"))
+                    }
                     continue
                 }
                 if (matchingExc != null && matchingExc.type == ExceptionType.RESCHEDULED) {
+                    val sStart = runCatching { LocalTime.parse(sched.startTime, TIME_FORMATTER) }.getOrNull()
+                    val sEnd   = runCatching { LocalTime.parse(sched.endTime,   TIME_FORMATTER) }.getOrNull()
+                    if (sStart != null && sEnd != null) {
+                        cancelledOrRescheduledClasses.add(Triple(sStart, sEnd, "libre por reprogramación de ${sched.studentName}"))
+                    }
                     val newStart = runCatching { LocalTime.parse(matchingExc.newStartTime, TIME_FORMATTER) }.getOrNull()
                     val newEnd = runCatching { LocalTime.parse(matchingExc.newEndTime, TIME_FORMATTER) }.getOrNull()
                     if (newStart != null && newEnd != null) {
@@ -263,7 +274,11 @@ class ScheduleTools @Inject constructor(
                     4 -> "Jueves"; 5 -> "Viernes"; 6 -> "Sábado"; else -> "Domingo"
                 }
                 meaningfulGaps.forEach { (s, e) ->
-                    freeSlotLines.add("$dayName: hueco libre de ${s.format(TIME_FORMATTER)} a ${e.format(TIME_FORMATTER)}")
+                    val reasons = cancelledOrRescheduledClasses.filter { (start, end, _) ->
+                        start.isBefore(e) && end.isAfter(s)
+                    }.map { it.third }
+                    val suffix = if (reasons.isNotEmpty()) " (${reasons.joinToString(", ")})" else ""
+                    freeSlotLines.add("$dayName: hueco libre de ${s.format(TIME_FORMATTER)} a ${e.format(TIME_FORMATTER)}$suffix")
                 }
             }
         }
@@ -619,40 +634,65 @@ class ScheduleTools @Inject constructor(
 
         if (exceptions.isEmpty()) return ""
 
-        return buildString {
-            appendLine("--- EXCEPCIONES Y CAMBIOS DEL CALENDARIO ---")
-            exceptions.forEach { exc ->
-                val localDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                val dayOfWeekEs = when (localDate.dayOfWeek) {
-                    java.time.DayOfWeek.MONDAY -> "Lunes"
-                    java.time.DayOfWeek.TUESDAY -> "Martes"
-                    java.time.DayOfWeek.WEDNESDAY -> "Miércoles"
-                    java.time.DayOfWeek.THURSDAY -> "Jueves"
-                    java.time.DayOfWeek.FRIDAY -> "Viernes"
-                    java.time.DayOfWeek.SATURDAY -> "Sábado"
-                    java.time.DayOfWeek.SUNDAY -> "Domingo"
-                }
-                val dateStr = "$dayOfWeekEs ${localDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-                val studentName = schedules.firstOrNull { it.studentId == exc.studentId }?.studentName
-                    ?: students.firstOrNull { it.studentId == exc.studentId }?.name
-                    ?: "Alumno"
-                val schedule = schedules.firstOrNull { it.scheduleId == exc.originalScheduleId || it.studentId == exc.studentId }
-                val timeInfo = if (schedule != null) " (${schedule.startTime} - ${schedule.endTime})" else ""
+        val cancelled = exceptions.filter { it.type == ExceptionType.CANCELLED }
+        val extras = exceptions.filter { it.type == ExceptionType.EXTRA }
+        val rescheduled = exceptions.filter { it.type == ExceptionType.RESCHEDULED }
 
-                when (exc.type) {
-                    ExceptionType.CANCELLED -> {
-                        appendLine("- Fecha $dateStr: [CLASE CANCELADA] La clase con $studentName$timeInfo está CANCELADA (no se imparte).")
-                    }
-                    ExceptionType.RESCHEDULED -> {
-                        appendLine("- Fecha $dateStr: [CLASE REPROGRAMADA] La clase con $studentName se ha movido al nuevo horario: ${exc.newStartTime} - ${exc.newEndTime}.")
-                    }
-                    ExceptionType.EXTRA -> {
-                        appendLine("- Fecha $dateStr: [CLASE EXTRA ACTIVA] Se ha añadido una clase extra con $studentName de ${exc.newStartTime} a ${exc.newEndTime} (ESTA CLASE SÍ SE IMPARTE, es una clase activa añadida).")
-                    }
+        fun formatDateStr(localDate: LocalDate): String {
+            val dayOfWeekEs = when (localDate.dayOfWeek) {
+                java.time.DayOfWeek.MONDAY -> "Lunes"; java.time.DayOfWeek.TUESDAY -> "Martes"
+                java.time.DayOfWeek.WEDNESDAY -> "Miércoles"; java.time.DayOfWeek.THURSDAY -> "Jueves"
+                java.time.DayOfWeek.FRIDAY -> "Viernes"; java.time.DayOfWeek.SATURDAY -> "Sábado"
+                else -> "Domingo"
+            }
+            val formattedDate = localDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            return when {
+                localDate == today -> "Hoy ($dayOfWeekEs $formattedDate)"
+                localDate == today.plusDays(1) -> "Mañana ($dayOfWeekEs $formattedDate)"
+                localDate == today.minusDays(1) -> "Ayer ($dayOfWeekEs $formattedDate)"
+                else -> "$dayOfWeekEs $formattedDate"
+            }
+        }
+
+        return buildString {
+            if (cancelled.isNotEmpty()) {
+                appendLine("Clases canceladas:")
+                cancelled.forEach { exc ->
+                    val localDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    val dateStr = formatDateStr(localDate)
+                    val studentName = schedules.firstOrNull { it.studentId == exc.studentId }?.studentName
+                        ?: students.firstOrNull { it.studentId == exc.studentId }?.name
+                        ?: "Alumno"
+                    val schedule = schedules.firstOrNull { it.scheduleId == exc.originalScheduleId || it.studentId == exc.studentId }
+                    val timeInfo = if (schedule != null) " (${schedule.startTime} - ${schedule.endTime})" else ""
+                    appendLine("• $dateStr: la clase de $studentName$timeInfo está cancelada.")
                 }
             }
-            appendLine("--- FIN EXCEPCIONES ---")
-        }
+            if (extras.isNotEmpty()) {
+                if (cancelled.isNotEmpty()) appendLine()
+                appendLine("Clases extra programadas (activas):")
+                extras.forEach { exc ->
+                    val localDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    val dateStr = formatDateStr(localDate)
+                    val studentName = schedules.firstOrNull { it.studentId == exc.studentId }?.studentName
+                        ?: students.firstOrNull { it.studentId == exc.studentId }?.name
+                        ?: "Alumno"
+                    appendLine("• $dateStr: clase extra con $studentName de ${exc.newStartTime} a ${exc.newEndTime}.")
+                }
+            }
+            if (rescheduled.isNotEmpty()) {
+                if (cancelled.isNotEmpty() || extras.isNotEmpty()) appendLine()
+                appendLine("Clases reprogramadas:")
+                rescheduled.forEach { exc ->
+                    val localDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    val dateStr = formatDateStr(localDate)
+                    val studentName = schedules.firstOrNull { it.studentId == exc.studentId }?.studentName
+                        ?: students.firstOrNull { it.studentId == exc.studentId }?.name
+                        ?: "Alumno"
+                    appendLine("• $dateStr: clase de $studentName movida a nuevo horario de ${exc.newStartTime} a ${exc.newEndTime}.")
+                }
+            }
+        }.trim()
     }
 
     // ──────────────────────────────────────────────────────────────────────────
