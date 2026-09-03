@@ -48,7 +48,7 @@ fun SplashScreen(
             )
         )
         delay(700)
-        if (viewModel.isUserLoggedIn()) {
+        if (viewModel.isUserLoggedIn() || viewModel.attemptZeroTapRestore()) {
             onNavigateToHome()
         } else {
             if (viewModel.isOnboardingCompleted()) {
