@@ -55,103 +55,109 @@ A continuación, detallamos cada bloque del sistema y qué clases debes consulta
 - `data/repository/SpeechServiceImpl.kt` (Implementación)
 
 **Detalles técnicos:**
-La implementación envuelve `SpeechRecognizer` y `TextToSpeech` de Android en flujos de Kotlin (`StateFlow` y `SharedFlow`).
+La implementación envuelve `SpeechRecognizer` y `TextToSpeech` de Android en flujos de Kotlin (`StateFlow` y `SharedFlow`). El ViewModel arranca el micro, captura texto en tiempo real (`partialTranscriptions`) y final (`transcriptions`), y luego reproduce la respuesta vía `speak(text)`.
 
-*Ejemplo (fragmento):*
-```kotlin
-// SpeechServiceImpl.kt lanza el reconocimiento de forma asíncrona
-val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-}
-speechRecognizer?.startListening(intent)
-```
+### Paso 2: Sistema Determinista (RAG con Base de Datos) - Profundidad
 
-### Paso 2: Sistema Determinista (RAG con Base de Datos)
+**¿Qué es RAG?** RAG significa *Retrieval-Augmented Generation* (Generación Aumentada por Recuperación). Como nuestro modelo LLM local (Gemma 3) no conoce la base de datos (no sabe quiénes son tus alumnos), la técnica RAG consiste en **recuperar** los datos relevantes de tu base de datos y pasárselos como contexto al LLM.
 
-**Por qué:** Un LLM que se ejecuta en un teléfono móvil tiene un límite estricto de contexto (memoria RAM). Si le mandamos toda la base de datos, colapsará (Out of Memory). Por eso se usa un sistema *Retrieval-Augmented Generation (RAG)* "determinista": primero se usa lógica (expresiones regulares o keywords) para detectar de qué está hablando el usuario (ej. si menciona "finanzas", "saldo", o el nombre "María"). Solo entonces se consulta a la base de datos **Room** y se extrae esa información específica.
+**¿Por qué Determinista?** Los sistemas RAG tradicionales usan búsquedas vectoriales y embeddings pesados. Como estamos en un entorno móvil offline con poca memoria, optamos por un RAG **determinista o basado en reglas**. Analizamos la frase del usuario con expresiones regulares y palabras clave exactas para extraer parámetros e inyectar sólo los datos necesarios, evitando colapsar la memoria del modelo (Out of Memory).
 
 **Dónde mirar:**
-- `domain/usecases/implementations/SueAgentImpl.kt` (Core del Agente)
-- `domain/usecases/implementations/StudentTools.kt` y `ScheduleTools.kt` (Herramientas SQL)
+- `domain/usecases/implementations/SueAgentImpl.kt` (El cerebro de las reglas)
+- `domain/usecases/implementations/StudentTools.kt` y `ScheduleTools.kt` (Conexiones a Room)
 
-**Detalles técnicos:**
-En `SueAgentImpl`, el método `gatherRelevantContext` intercepta la consulta. Fíjate en cómo busca *keywords*:
+**Cómo funciona paso a paso (El corazón del RAG):**
 
-*Ejemplo (fragmento):*
-```kotlin
-// SueAgentImpl.kt
-private fun containsBalanceKeywords(query: String) =
-    listOf("saldo", "balance", "deuda", "dinero", "cobrar", "pagar").any { it in query }
+1. **Extracción de Entidades:** El método `gatherRelevantContext(query)` recibe la frase del usuario y extrae días, nombres y tiempos.
+   ```kotlin
+   // Intenta encontrar el nombre de un alumno basándose en lo que hay en BBDD
+   val studentName = extractStudentName(lowerQuery)
+   // Extrae días de la semana (ej: de "mañana" deduce "Martes")
+   val day = extractRelativeDayOfWeek(lowerQuery) ?: extractDayOfWeek(lowerQuery)
+   ```
 
-// Si detecta la keyword, usa las "Tools" para hacer la query en Room
-if (containsBalanceKeywords(lowerQuery)) {
-    // Inyecta el resultado formateado al prompt
-    appendLine(formatResult(studentTools.getStudentsWithBalance()))
-}
-```
+2. **Detección de Intenciones (Keywords):** Luego busca palabras clave en el texto.
+   ```kotlin
+   val isFinanceQuery = listOf("ganado", "ingresos", "facturado", "cobrado").any { it in lowerQuery }
+   ```
+
+3. **Recuperación en BBDD (Retrieval):** Si detecta que preguntas por finanzas y detectó un nombre, consulta a SQL/Room mediante las Tools, **limitando el contexto**.
+   ```kotlin
+   // Si el nombre es "Pepe" y pregunta por clases completadas
+   val logs = studentTools.getClassLogs("Pepe")
+
+   if (logs.isNotEmpty()) {
+       appendLine("--- CLASES COMPLETADAS PARA Pepe ---")
+       logs.forEach { l ->
+           appendLine("- Clase del ${l.date} a las ${l.startTime} a ${l.endTime}")
+       }
+       appendLine("--- FIN CLASES COMPLETADAS ---")
+   }
+   ```
+   **La Magia:** Si le preguntas "¿Cuánto me debe Pepe?", el código sólo extrae de SQLite el perfil de Pepe y su deuda. El modelo Gemma 3 **sólo lee esto** y no sabe nada de los demás 50 alumnos que tengas, por tanto la respuesta será rapidísima y consumirá muy poca memoria RAM.
 
 ### Paso 3: Construcción del Prompt (Prompt Engineering)
 
-**Por qué:** El LLM (Gemma) es un modelo generalista. Para que se comporte como la asistente "Sue" y no alucine datos, se le pasa un "System Prompt" estricto. Además, se le ordena que cuando deba hacer una acción (ej. cancelar una clase) devuelva un formato estandarizado que nuestra app pueda interpretar.
+**Por qué:** El LLM necesita un marco estricto. Construimos una cadena de texto gigante (`buildPromptWithContext`) que se pasa al LLM. En ella juntamos el rol (System Prompt), la fecha actual, el contexto que nos dio el RAG y la pregunta del usuario.
 
 **Dónde mirar:**
 - `SueAgentImpl.kt` (función `buildSystemPrompt` y `buildPromptWithContext`)
 
-*Ejemplo (fragmento):*
-```kotlin
-// Se obliga al LLM a escupir una acción parametrizada
-"""
-INSTRUCCIÓN MUY IMPORTANTE (EXTRACCIÓN DE INTENCIONES):
-Si la frase del usuario requiere ejecutar una acción en la app (crear, modificar o borrar clases, estudiantes o pagos), debes devolver UNA ÚNICA LÍNEA con el siguiente formato exacto:
-[ACTION: TIPO_DE_ACCION, parametro1: valor, parametro2: valor]
+**Así es cómo le llega al LLM (El Prompt Final):**
+```text
+<start_of_turn>user
+Eres Sue, la asistente inteligente de HomeTutorPro.
+Tu rol es ayudar a profesores particulares a gestionar su trabajo.
 
-Ejemplo:
-Usuario: "Cancela la clase de María del viernes."
-Tú: [ACTION: CANCEL_CLASS, student: "María", day: "viernes"]
-"""
+INSTRUCCIÓN MUY IMPORTANTE: Si es una acción, devuelve UNA LÍNEA EXACTA:
+[ACTION: TIPO, param1: valor]
+
+--- TEMPORAL CONTEXT ---
+Current date/time: Martes, 15 Octubre 2026, 17:00
+--- END OF TEMPORAL CONTEXT ---
+
+--- AVAILABLE DATA --- (¡Esto lo inyectó el RAG en el Paso 2!)
+--- SALDOS PENDIENTES ---
+- Pepe: 30.00 euros pendientes
+--- END OF DATA ---
+
+User query: ¿Cuánto dinero me debe Pepe?
+<end_of_turn>
+<start_of_turn>model
 ```
 
 ### Paso 4: Inferencia Local con Gemma 3 y MediaPipe
 
-**Por qué:** Para ejecutar el modelo en el propio teléfono (On-Device), Google ofrece **MediaPipe LLM Inference**. Es altamente eficiente para correr modelos como Gemma 3. No usamos frameworks externos ("Koog" o APIs en la nube) por temas de privacidad de los alumnos de HomeTutorPro. El modelo se carga en memoria solo cuando es necesario.
+**Por qué:** Google ofrece **MediaPipe LLM Inference** para ejecutar modelos en el móvil sin necesidad de internet (On-Device). Usamos un modelo Gemma 3 en formato `.bin`.
 
 **Dónde mirar:**
 - `data/repository/MediaPipeModelRepository.kt`
 
 **Detalles técnicos:**
-Esta clase carga un archivo de modelo (`.bin` o `.task`) almacenado de forma segura en el almacenamiento interno de la App (`context.filesDir`).
+Esta clase carga el archivo `.bin` en memoria. Al inyectar el Prompt gigante del Paso 3 mediante `session.addQueryChunk(prompt)` y pedir la respuesta `session.generateResponse()`, el modelo procesa la información de forma nativa.
 
-*Ejemplo (fragmento):*
-```kotlin
-// MediaPipeModelRepository.kt
-val options = LlmInference.LlmInferenceOptions.builder()
-    .setModelPath(modelPath) // ej: /data/user/0/.../files/sue_model/gemma-3-2b-cpu.bin
-    .setMaxTokens(2048)
-    .build()
-
-llmInference = LlmInference.createFromOptions(context, options)
-```
-*Decisión importante:* Presta atención a `ComponentCallbacks2` en esa clase. Si el sistema Android avisa de poca memoria (`onLowMemory`), la instancia de MediaPipe se destruye automáticamente para evitar que Android cierre toda la app.
+*Decisión de Memoria:* Implementamos `ComponentCallbacks2` en este repositorio. Si Android nos manda un aviso `onLowMemory` (porque el móvil se queda sin RAM), la instancia de MediaPipe se destruye automáticamente, evitando que Android mate toda la aplicación. El modelo se volverá a cargar sólo cuando el usuario pulse el micrófono.
 
 ### Paso 5: Orquestación (ViewModel y Acciones Pendientes)
 
-**Por qué:** El LLM puede decidir borrar una clase, pero por seguridad, no lo hace automáticamente. Retorna la intención, el `SueAgentImpl` la parsea a un objeto sellado (`SuePendingAction`), y el `SueViewModel` expone esto a la UI para pedir confirmación al usuario antes de modificar Room.
+**Por qué:** Es muy peligroso que una IA tenga permiso para escribir, borrar o alterar bases de datos por sí sola (alucinaciones). Por tanto, la respuesta que emite el modelo (ej. `[ACTION: DELETE_STUDENT, student: "Pepe"]`) no va directa a SQLite.
 
 **Dónde mirar:**
 - `presentation/sue/SueViewModel.kt`
 
 **Detalles técnicos:**
-En `SueViewModel`, el flujo conecta el `SpeechService` con el Agente (`SueAgentImpl`), y luego evalúa la respuesta:
-1. Si el LLM devuelve un texto normal, invoca el TTS (`speechService.speak(it)`).
-2. Si el LLM devuelve un `[ACTION: ...]`, el ViewModel muta su estado a "A la espera de confirmación".
+En `SueViewModel`, el flujo conecta el `SpeechService` con el Agente (`SueAgentImpl`), y luego parsea la respuesta:
+1. **Respuesta Lectura:** Si el LLM devuelve un texto normal (ej. *"Pepe te debe 30 euros"*), el ViewModel invoca el TTS y el altavoz suena (`speechService.speak(it)`).
+2. **Respuesta Acción:** Si el LLM devuelve el patrón `[ACTION: ...]`, el método `parseLlmActionResponse` en `SueAgentImpl` genera un objeto sellado en Kotlin llamado `SuePendingAction.DeleteStudent`. El ViewModel intercepta esto, muta su estado a "A la espera de confirmación", mostrando en la interfaz un cuadro para que el humano pulse "Aceptar" o "Cancelar".
 
 ## Resumen: Cómo replicar en otro proyecto
 
 Si quieres llevar esto a otra App:
 1. Añade la librería de MediaPipe en tu `build.gradle` (`com.google.mediapipe:tasks-genai`).
-2. Copia y adapta el **Paso 1** (`SpeechServiceImpl.kt`) si necesitas la interfaz por voz.
-3. Copia el **Paso 4** (`MediaPipeModelRepository.kt`) para poder cargar el modelo LLM.
-4. **Lo más importante:** Adapta el **Paso 2 y 3** (`SueAgentImpl.kt`). Tu aplicación tendrá otra base de datos y otras entidades. Tendrás que escribir tus propios detectores de intenciones (*keywords*) y herramientas que busquen en tu BBDD, e inyectar ese contexto en tu propio System Prompt.
+2. Copia y adapta el **Paso 1** (`SpeechServiceImpl.kt`) para tener STT y TTS nativo.
+3. Copia el **Paso 4** (`MediaPipeModelRepository.kt`) para poder cargar tu modelo `.bin`.
+4. **Crea tu propio RAG Determinista:** Adapta `SueAgentImpl.kt`. Tu aplicación tendrá otra base de datos (ej. recetas de cocina en vez de horarios de profesores). Tendrás que escribir tus propios detectores (*keywords* como "receta", "pollo"), consultar tu BBDD usando Room, y volcar el texto como "Contexto" dentro de un String para armar el Prompt final.
+5. Gestiona de forma segura los `[ACTION: ...]` pidiendo siempre confirmación antes de mutar tu BBDD.
 
-¡Y eso es todo! Has construido un asistente privado y 100% offline.
+¡Y eso es todo! Has construido un asistente inteligente privado, altamente seguro, y 100% offline.
