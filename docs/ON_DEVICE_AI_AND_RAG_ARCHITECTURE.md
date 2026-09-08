@@ -14,7 +14,7 @@
 6. [El Patrón Híbrido: Determinismo vs Generación](#6-el-patrón-híbrido-determinismo-vs-generación)
 7. [Ingeniería de Memoria RAM y Ciclo de Vida (Android 17)](#7-ingeniería-de-memoria-ram-y-ciclo-de-vida-android-17)
 8. [Seguridad, Privacidad y Cumplimiento RGPD](#8-seguridad-privacidad-y-rgpd)
-9. [Estructura Sugerida para tu Charla en DevFest Jerez](#9-guion-y-diapositivas-para-devfest-jerez)
+9. [Estructura Sugerida para tu Charla](#9-guion-y-diapositivas)
 
 ---
 
@@ -186,9 +186,9 @@ En Android 17, Google introduce **límites estrictos de memoria por aplicación 
 
 ---
 
-## 9. Guion y Diapositivas para DevFest Jerez
+## 9. Guion y Diapositivas
 
-Si presentas esta arquitectura en DevFest, esta es una estructura ganadora de 30-40 minutos:
+Si presentas esta arquitectura, esta es una estructura ganadora de 30-40 minutos:
 
 | # | Título de la Diapositiva | Puntos Clave a Explicar |
 |---|---|---|
