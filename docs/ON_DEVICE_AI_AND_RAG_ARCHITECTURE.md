@@ -1,5 +1,5 @@
 # 🧠 Guía Maestra: Inteligencia Artificial On-Device, RAG Local y Arquitectura en HomeTutorPro
-> **Documento de estudio y referencia para ponencia técnica (DevFest Jerez)**  
+> **Documento de estudio y referencia para ponencia técnica**  
 > *Autora:* Susana Córdoba Serrano  
 > *Proyecto:* HomeTutorPro — Asistente Inteligente Local "SUE"
 
