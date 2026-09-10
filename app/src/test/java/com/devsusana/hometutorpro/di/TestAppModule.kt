@@ -1,6 +1,8 @@
 package com.devsusana.hometutorpro.di
 
 import android.content.Context
+import com.devsusana.hometutorpro.core.auth.IRestoreCredentialManager
+import com.devsusana.hometutorpro.core.auth.RestoreCredentialManager
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.data.billing.BillingManager
 import com.devsusana.hometutorpro.presentation.premium.BillingLauncher
@@ -45,6 +47,10 @@ abstract class TestAppModule {
     @Singleton
     abstract fun bindAppInitializer(appInitializer: AppInitializerImpl): AppInitializer
 
+    @Binds
+    @Singleton
+    abstract fun bindRestoreCredentialManager(restoreCredentialManager: RestoreCredentialManager): IRestoreCredentialManager
+
     companion object {
         @Provides
         @Singleton
@@ -66,5 +72,10 @@ abstract class TestAppModule {
         @Singleton
         fun provideAuthValidator(): com.devsusana.hometutorpro.domain.core.AuthValidator =
             com.devsusana.hometutorpro.domain.core.AuthValidator
+
+        @Provides
+        @Singleton
+        fun provideCredentialManager(@ApplicationContext context: Context): androidx.credentials.CredentialManager =
+            mockk(relaxed = true)
     }
 }

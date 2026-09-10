@@ -37,6 +37,10 @@ abstract class AppModule {
     @Singleton
     abstract fun bindAppInitializer(appInitializer: com.devsusana.hometutorpro.presentation.utils.AppInitializerImpl): com.devsusana.hometutorpro.domain.usecases.AppInitializer
 
+    @Binds
+    @Singleton
+    abstract fun bindRestoreCredentialManager(restoreCredentialManager: com.devsusana.hometutorpro.core.auth.RestoreCredentialManager): com.devsusana.hometutorpro.core.auth.IRestoreCredentialManager
+
     companion object {
         @Provides
         @Singleton
@@ -60,5 +64,10 @@ abstract class AppModule {
         @Singleton
         fun provideAuthValidator(): com.devsusana.hometutorpro.domain.core.AuthValidator =
             com.devsusana.hometutorpro.domain.core.AuthValidator
+
+        @Provides
+        @Singleton
+        fun provideCredentialManager(@ApplicationContext context: Context): androidx.credentials.CredentialManager = 
+            androidx.credentials.CredentialManager.create(context)
     }
 }

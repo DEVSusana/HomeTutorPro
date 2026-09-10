@@ -202,5 +202,8 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindSignInWithGoogleUseCase(impl: SignInWithGoogleUseCase): ISignInWithGoogleUseCase
+
+    @Binds
+    abstract fun bindRestoreSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.RestoreSessionUseCase): IRestoreSessionUseCase
 }
 
