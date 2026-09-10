@@ -457,6 +457,42 @@ class AuthRepositoryImplTest {
     // ============================================================================
 
     @Test
+    fun `restoreSessionSilently on fresh device with token authenticates Firebase and succeeds`() = runTest {
+        val payload = com.devsusana.hometutorpro.core.auth.RestorePayload(
+            user = com.devsusana.hometutorpro.core.auth.RestoreUser(
+                id = "restored_123",
+                name = "restored@test.com",
+                displayName = "Restored User"
+            ),
+            token = "secret123"
+        )
+        val mockFirebaseUser = mockk<com.google.firebase.auth.FirebaseUser>()
+        every { mockFirebaseUser.uid } returns "restored_123"
+        every { mockFirebaseUser.email } returns "restored@test.com"
+        every { mockFirebaseUser.displayName } returns "Restored User"
+
+        val mockAuthResult = mockk<com.google.firebase.auth.AuthResult>()
+        every { mockAuthResult.user } returns mockFirebaseUser
+
+        every { firebaseAuth.currentUser } returns null
+        every { firebaseAuth.signInWithEmailAndPassword("restored@test.com", "secret123") } returns com.google.android.gms.tasks.Tasks.forResult(mockAuthResult)
+
+        coEvery { restoreCredentialManager.getRestoreCredential() } returns payload
+        every { authManager.saveCredentials(any(), any(), any(), any()) } returns "restored_123"
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.restoreSessionSilently()
+
+        assertTrue(result is Result.Success)
+        val user = (result as Result.Success).data
+        assertEquals("restored_123", user.uid)
+        assertEquals("restored@test.com", user.email)
+        assertEquals("Restored User", user.displayName)
+        assertEquals(user, repository.currentUser.first())
+    }
+
+    @Test
     fun `restoreSessionSilently with valid restore credential and active Firebase user succeeds and sets current user`() = runTest {
         val payload = com.devsusana.hometutorpro.core.auth.RestorePayload(
             user = com.devsusana.hometutorpro.core.auth.RestoreUser(
@@ -487,13 +523,14 @@ class AuthRepositoryImplTest {
     }
 
     @Test
-    fun `restoreSessionSilently with valid restore credential but null Firebase user returns UserNotFound error`() = runTest {
+    fun `restoreSessionSilently with empty token and null Firebase user returns UserNotFound error`() = runTest {
         val payload = com.devsusana.hometutorpro.core.auth.RestorePayload(
             user = com.devsusana.hometutorpro.core.auth.RestoreUser(
                 id = "restored_123",
                 name = "restored@test.com",
                 displayName = "Restored User"
-            )
+            ),
+            token = ""
         )
         every { firebaseAuth.currentUser } returns null
         coEvery { restoreCredentialManager.getRestoreCredential() } returns payload

@@ -76,9 +76,15 @@ class RestoreCredentialManager @Inject constructor(
     private fun buildCreateRestoreCredentialJson(
         userId: String,
         email: String,
-        displayName: String
+        displayName: String,
+        token: String
     ): String {
-        val userRawData = "$userId|$email|$displayName"
+        val userRawData = JSONObject().apply {
+            put("uid", userId)
+            put("email", email)
+            put("name", displayName)
+            put("token", token)
+        }.toString()
         val base64UserId = getBase64Url(userRawData.toByteArray(Charsets.UTF_8))
         val base64Challenge = getBase64Url(CHALLENGE_STRING.toByteArray(Charsets.UTF_8))
         val rpId = context.packageName
@@ -140,7 +146,7 @@ class RestoreCredentialManager @Inject constructor(
     ): Boolean {
         val userEmail = email ?: ""
         val userName = displayName ?: ""
-        val requestJson = buildCreateRestoreCredentialJson(userId, userEmail, userName)
+        val requestJson = buildCreateRestoreCredentialJson(userId, userEmail, userName, token)
 
         // Try with Cloud Backup first
         try {
@@ -234,14 +240,35 @@ class RestoreCredentialManager @Inject constructor(
             val userHandleBase64 = responseObj?.optString("userHandle")
             if (!userHandleBase64.isNullOrBlank()) {
                 val decoded = String(Base64.decode(userHandleBase64, Base64.NO_WRAP or Base64.URL_SAFE), Charsets.UTF_8)
-                val parts = decoded.split("|")
+                
+                // Try parsing JSON format
+                try {
+                    val userObj = JSONObject(decoded)
+                    val uid = userObj.optString("uid", "")
+                    if (uid.isNotBlank()) {
+                        val email = userObj.optString("email", "")
+                        val name = userObj.optString("name", "")
+                        val token = userObj.optString("token", "")
+                        Log.d(TAG, "Restore credential decoded from JSON userHandle: $email")
+                        return RestorePayload(
+                            user = RestoreUser(id = uid, name = email, displayName = name),
+                            token = token
+                        )
+                    }
+                } catch (_: Exception) {
+                    // Fallback to pipe delimited format
+                }
+
+                val parts = decoded.split("|", limit = 4)
                 if (parts.isNotEmpty()) {
                     val uid = parts[0]
                     val email = parts.getOrNull(1) ?: ""
                     val name = parts.getOrNull(2) ?: ""
+                    val token = parts.getOrNull(3) ?: ""
                     Log.d(TAG, "Restore credential decoded from userHandle: $email")
                     return RestorePayload(
-                        user = RestoreUser(id = uid, name = email, displayName = name)
+                        user = RestoreUser(id = uid, name = email, displayName = name),
+                        token = token
                     )
                 }
             }

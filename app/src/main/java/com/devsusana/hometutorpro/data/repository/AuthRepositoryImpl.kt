@@ -135,7 +135,7 @@ class AuthRepositoryImpl @Inject constructor(
                 authManager.saveCredentials(email, password, user.displayName ?: "", user.uid)
                 
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName)
+                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName, token = password)
                 }
 
                 if (billingManager.isPremium.value) {
@@ -173,7 +173,7 @@ class AuthRepositoryImpl @Inject constructor(
                 val user = buildUser(userId, email, name)
                 _currentUser.value = user
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(user.uid, user.email, user.displayName)
+                    restoreCredentialManager.saveRestoreCredential(user.uid, user.email, user.displayName, token = password)
                 }
                 Result.Success(user)
             } else {
@@ -207,7 +207,7 @@ class AuthRepositoryImpl @Inject constructor(
                 val domainUser = buildUser(firebaseUser.uid, firebaseUser.email ?: "", name)
                 _currentUser.value = domainUser
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName)
+                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName, token = password)
                 }
                 Result.Success(domainUser)
             } else {
@@ -423,15 +423,12 @@ class AuthRepositoryImpl @Inject constructor(
                 return Result.Error(DomainError.UserNotFound)
             }
 
-            // Verify that Firebase has an active authenticated session for this user.
-            // On a new device or fresh install where Firebase session storage was not transferred,
-            // Firebase Auth cannot authenticate without user credentials.
-            // Returning success without Firebase Auth would cause Firestore queries and sync to fail.
-            val firebaseUser = firebaseAuth.currentUser
-            if (firebaseUser != null && firebaseUser.uid == payload.userId) {
+            // 1. If Firebase already has an active authenticated session for this user
+            val currentFirebaseUser = firebaseAuth.currentUser
+            if (currentFirebaseUser != null && currentFirebaseUser.uid == payload.userId) {
                 authManager.saveCredentials(
                     email = payload.email,
-                    password = "",
+                    password = payload.token,
                     name = payload.displayName,
                     userId = payload.userId
                 )
@@ -453,10 +450,45 @@ class AuthRepositoryImpl @Inject constructor(
                 return Result.Success(restoredUser)
             }
 
-            // If Firebase is not authenticated on this device, leave the user in the login flow
+            // 2. On fresh install or migrated device where Firebase session is null,
+            // authenticate with Firebase using the restore payload's token to establish the session.
+            if (payload.token.isNotBlank()) {
+                try {
+                    val authResult = firebaseAuth.signInWithEmailAndPassword(payload.email, payload.token).await()
+                    val firebaseUser = authResult.user
+                    if (firebaseUser != null) {
+                        authManager.saveCredentials(
+                            email = payload.email,
+                            password = payload.token,
+                            name = payload.displayName,
+                            userId = firebaseUser.uid
+                        )
+
+                        val restoredUser = buildUser(firebaseUser.uid, payload.email, payload.displayName)
+                        _currentUser.value = restoredUser
+                        android.util.Log.d("AuthRepositoryImpl", "Zero-Tap restore successfully authenticated with Firebase for: ${payload.email}")
+
+                        if (billingManager.isPremium.value) {
+                            internalScope.launch {
+                                try {
+                                    dataSynchronizer.performSync()
+                                } catch (e: Exception) {
+                                    syncScheduler.scheduleSyncNow()
+                                }
+                            }
+                        }
+
+                        return Result.Success(restoredUser)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("AuthRepositoryImpl", "Failed to authenticate restored credential with Firebase: ${e.message}")
+                }
+            }
+
+            // If Firebase could not be authenticated on this device, leave the user in the login flow
             android.util.Log.w(
                 "AuthRepositoryImpl",
-                "Restore credential found for ${payload.email} but Firebase session is null. Directing to login flow."
+                "Restore credential found for ${payload.email} but Firebase session could not be established. Directing to login flow."
             )
             Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
