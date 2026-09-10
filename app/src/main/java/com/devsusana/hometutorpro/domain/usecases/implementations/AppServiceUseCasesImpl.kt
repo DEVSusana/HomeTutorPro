@@ -43,3 +43,11 @@ class ScheduleClassEndNotificationUseCase @Inject constructor(
         )
     }
 }
+
+class CancelClassEndNotificationUseCase @Inject constructor(
+    private val application: Application
+) : ICancelClassEndNotificationUseCase {
+    override operator fun invoke() {
+        NotificationHelper.cancelClassEndNotification(application)
+    }
+}
