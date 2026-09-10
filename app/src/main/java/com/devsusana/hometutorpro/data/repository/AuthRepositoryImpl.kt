@@ -1,5 +1,7 @@
 package com.devsusana.hometutorpro.data.repository
 
+import android.content.ContentValues.TAG
+import android.util.Log
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.data.local.dao.SyncMetadataDao
 import com.devsusana.hometutorpro.data.sync.DataSynchronizer
@@ -34,6 +36,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val syncMetadataDao: SyncMetadataDao,
     private val dataSynchronizer: DataSynchronizer,
     private val billingManager: BillingManager,
+    private val restoreCredentialManager: com.devsusana.hometutorpro.core.auth.IRestoreCredentialManager,
     @param:ApplicationScope private val internalScope: CoroutineScope
 ) : AuthRepository {
 
@@ -62,6 +65,18 @@ class AuthRepositoryImpl @Inject constructor(
                     firebaseUser.displayName ?: ""
                 )
                 
+                internalScope.launch {
+                    try {
+                        restoreCredentialManager.saveRestoreCredential(
+                            userId = firebaseUser.uid,
+                            email = firebaseUser.email,
+                            displayName = firebaseUser.displayName
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to auto-register restore credential on startup: ${e.message}")
+                    }
+                }
+
                 if (billingManager.isPremium.value) {
                     internalScope.launch {
                         try {
@@ -88,6 +103,17 @@ class AuthRepositoryImpl @Inject constructor(
             val email = authManager.getEmail()
             if (userId != null && name != null && email != null) {
                 _currentUser.value = buildUser(userId, email, name)
+                internalScope.launch {
+                    try {
+                        restoreCredentialManager.saveRestoreCredential(
+                            userId = userId,
+                            email = email,
+                            displayName = name
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to auto-register restore credential for local user: ${e.message}")
+                    }
+                }
             } else {
                 _currentUser.value = null
             }
@@ -108,6 +134,10 @@ class AuthRepositoryImpl @Inject constructor(
                 // Save locally for offline fallback
                 authManager.saveCredentials(email, password, user.displayName ?: "", user.uid)
                 
+                internalScope.launch {
+                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName)
+                }
+
                 if (billingManager.isPremium.value) {
                     internalScope.launch {
                         try {
@@ -142,6 +172,9 @@ class AuthRepositoryImpl @Inject constructor(
                 
                 val user = buildUser(userId, email, name)
                 _currentUser.value = user
+                internalScope.launch {
+                    restoreCredentialManager.saveRestoreCredential(user.uid, user.email, user.displayName)
+                }
                 Result.Success(user)
             } else {
                 Result.Error(DomainError.InvalidCredentials)
@@ -173,6 +206,9 @@ class AuthRepositoryImpl @Inject constructor(
                 
                 val domainUser = buildUser(firebaseUser.uid, firebaseUser.email ?: "", name)
                 _currentUser.value = domainUser
+                internalScope.launch {
+                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName)
+                }
                 Result.Success(domainUser)
             } else {
                 android.util.Log.e("AuthRepositoryImpl", "Registration failed: firebaseUser is null")
@@ -194,6 +230,9 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun logout() {
         firebaseAuth.signOut()
         authManager.clearCredentials()
+        internalScope.launch {
+            restoreCredentialManager.clearRestoreCredential()
+        }
         _currentUser.value = null
         syncScheduler.cancelAllSync()
         internalScope.launch(Dispatchers.IO) {
@@ -300,6 +339,9 @@ class AuthRepositoryImpl @Inject constructor(
             }
 
             authManager.clearCredentials()
+            internalScope.launch {
+                restoreCredentialManager.clearRestoreCredential()
+            }
             _currentUser.value = null
 
             internalScope.launch(Dispatchers.IO) {
@@ -356,12 +398,69 @@ class AuthRepositoryImpl @Inject constructor(
             authManager.saveCredentials(user.email ?: "", "", user.displayName ?: "", user.uid)
 
             _currentUser.value = user
+            internalScope.launch {
+                restoreCredentialManager.saveRestoreCredential(user.uid, user.email, user.displayName)
+            }
             Result.Success(user)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
             android.util.Log.e("AuthRepositoryImpl", "Failed to sign in with Google: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
             android.util.Log.e("AuthRepositoryImpl", "Failed to sign in with Google", e)
+            Result.Error(DomainError.Unknown)
+        }
+    }
+
+    override suspend fun restoreSessionSilently(): Result<User, DomainError> {
+        return try {
+            val current = _currentUser.value
+            if (current != null && (firebaseAuth.currentUser != null || !billingManager.isPremium.value)) {
+                return Result.Success(current)
+            }
+
+            val payload = restoreCredentialManager.getRestoreCredential()
+            if (payload == null || payload.email.isBlank()) {
+                return Result.Error(DomainError.UserNotFound)
+            }
+
+            // Verify that Firebase has an active authenticated session for this user.
+            // On a new device or fresh install where Firebase session storage was not transferred,
+            // Firebase Auth cannot authenticate without user credentials.
+            // Returning success without Firebase Auth would cause Firestore queries and sync to fail.
+            val firebaseUser = firebaseAuth.currentUser
+            if (firebaseUser != null && firebaseUser.uid == payload.userId) {
+                authManager.saveCredentials(
+                    email = payload.email,
+                    password = "",
+                    name = payload.displayName,
+                    userId = payload.userId
+                )
+
+                val restoredUser = buildUser(payload.userId, payload.email, payload.displayName)
+                _currentUser.value = restoredUser
+                android.util.Log.d("AuthRepositoryImpl", "Zero-Tap restore successful with active Firebase session for: ${payload.email}")
+
+                if (billingManager.isPremium.value) {
+                    internalScope.launch {
+                        try {
+                            dataSynchronizer.performSync()
+                        } catch (e: Exception) {
+                            syncScheduler.scheduleSyncNow()
+                        }
+                    }
+                }
+
+                return Result.Success(restoredUser)
+            }
+
+            // If Firebase is not authenticated on this device, leave the user in the login flow
+            android.util.Log.w(
+                "AuthRepositoryImpl",
+                "Restore credential found for ${payload.email} but Firebase session is null. Directing to login flow."
+            )
+            Result.Error(DomainError.UserNotFound)
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepositoryImpl", "Silent session restoration failed", e)
             Result.Error(DomainError.Unknown)
         }
     }

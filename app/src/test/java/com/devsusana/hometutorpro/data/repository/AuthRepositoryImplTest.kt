@@ -45,6 +45,7 @@ class AuthRepositoryImplTest {
     private lateinit var syncMetadataDao: SyncMetadataDao
     private lateinit var dataSynchronizer: DataSynchronizer
     private lateinit var billingManager: BillingManager
+    private lateinit var restoreCredentialManager: com.devsusana.hometutorpro.core.auth.IRestoreCredentialManager
     private val testDispatcher = StandardTestDispatcher()
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
 
@@ -58,6 +59,7 @@ class AuthRepositoryImplTest {
         syncMetadataDao = mockk(relaxed = true)
         dataSynchronizer = mockk(relaxed = true)
         billingManager = mockk(relaxed = true)
+        restoreCredentialManager = mockk(relaxed = true)
         
         // Mock billingManager.isPremium to return a StateFlow
         every { billingManager.isPremium } returns kotlinx.coroutines.flow.MutableStateFlow(false)
@@ -86,6 +88,7 @@ class AuthRepositoryImplTest {
         syncMetadataDao = syncMetadataDao,
         dataSynchronizer = dataSynchronizer,
         billingManager = billingManager,
+        restoreCredentialManager = restoreCredentialManager,
         internalScope = scope
     )
 
@@ -447,5 +450,71 @@ class AuthRepositoryImplTest {
         assertEquals(userId, currentUser?.uid)
         assertEquals(email, currentUser?.email)
         assertEquals(name, currentUser?.displayName)
+    }
+
+    // ============================================================================
+    // Restore Session (Zero-Tap) Tests
+    // ============================================================================
+
+    @Test
+    fun `restoreSessionSilently with valid restore credential and active Firebase user succeeds and sets current user`() = runTest {
+        val payload = com.devsusana.hometutorpro.core.auth.RestorePayload(
+            user = com.devsusana.hometutorpro.core.auth.RestoreUser(
+                id = "restored_123",
+                name = "restored@test.com",
+                displayName = "Restored User"
+            )
+        )
+        val mockFirebaseUser = mockk<com.google.firebase.auth.FirebaseUser>()
+        every { mockFirebaseUser.uid } returns "restored_123"
+        every { mockFirebaseUser.email } returns "restored@test.com"
+        every { mockFirebaseUser.displayName } returns "Restored User"
+        every { firebaseAuth.currentUser } returns mockFirebaseUser
+
+        coEvery { restoreCredentialManager.getRestoreCredential() } returns payload
+        every { authManager.saveCredentials(any(), any(), any(), any()) } returns "restored_123"
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.restoreSessionSilently()
+
+        assertTrue(result is Result.Success)
+        val user = (result as Result.Success).data
+        assertEquals("restored_123", user.uid)
+        assertEquals("restored@test.com", user.email)
+        assertEquals("Restored User", user.displayName)
+        assertEquals(user, repository.currentUser.first())
+    }
+
+    @Test
+    fun `restoreSessionSilently with valid restore credential but null Firebase user returns UserNotFound error`() = runTest {
+        val payload = com.devsusana.hometutorpro.core.auth.RestorePayload(
+            user = com.devsusana.hometutorpro.core.auth.RestoreUser(
+                id = "restored_123",
+                name = "restored@test.com",
+                displayName = "Restored User"
+            )
+        )
+        every { firebaseAuth.currentUser } returns null
+        coEvery { restoreCredentialManager.getRestoreCredential() } returns payload
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.restoreSessionSilently()
+
+        assertTrue(result is Result.Error)
+        assertEquals(DomainError.UserNotFound, (result as Result.Error).error)
+    }
+
+    @Test
+    fun `restoreSessionSilently with no restore credential returns UserNotFound error`() = runTest {
+        coEvery { restoreCredentialManager.getRestoreCredential() } returns null
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.restoreSessionSilently()
+
+        assertTrue(result is Result.Error)
+        assertEquals(DomainError.UserNotFound, (result as Result.Error).error)
     }
 }

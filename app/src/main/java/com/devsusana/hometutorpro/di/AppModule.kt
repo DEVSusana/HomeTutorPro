@@ -27,6 +27,10 @@ abstract class AppModule {
     @Singleton
     abstract fun bindPremiumBillingService(billingManager: BillingManager): PremiumBillingService
 
+    @Binds
+    @Singleton
+    abstract fun bindRestoreCredentialManager(restoreCredentialManager: com.devsusana.hometutorpro.core.auth.RestoreCredentialManager): com.devsusana.hometutorpro.core.auth.IRestoreCredentialManager
+
     companion object {
         @Provides
         @Singleton
@@ -45,5 +49,10 @@ abstract class AppModule {
         @Singleton
         fun provideWorkManager(@ApplicationContext context: Context): WorkManager = 
             WorkManager.getInstance(context)
+
+        @Provides
+        @Singleton
+        fun provideCredentialManager(@ApplicationContext context: Context): androidx.credentials.CredentialManager = 
+            androidx.credentials.CredentialManager.create(context)
     }
 }
