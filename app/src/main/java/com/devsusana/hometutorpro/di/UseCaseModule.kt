@@ -196,4 +196,7 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindCancelClassEndNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CancelClassEndNotificationUseCase): ICancelClassEndNotificationUseCase
+
+    @Binds
+    abstract fun bindRestoreSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.RestoreSessionUseCase): IRestoreSessionUseCase
 }
