@@ -414,7 +414,7 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun restoreSessionSilently(): Result<User, DomainError> {
         return try {
             val current = _currentUser.value
-            if (current != null) {
+            if (current != null && (firebaseAuth.currentUser != null || !billingManager.isPremium.value)) {
                 return Result.Success(current)
             }
 
@@ -423,28 +423,42 @@ class AuthRepositoryImpl @Inject constructor(
                 return Result.Error(DomainError.UserNotFound)
             }
 
-            authManager.saveCredentials(
-                email = payload.email,
-                password = "",
-                name = payload.displayName,
-                userId = payload.userId
-            )
+            // Verify that Firebase has an active authenticated session for this user.
+            // On a new device or fresh install where Firebase session storage was not transferred,
+            // Firebase Auth cannot authenticate without user credentials.
+            // Returning success without Firebase Auth would cause Firestore queries and sync to fail.
+            val firebaseUser = firebaseAuth.currentUser
+            if (firebaseUser != null && firebaseUser.uid == payload.userId) {
+                authManager.saveCredentials(
+                    email = payload.email,
+                    password = "",
+                    name = payload.displayName,
+                    userId = payload.userId
+                )
 
-            val restoredUser = buildUser(payload.userId, payload.email, payload.displayName)
-            _currentUser.value = restoredUser
-            android.util.Log.d("AuthRepositoryImpl", "Zero-Tap restore successful for user: ${payload.email}")
+                val restoredUser = buildUser(payload.userId, payload.email, payload.displayName)
+                _currentUser.value = restoredUser
+                android.util.Log.d("AuthRepositoryImpl", "Zero-Tap restore successful with active Firebase session for: ${payload.email}")
 
-            if (billingManager.isPremium.value) {
-                internalScope.launch {
-                    try {
-                        dataSynchronizer.performSync()
-                    } catch (e: Exception) {
-                        syncScheduler.scheduleSyncNow()
+                if (billingManager.isPremium.value) {
+                    internalScope.launch {
+                        try {
+                            dataSynchronizer.performSync()
+                        } catch (e: Exception) {
+                            syncScheduler.scheduleSyncNow()
+                        }
                     }
                 }
+
+                return Result.Success(restoredUser)
             }
 
-            Result.Success(restoredUser)
+            // If Firebase is not authenticated on this device, leave the user in the login flow
+            android.util.Log.w(
+                "AuthRepositoryImpl",
+                "Restore credential found for ${payload.email} but Firebase session is null. Directing to login flow."
+            )
+            Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
             android.util.Log.e("AuthRepositoryImpl", "Silent session restoration failed", e)
             Result.Error(DomainError.Unknown)
