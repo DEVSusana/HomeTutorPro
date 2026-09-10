@@ -6,6 +6,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
+import com.devsusana.hometutorpro.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.CoroutineScope
@@ -20,13 +21,22 @@ object GoogleSignInHelper {
         onError: (String?) -> Unit
     ) {
         val credentialManager = CredentialManager.create(context)
-        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-        if (resId == 0) {
-            Log.e("GoogleSignInHelper", "Default web client ID resource 'default_web_client_id' not found in resources")
+        val webClientId = try {
+            context.getString(R.string.default_web_client_id)
+        } catch (e: Exception) {
+            val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+            if (resId != 0) {
+                context.getString(resId)
+            } else {
+                "133704532651-u1otk4ii5nudebajefff8a01ombu4e75.apps.googleusercontent.com"
+            }
+        }
+
+        if (webClientId.isBlank()) {
+            Log.e("GoogleSignInHelper", "Default web client ID is blank")
             onError("Web client ID missing")
             return
         }
-        val webClientId = context.getString(resId)
 
         val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
@@ -57,6 +67,10 @@ object GoogleSignInHelper {
                         onError("Unsupported credential type")
                         break
                     }
+                } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
+                    Log.d("GoogleSignInHelper", "Google Sign In cancelled by user")
+                    // Do not treat user cancellation as an error
+                    break
                 } catch (e: androidx.credentials.exceptions.NoCredentialException) {
                     Log.w("GoogleSignInHelper", "NoCredentialException caught. Retries left: $retries", e)
                     if (retries > 0) {
