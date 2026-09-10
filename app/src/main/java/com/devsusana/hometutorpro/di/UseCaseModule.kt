@@ -184,4 +184,19 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindRestoreSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.RestoreSessionUseCase): IRestoreSessionUseCase
+  
+    @Binds
+    abstract fun bindGetActiveSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetActiveSessionUseCase): IGetActiveSessionUseCase
+
+    @Binds
+    abstract fun bindStartActiveSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.StartActiveSessionUseCase): IStartActiveSessionUseCase
+
+    @Binds
+    abstract fun bindStopActiveSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.StopActiveSessionUseCase): IStopActiveSessionUseCase
+
+    @Binds
+    abstract fun bindGetNextClassUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetNextClassUseCase): IGetNextClassUseCase
+
+    @Binds
+    abstract fun bindCancelClassEndNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CancelClassEndNotificationUseCase): ICancelClassEndNotificationUseCase
 }
