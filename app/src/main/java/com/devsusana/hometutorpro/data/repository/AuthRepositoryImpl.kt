@@ -1,5 +1,7 @@
 package com.devsusana.hometutorpro.data.repository
 
+import android.content.ContentValues.TAG
+import android.util.Log
 import com.devsusana.hometutorpro.core.auth.SecureAuthManager
 import com.devsusana.hometutorpro.data.local.dao.SyncMetadataDao
 import com.devsusana.hometutorpro.data.sync.DataSynchronizer
@@ -63,6 +65,18 @@ class AuthRepositoryImpl @Inject constructor(
                     firebaseUser.displayName ?: ""
                 )
                 
+                internalScope.launch {
+                    try {
+                        restoreCredentialManager.saveRestoreCredential(
+                            userId = firebaseUser.uid,
+                            email = firebaseUser.email,
+                            displayName = firebaseUser.displayName
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to auto-register restore credential on startup: ${e.message}")
+                    }
+                }
+
                 if (billingManager.isPremium.value) {
                     internalScope.launch {
                         try {
@@ -89,6 +103,17 @@ class AuthRepositoryImpl @Inject constructor(
             val email = authManager.getEmail()
             if (userId != null && name != null && email != null) {
                 _currentUser.value = buildUser(userId, email, name)
+                internalScope.launch {
+                    try {
+                        restoreCredentialManager.saveRestoreCredential(
+                            userId = userId,
+                            email = email,
+                            displayName = name
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to auto-register restore credential for local user: ${e.message}")
+                    }
+                }
             } else {
                 _currentUser.value = null
             }

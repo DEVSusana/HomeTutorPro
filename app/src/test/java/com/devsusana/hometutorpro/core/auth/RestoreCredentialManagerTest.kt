@@ -74,7 +74,27 @@ class RestoreCredentialManagerTest {
     }
 
     @Test
-    fun `getRestoreCredential returns RestorePayload when RestoreCredential found`() = runTest {
+    fun `getRestoreCredential returns RestorePayload when RestoreCredential with userHandle found`() = runTest {
+        val mockResponse = mockk<GetCredentialResponse>()
+        val mockCredential = mockk<RestoreCredential>()
+        val rawData = "user_123|user@example.com|Jane Doe"
+        val userHandle = android.util.Base64.encodeToString(rawData.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP or android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING)
+        val jsonPayload = """{"response":{"userHandle":"$userHandle"},"type":"public-key"}"""
+
+        every { mockCredential.authenticationResponseJson } returns jsonPayload
+        every { mockResponse.credential } returns mockCredential
+        coEvery { credentialManager.getCredential(any<Context>(), any<GetCredentialRequest>()) } returns mockResponse
+
+        val payload = restoreCredentialManager.getRestoreCredential()
+
+        assertNotNull(payload)
+        assertEquals("user_123", payload!!.userId)
+        assertEquals("user@example.com", payload.email)
+        assertEquals("Jane Doe", payload.displayName)
+    }
+
+    @Test
+    fun `getRestoreCredential returns RestorePayload when raw RestoreCredential JSON found`() = runTest {
         val mockResponse = mockk<GetCredentialResponse>()
         val mockCredential = mockk<RestoreCredential>()
         val jsonPayload = """{"user":{"id":"user_123","name":"user@example.com","displayName":"Jane Doe"},"token":""}"""
