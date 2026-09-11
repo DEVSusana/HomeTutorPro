@@ -21,15 +21,15 @@ object GoogleSignInHelper {
         onError: (String?) -> Unit
     ) {
         val credentialManager = CredentialManager.create(context)
-        val webClientId = try {
-            context.getString(R.string.default_web_client_id)
-        } catch (e: Exception) {
-            val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-            if (resId != 0) {
+        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        val webClientId = if (resId != 0) {
+            try {
                 context.getString(resId)
-            } else {
+            } catch (e: Exception) {
                 "133704532651-u1otk4ii5nudebajefff8a01ombu4e75.apps.googleusercontent.com"
             }
+        } else {
+            "133704532651-u1otk4ii5nudebajefff8a01ombu4e75.apps.googleusercontent.com"
         }
 
         if (webClientId.isBlank()) {
