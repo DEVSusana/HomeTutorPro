@@ -17,46 +17,36 @@ class UpdateProfileUseCaseTest {
 
     @Test
     fun `invoke returns Success when repository updateProfile succeeds`() = runTest {
-        coEvery {
-            repository.updateProfile(
-                name = "Name",
-                email = "email@test.com",
-                workingStartTime = "08:00",
-                workingEndTime = "23:00",
-                notes = "notes"
-            )
-        } returns Result.Success(Unit)
-
-        val result = updateProfileUseCase(
+        val params = com.devsusana.hometutorpro.domain.entities.UpdateUserParams(
             name = "Name",
             email = "email@test.com",
             workingStartTime = "08:00",
             workingEndTime = "23:00",
             notes = "notes"
         )
+        coEvery {
+            repository.updateProfile(params)
+        } returns Result.Success(Unit)
+
+        val result = updateProfileUseCase(params)
 
         assert(result is Result.Success)
     }
 
     @Test
     fun `invoke returns Error when repository updateProfile fails`() = runTest {
-        coEvery {
-            repository.updateProfile(
-                name = "Name",
-                email = "email@test.com",
-                workingStartTime = "08:00",
-                workingEndTime = "23:00",
-                notes = "notes"
-            )
-        } returns Result.Error(DomainError.Unknown)
-
-        val result = updateProfileUseCase(
+        val params = com.devsusana.hometutorpro.domain.entities.UpdateUserParams(
             name = "Name",
             email = "email@test.com",
             workingStartTime = "08:00",
             workingEndTime = "23:00",
             notes = "notes"
         )
+        coEvery {
+            repository.updateProfile(params)
+        } returns Result.Error(DomainError.Unknown)
+
+        val result = updateProfileUseCase(params)
 
         assert(result is Result.Error)
         assertEquals(DomainError.Unknown, (result as Result.Error).error)

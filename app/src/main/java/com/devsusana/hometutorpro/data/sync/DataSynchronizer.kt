@@ -12,7 +12,7 @@ import com.devsusana.hometutorpro.data.mappers.toFirestoreMap
 import com.devsusana.hometutorpro.data.mappers.toScheduleEntity
 import com.devsusana.hometutorpro.data.mappers.toScheduleExceptionEntity
 import com.devsusana.hometutorpro.data.mappers.toStudentEntity
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.repository.RemoteDataSource
 import com.devsusana.hometutorpro.domain.repository.RemoteDocument

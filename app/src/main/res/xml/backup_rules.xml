@@ -4,6 +4,10 @@
    See https://developer.android.com/guide/topics/data/autobackup for details.
 -->
 <full-backup-content>
-    <!-- Include user settings from DataStore. Everything else is excluded by default. -->
+    <!-- Include the encrypted database and its security preferences -->
+    <include domain="database" path="hometutorpro.db"/>
+    <include domain="sharedpref" path="db_security_prefs"/>
+    
+    <!-- Include user settings from DataStore -->
     <include domain="file" path="datastore/"/>
 </full-backup-content>

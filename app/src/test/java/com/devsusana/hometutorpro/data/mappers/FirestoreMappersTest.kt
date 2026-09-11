@@ -1,6 +1,6 @@
 package com.devsusana.hometutorpro.data.mappers
 
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.data.local.entities.*
 import com.devsusana.hometutorpro.domain.repository.RemoteDocument
 import com.google.firebase.firestore.DocumentSnapshot

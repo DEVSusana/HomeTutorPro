@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.BuildConfig
 import com.devsusana.hometutorpro.R
-import com.devsusana.hometutorpro.core.settings.SettingsManager
+import com.devsusana.hometutorpro.domain.entities.AppThemeMode
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsItem
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsSectionTitle
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
@@ -320,7 +320,7 @@ fun SettingsContent(
     onClassEndNotificationsToggle: (Boolean) -> Unit,
     onShowTestNotification: () -> Unit,
     onLanguageChange: (String) -> Unit,
-    onThemeModeChange: (SettingsManager.ThemeMode) -> Unit,
+    onThemeModeChange: (AppThemeMode) -> Unit,
     onDebugPremiumToggle: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
@@ -328,6 +328,7 @@ fun SettingsContent(
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showSueHelpDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -450,11 +451,27 @@ fun SettingsContent(
                     icon = Icons.Default.Palette,
                     title = stringResource(R.string.settings_theme),
                     subtitle = when (state.themeMode) {
-                        SettingsManager.ThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
-                        SettingsManager.ThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
-                        SettingsManager.ThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
+                        AppThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
+                        AppThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
+                        AppThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
                     },
                     onClick = { showThemeDialog = true }
+                )
+            }
+
+            // Sue Help Section
+            SettingsSectionTitle("Asistente SUE")
+            Card(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = "Guía de comandos de SUE",
+                    subtitle = "Aprende cómo hablarle a SUE",
+                    onClick = { showSueHelpDialog = true }
                 )
             }
 
@@ -530,7 +547,7 @@ fun SettingsContent(
                 Column {
                     TextButton(
                         onClick = {
-                            onLanguageChange(SettingsManager.LANGUAGE_ENGLISH)
+                            onLanguageChange("en")
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -545,7 +562,7 @@ fun SettingsContent(
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick = {
-                            onLanguageChange(SettingsManager.LANGUAGE_SPANISH)
+                            onLanguageChange("es")
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -582,9 +599,9 @@ fun SettingsContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.LIGHT,
+                            selected = state.themeMode == AppThemeMode.LIGHT,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.LIGHT)
+                                onThemeModeChange(AppThemeMode.LIGHT)
                                 showThemeDialog = false
                             }
                         )
@@ -604,9 +621,9 @@ fun SettingsContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.DARK,
+                            selected = state.themeMode == AppThemeMode.DARK,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.DARK)
+                                onThemeModeChange(AppThemeMode.DARK)
                                 showThemeDialog = false
                             }
                         )
@@ -623,12 +640,12 @@ fun SettingsContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.SYSTEM,
+                            selected = state.themeMode == AppThemeMode.SYSTEM,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.SYSTEM)
+                                onThemeModeChange(AppThemeMode.SYSTEM)
                                 showThemeDialog = false
                             }
                         )
@@ -649,6 +666,98 @@ fun SettingsContent(
         )
     }
 
+    if (showSueHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showSueHelpDialog = false },
+            title = { Text("Guía de Ayuda de SUE") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "SUE es tu asistente inteligente local. Puedes pedirle que realice tareas mediante comandos de voz coloquiales.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text("Ejemplos de Comandos Soportados:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    HelpExampleItem(
+                        intent = "Crear Alumno",
+                        examples = listOf(
+                            "\"Crea un alumno llamado Pepe los miércoles a las 3 de la tarde\"",
+                            "\"Añade un estudiante llamado Ana de bachillerato a 15 la hora\""
+                        )
+                    )
+                    HelpExampleItem(
+                        intent = "Consultar Horario",
+                        examples = listOf(
+                            "\"¿Qué clases tengo el viernes?\"",
+                            "\"¿Qué clase tengo hoy a las 1800?\"",
+                            "\"¿Cuál es mi siguiente clase?\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Consultar Huecos Libres",
+                        examples = listOf(
+                            "\"¿Tengo huecos libres hoy?\"",
+                            "\"¿Qué huecos libres tengo esta semana?\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Consultar Clases Canceladas",
+                        examples = listOf(
+                            "\"¿Qué clases tengo canceladas hoy?\"",
+                            "\"¿Tengo alguna clase cancelada el jueves?\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Mover o Reprogramar Clases",
+                        examples = listOf(
+                            "\"Mueve la clase de Pepe del lunes al viernes\"",
+                            "\"Reprograma la clase de Ana de hoy para mañana a las 5 de la tarde\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Cancelar Clases",
+                        examples = listOf(
+                            "\"Cancela la clase de Pepe de este viernes\"",
+                            "\"Borra el horario de Ana los martes\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Pagos y Deudas",
+                        examples = listOf(
+                            "\"Pepe me ha pagado 30 euros en efectivo\"",
+                            "\"Súmale 20 euros a la deuda de Ana\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Iniciar Clases",
+                        examples = listOf(
+                            "\"Inicia una clase con Pepe de 60 minutos\""
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSueHelpDialog = false }) {
+                    Text("Entendido")
+                }
+            }
+        )
+    }
+
     // Backup Feedback
     state.backupMessage?.let { message ->
         FeedbackDialog(
@@ -659,6 +768,27 @@ fun SettingsContent(
     }
 }
 
+@Composable
+private fun HelpExampleItem(intent: String, examples: List<String>) {
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Text(
+            text = intent,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        examples.forEach { example ->
+            Text(
+                text = example,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun SettingsContentPreview() {
@@ -666,7 +796,7 @@ private fun SettingsContentPreview() {
         SettingsContent(
             state = SettingsState(
                 language = "en",
-                themeMode = SettingsManager.ThemeMode.SYSTEM
+                themeMode = AppThemeMode.SYSTEM
             ),
             onEditProfileClick = {},
             onChangePasswordClick = {},

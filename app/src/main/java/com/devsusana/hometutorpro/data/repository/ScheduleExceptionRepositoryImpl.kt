@@ -32,6 +32,11 @@ class ScheduleExceptionRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getAllExceptions(professorId: String): List<ScheduleException> =
+        withContext(Dispatchers.IO) {
+            exceptionDao.getAllExceptionsOnce(professorId).map { it.toDomain() }
+        }
+
     override suspend fun saveException(professorId: String, studentId: String, exception: ScheduleException): Result<Unit, DomainError> {
         return withContext(Dispatchers.IO) {
             try {

@@ -341,6 +341,7 @@
     <string name="weekly_schedule_no_classes_grid">No classes</string>
     <string name="weekly_schedule_cancelled">Cancelled</string>
     <string name="weekly_schedule_rescheduled">⚠️ Rescheduled</string>
+    <string name="weekly_schedule_extra">Extra Class</string>
     <string name="weekly_schedule_success_exception_saved">Exception saved successfully</string>
     <string name="weekly_schedule_error_schedule_conflict">Schedule conflict! This time slot is already taken.</string>
     <string name="weekly_schedule_error_conflicting_student_format">Schedule conflict! %1$s has a class at %2$s</string>
@@ -636,4 +637,13 @@
     <string name="premium_subscribe_button">Subscribe for %s</string>
     <string name="premium_error_not_found">Product details not found. Please check your internet connection or try again later.</string>
     <string name="premium_go_back">Go Back</string>
+
+    <!-- Sue AI Agent -->
+    <string name="sue_fab_content_description">Sue AI Assistant</string>
+    <string name="sue_listening_title">Listening…</string>
+    <string name="sue_listening_hint">Speak now…</string>
+    <string name="sue_cancel">Cancel</string>
+    <string name="sue_error_permission">Microphone permission is required for Sue to listen.</string>
+    <string name="sue_error_model_not_loaded">AI model is not loaded. Please check the setup guide.</string>
+    <string name="sue_loading_assistant_brain">Initializing assistant brain…</string>
 </resources>

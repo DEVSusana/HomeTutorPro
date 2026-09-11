@@ -30,6 +30,9 @@ import javax.inject.Inject
 import java.text.Collator
 import java.util.Locale
 
+import com.devsusana.hometutorpro.data.local.dao.ClassLogDao
+import com.devsusana.hometutorpro.data.local.dao.TransactionLogDao
+
 /**
  * Hybrid implementation of StudentRepository for Premium flavor.
  * Uses Room as the single source of truth for the UI (offline-first).
@@ -41,6 +44,8 @@ class StudentRepositoryImpl @Inject constructor(
     private val scheduleExceptionDao: ScheduleExceptionDao,
     private val resourceDao: com.devsusana.hometutorpro.data.local.dao.ResourceDao,
     private val sharedResourceDao: SharedResourceDao,
+    private val classLogDao: ClassLogDao,
+    private val transactionLogDao: TransactionLogDao,
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
     private val syncScheduler: SyncScheduler
@@ -109,6 +114,17 @@ class StudentRepositoryImpl @Inject constructor(
                     syncStatus = SyncStatus.PENDING_UPLOAD,
                     timestamp = System.currentTimeMillis()
                 )
+
+                transactionLogDao.insertTransaction(
+                    com.devsusana.hometutorpro.data.local.entities.TransactionLogEntity(
+                        professorId = professorId,
+                        studentId = id,
+                        type = "PAYMENT",
+                        amount = amountPaid,
+                        paymentType = paymentType.name,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
                 
                 syncScheduler.scheduleSyncNow()
                 
@@ -163,6 +179,20 @@ class StudentRepositoryImpl @Inject constructor(
                 // Pre-check student existence
                 val student = studentDao.getStudentById(id, professorId).firstOrNull()
                     ?: return@withContext Result.Error(DomainError.StudentNotFound)
+
+                val diff = newBalance - student.pendingBalance
+                if (diff != 0.0) {
+                    transactionLogDao.insertTransaction(
+                        com.devsusana.hometutorpro.data.local.entities.TransactionLogEntity(
+                            professorId = professorId,
+                            studentId = id,
+                            type = if (diff > 0) "BALANCE_ADD" else "BALANCE_SUBTRACT",
+                            amount = kotlin.math.abs(diff),
+                            paymentType = null,
+                            timestamp = System.currentTimeMillis()
+                        )
+                    )
+                }
 
                 studentDao.updateBalanceOnly(
                     studentId = id,
@@ -268,6 +298,29 @@ class StudentRepositoryImpl @Inject constructor(
                 val newCompletionStatus = !currentSchedule.isCompleted
                 val completedDate = if (newCompletionStatus) System.currentTimeMillis() else null
                 
+                if (newCompletionStatus) {
+                    classLogDao.insertLog(
+                        com.devsusana.hometutorpro.data.local.entities.ClassLogEntity(
+                            professorId = professorId,
+                            studentId = currentSchedule.studentId,
+                            scheduleId = scheduleId,
+                            date = System.currentTimeMillis(),
+                            startTime = currentSchedule.startTime,
+                            endTime = currentSchedule.endTime,
+                            isExtra = false
+                        )
+                    )
+                } else {
+                    // Find and delete the log for this schedule completed today
+                    val todayStart = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    val todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1
+                    val logs = classLogDao.getLogsByStudent(currentSchedule.studentId, professorId)
+                    val matchingLog = logs.firstOrNull { it.scheduleId == scheduleId && it.date in todayStart..todayEnd }
+                    if (matchingLog != null) {
+                        classLogDao.deleteLogById(matchingLog.id, professorId)
+                    }
+                }
+
                 scheduleDao.updateCompletionStatus(
                     id = id,
                     professorId = professorId,

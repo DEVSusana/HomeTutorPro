@@ -1,107 +1,57 @@
 package com.devsusana.hometutorpro.data.billing
 
-import android.app.Activity
-import android.content.Context
 import com.android.billingclient.api.*
-import com.android.billingclient.api.PendingPurchasesParams
-import com.devsusana.hometutorpro.BuildConfig
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
-import com.devsusana.hometutorpro.core.settings.SettingsManager
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 
+/**
+ * Data-layer implementation of [PremiumBillingService] that manages in-app billing
+ * using the Google Play Billing Library.
+ *
+ * Handles product queries, purchase status tracking, and subscription state persistence.
+ * This class does **not** interact with any UI components; the purchase flow launch
+ * is delegated to a presentation-layer [com.devsusana.hometutorpro.presentation.premium.BillingLauncher].
+ */
 @Singleton
 class BillingManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    private val settingsManager: SettingsManager
+    billingClientBuilder: BillingClient.Builder
 ) : PurchasesUpdatedListener, PremiumBillingService {
 
     private val _realPremium = MutableStateFlow(false)
-    private val _isPremium = MutableStateFlow(false)
-    override val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
 
-    private val billingClient = BillingClient.newBuilder(context)
+    /** Exposed Flow containing the active premium/subscription status. */
+    override val isPremium: StateFlow<Boolean> = _realPremium.asStateFlow()
+
+    private val billingClient: BillingClient = billingClientBuilder
         .setListener(this)
-        .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .build()
 
     private var lastProductDetails: ProductDetails? = null
 
-    init {
-        startConnection()
-        // Combine real premium status with debug preference
-        CoroutineScope(Dispatchers.Main).launch {
-            combine(_realPremium, settingsManager.isDebugPremiumFlow) { real, debug ->
-                if (BuildConfig.DEBUG) {
-                    // In DEBUG, strict control via toggle to allow testing non-premium state
-                    debug
-                } else {
-                    // In RELEASE, use real premium status
-                    real
-                }
-            }.collect { combined ->
-                _isPremium.value = combined
-            }
-        }
+    /**
+     * Launches the Google Play billing flow for the premium subscription using cached product details.
+     *
+     * @param activity The host activity required by the Google Play Billing Library.
+     */
+    fun launchPurchaseFlow(activity: android.app.Activity) {
+        val details = lastProductDetails ?: return
+        launchPurchaseFlow(activity, details)
     }
 
-    private fun startConnection() {
-        billingClient.startConnection(object : BillingClientStateListener {
-            override fun onBillingSetupFinished(billingResult: BillingResult) {
-                if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    queryPurchases()
-                }
-            }
-
-            override fun onBillingServiceDisconnected() {
-                // Retry connection
-                // For simplicity, we just log or try again later
-            }
-        })
-    }
-
-    fun queryPurchases() {
-        val params = QueryPurchasesParams.newBuilder()
-            .setProductType(BillingClient.ProductType.SUBS)
-            .build()
-
-        billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                processPurchases(purchases)
-            }
-        }
-    }
-
-    private fun processPurchases(purchases: List<Purchase>) {
-        var hasPremium = false
-        for (purchase in purchases) {
-            if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED &&
-                purchase.products.contains(PREMIUM_PRODUCT_ID)
-            ) {
-                hasPremium = true
-            }
-        }
-        _realPremium.value = hasPremium
-    }
-
-    override fun onPurchasesUpdated(billingResult: BillingResult, purchases: List<Purchase>?) {
-        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
-            processPurchases(purchases)
-        }
-    }
-
-    private fun launchPurchaseFlow(activity: Activity, productDetails: ProductDetails) {
+    /**
+     * Launches the Google Play billing flow for the specified product.
+     *
+     * @param activity The host activity required by the Google Play Billing Library.
+     * @param productDetails The Google Play product details to purchase.
+     */
+    fun launchPurchaseFlow(activity: android.app.Activity, productDetails: ProductDetails) {
         val flowParams = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(
                 listOf(
@@ -120,6 +70,78 @@ class BillingManager @Inject constructor(
         billingClient.launchBillingFlow(activity, flowParams)
     }
 
+    init {
+        startConnection()
+    }
+
+    /**
+     * Establishes a connection to the Google Play Billing service.
+     * On successful setup, triggers [queryPurchases] to restore existing entitlements.
+     */
+    private fun startConnection() {
+        billingClient.startConnection(object : BillingClientStateListener {
+            override fun onBillingSetupFinished(billingResult: BillingResult) {
+                if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                    queryPurchases()
+                }
+            }
+
+            override fun onBillingServiceDisconnected() {
+                // Connection lost. Retries are handled during user-triggered billing actions.
+            }
+        })
+    }
+
+    /**
+     * Queries the Google Play Store for existing purchases associated with the user's account.
+     */
+    fun queryPurchases() {
+        val params = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.SUBS)
+            .build()
+
+        billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                processPurchases(purchases)
+            }
+        }
+    }
+
+    /**
+     * Evaluates a list of purchases and updates the premium status accordingly.
+     *
+     * @param purchases The list of [Purchase] objects returned by the Billing Library.
+     */
+    private fun processPurchases(purchases: List<Purchase>) {
+        var hasPremium = false
+        for (purchase in purchases) {
+            if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                purchase.products.contains(PREMIUM_PRODUCT_ID)
+            ) {
+                hasPremium = true
+            }
+        }
+        _realPremium.value = hasPremium
+    }
+
+    /**
+     * Callback triggered by the Google Play Billing Library when any purchase updates occur.
+     *
+     * @param billingResult The result of the billing operation.
+     * @param purchases The list of updated purchases, or null if none.
+     */
+    override fun onPurchasesUpdated(billingResult: BillingResult, purchases: List<Purchase>?) {
+        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
+            processPurchases(purchases)
+        }
+    }
+
+    /**
+     * Fetches pricing and details for a specific product ID from the Google Play Store.
+     *
+     * @param productId The ID of the product to query.
+     * @param onResult Callback invoked with the [ProductDetails] if found, or null otherwise.
+     */
     private fun queryProductDetails(productId: String, onResult: (ProductDetails?) -> Unit) {
         val productList = listOf(
             QueryProductDetailsParams.Product.newBuilder()
@@ -140,6 +162,11 @@ class BillingManager @Inject constructor(
         }
     }
 
+    /**
+     * Suspends until product details are fetched and returns a [PremiumProduct] mapping.
+     *
+     * @return The formatted product information, or null if the query failed.
+     */
     override suspend fun getPremiumProduct(): PremiumProduct? {
         return suspendCancellableCoroutine { continuation ->
             queryProductDetails(PREMIUM_PRODUCT_ID) { details ->
@@ -163,12 +190,8 @@ class BillingManager @Inject constructor(
         }
     }
 
-    override fun launchPremiumPurchase(activity: Activity) {
-        val details = lastProductDetails ?: return
-        launchPurchaseFlow(activity, details)
-    }
-
     companion object {
-        private const val PREMIUM_PRODUCT_ID = "hometutorpro_premium"
+        /** The Google Play product ID for the premium subscription. */
+        internal const val PREMIUM_PRODUCT_ID = "hometutorpro_premium"
     }
 }

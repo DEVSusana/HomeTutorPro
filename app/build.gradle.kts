@@ -17,7 +17,7 @@ android {
 
     defaultConfig {
         applicationId = "com.devsusana.hometutorpro"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 108
         versionName = "1.0.8"
@@ -100,6 +100,14 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    packaging {
+        resources {
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/io.netty.versions.properties"
+            excludes += "META-INF/DEPENDENCIES"
+        }
+    }
 }
 
 kotlin {
@@ -158,6 +166,12 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
 
+    // Koog AI Agent Framework (Sue)
+    implementation(libs.koog.agents)
+
+    // MediaPipe LLM Inference — on-device Gemma (Sue)
+    implementation(libs.mediapipe.tasks.genai)
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -175,6 +189,7 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.androidx.room.testing)
     kspAndroidTest(libs.hilt.android.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

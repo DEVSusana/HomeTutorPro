@@ -6,12 +6,19 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Include user settings from DataStore. Everything else is excluded by default. -->
+
+        <!-- Include the encrypted database and its security preferences -->
+        <include domain="database" path="hometutorpro.db"/>
+        <include domain="sharedpref" path="db_security_prefs"/>
+
+        <!-- Include user settings from DataStore -->
         <include domain="file" path="datastore/"/>
     </cloud-backup>
 
     <device-transfer>
-        <!-- Include user settings from DataStore. Everything else is excluded by default. -->
+        <!-- Similar rules for device transfer to maintain security and consistency -->
+        <include domain="database" path="hometutorpro.db"/>
+        <include domain="sharedpref" path="db_security_prefs"/>
         <include domain="file" path="datastore/"/>
     </device-transfer>
 </data-extraction-rules>

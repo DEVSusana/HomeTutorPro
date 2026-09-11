@@ -11,10 +11,6 @@ interface IUpdateProfileUseCase {
      * Executes the use case.
      */
     suspend operator fun invoke(
-        name: String, 
-        email: String, 
-        workingStartTime: String, 
-        workingEndTime: String,
-        notes: String
+        params: com.devsusana.hometutorpro.domain.entities.UpdateUserParams
     ): Result<Unit, DomainError>
 }

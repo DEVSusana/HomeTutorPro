@@ -55,11 +55,13 @@ class NotesViewModel @Inject constructor(
             val currentState = state.value
             
             val result = updateProfileUseCase(
-                currentState.name,
-                currentState.email,
-                currentState.workingStartTime,
-                currentState.workingEndTime,
-                currentState.notes
+                com.devsusana.hometutorpro.domain.entities.UpdateUserParams(
+                    name = currentState.name,
+                    email = currentState.email,
+                    workingStartTime = currentState.workingStartTime,
+                    workingEndTime = currentState.workingEndTime,
+                    notes = currentState.notes
+                )
             )
 
             when (result) {

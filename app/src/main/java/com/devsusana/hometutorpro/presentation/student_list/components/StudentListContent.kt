@@ -46,18 +46,6 @@ fun StudentListContent(
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddStudentClick,
-                modifier = Modifier.testTag("add_student_button"),
-                elevation = FloatingActionButtonDefaults.elevation(
-                    defaultElevation = 6.dp,
-                    pressedElevation = 12.dp
-                )
-            ) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.student_list_add_student))
-            }
         }
     ) { padding ->
         Column(
@@ -141,7 +129,7 @@ fun StudentListContent(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(
                         top = 8.dp,
-                        bottom = 80.dp, // Space for FAB
+                        bottom = 160.dp, // Space for stacked FABs (Add Student + Sue)
                         start = 12.dp,
                         end = 12.dp
                     ),

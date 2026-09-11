@@ -1,10 +1,13 @@
 package com.devsusana.hometutorpro.presentation.settings
 
-import com.devsusana.hometutorpro.core.settings.SettingsManager
+import com.devsusana.hometutorpro.domain.entities.AppThemeMode
 
+/**
+ * State representing settings UI options.
+ */
 data class SettingsState(
     val language: String = "es",
-    val themeMode: SettingsManager.ThemeMode = SettingsManager.ThemeMode.SYSTEM,
+    val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val classEndNotificationsEnabled: Boolean = true,
     val isDebugPremium: Boolean = false,
     val isBackupLoading: Boolean = false,
