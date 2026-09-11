@@ -60,6 +60,16 @@
 -keep class com.devsusana.hometutorpro.domain.entities.** { *; }
 
 # ============================================================================
+# AndroidX Credentials & Google Identity
+# ============================================================================
+-keep class androidx.credentials.** { *; }
+-keep class androidx.credentials.playservices.** { *; }
+-keep class com.google.android.libraries.identity.googleid.** { *; }
+-keepnames class com.google.android.libraries.identity.googleid.**
+-dontwarn androidx.credentials.**
+-dontwarn com.google.android.libraries.identity.googleid.**
+
+# ============================================================================
 # Kotlin Coroutines
 # ============================================================================
 

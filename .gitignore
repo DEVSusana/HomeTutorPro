@@ -31,7 +31,8 @@ __pycache__/
 *.py[cod]
 .aider*
 
-# Local SQLite databases
+# Release builds & binaries
+/app/release/
 *.db
 *.db-shm
 *.db-wal
