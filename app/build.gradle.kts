@@ -238,3 +238,12 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         )
     })
 }
+
+tasks.configureEach {
+    if (this is com.android.build.gradle.internal.tasks.FinalizeBundleTask) {
+        val buildTypeName = this.variantName
+        val newName = "HomeTutorPro-v${android.defaultConfig.versionName}-$buildTypeName.aab"
+        val finalFile = File(finalBundleFile.asFile.get().parentFile, newName)
+        finalBundleFile.set(finalFile)
+    }
+}

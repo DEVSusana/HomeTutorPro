@@ -18,3 +18,7 @@ interface IShowTestNotificationUseCase {
 interface IScheduleClassEndNotificationUseCase {
     operator fun invoke(studentName: String, durationMinutes: Long): Boolean
 }
+
+interface ICancelClassEndNotificationUseCase {
+    operator fun invoke()
+}

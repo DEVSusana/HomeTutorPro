@@ -45,6 +45,12 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindActiveSessionRepository(
+        activeSessionRepositoryImpl: ActiveSessionRepositoryImpl
+    ): IActiveSessionRepository
+
+    @Binds
+    @Singleton
     abstract fun bindRemoteDataSource(
         firestoreRemoteDataSource: FirestoreRemoteDataSource
     ): RemoteDataSource

@@ -38,6 +38,7 @@ import java.time.ZoneId
 import javax.inject.Inject
 
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
 import androidx.compose.runtime.Immutable
 
 
@@ -54,6 +55,7 @@ class DashboardViewModel @Inject constructor(
     private val saveStudentUseCase: ISaveStudentUseCase,
     private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
+    private val startActiveSessionUseCase: IStartActiveSessionUseCase,
     private val application: Application
 ) : ViewModel() {
 
@@ -235,6 +237,17 @@ class DashboardViewModel @Inject constructor(
                 
                 when (saveStudentUseCase(uid, updatedStudent)) {
                     is Result.Success<*> -> {
+                        startActiveSessionUseCase(
+                            com.devsusana.hometutorpro.domain.entities.ActiveSession(
+                                studentId = student.id,
+                                studentName = student.name,
+                                startTimeMillis = System.currentTimeMillis(),
+                                durationMinutes = durationMinutes.toLong(),
+                                isOngoing = true
+                            )
+                        )
+                        com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget.updateWidget(application)
+
                         scheduleClassEndNotificationUseCase(
                             student.name,
                             durationMinutes.toLong()

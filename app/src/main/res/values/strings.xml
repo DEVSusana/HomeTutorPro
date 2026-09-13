@@ -636,4 +636,14 @@
     <string name="premium_subscribe_button">Subscribe for %s</string>
     <string name="premium_error_not_found">Product details not found. Please check your internet connection or try again later.</string>
     <string name="premium_go_back">Go Back</string>
+
+    <!-- Widget strings -->
+    <string name="widget_title">Class Timer</string>
+    <string name="widget_description">Shows current class remaining time and next student.</string>
+    <string name="widget_no_active_class">No active class</string>
+    <string name="widget_next_student">Next: %s</string>
+    <string name="widget_no_upcoming_class">No upcoming classes</string>
+    <string name="widget_start_class">Start</string>
+    <string name="widget_stop_class">Stop</string>
+    <string name="widget_ongoing_class">Current: %s</string>
 </resources>

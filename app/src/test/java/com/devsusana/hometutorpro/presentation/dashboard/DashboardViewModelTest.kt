@@ -29,6 +29,7 @@ class DashboardViewModelTest {
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
     private lateinit var saveStudentUseCase: ISaveStudentUseCase
     private lateinit var generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase
+    private lateinit var startActiveSessionUseCase: IStartActiveSessionUseCase
     private lateinit var application: android.app.Application
     
     private lateinit var viewModel: DashboardViewModel
@@ -47,6 +48,7 @@ class DashboardViewModelTest {
         getStudentByIdUseCase = mockk()
         saveStudentUseCase = mockk()
         generateCalendarOccurrencesUseCase = mockk(relaxed = true)
+        startActiveSessionUseCase = mockk(relaxed = true)
         application = mockk(relaxed = true)
 
         val user = User(uid = "user123", email = "test@test.com", displayName = "Test User")
@@ -111,6 +113,7 @@ class DashboardViewModelTest {
             saveStudentUseCase,
             generateCalendarOccurrencesUseCase,
             scheduleClassEndNotificationUseCase,
+            startActiveSessionUseCase,
             application
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -163,6 +166,7 @@ class DashboardViewModelTest {
                 saveStudentUseCase,
                 generateCalendarOccurrencesUseCase,
                 scheduleClassEndNotificationUseCase,
+                startActiveSessionUseCase,
                 application
             )
             testDispatcher.scheduler.advanceUntilIdle()

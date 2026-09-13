@@ -4,16 +4,33 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.devsusana.hometutorpro.core.utils.NotificationHelper
+import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
+import com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget
+import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import javax.inject.Inject
 
 /**
  * BroadcastReceiver to handle scheduled class end notifications.
  */
+@AndroidEntryPoint
 class ClassEndReceiver : BroadcastReceiver() {
+
+    @Inject
+    lateinit var stopActiveSessionUseCase: IStopActiveSessionUseCase
+
     override fun onReceive(context: Context, intent: Intent) {
         android.util.Log.d("ClassEndReceiver", "onReceive called - alarm triggered!")
+        
+        // Clear active session and update widget
+        try {
+            stopActiveSessionUseCase()
+            ClassTimerWidget.updateWidget(context)
+        } catch (e: Exception) {
+            android.util.Log.e("ClassEndReceiver", "Error stopping session on receive", e)
+        }
         
         // Check if notifications are enabled in settings
         val settingsManager = EntryPointAccessors.fromApplication(
