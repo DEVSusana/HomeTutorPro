@@ -1,140 +1,135 @@
-# Sue — Guía de Configuración del Modelo Gemma 2B
+# 🤖 SUE — Guía de Configuración e Integración del Modelo On-Device (Gemma 3)
 
-## ¿Qué es esto?
+## 📌 Visión General
 
-Sue necesita un modelo de IA (Gemma 2B) instalado en el dispositivo Android para funcionar.
-Este modelo NO se incluye en el APK porque pesa ~1.5-2 GB.
-Hay que transferirlo manualmente al móvil usando `adb` (Android Debug Bridge).
+**SUE** (*Smart User Entity*) es la asistente inteligente local de **HomeTutorPro**. Funciona mediante inferencia de IA **100% en el propio dispositivo (Edge Computing / On-Device)** mediante **Google MediaPipe GenAI**, garantizando privacidad absoluta (RGPD), cero costes de servidores cloud y funcionamiento sin conexión a internet.
 
-**Solo necesitas hacer esto UNA VEZ por dispositivo.** El modelo se queda permanentemente
-en el almacenamiento privado de la app.
+Dado que los pesos de los modelos cuantizados pesan entre **~550 MB y ~1.5 GB**, el modelo no se empaqueta dentro del APK base para mantener la aplicación ligera. 
 
----
-
-## Prerequisitos
-
-1. **Modelo descargado:** Necesitas el archivo del modelo Gemma 2B en formato compatible
-   con MediaPipe (`.bin`). Descárgalo desde:
-   - [Kaggle - Google Gemma](https://www.kaggle.com/models/google/gemma)
-   - [HuggingFace - Google Gemma](https://huggingface.co/google/gemma-2b)
-   
-   > Busca la versión cuantizada para móvil, normalmente llamada algo como:
-   > `gemma-2b-it-gpu-int4.bin` o `gemma-2b-it-cpu-int4.bin`
-
-2. **USB Debugging activado** en tu dispositivo Android:
-   - Ve a `Ajustes > Acerca del teléfono > Número de compilación` (tócalo 7 veces)
-   - Ve a `Ajustes > Opciones de desarrollador > Depuración USB` → Activar
-
-3. **adb instalado** en tu Mac (ya viene con Android Studio):
-   - Comprueba que funciona: abre Terminal y escribe `adb devices`
-   - Si no lo encuentra, añade esto a tu `~/.zshrc`:
-     ```bash
-     export PATH="$PATH:$HOME/Library/Android/sdk/platform-tools"
-     ```
+Esta guía detalla cómo configurar, transferir y gestionar el modelo LLM tanto en entornos de desarrollo (mediante `adb`) como en producción.
 
 ---
 
-## Pasos para transferir el modelo
+## 🧠 Modelos Compatibles y Recomendados
 
-### Paso 1: Conecta el móvil por USB
+El motor de inferencia de HomeTutorPro utiliza **MediaPipe Tasks GenAI** y soporta modelos basados en arquitecturas abiertas cuantizadas a 4 bits (**INT4**):
 
-Conecta tu dispositivo Android al Mac con un cable USB.
-Si te pide "¿Confiar en este ordenador?", acepta.
+| Modelo | Tamaño en Disco | RAM Mínima / Recomendada | Idioma Español | Rendimiento / Uso |
+|---|---|---|---|---|
+| **Gemma 3 1B INT4** *(Recomendado)* | **~550 MB** | 4 GB / 6 GB | ⭐⭐⭐⭐⭐ (Excelente) | **Default:** Óptimo balance entre latencia, memoria y seguimiento de instrucciones en español. |
+| **Gemma 2 2B INT4** | ~1.5 GB | 6 GB / 8 GB | ⭐⭐⭐⭐ (Muy bueno) | Mayor capacidad de razonamiento complejo en dispositivos de gama media-alta. |
+| **Qwen 2.5 0.5B / 1.5B INT4** | ~260 MB - ~900 MB | 3 GB / 4 GB | ⭐⭐⭐ (Bueno) | Alternativa ultra-ligera para terminales con recursos muy limitados. |
 
-Verifica la conexión:
+> 📁 **Formatos de archivo admitidos:** `.bin` y `.task` (MediaPipe GenAI format).
+
+### Dónde obtener los modelos
+1. [Kaggle - Google Gemma Models](https://www.kaggle.com/models/google/gemma)
+2. [Hugging Face - Gemma 3 / Gemma 2](https://huggingface.co/google)
+3. [MediaPipe LLM Inference Guide & Model Conversions](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference)
+
+---
+
+## 🔍 Detección Dinámica del Modelo en la App
+
+La app cuenta con un escaneo automático dinámico implementado en `MediaPipeModelRepository`. Al inicializarse, busca en orden:
+
+1. **Almacenamiento interno privado:** `context.filesDir/sue_model/`
+2. **Almacenamiento externo privado de la app:** `context.getExternalFilesDir(null)/sue_model/`
+
+> 💡 **Detección inteligente:** No es necesario que el archivo tenga un nombre exacto. La app detectará automáticamente el primer archivo con extensión `.bin` o `.task` presente en la carpeta `sue_model/`.
+
+---
+
+## 🛠️ Transferencia Manual del Modelo vía ADB (Desarrollo)
+
+### Prerrequisitos
+1. **USB Debugging activado** en tu dispositivo Android (`Ajustes > Opciones de desarrollador > Depuración USB`).
+2. **Conexión ADB funcional** verificada desde la terminal del Mac:
+   ```bash
+   adb devices
+   ```
+   *(Si el comando no existe, asegúrate de tener en tu `~/.zshrc`: `export PATH="$PATH:$HOME/Library/Android/sdk/platform-tools"`)*
+
+---
+
+### Paso a Paso para la Instalación
+
+#### 1. Conecta el dispositivo
+Conecta el móvil al Mac por cable USB y autoriza la depuración en la pantalla del dispositivo si aparece el cuadro de diálogo.
+
+#### 2. Transfiere el modelo con ADB
+
+Ubícate en la terminal en la carpeta donde tengas descargado el modelo (por ejemplo `gemma-3-1b-it-int4.task` o `gemma-3-1b-it-int4.bin`):
+
+**A) Para la versión de depuración (Debug / Android Studio - Recomendado):**
 ```bash
-adb devices
-```
-
-Deberías ver algo como:
-```
-List of devices attached
-XXXXXXXXX    device
-```
-
-Si dice `unauthorized`, desbloquea el móvil y acepta el diálogo de depuración USB.
-
-### Paso 2: Transfiere el modelo al dispositivo
-
-Navega en Terminal a la carpeta donde descargaste el modelo y ejecuta:
-
-**Para la versión de depuración (Debug) que corre desde Android Studio (Recomendado):**
-```bash
-# Crea la carpeta de destino en el dispositivo (nótese el sufijo .debug)
+# 1. Crear el directorio de destino
 adb shell mkdir -p /sdcard/Android/data/com.devsusana.hometutorpro.debug/files/sue_model/
 
-# Transfiere el modelo
-adb push gemma-2b-it-gpu-int4.bin /sdcard/Android/data/com.devsusana.hometutorpro.debug/files/sue_model/gemma-2b-it-gpu-int4.bin
+# 2. Transferir el archivo del modelo (sustituye por el nombre de tu archivo .task o .bin)
+adb push gemma-3-1b-it-int4.task /sdcard/Android/data/com.devsusana.hometutorpro.debug/files/sue_model/
 ```
 
-**Para la versión de producción (Release):**
+**B) Para la versión de producción (Release):**
 ```bash
-# Crea la carpeta de destino en el dispositivo
+# 1. Crear el directorio de destino
 adb shell mkdir -p /sdcard/Android/data/com.devsusana.hometutorpro/files/sue_model/
 
-# Transfiere el modelo
-adb push gemma-2b-it-gpu-int4.bin /sdcard/Android/data/com.devsusana.hometutorpro/files/sue_model/gemma-2b-it-gpu-int4.bin
+# 2. Transferir el archivo del modelo
+adb push gemma-3-1b-it-int4.task /sdcard/Android/data/com.devsusana.hometutorpro/files/sue_model/
 ```
 
-> ⏱ Esto puede tardar 1-3 minutos dependiendo de la velocidad USB.
-> Verás una barra de progreso:
-> ```
-> gemma-2b-it-gpu-int4.bin: 1 file pushed, 0 skipped. 45.2 MB/s (1536000000 bytes in 34.2s)
-> ```
+> ⏱️ **Tiempo estimado:** La transferencia suele tardar entre 15 y 45 segundos según la velocidad del puerto USB.
 
-### Paso 3: Arranca la app
-
-La app detectará automáticamente el modelo en su carpeta externa de archivos (`/sdcard/Android/data/com.devsusana.hometutorpro/files/sue_model/gemma-2b-it-gpu-int4.bin`) y lo cargará en memoria.
-
-### Paso 4: Verifica
-
-Pulsa el FAB de Sue en cualquier pantalla y habla. Si el modelo está cargado
-correctamente, Sue responderá. En el Logcat de Android Studio verás el mensaje: `Model loaded successfully`.
+#### 3. Verificar en la App y en Logcat
+1. Abre **HomeTutorPro** en el dispositivo.
+2. Pulsa el **FAB de Sue** (micrófono flotante) en cualquier pantalla.
+3. En el **Logcat** de Android Studio (filtrando por `MediaPipeModelRepository` o `SueViewModel`) verás:
+   ```text
+   MediaPipeModelRepository: Found model file: gemma-3-1b-it-int4.task
+   MediaPipeModelRepository: Model loaded successfully in 412ms.
+   ```
 
 ---
 
-## Preguntas Frecuentes
+## ⚡ Ingeniería de Memoria y Ciclo de Vida (Android 15-17)
 
-### ¿Tengo que repetir esto en cada build/reinstalación?
+HomeTutorPro incorpora protecciones avanzadas para evitar que el LLM sature la memoria RAM del sistema operativo:
 
-**No.** El modelo se guarda en el almacenamiento interno de la app y sobrevive a:
-- Reinstalaciones de debug (`Run` desde Android Studio)
-- Actualizaciones de la app
-
-Solo se borra si:
-- Desinstalas la app completamente
-- Haces "Borrar datos" desde Ajustes del móvil
-
-### ¿Y si cambio de dispositivo?
-
-Repite el `adb push` en el nuevo dispositivo.
-
-### ¿Qué modelo uso exactamente?
-
-Para el MVP usamos **Gemma 2B** cuantizado (INT4). Es el modelo más ligero que
-funciona bien en móviles con ≥6 GB de RAM.
-
-| Variante | Tamaño | Requisito RAM | Velocidad |
-|---|---|---|---|
-| `gemma-2b-it-gpu-int4.bin` | ~1.5 GB | 4-6 GB | Rápido (GPU) |
-| `gemma-2b-it-cpu-int4.bin` | ~1.5 GB | 4-6 GB | Más lento (CPU) |
-
-> Recomendamos la versión **GPU** (`gpu-int4`) para tu dispositivo con 8 GB de RAM.
-
-### ¿Puedo actualizar el modelo en el futuro?
-
-Sí. Simplemente repite el `adb push` con el nuevo archivo `.bin` (por ejemplo,
-Gemma 4 E2B cuando esté disponible en formato MediaPipe). La app detectará el nuevo
-modelo al arrancar.
+* **Carga Perezosa (Lazy Initialization):** El modelo no se carga al iniciar la app; únicamente se sube a memoria cuando el usuario pulsa el FAB para interactuar con Sue.
+* **Descarga Automática por Inactividad:** Si el usuario no realiza preguntas durante **2 minutos** (o tras **30 segundos** con el overlay cerrado), la instancia de `LlmInference` se libera de la RAM automáticamente.
+* **Blindaje ante Presión de Memoria:** Implementación de `ComponentCallbacks2.onTrimMemory(TRIM_MEMORY_RUNNING_CRITICAL / TRIM_MEMORY_COMPLETE)` que destruye la sesión del modelo inmediatamente si otra aplicación o el sistema requieren recursos.
+* **Compatibilidad con Páginas de 16 KB:** Los binarios nativos de MediaPipe GenAI están alineados para los requisitos de Android 15 y Android 16/17.
 
 ---
 
-## Para producción (futuro)
+## 🚀 Hoja de Ruta para Producción (Distribución OTA y Ajustes)
 
-Cuando publiques la app en Google Play, el modelo se distribuirá mediante
-**Play Asset Delivery (on-demand)**:
-- El usuario instala la app (ligera, ~50 MB)
-- La app le ofrece "Activar Sue" → se descarga el modelo (~2 GB) vía WiFi
-- No requiere adb ni conocimientos técnicos
+Para la versión comercial de Google Play Store, el usuario final no necesitará utilizar `adb`:
 
-Esta funcionalidad se implementará en una fase posterior.
+1. **Onboarding Interactivo (*User-Centric Opt-in*):**
+   - En el primer inicio, un diálogo explicativo ofrece al profesor activar a Sue o continuar en modo clásico (sin IA y con FAB oculto).
+2. **Descargador en la App (*In-App Model Downloader*):**
+   - Descarga directa en segundo plano vía HTTPS/WiFi a `context.filesDir/sue_model/` con indicador visual de progreso en tiempo real.
+3. **Panel de Control en Ajustes (`SettingsScreen`):**
+   - Switch para activar/desactivar a Sue.
+   - Switch para mostrar u ocultar el botón flotante (FAB).
+   - Botón de gestión de almacenamiento: **"Eliminar modelo de IA (Liberar 550 MB)"**.
+
+---
+
+## ❓ Preguntas Frecuentes (FAQ)
+
+### ¿Se borra el modelo si actualizo la app o hago un build nuevo?
+**No.** El modelo reside en el almacenamiento persistente (`files/sue_model/`) y sobrevive a reinstalaciones desde Android Studio y a actualizaciones de versión de la app. Solo se elimina si:
+- Se desinstala la aplicación por completo.
+- El usuario pulsa "Borrar almacenamiento" en los Ajustes del sistema.
+- El usuario pulsa "Eliminar modelo" en la pantalla de Ajustes de HomeTutorPro.
+
+### ¿Cómo sé si una respuesta vino del LLM o de la capa determinista?
+SUE implementa un **Fast-Path Determinista (0 ms)**:
+- Si pides ver huecos libres, cobros pendientes, deudas de un alumno o cancelaciones, la app consulta directamente la base de datos Room y responde de forma instantánea sin invocar al LLM.
+- Si haces una pregunta conversacional, de consejo pedagógico o abierta, la consulta pasa por el motor RAG y el modelo Gemma genera la respuesta.
+
+### ¿Puedo tener varios modelos en la carpeta `sue_model/`?
+La app tomará el primer archivo válido (`.bin` o `.task`) que encuentre. Para alternar entre modelos, se recomienda mantener únicamente el modelo que se desea utilizar en la carpeta.

@@ -469,6 +469,7 @@
     <string name="register_legal_disclaimer">By registering, you agree to our</string>
     <string name="register_legal_terms">Terms of Use</string>
     <string name="register_legal_privacy">Privacy Policy</string>
+    <string name="settings_developer_options">Developer Options</string>
     <string name="settings_debug_premium">Debug Premium Mode</string>
     <string name="settings_premium_status">Premium Status</string>
     <string name="settings_premium_active">Active</string>
@@ -646,4 +647,48 @@
     <string name="sue_error_permission">Microphone permission is required for Sue to listen.</string>
     <string name="sue_error_model_not_loaded">AI model is not loaded. Please check the setup guide.</string>
     <string name="sue_loading_assistant_brain">Initializing assistant brain…</string>
+
+    <!-- Permissions in Settings -->
+    <string name="settings_system_permissions_title">System Permissions</string>
+    <string name="settings_system_permissions_desc">Manage exact alarms and notification permissions in system settings</string>
+    <string name="settings_system_permissions_button">Open System Settings</string>
+
+    <!-- Sue Settings & Onboarding -->
+    <string name="sue_settings_section_title">SUE — On-Device AI Assistant</string>
+    <string name="sue_settings_enable_title">Enable SUE</string>
+    <string name="sue_settings_enable_desc">Allow voice assistant with local on-device intelligence</string>
+    <string name="sue_settings_fab_visibility_title">Show Floating Button (FAB)</string>
+    <string name="sue_settings_fab_visibility_desc">Show microphone shortcut on main screens</string>
+    <string name="sue_onboarding_title">Meet SUE, your on-device AI</string>
+    <string name="sue_onboarding_desc">SUE is an edge-AI assistant designed for private tutoring. She runs 100% locally on your phone using Gemma 3, guaranteeing complete data privacy, offline availability, and 0€ cloud costs.</string>
+    <string name="sue_onboarding_feature_privacy">100% Private (GDPR Compliant, no cloud)</string>
+    <string name="sue_onboarding_feature_offline">Works completely offline</string>
+    <string name="sue_onboarding_feature_model_size">Requires ~550 MB on-device model</string>
+    <string name="sue_onboarding_btn_enable">Activate SUE</string>
+    <string name="sue_onboarding_btn_classic">Classic Mode (without AI)</string>
+    <string name="sue_onboarding_change_anytime">You can change this anytime in Settings.</string>
+    <string name="sue_download_background_notice">Downloading Sue in the background. You can check the progress in Settings.</string>
+    <string name="sue_download_background_action">Settings</string>
+
+    <!-- Sue Model Management -->
+    <string name="sue_model_status_title">AI Model &amp; Storage</string>
+    <string name="sue_model_downloaded_badge">Model Downloaded (%s)</string>
+    <string name="sue_model_not_downloaded_badge">Model Not Downloaded</string>
+    <string name="sue_model_download_desc">The on-device model (~550 MB) enables private local AI without cloud servers. Wi-Fi connection recommended.</string>
+    <string name="sue_model_download_btn">Download AI Model (550 MB)</string>
+    <string name="sue_model_downloading">Downloading model: %1$d%% (%2$s / %3$s)</string>
+    <string name="sue_model_download_cancel_btn">Cancel Download</string>
+    <string name="sue_model_delete_btn">Delete AI Model (Free %s)</string>
+    <string name="sue_model_delete_confirm_title">Delete AI Model?</string>
+    <string name="sue_model_delete_confirm_desc">This will delete the 550 MB model file from your device storage. You can download it again anytime to continue using Sue.</string>
+    <string name="sue_model_delete_confirm_btn">Delete Model</string>
+    <string name="sue_model_delete_cancel_btn">Cancel</string>
+    <string name="sue_model_download_dialog_title">Download SUE Model</string>
+    <string name="sue_model_download_dialog_desc">To use Sue with 100% private on-device intelligence, download the Gemma 3 model (~550 MB).</string>
+
+    <!-- Sue Device Compatibility -->
+    <string name="sue_compatibility_unsupported_title">SUE not available on this device</string>
+    <string name="sue_compatibility_reason_android">SUE requires Android 9.0 (Pie) or higher to run on-device AI.</string>
+    <string name="sue_compatibility_reason_ram">SUE requires at least 4 GB of RAM to run on-device AI.</string>
+    <string name="sue_compatibility_reason_generic">This device does not meet the hardware requirements to run on-device AI.</string>
 </resources>

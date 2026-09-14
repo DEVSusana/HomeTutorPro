@@ -19,12 +19,18 @@ class NotifyClassEndUseCaseImplTest {
         override val isDebugPremiumFlow: Flow<Boolean> = flowOf(false)
         override val themeModeFlow: Flow<AppThemeMode> = flowOf(AppThemeMode.SYSTEM)
         override val isOnboardingCompletedFlow: Flow<Boolean> = flowOf(false)
+        override val isSueEnabledFlow: Flow<Boolean> = flowOf(true)
+        override val isSueFabVisibleFlow: Flow<Boolean> = flowOf(true)
+        override val isSueOnboardingCompletedFlow: Flow<Boolean> = flowOf(false)
         override suspend fun setOnboardingCompleted(completed: Boolean) {}
         override suspend fun setClassEndNotifications(enabled: Boolean) {}
         override suspend fun setLanguage(language: String) {}
         override suspend fun setViewMode(isGridView: Boolean) {}
         override suspend fun setDebugPremium(isPremium: Boolean) {}
         override suspend fun setThemeMode(mode: AppThemeMode) {}
+        override suspend fun setSueEnabled(enabled: Boolean) {}
+        override suspend fun setSueFabVisible(visible: Boolean) {}
+        override suspend fun setSueOnboardingCompleted(completed: Boolean) {}
     }
 
     private class FakeNotificationRepository : NotificationRepository {

@@ -11,16 +11,22 @@ object SafeLogger {
     
     fun e(tag: String, message: String, throwable: Throwable? = null) {
         val sanitizedMessage = sanitize(message)
-        Log.e(TAG_PREFIX + tag, sanitizedMessage, throwable)
-        
-        FirebaseCrashlytics.getInstance().apply {
-            log(sanitizedMessage)
-            throwable?.let { recordException(it) }
-        }
+        try {
+            Log.e(TAG_PREFIX + tag, sanitizedMessage, throwable)
+        } catch (_: Throwable) {}
+
+        try {
+            FirebaseCrashlytics.getInstance().apply {
+                log(sanitizedMessage)
+                throwable?.let { recordException(it) }
+            }
+        } catch (_: Throwable) {}
     }
 
     fun d(tag: String, message: String) {
-        Log.d(TAG_PREFIX + tag, sanitize(message))
+        try {
+            Log.d(TAG_PREFIX + tag, sanitize(message))
+        } catch (_: Throwable) {}
     }
 
     private fun sanitize(message: String): String {

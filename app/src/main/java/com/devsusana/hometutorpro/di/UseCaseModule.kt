@@ -192,6 +192,24 @@ abstract class UseCaseModule {
     abstract fun bindSetOnboardingCompletedUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetOnboardingCompletedUseCase): ISetOnboardingCompletedUseCase
 
     @Binds
+    abstract fun bindGetSueEnabledUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetSueEnabledUseCase): IGetSueEnabledUseCase
+
+    @Binds
+    abstract fun bindSetSueEnabledUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetSueEnabledUseCase): ISetSueEnabledUseCase
+
+    @Binds
+    abstract fun bindGetSueFabVisibleUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetSueFabVisibleUseCase): IGetSueFabVisibleUseCase
+
+    @Binds
+    abstract fun bindSetSueFabVisibleUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetSueFabVisibleUseCase): ISetSueFabVisibleUseCase
+
+    @Binds
+    abstract fun bindGetSueOnboardingCompletedUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetSueOnboardingCompletedUseCase): IGetSueOnboardingCompletedUseCase
+
+    @Binds
+    abstract fun bindSetSueOnboardingCompletedUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetSueOnboardingCompletedUseCase): ISetSueOnboardingCompletedUseCase
+
+    @Binds
     abstract fun bindNotifyClassEndUseCase(impl: NotifyClassEndUseCaseImpl): INotifyClassEndUseCase
 
     @Binds

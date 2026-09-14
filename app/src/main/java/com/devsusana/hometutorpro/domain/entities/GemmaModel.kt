@@ -1,7 +1,7 @@
 package com.devsusana.hometutorpro.domain.entities
 
 /**
- * Definition of the Gemma LLM model for the Koog agent framework.
+ * Configuration parameters for the on-device Gemma LLM model.
  */
 data class GemmaModel(
     val name: String = "gemma-2b-it-gpu-int4",

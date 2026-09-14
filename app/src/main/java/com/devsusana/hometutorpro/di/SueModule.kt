@@ -66,4 +66,35 @@ abstract class SueModule {
     abstract fun bindSueAgent(
         impl: com.devsusana.hometutorpro.domain.usecases.implementations.SueAgentImpl
     ): com.devsusana.hometutorpro.domain.usecases.ISueAgent
+
+    @Binds
+    @Singleton
+    abstract fun bindSueModelRepository(
+        impl: com.devsusana.hometutorpro.data.repository.SueModelRepositoryImpl
+    ): com.devsusana.hometutorpro.domain.repository.SueModelRepository
+
+    @Binds
+    abstract fun bindCheckSueCompatibilityUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.CheckSueCompatibilityUseCaseImpl
+    ): com.devsusana.hometutorpro.domain.usecases.ICheckSueCompatibilityUseCase
+
+    @Binds
+    abstract fun bindGetSueModelStatusUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetSueModelStatusUseCaseImpl
+    ): com.devsusana.hometutorpro.domain.usecases.IGetSueModelStatusUseCase
+
+    @Binds
+    abstract fun bindDownloadSueModelUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.DownloadSueModelUseCaseImpl
+    ): com.devsusana.hometutorpro.domain.usecases.IDownloadSueModelUseCase
+
+    @Binds
+    abstract fun bindCancelSueModelDownloadUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.CancelSueModelDownloadUseCaseImpl
+    ): com.devsusana.hometutorpro.domain.usecases.ICancelSueModelDownloadUseCase
+
+    @Binds
+    abstract fun bindDeleteSueModelUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.DeleteSueModelUseCaseImpl
+    ): com.devsusana.hometutorpro.domain.usecases.IDeleteSueModelUseCase
 }

@@ -147,3 +147,48 @@ interface ISetOnboardingCompletedUseCase {
      */
     suspend operator fun invoke(completed: Boolean)
 }
+
+/**
+ * Use case to observe whether Sue AI assistant is enabled.
+ */
+interface IGetSueEnabledUseCase {
+    operator fun invoke(): Flow<Boolean>
+}
+
+/**
+ * Use case to toggle Sue AI assistant enabled status.
+ */
+interface ISetSueEnabledUseCase {
+    suspend operator fun invoke(enabled: Boolean)
+}
+
+/**
+ * Use case to observe whether the Sue FAB is visible.
+ */
+interface IGetSueFabVisibleUseCase {
+    operator fun invoke(): Flow<Boolean>
+}
+
+/**
+ * Use case to toggle Sue FAB visibility.
+ */
+interface ISetSueFabVisibleUseCase {
+    suspend operator fun invoke(visible: Boolean)
+}
+
+/**
+ * Use case to observe whether Sue onboarding has been completed.
+ */
+interface IGetSueOnboardingCompletedUseCase {
+    operator fun invoke(): Flow<Boolean>
+}
+
+/**
+ * Use case to mark Sue onboarding as completed.
+ */
+interface ISetSueOnboardingCompletedUseCase {
+    suspend operator fun invoke(completed: Boolean)
+}
+
+
+

@@ -38,6 +38,8 @@ fun SueOverlay(
     onDismiss: () -> Unit,
     onConfirmAction: () -> Unit = {},
     onCancelAction: () -> Unit = {},
+    onDownloadModel: () -> Unit = {},
+    onCancelModelDownload: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
@@ -75,6 +77,9 @@ fun SueOverlay(
                     errorMessage = uiState.errorMessage,
                     pendingAction = uiState.pendingAction,
                     isModelLoading = uiState.isModelLoading,
+                    modelStatus = uiState.modelStatus,
+                    onDownloadModel = onDownloadModel,
+                    onCancelModelDownload = onCancelModelDownload,
                     onConfirmAction = onConfirmAction,
                     onCancelAction = onCancelAction,
                     onCancel = onDismiss

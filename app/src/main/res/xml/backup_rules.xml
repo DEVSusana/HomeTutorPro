@@ -4,9 +4,10 @@
    See https://developer.android.com/guide/topics/data/autobackup for details.
 -->
 <full-backup-content>
-    <!-- Include the encrypted database and its security preferences -->
-    <include domain="database" path="hometutorpro.db"/>
-    <include domain="sharedpref" path="db_security_prefs"/>
+    <!-- Exclude Keystore-encrypted preferences and encrypted database to prevent AEADBadTagException on restore -->
+    <exclude domain="sharedpref" path="db_security_prefs.xml"/>
+    <exclude domain="sharedpref" path="secure_auth_prefs.xml"/>
+    <exclude domain="database" path="hometutorpro.db"/>
     
     <!-- Include user settings from DataStore -->
     <include domain="file" path="datastore/"/>

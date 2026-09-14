@@ -25,6 +25,10 @@ android {
         testInstrumentationRunner = "com.devsusana.hometutorpro.CustomTestRunner"
     }
 
+    base {
+        archivesName.set("HomeTutorPro-v${defaultConfig.versionName}(${defaultConfig.versionCode})")
+    }
+
     signingConfigs {
         create("release") {
             val localProperties = Properties().apply {
@@ -165,9 +169,6 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
-
-    // Koog AI Agent Framework (Sue)
-    implementation(libs.koog.agents)
 
     // MediaPipe LLM Inference — on-device Gemma (Sue)
     implementation(libs.mediapipe.tasks.genai)

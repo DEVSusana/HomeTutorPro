@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.devsusana.hometutorpro.di
 
 import android.content.Context
@@ -106,17 +108,46 @@ object DatabaseModule {
         cryptographyProvider: CryptographyProvider,
         passwordHasher: PasswordHasher
     ): SecureAuthManager {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+        val sharedPreferences = try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
 
-        val sharedPreferences = EncryptedSharedPreferences.create(
-            context,
-            "secure_auth_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+            EncryptedSharedPreferences.create(
+                context,
+                "secure_auth_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            com.devsusana.hometutorpro.core.utils.SafeLogger.e(
+                "DatabaseModule",
+                "Failed to initialize secure_auth_prefs: ${e.message}. Recreating...",
+                e
+            )
+            SupportFactoryHelper.deletePreferencesFile(context, "secure_auth_prefs")
+            try {
+                val masterKey = MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+
+                EncryptedSharedPreferences.create(
+                    context,
+                    "secure_auth_prefs",
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (e2: Exception) {
+                com.devsusana.hometutorpro.core.utils.SafeLogger.e(
+                    "DatabaseModule",
+                    "Fallback to standard preferences for secure_auth_prefs: ${e2.message}",
+                    e2
+                )
+                context.getSharedPreferences("secure_auth_prefs", Context.MODE_PRIVATE)
+            }
+        }
         return SecureAuthManager(sharedPreferences, cryptographyProvider, passwordHasher)
     }
 }

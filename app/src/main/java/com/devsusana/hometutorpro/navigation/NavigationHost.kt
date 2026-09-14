@@ -26,6 +26,10 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -50,6 +54,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.domain.entities.SueModelStatus
 import com.devsusana.hometutorpro.navigation.graphs.authGraph
 import com.devsusana.hometutorpro.navigation.graphs.mainGraph
 import com.devsusana.hometutorpro.navigation.graphs.scheduleGraph
@@ -58,6 +63,7 @@ import com.devsusana.hometutorpro.presentation.components.BottomNavigationBar
 import com.devsusana.hometutorpro.presentation.components.rememberNavigationItems
 import com.devsusana.hometutorpro.presentation.sue.SueOverlay
 import com.devsusana.hometutorpro.presentation.sue.components.SueFab
+import com.devsusana.hometutorpro.presentation.sue.components.SueOnboardingDialog
 import com.devsusana.hometutorpro.presentation.viewmodels.SueViewModel
 import kotlinx.coroutines.launch
 
@@ -129,6 +135,7 @@ fun NavigationHost() {
             // Sue ViewModel — scoped at the navigation host level for global persistence
             val sueViewModel: SueViewModel = hiltViewModel()
             val sueUiState by sueViewModel.uiState.collectAsState()
+            val snackbarHostState = remember { SnackbarHostState() }
             
             val context = LocalContext.current
             val permissionLauncher = rememberLauncherForActivityResult(
@@ -140,6 +147,7 @@ fun NavigationHost() {
             }
 
             Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) },
                 bottomBar = {
                     if (showNavigation && !isLandscape && !forceHideBottomBar) {
                         BottomNavigationBar(navController)
@@ -172,16 +180,22 @@ fun NavigationHost() {
                                 }
                             }
                             
-                            SueFab(
-                                speechState = sueUiState.speechState,
-                                onClick = { 
-                                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                                        sueViewModel.onFabClick()
-                                    } else {
-                                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            if (sueUiState.isDeviceCompatible && 
+                                sueUiState.isSueEnabled && 
+                                sueUiState.isSueFabVisible && 
+                                sueUiState.modelStatus is SueModelStatus.Downloaded
+                            ) {
+                                SueFab(
+                                    speechState = sueUiState.speechState,
+                                    onClick = { 
+                                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                            sueViewModel.onFabClick()
+                                        } else {
+                                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -208,12 +222,35 @@ fun NavigationHost() {
                         scheduleGraph(navController)
                     }
 
-                    SueOverlay(
-                        uiState = sueUiState,
-                        onDismiss = { sueViewModel.onDismiss() },
-                        onConfirmAction = { sueViewModel.onConfirmAction() },
-                        onCancelAction = { sueViewModel.onCancelAction() }
-                    )
+                    if (sueUiState.isDeviceCompatible && sueUiState.isSueEnabled) {
+                        SueOverlay(
+                            uiState = sueUiState,
+                            onDismiss = { sueViewModel.onDismiss() },
+                            onConfirmAction = { sueViewModel.onConfirmAction() },
+                            onCancelAction = { sueViewModel.onCancelAction() },
+                            onDownloadModel = { sueViewModel.downloadModel() },
+                            onCancelModelDownload = { sueViewModel.cancelModelDownload() }
+                        )
+                    }
+
+                    if (showNavigation && sueUiState.isDeviceCompatible && !sueUiState.isSueOnboardingCompleted) {
+                        SueOnboardingDialog(
+                            onEnableSue = { 
+                                sueViewModel.enableSueFromOnboarding()
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = context.getString(R.string.sue_download_background_notice),
+                                        actionLabel = context.getString(R.string.sue_download_background_action),
+                                        duration = SnackbarDuration.Long
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        navController.navigate(Route.Settings)
+                                    }
+                                }
+                            },
+                            onClassicMode = { sueViewModel.disableSueFromOnboarding() }
+                        )
+                    }
                 }
             }
         }

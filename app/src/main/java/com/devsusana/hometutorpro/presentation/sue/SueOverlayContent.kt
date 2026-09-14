@@ -44,6 +44,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.layout.fillMaxSize
 
 /**
@@ -77,6 +78,9 @@ fun SueOverlayContent(
     modifier: Modifier = Modifier,
     pendingAction: SuePendingAction? = null,
     isModelLoading: Boolean = false,
+    modelStatus: com.devsusana.hometutorpro.domain.entities.SueModelStatus = com.devsusana.hometutorpro.domain.entities.SueModelStatus.NotDownloaded,
+    onDownloadModel: () -> Unit = {},
+    onCancelModelDownload: () -> Unit = {},
     onConfirmAction: () -> Unit = {},
     onCancelAction: () -> Unit = {}
 ) {
@@ -156,6 +160,66 @@ fun SueOverlayContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
+            // Model Downloading Progress Indicator
+            if (modelStatus is com.devsusana.hometutorpro.domain.entities.SueModelStatus.Downloading) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                ) {
+                    val percent = if (modelStatus.progress >= 0) (modelStatus.progress * 100).toInt() else 0
+                    val downloadedMb = modelStatus.bytesDownloaded / (1024 * 1024)
+                    val totalMb = if (modelStatus.totalBytes > 0) modelStatus.totalBytes / (1024 * 1024) else 550
+                    Text(
+                        text = stringResource(R.string.sue_model_downloading, percent, "${downloadedMb}MB", "${totalMb}MB"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (modelStatus.progress >= 0) {
+                        LinearProgressIndicator(
+                            progress = { modelStatus.progress },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(onClick = onCancelModelDownload) {
+                        Text(stringResource(R.string.sue_model_download_cancel_btn))
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            } else if (modelStatus is com.devsusana.hometutorpro.domain.entities.SueModelStatus.NotDownloaded && speechState == SpeechState.IDLE && agentResponse.isBlank() && finalTranscription.isBlank()) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.sue_model_download_dialog_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.sue_model_download_dialog_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = onDownloadModel) {
+                        Text(stringResource(R.string.sue_model_download_btn))
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }

@@ -10,6 +10,12 @@ import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.repository.SpeechService
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
 import com.devsusana.hometutorpro.domain.usecases.ISueAgent
+import com.devsusana.hometutorpro.domain.usecases.IGetSueEnabledUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetSueFabVisibleUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetSueOnboardingCompletedUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISetSueEnabledUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISetSueFabVisibleUseCase
+import com.devsusana.hometutorpro.domain.usecases.ISetSueOnboardingCompletedUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
 import com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
 import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
@@ -43,10 +49,21 @@ class SueViewModel @Inject constructor(
     private val sueAgent: ISueAgent,
     private val inferenceRepository: InferenceRepository,
     private val scheduleTools: ScheduleTools,
-    private val studentTools: StudentTools
+    private val studentTools: StudentTools,
+    private val getSueEnabledUseCase: IGetSueEnabledUseCase,
+    private val getSueFabVisibleUseCase: IGetSueFabVisibleUseCase,
+    private val getSueOnboardingCompletedUseCase: IGetSueOnboardingCompletedUseCase,
+    private val setSueEnabledUseCase: ISetSueEnabledUseCase,
+    private val setSueFabVisibleUseCase: ISetSueFabVisibleUseCase,
+    private val setSueOnboardingCompletedUseCase: ISetSueOnboardingCompletedUseCase,
+    private val getSueModelStatusUseCase: com.devsusana.hometutorpro.domain.usecases.IGetSueModelStatusUseCase,
+    private val downloadSueModelUseCase: com.devsusana.hometutorpro.domain.usecases.IDownloadSueModelUseCase,
+    private val cancelSueModelDownloadUseCase: com.devsusana.hometutorpro.domain.usecases.ICancelSueModelDownloadUseCase,
+    private val checkSueCompatibilityUseCase: com.devsusana.hometutorpro.domain.usecases.ICheckSueCompatibilityUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SueUiState())
+    private val compatibility = checkSueCompatibilityUseCase()
+    private val _uiState = MutableStateFlow(SueUiState(isDeviceCompatible = compatibility.isSupported, deviceCompatibility = compatibility))
     /** UI state for Sue's overlay and FAB. */
     val uiState: StateFlow<SueUiState> = _uiState.asStateFlow()
 
@@ -113,6 +130,33 @@ class SueViewModel @Inject constructor(
         collectPartialTranscriptions()
         collectErrors()
         collectModelState()
+        collectSueSettings()
+        collectSueModelStatus()
+    }
+
+    /**
+     * Activates Sue from the initial onboarding dialog.
+     */
+    fun enableSueFromOnboarding() {
+        viewModelScope.launch {
+            setSueEnabledUseCase(true)
+            setSueFabVisibleUseCase(true)
+            setSueOnboardingCompletedUseCase(true)
+            if (_uiState.value.isDeviceCompatible && _uiState.value.modelStatus !is com.devsusana.hometutorpro.domain.entities.SueModelStatus.Downloaded) {
+                downloadModel()
+            }
+        }
+    }
+
+    /**
+     * Sets classic mode from the initial onboarding dialog (disabling Sue and hiding FAB).
+     */
+    fun disableSueFromOnboarding() {
+        viewModelScope.launch {
+            setSueEnabledUseCase(false)
+            setSueFabVisibleUseCase(false)
+            setSueOnboardingCompletedUseCase(true)
+        }
     }
 
     /**
@@ -318,6 +362,46 @@ class SueViewModel @Inject constructor(
                 _uiState.update { it.copy(isModelLoading = loading) }
             }
         }
+    }
+
+    private fun collectSueSettings() {
+        viewModelScope.launch {
+            getSueEnabledUseCase().collect { enabled ->
+                _uiState.update { it.copy(isSueEnabled = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            getSueFabVisibleUseCase().collect { visible ->
+                _uiState.update { it.copy(isSueFabVisible = visible) }
+            }
+        }
+        viewModelScope.launch {
+            getSueOnboardingCompletedUseCase().collect { completed ->
+                _uiState.update { it.copy(isSueOnboardingCompleted = completed) }
+            }
+        }
+    }
+
+    private fun collectSueModelStatus() {
+        viewModelScope.launch {
+            getSueModelStatusUseCase().collect { status ->
+                _uiState.update { it.copy(modelStatus = status) }
+            }
+        }
+    }
+
+    /** Triggers on-device model download. */
+    fun downloadModel(url: String? = null) {
+        viewModelScope.launch {
+            downloadSueModelUseCase(url).collect {
+                // Flow updates repository state which is collected in collectSueModelStatus
+            }
+        }
+    }
+
+    /** Cancels an ongoing model download. */
+    fun cancelModelDownload() {
+        cancelSueModelDownloadUseCase()
     }
 
     // ──────────────────────────────────────────────────────────────────────────

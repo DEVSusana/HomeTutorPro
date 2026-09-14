@@ -1,6 +1,8 @@
 package com.devsusana.hometutorpro.presentation.settings
 
 import com.devsusana.hometutorpro.domain.entities.AppThemeMode
+import com.devsusana.hometutorpro.domain.entities.SueDeviceCompatibility
+import com.devsusana.hometutorpro.domain.entities.SueModelStatus
 
 /**
  * State representing settings UI options.
@@ -10,6 +12,11 @@ data class SettingsState(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val classEndNotificationsEnabled: Boolean = true,
     val isDebugPremium: Boolean = false,
+    val isSueEnabled: Boolean = true,
+    val isSueFabVisible: Boolean = true,
+    val sueDeviceCompatibility: SueDeviceCompatibility = SueDeviceCompatibility(isSupported = true),
+    val sueModelStatus: SueModelStatus = SueModelStatus.NotDownloaded,
+    val showDeleteModelConfirmDialog: Boolean = false,
     val isBackupLoading: Boolean = false,
     val backupMessage: String? = null,
     val isBackupSuccess: Boolean = false,

@@ -27,6 +27,15 @@ interface SettingsRepository {
     /** Emits whether onboarding is completed. */
     val isOnboardingCompletedFlow: Flow<Boolean>
 
+    /** Emits whether Sue AI assistant is enabled. */
+    val isSueEnabledFlow: Flow<Boolean>
+
+    /** Emits whether the Sue floating action button (FAB) is visible. */
+    val isSueFabVisibleFlow: Flow<Boolean>
+
+    /** Emits whether Sue onboarding has been completed. */
+    val isSueOnboardingCompletedFlow: Flow<Boolean>
+
     /**
      * Updates the onboarding completed status.
      *
@@ -68,4 +77,26 @@ interface SettingsRepository {
      * @param enabled True to enable notifications, false to disable.
      */
     suspend fun setClassEndNotifications(enabled: Boolean)
+
+    /**
+     * Toggles the Sue AI assistant enabled preference.
+     *
+     * @param enabled True to enable Sue, false to disable.
+     */
+    suspend fun setSueEnabled(enabled: Boolean)
+
+    /**
+     * Toggles the Sue FAB visibility preference.
+     *
+     * @param visible True to show the FAB, false to hide.
+     */
+    suspend fun setSueFabVisible(visible: Boolean)
+
+    /**
+     * Updates the Sue onboarding completed status.
+     *
+     * @param completed True if Sue onboarding is completed.
+     */
+    suspend fun setSueOnboardingCompleted(completed: Boolean)
 }
+

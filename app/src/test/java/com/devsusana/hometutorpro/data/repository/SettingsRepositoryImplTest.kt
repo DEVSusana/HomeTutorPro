@@ -57,6 +57,10 @@ class SettingsRepositoryImplTest {
             repository.setDebugPremium(false)
             repository.setThemeMode(AppThemeMode.SYSTEM)
             repository.setClassEndNotifications(true)
+            repository.setOnboardingCompleted(false)
+            repository.setSueEnabled(true)
+            repository.setSueFabVisible(true)
+            repository.setSueOnboardingCompleted(false)
         }
     }
 
@@ -139,4 +143,46 @@ class SettingsRepositoryImplTest {
         val enabled = repository.classEndNotificationsFlow.first()
         assertFalse(enabled)
     }
+
+    // Sue Preferences Tests
+
+    @Test
+    fun isSueEnabledFlow_defaultsToTrue() = testScope.runTest {
+        val enabled = repository.isSueEnabledFlow.first()
+        assertTrue(enabled)
+    }
+
+    @Test
+    fun setSueEnabled_toFalse_persistsCorrectly() = testScope.runTest {
+        repository.setSueEnabled(false)
+        val enabled = repository.isSueEnabledFlow.first()
+        assertFalse(enabled)
+    }
+
+    @Test
+    fun isSueFabVisibleFlow_defaultsToTrue() = testScope.runTest {
+        val visible = repository.isSueFabVisibleFlow.first()
+        assertTrue(visible)
+    }
+
+    @Test
+    fun setSueFabVisible_toFalse_persistsCorrectly() = testScope.runTest {
+        repository.setSueFabVisible(false)
+        val visible = repository.isSueFabVisibleFlow.first()
+        assertFalse(visible)
+    }
+
+    @Test
+    fun isSueOnboardingCompletedFlow_defaultsToFalse() = testScope.runTest {
+        val completed = repository.isSueOnboardingCompletedFlow.first()
+        assertFalse(completed)
+    }
+
+    @Test
+    fun setSueOnboardingCompleted_toTrue_persistsCorrectly() = testScope.runTest {
+        repository.setSueOnboardingCompleted(true)
+        val completed = repository.isSueOnboardingCompletedFlow.first()
+        assertTrue(completed)
+    }
 }
+

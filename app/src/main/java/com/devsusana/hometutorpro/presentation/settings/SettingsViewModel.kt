@@ -37,6 +37,15 @@ class SettingsViewModel @Inject constructor(
     private val createBackupUseCase: ICreateBackupUseCase,
     private val restoreBackupUseCase: IRestoreBackupUseCase,
     private val showTestNotificationUseCase: IShowTestNotificationUseCase,
+    private val getSueEnabledUseCase: IGetSueEnabledUseCase,
+    private val getSueFabVisibleUseCase: IGetSueFabVisibleUseCase,
+    private val setSueEnabledUseCase: ISetSueEnabledUseCase,
+    private val setSueFabVisibleUseCase: ISetSueFabVisibleUseCase,
+    private val getSueModelStatusUseCase: IGetSueModelStatusUseCase,
+    private val downloadSueModelUseCase: IDownloadSueModelUseCase,
+    private val cancelSueModelDownloadUseCase: ICancelSueModelDownloadUseCase,
+    private val deleteSueModelUseCase: IDeleteSueModelUseCase,
+    private val checkSueCompatibilityUseCase: ICheckSueCompatibilityUseCase,
     private val uriReader: IUriReader,
     private val logoutUseCase: com.devsusana.hometutorpro.domain.usecases.ILogoutUseCase,
     private val deleteAccountUseCase: com.devsusana.hometutorpro.domain.usecases.IDeleteAccountUseCase,
@@ -44,8 +53,11 @@ class SettingsViewModel @Inject constructor(
     private val application: Application
 ) : ViewModel() {
 
+    val deviceCompatibility = checkSueCompatibilityUseCase()
+
     private val _backupState = MutableStateFlow(Pair<Boolean, String?>(false, null))
     private val _deleteAccountError = MutableStateFlow<Int?>(null)
+    private val _showDeleteModelConfirmDialog = MutableStateFlow(false)
 
     data class ChangePasswordStatus(
         val showDialog: Boolean = false,
@@ -55,12 +67,16 @@ class SettingsViewModel @Inject constructor(
     )
     private val _changePasswordStatus = MutableStateFlow(ChangePasswordStatus())
 
-    /** Screen state combining language, theme, notification status, and backup logs. */
+    /** Screen state combining language, theme, notification status, Sue settings, model status, and backup logs. */
     val state: StateFlow<SettingsState> = combine(
         getLanguageUseCase(),
         getThemeModeUseCase(),
         getClassEndNotificationsUseCase(),
         getDebugPremiumUseCase(),
+        getSueEnabledUseCase(),
+        getSueFabVisibleUseCase(),
+        getSueModelStatusUseCase(),
+        _showDeleteModelConfirmDialog,
         _backupState,
         _deleteAccountError,
         _changePasswordStatus
@@ -69,15 +85,24 @@ class SettingsViewModel @Inject constructor(
         val themeMode = array[1] as AppThemeMode
         val classEndNotifications = array[2] as Boolean
         val isDebugPremium = array[3] as Boolean
+        val isSueEnabled = array[4] as Boolean
+        val isSueFabVisible = array[5] as Boolean
+        val modelStatus = array[6] as com.devsusana.hometutorpro.domain.entities.SueModelStatus
+        val showDeleteModelDialog = array[7] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val backupInfo = array[4] as Pair<Boolean, String?>
-        val deleteError = array[5] as? Int
-        val pwdStatus = array[6] as ChangePasswordStatus
+        val backupInfo = array[8] as Pair<Boolean, String?>
+        val deleteError = array[9] as? Int
+        val pwdStatus = array[10] as ChangePasswordStatus
         SettingsState(
             language = language,
             themeMode = themeMode,
             classEndNotificationsEnabled = classEndNotifications,
             isDebugPremium = isDebugPremium,
+            isSueEnabled = isSueEnabled,
+            isSueFabVisible = isSueFabVisible,
+            sueDeviceCompatibility = deviceCompatibility,
+            sueModelStatus = modelStatus,
+            showDeleteModelConfirmDialog = showDeleteModelDialog,
             isBackupLoading = backupInfo.first,
             backupMessage = backupInfo.second,
             isBackupSuccess = backupInfo.second != null && !backupInfo.first,
@@ -176,6 +201,20 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Toggles the Sue AI assistant enabled preference. */
+    fun onSueEnabledToggle(enabled: Boolean) {
+        viewModelScope.launch {
+            setSueEnabledUseCase(enabled)
+        }
+    }
+
+    /** Toggles the Sue floating action button (FAB) visibility. */
+    fun onSueFabVisibleToggle(visible: Boolean) {
+        viewModelScope.launch {
+            setSueFabVisibleUseCase(visible)
+        }
+    }
+
     /** Toggles the debug premium mode. */
     fun onDebugPremiumToggle(enabled: Boolean) {
         viewModelScope.launch {
@@ -267,5 +306,37 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissDeleteAccountError() {
         _deleteAccountError.value = null
+    }
+
+    /** Triggers downloading the on-device Sue model. */
+    fun downloadSueModel(url: String? = null) {
+        viewModelScope.launch {
+            downloadSueModelUseCase(url).collect {
+                // Status is published to the repository flow which state combines
+            }
+        }
+    }
+
+    /** Cancels any ongoing Sue model download. */
+    fun cancelSueModelDownload() {
+        cancelSueModelDownloadUseCase()
+    }
+
+    /** Displays the model deletion confirmation dialog. */
+    fun onDeleteModelClick() {
+        _showDeleteModelConfirmDialog.value = true
+    }
+
+    /** Confirms and executes model deletion from disk. */
+    fun onConfirmDeleteModel() {
+        _showDeleteModelConfirmDialog.value = false
+        viewModelScope.launch {
+            deleteSueModelUseCase()
+        }
+    }
+
+    /** Dismisses the model deletion confirmation dialog without deleting. */
+    fun onDismissDeleteModelDialog() {
+        _showDeleteModelConfirmDialog.value = false
     }
 }

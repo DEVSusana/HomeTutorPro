@@ -3,12 +3,11 @@ package com.devsusana.hometutorpro.core.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.devsusana.hometutorpro.di.ApplicationScope
+import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.di.ClassEndReceiverEntryPoint
 import com.devsusana.hometutorpro.domain.usecases.INotifyClassEndUseCase
-import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * Thin BroadcastReceiver gateway for scheduled class-end alarms.
@@ -20,23 +19,20 @@ import javax.inject.Inject
  * Fully covered by unit tests in [ClassEndReceiverTest] (app/src/test/java/com/devsusana/hometutorpro/core/receiver/ClassEndReceiverTest.kt)
  * verifying intent extra extraction and background coroutine usecase execution.
  */
-@AndroidEntryPoint
 class ClassEndReceiver : BroadcastReceiver() {
 
-    /** Use case responsible for triggering the class-end notification logic. */
-    @Inject
-    lateinit var notifyClassEndUseCase: INotifyClassEndUseCase
+    companion object {
+        private const val TAG = "ClassEndReceiver"
 
-    /** Application-scoped coroutine scope for background work that outlives the receiver. */
-    @Inject
-    @ApplicationScope
-    lateinit var applicationScope: CoroutineScope
+        /** Intent extra key for passing the student's name to show in the notification. */
+        const val EXTRA_STUDENT_NAME = "extra_student_name"
+    }
 
     /**
      * Handles the incoming broadcast intent for the class-end event.
      *
      * Extracts the student name from the intent extras and delegates the notification
-     * logic to [INotifyClassEndUseCase] within [applicationScope]. Uses [goAsync] to
+     * logic to [INotifyClassEndUseCase] within application scope. Uses [goAsync] to
      * keep the receiver alive during the coroutine execution.
      *
      * @param context The context in which the receiver is running.
@@ -44,7 +40,14 @@ class ClassEndReceiver : BroadcastReceiver() {
      */
     override fun onReceive(context: Context, intent: Intent) {
         val studentName = intent.getStringExtra(EXTRA_STUDENT_NAME)
-            ?: context.getString(com.devsusana.hometutorpro.R.string.student_default_name)
+            ?: context.getString(R.string.student_default_name)
+
+        val entryPoint = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            ClassEndReceiverEntryPoint::class.java
+        )
+        val notifyClassEndUseCase = entryPoint.notifyClassEndUseCase()
+        val applicationScope = entryPoint.applicationScope()
 
         val pendingResult = goAsync()
         applicationScope.launch {
@@ -56,12 +59,5 @@ class ClassEndReceiver : BroadcastReceiver() {
                 pendingResult.finish()
             }
         }
-    }
-
-    companion object {
-        private const val TAG = "ClassEndReceiver"
-
-        /** Intent extra key for passing the student's name to show in the notification. */
-        const val EXTRA_STUDENT_NAME = "extra_student_name"
     }
 }

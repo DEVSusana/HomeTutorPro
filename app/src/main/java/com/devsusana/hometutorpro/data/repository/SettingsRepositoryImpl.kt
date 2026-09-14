@@ -34,6 +34,9 @@ class SettingsRepositoryImpl @Inject constructor(
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val CLASS_END_NOTIFICATIONS_KEY = booleanPreferencesKey("class_end_notifications")
         private val ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("onboarding_completed")
+        private val SUE_ENABLED_KEY = booleanPreferencesKey("sue_enabled")
+        private val SUE_FAB_VISIBLE_KEY = booleanPreferencesKey("sue_fab_visible")
+        private val SUE_ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("sue_onboarding_completed")
 
         private const val LANGUAGE_ENGLISH = "en"
         private const val LANGUAGE_SPANISH = "es"
@@ -62,6 +65,18 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val isOnboardingCompletedFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[ONBOARDING_COMPLETED_KEY] ?: false
+    }
+
+    override val isSueEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SUE_ENABLED_KEY] ?: true
+    }
+
+    override val isSueFabVisibleFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SUE_FAB_VISIBLE_KEY] ?: true
+    }
+
+    override val isSueOnboardingCompletedFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SUE_ONBOARDING_COMPLETED_KEY] ?: false
     }
 
     override suspend fun setLanguage(language: String) {
@@ -99,4 +114,23 @@ class SettingsRepositoryImpl @Inject constructor(
             preferences[ONBOARDING_COMPLETED_KEY] = completed
         }
     }
+
+    override suspend fun setSueEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SUE_ENABLED_KEY] = enabled
+        }
+    }
+
+    override suspend fun setSueFabVisible(visible: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SUE_FAB_VISIBLE_KEY] = visible
+        }
+    }
+
+    override suspend fun setSueOnboardingCompleted(completed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SUE_ONBOARDING_COMPLETED_KEY] = completed
+        }
+    }
 }
+

@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -46,6 +47,15 @@ class SueViewModelConfirmationTest {
     private lateinit var inferenceRepository: InferenceRepository
     private lateinit var scheduleTools: ScheduleTools
     private lateinit var studentTools: com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
+    private lateinit var getSueEnabledUseCase: com.devsusana.hometutorpro.domain.usecases.IGetSueEnabledUseCase
+    private lateinit var getSueFabVisibleUseCase: com.devsusana.hometutorpro.domain.usecases.IGetSueFabVisibleUseCase
+    private lateinit var getSueOnboardingCompletedUseCase: com.devsusana.hometutorpro.domain.usecases.IGetSueOnboardingCompletedUseCase
+    private lateinit var setSueEnabledUseCase: com.devsusana.hometutorpro.domain.usecases.ISetSueEnabledUseCase
+    private lateinit var setSueFabVisibleUseCase: com.devsusana.hometutorpro.domain.usecases.ISetSueFabVisibleUseCase
+    private lateinit var setSueOnboardingCompletedUseCase: com.devsusana.hometutorpro.domain.usecases.ISetSueOnboardingCompletedUseCase
+    private lateinit var getSueModelStatusUseCase: com.devsusana.hometutorpro.domain.usecases.IGetSueModelStatusUseCase
+    private lateinit var downloadSueModelUseCase: com.devsusana.hometutorpro.domain.usecases.IDownloadSueModelUseCase
+    private lateinit var cancelSueModelDownloadUseCase: com.devsusana.hometutorpro.domain.usecases.ICancelSueModelDownloadUseCase
     private lateinit var viewModel: SueViewModel
 
     // Shared flows used to drive speechService state from tests
@@ -55,6 +65,10 @@ class SueViewModelConfirmationTest {
     private val errorFlow = MutableSharedFlow<String>()
     private val modelLoadedFlow = MutableStateFlow(false)
     private val modelLoadingFlow = MutableStateFlow(false)
+    private val sueEnabledFlow = MutableStateFlow(true)
+    private val sueFabVisibleFlow = MutableStateFlow(true)
+    private val sueOnboardingCompletedFlow = MutableStateFlow(false)
+    private val sueModelStatusFlow = MutableStateFlow<com.devsusana.hometutorpro.domain.entities.SueModelStatus>(com.devsusana.hometutorpro.domain.entities.SueModelStatus.NotDownloaded)
 
     @Before
     fun setup() {
@@ -80,8 +94,46 @@ class SueViewModelConfirmationTest {
         }
         scheduleTools = mockk(relaxed = true)
         studentTools = mockk(relaxed = true)
+        getSueEnabledUseCase = mockk(relaxed = true) {
+            every { this@mockk.invoke() } returns sueEnabledFlow
+        }
+        getSueFabVisibleUseCase = mockk(relaxed = true) {
+            every { this@mockk.invoke() } returns sueFabVisibleFlow
+        }
+        getSueOnboardingCompletedUseCase = mockk(relaxed = true) {
+            every { this@mockk.invoke() } returns sueOnboardingCompletedFlow
+        }
+        setSueEnabledUseCase = mockk(relaxed = true)
+        setSueFabVisibleUseCase = mockk(relaxed = true)
+        setSueOnboardingCompletedUseCase = mockk(relaxed = true)
+        getSueModelStatusUseCase = mockk(relaxed = true) {
+            every { this@mockk.invoke() } returns sueModelStatusFlow
+        }
+        downloadSueModelUseCase = mockk(relaxed = true) {
+            coEvery { this@mockk.invoke(any()) } returns flowOf(com.devsusana.hometutorpro.domain.entities.SueModelStatus.NotDownloaded)
+        }
+        cancelSueModelDownloadUseCase = mockk(relaxed = true)
+        val checkSueCompatibilityUseCase = mockk<com.devsusana.hometutorpro.domain.usecases.ICheckSueCompatibilityUseCase> {
+            every { this@mockk.invoke() } returns com.devsusana.hometutorpro.domain.entities.SueDeviceCompatibility(isSupported = true)
+        }
 
-        viewModel = SueViewModel(speechService, sueAgent, inferenceRepository, scheduleTools, studentTools)
+        viewModel = SueViewModel(
+            speechService = speechService,
+            sueAgent = sueAgent,
+            inferenceRepository = inferenceRepository,
+            scheduleTools = scheduleTools,
+            studentTools = studentTools,
+            getSueEnabledUseCase = getSueEnabledUseCase,
+            getSueFabVisibleUseCase = getSueFabVisibleUseCase,
+            getSueOnboardingCompletedUseCase = getSueOnboardingCompletedUseCase,
+            setSueEnabledUseCase = setSueEnabledUseCase,
+            setSueFabVisibleUseCase = setSueFabVisibleUseCase,
+            setSueOnboardingCompletedUseCase = setSueOnboardingCompletedUseCase,
+            getSueModelStatusUseCase = getSueModelStatusUseCase,
+            downloadSueModelUseCase = downloadSueModelUseCase,
+            cancelSueModelDownloadUseCase = cancelSueModelDownloadUseCase,
+            checkSueCompatibilityUseCase = checkSueCompatibilityUseCase
+        )
     }
 
     @After
@@ -413,5 +465,38 @@ class SueViewModelConfirmationTest {
         viewModel.onFabClick()
         advanceUntilIdle()
         coVerify { inferenceRepository.loadModel() }
+    }
+
+    @Test
+    fun `enableSueFromOnboarding enables Sue, makes FAB visible, marks onboarding completed, and starts model download`() = runTest {
+        viewModel.enableSueFromOnboarding()
+        advanceUntilIdle()
+        coVerify { setSueEnabledUseCase(true) }
+        coVerify { setSueFabVisibleUseCase(true) }
+        coVerify { setSueOnboardingCompletedUseCase(true) }
+        coVerify { downloadSueModelUseCase(any()) }
+    }
+
+    @Test
+    fun `disableSueFromOnboarding disables Sue, hides FAB, and marks onboarding completed`() = runTest {
+        viewModel.disableSueFromOnboarding()
+        advanceUntilIdle()
+        coVerify { setSueEnabledUseCase(false) }
+        coVerify { setSueFabVisibleUseCase(false) }
+        coVerify { setSueOnboardingCompletedUseCase(true) }
+    }
+
+    @Test
+    fun `downloadModel triggers downloadSueModelUseCase`() = runTest {
+        viewModel.downloadModel("https://custom.url/model.bin")
+        advanceUntilIdle()
+        coVerify { downloadSueModelUseCase("https://custom.url/model.bin") }
+    }
+
+    @Test
+    fun `cancelModelDownload triggers cancelSueModelDownloadUseCase`() = runTest {
+        viewModel.cancelModelDownload()
+        advanceUntilIdle()
+        verify { cancelSueModelDownloadUseCase() }
     }
 }

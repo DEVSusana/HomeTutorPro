@@ -138,3 +138,66 @@ class SetOnboardingCompletedUseCase @Inject constructor(
         settingsRepository.setOnboardingCompleted(completed)
     }
 }
+
+/**
+ * Implementation of [IGetSueEnabledUseCase] observing Sue enabled preference.
+ */
+class GetSueEnabledUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
+) : IGetSueEnabledUseCase {
+    override fun invoke(): Flow<Boolean> = settingsRepository.isSueEnabledFlow
+}
+
+/**
+ * Implementation of [ISetSueEnabledUseCase] updating Sue enabled preference.
+ */
+class SetSueEnabledUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
+) : ISetSueEnabledUseCase {
+    override suspend operator fun invoke(enabled: Boolean) {
+        settingsRepository.setSueEnabled(enabled)
+    }
+}
+
+/**
+ * Implementation of [IGetSueFabVisibleUseCase] observing Sue FAB visibility.
+ */
+class GetSueFabVisibleUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
+) : IGetSueFabVisibleUseCase {
+    override fun invoke(): Flow<Boolean> = settingsRepository.isSueFabVisibleFlow
+}
+
+/**
+ * Implementation of [ISetSueFabVisibleUseCase] updating Sue FAB visibility.
+ */
+class SetSueFabVisibleUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
+) : ISetSueFabVisibleUseCase {
+    override suspend operator fun invoke(visible: Boolean) {
+        settingsRepository.setSueFabVisible(visible)
+    }
+}
+
+/**
+ * Implementation of [IGetSueOnboardingCompletedUseCase] observing Sue onboarding status.
+ */
+class GetSueOnboardingCompletedUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
+) : IGetSueOnboardingCompletedUseCase {
+    override fun invoke(): Flow<Boolean> = settingsRepository.isSueOnboardingCompletedFlow
+}
+
+/**
+ * Implementation of [ISetSueOnboardingCompletedUseCase] updating Sue onboarding status.
+ */
+class SetSueOnboardingCompletedUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
+) : ISetSueOnboardingCompletedUseCase {
+    override suspend operator fun invoke(completed: Boolean) {
+        settingsRepository.setSueOnboardingCompleted(completed)
+    }
+}
+
+
+
