@@ -735,28 +735,7 @@ fun SettingsContent(
                 )
             }
 
-            if (BuildConfig.DEBUG) {
-                // Developer / Debug Section
-                SettingsSectionTitle(stringResource(R.string.settings_developer_options))
-                Card(
-                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    SettingsItem(
-                        icon = Icons.Default.Star,
-                        title = stringResource(R.string.settings_debug_premium),
-                        onClick = { onDebugPremiumToggle(!state.isDebugPremium) },
-                        trailing = {
-                            Switch(
-                                checked = state.isDebugPremium,
-                                onCheckedChange = { onDebugPremiumToggle(it) }
-                            )
-                        }
-                    )
-                }
-            }
+
 
             // Actions Section
             Spacer(modifier = Modifier.height(24.dp))
