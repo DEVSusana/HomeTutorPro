@@ -63,6 +63,9 @@ class SueModelRepositoryImpl @Inject constructor(
         const val DEFAULT_MODEL_NAME = DEFAULT_MODEL_NAME_TASK
         const val TEMP_SUFFIX = ".tmp"
 
+        /** Minimum size for a valid model file (50 MB) to prevent loading corrupt/HTML error downloads */
+        const val MIN_MODEL_SIZE_BYTES = 50_000_000L
+
         /** Default public model URL (Gemma 3 1B INT4 for MediaPipe LLM Inference in .task format). */
         const val DEFAULT_MODEL_URL = "https://github.com/DEVSusana/HomeTutorPro/releases/download/sue-model-v1/gemma3-1B-it-int4.task"
 
@@ -78,13 +81,18 @@ class SueModelRepositoryImpl @Inject constructor(
 
     private var currentDownloadJob: Job? = null
 
+    /** Internal override for minimum valid model size in tests */
+    internal var minModelSizeOverride: Long? = null
+
+    internal fun getMinValidSize(): Long = minModelSizeOverride ?: MIN_MODEL_SIZE_BYTES
+
     init {
         refreshModelStatus()
     }
 
     private fun refreshModelStatus() {
         val size = getDownloadedModelSize()
-        if (size != null && size > 0) {
+        if (size != null && size >= getMinValidSize()) {
             _modelStatusFlow.value = SueModelStatus.Downloaded(
                 fileSizeBytes = size,
                 formattedSize = formatFileSize(size)
@@ -96,12 +104,12 @@ class SueModelRepositoryImpl @Inject constructor(
 
     override fun isModelDownloaded(): Boolean {
         val candidate = findModelFile()
-        return candidate != null && candidate.exists() && candidate.length() > 0
+        return candidate != null && candidate.exists() && candidate.length() >= getMinValidSize()
     }
 
     override fun getDownloadedModelSize(): Long? {
         val file = findModelFile()
-        return if (file != null && file.exists() && file.length() > 0) {
+        return if (file != null && file.exists() && file.length() >= getMinValidSize()) {
             file.length()
         } else {
             null
@@ -243,7 +251,17 @@ class SueModelRepositoryImpl @Inject constructor(
 
             val isResume = responseCode == HttpURLConnection.HTTP_PARTIAL
             if (responseCode !in 200..299) {
+                if (tempFile.exists()) tempFile.delete()
                 val errorMsg = "Download failed with HTTP response code $responseCode"
+                SafeLogger.e(TAG, errorMsg)
+                _modelStatusFlow.value = SueModelStatus.Error(errorMsg)
+                return@withContext
+            }
+
+            val contentType = connection.contentType ?: ""
+            if (contentType.contains("text/html", ignoreCase = true) || contentType.contains("text/plain", ignoreCase = true)) {
+                if (tempFile.exists()) tempFile.delete()
+                val errorMsg = "Invalid model response format: $contentType"
                 SafeLogger.e(TAG, errorMsg)
                 _modelStatusFlow.value = SueModelStatus.Error(errorMsg)
                 return@withContext
@@ -303,6 +321,16 @@ class SueModelRepositoryImpl @Inject constructor(
                 throw CancellationException("Download cancelled")
             }
 
+            // Verify minimum size before final rename
+            if (tempFile.length() < getMinValidSize()) {
+                val incompleteSize = tempFile.length()
+                if (tempFile.exists()) tempFile.delete()
+                val errorMsg = "Downloaded file is incomplete ($incompleteSize bytes < ${getMinValidSize()} bytes minimum)."
+                SafeLogger.e(TAG, errorMsg)
+                _modelStatusFlow.value = SueModelStatus.Error(errorMsg)
+                return@withContext
+            }
+
             // Clean any existing model file before replacing with the newly downloaded format
             val existingModel = findModelFile()
             if (existingModel != null && existingModel.exists()) {
@@ -334,6 +362,9 @@ class SueModelRepositoryImpl @Inject constructor(
             _modelStatusFlow.value = SueModelStatus.NotDownloaded
         } catch (e: Exception) {
             SafeLogger.e(TAG, "Error during model download: ${e.message}", e)
+            if (tempFile.exists()) {
+                tempFile.delete()
+            }
             _modelStatusFlow.value = SueModelStatus.Error(e.localizedMessage ?: "Unknown download error")
         } finally {
             connection?.disconnect()

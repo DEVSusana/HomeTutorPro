@@ -93,20 +93,24 @@ class BackupRepositoryImpl @Inject constructor(
             // Perform atomic transaction
             database.withTransaction {
                 // 1. Students (Parent)
-                backup.students.forEach {
-                    database.studentDao().insertStudent(it.copy(professorId = currentProfessorId))
+                backup.students.forEach { student ->
+                    val status = if (student.cloudId == null) com.devsusana.hometutorpro.data.local.entities.SyncStatus.PENDING_UPLOAD else student.syncStatus
+                    database.studentDao().insertStudent(student.copy(professorId = currentProfessorId, syncStatus = status))
                 }
                 // 2. Schedules (Child)
-                backup.schedules.forEach {
-                    database.scheduleDao().insertSchedule(it.copy(professorId = currentProfessorId))
+                backup.schedules.forEach { schedule ->
+                    val status = if (schedule.cloudId == null) com.devsusana.hometutorpro.data.local.entities.SyncStatus.PENDING_UPLOAD else schedule.syncStatus
+                    database.scheduleDao().insertSchedule(schedule.copy(professorId = currentProfessorId, syncStatus = status))
                 }
                 // 3. Exceptions
-                backup.exceptions.forEach {
-                    database.scheduleExceptionDao().insertException(it.copy(professorId = currentProfessorId))
+                backup.exceptions.forEach { exception ->
+                    val status = if (exception.cloudId == null) com.devsusana.hometutorpro.data.local.entities.SyncStatus.PENDING_UPLOAD else exception.syncStatus
+                    database.scheduleExceptionDao().insertException(exception.copy(professorId = currentProfessorId, syncStatus = status))
                 }
                 // 4. Resources
-                backup.resources.forEach {
-                    database.resourceDao().insertResource(it.copy(professorId = currentProfessorId))
+                backup.resources.forEach { resource ->
+                    val status = if (resource.cloudId == null) com.devsusana.hometutorpro.data.local.entities.SyncStatus.PENDING_UPLOAD else resource.syncStatus
+                    database.resourceDao().insertResource(resource.copy(professorId = currentProfessorId, syncStatus = status))
                 }
             }
 

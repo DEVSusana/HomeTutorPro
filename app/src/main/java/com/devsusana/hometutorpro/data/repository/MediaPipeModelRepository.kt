@@ -30,7 +30,7 @@ class MediaPipeModelRepository @Inject constructor(
     companion object {
         private const val TAG = "MediaPipeModelRepo"
         private const val MODEL_DIRECTORY = "sue_model"
-        private const val MAX_TOKENS = 2048
+        private const val MAX_TOKENS = 512
         private const val TEMPERATURE = 0.3f
         private const val TOP_K = 20
     }
@@ -82,7 +82,14 @@ class MediaPipeModelRepository @Inject constructor(
                 return@withContext false
             }
 
-            Log.d(TAG, "Loading model from: $modelPath")
+            val modelFile = File(modelPath)
+            if (!modelFile.exists() || modelFile.length() <= 0) {
+                Log.w(TAG, "Model file is invalid or empty: $modelPath")
+                _isLoading.value = false
+                return@withContext false
+            }
+
+            Log.d(TAG, "Loading model from: $modelPath (${modelFile.length()} bytes)")
 
             val options = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
@@ -96,8 +103,8 @@ class MediaPipeModelRepository @Inject constructor(
 
             Log.d(TAG, "Model loaded successfully.")
             true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load model: ${e.message}", e)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to load model: ${t.message}", t)
             _isModelLoaded.value = false
             _isLoading.value = false
             false
@@ -118,14 +125,14 @@ class MediaPipeModelRepository @Inject constructor(
             session = LlmInferenceSession.createFromOptions(inference, sessionOptions)
             session.addQueryChunk(prompt)
             session.generateResponse()
-        } catch (e: Exception) {
-            Log.e(TAG, "Inference error: ${e.message}", e)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Inference error: ${t.message}", t)
             "Sorry, there was an error processing your query. Please try again."
         } finally {
             try {
                 session?.close()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error closing session: ${e.message}", e)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Error closing session: ${t.message}", t)
             }
         }
     }
@@ -133,8 +140,8 @@ class MediaPipeModelRepository @Inject constructor(
     override fun release() {
         try {
             llmInference?.close()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error closing LLM inference: ${e.message}", e)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error closing LLM inference: ${t.message}", t)
         }
         llmInference = null
         _isModelLoaded.value = false

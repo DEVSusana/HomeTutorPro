@@ -42,13 +42,18 @@ object SupportFactoryHelper {
             val factory = SupportOpenHelperFactory(passphraseString.toByteArray())
             val config = SupportSQLiteOpenHelper.Configuration.builder(context)
                 .name(DATABASE_NAME)
-                .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                .callback(object : SupportSQLiteOpenHelper.Callback(10) {
                     override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
                     override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                    override fun onDowngrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                        // No-op during helper verification to avoid false corruption detection
+                    }
                 })
                 .build()
             factory.create(config).use { helper ->
-                helper.readableDatabase.version
+                helper.readableDatabase.query("SELECT count(*) FROM sqlite_master;").use { cursor ->
+                    cursor.moveToFirst()
+                }
                 isValid = true
             }
         } catch (_: Exception) {
@@ -62,7 +67,9 @@ object SupportFactoryHelper {
                     null,
                     SQLiteDatabase.OPEN_READONLY
                 ).use { db ->
-                    db.version
+                    db.rawQuery("SELECT count(*) FROM sqlite_master;", null).use { cursor ->
+                        cursor.moveToFirst()
+                    }
                     isValid = true
                 }
             } catch (_: Exception) {

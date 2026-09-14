@@ -58,8 +58,8 @@ class SettingsRepositoryImplTest {
             repository.setThemeMode(AppThemeMode.SYSTEM)
             repository.setClassEndNotifications(true)
             repository.setOnboardingCompleted(false)
-            repository.setSueEnabled(true)
-            repository.setSueFabVisible(true)
+            repository.setSueEnabled(false)
+            repository.setSueFabVisible(false)
             repository.setSueOnboardingCompleted(false)
         }
     }

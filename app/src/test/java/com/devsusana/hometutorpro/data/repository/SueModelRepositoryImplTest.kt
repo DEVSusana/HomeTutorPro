@@ -49,7 +49,9 @@ class SueModelRepositoryImplTest {
             context = context,
             inferenceRepository = inferenceRepository,
             ioDispatcher = testDispatcher
-        )
+        ).apply {
+            minModelSizeOverride = 1L
+        }
     }
 
     @After
@@ -163,5 +165,15 @@ class SueModelRepositoryImplTest {
         assertTrue(compatibility.isSupported)
         assertNull(compatibility.reason)
         assertEquals(34, compatibility.sdkVersion)
+    }
+
+    @Test
+    fun isModelDownloaded_returnsFalse_whenFileBelowMinimumSize() {
+        repository.minModelSizeOverride = 50_000_000L
+        val dummyModel = File(modelDir, "gemma-3-1b-it-int4.task")
+        dummyModel.writeBytes(ByteArray(1024)) // only 1KB
+
+        assertFalse(repository.isModelDownloaded())
+        assertNull(repository.getDownloadedModelSize())
     }
 }
