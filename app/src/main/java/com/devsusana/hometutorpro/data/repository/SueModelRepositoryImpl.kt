@@ -136,10 +136,10 @@ class SueModelRepositoryImpl @Inject constructor(
             isLowRam = activityManager.isLowRamDevice
         }
 
-        // Minimum 3.5 GB threshold in bytes (3.5 * 10^9 or chips with ~3.6-4.0 GB)
-        val minRequiredRam = 3_500_000_000L
+        // Minimum 2.5 GB threshold in production (relaxed to 1.0 GB in debug mode to allow testing on standard emulators)
+        val minRequiredRam = if (com.devsusana.hometutorpro.BuildConfig.DEBUG) 1_000_000_000L else 2_500_000_000L
 
-        if (isLowRam || (totalRam in 1 until minRequiredRam)) {
+        if ((!com.devsusana.hometutorpro.BuildConfig.DEBUG && isLowRam) || (totalRam in 1 until minRequiredRam)) {
             SafeLogger.d(TAG, "Device incompatible: RAM total $totalRam bytes is below $minRequiredRam or isLowRam=$isLowRam")
             return SueDeviceCompatibility(
                 isSupported = false,

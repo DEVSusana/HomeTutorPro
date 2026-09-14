@@ -142,7 +142,7 @@ class SueViewModel @Inject constructor(
             setSueEnabledUseCase(true)
             setSueFabVisibleUseCase(true)
             setSueOnboardingCompletedUseCase(true)
-            if (_uiState.value.isDeviceCompatible && _uiState.value.modelStatus !is com.devsusana.hometutorpro.domain.entities.SueModelStatus.Downloaded) {
+            if (_uiState.value.modelStatus !is com.devsusana.hometutorpro.domain.entities.SueModelStatus.Downloaded) {
                 downloadModel()
             }
         }

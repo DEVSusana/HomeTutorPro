@@ -147,29 +147,29 @@ class SettingsRepositoryImplTest {
     // Sue Preferences Tests
 
     @Test
-    fun isSueEnabledFlow_defaultsToTrue() = testScope.runTest {
-        val enabled = repository.isSueEnabledFlow.first()
-        assertTrue(enabled)
-    }
-
-    @Test
-    fun setSueEnabled_toFalse_persistsCorrectly() = testScope.runTest {
-        repository.setSueEnabled(false)
+    fun isSueEnabledFlow_defaultsToFalse() = testScope.runTest {
         val enabled = repository.isSueEnabledFlow.first()
         assertFalse(enabled)
     }
 
     @Test
-    fun isSueFabVisibleFlow_defaultsToTrue() = testScope.runTest {
-        val visible = repository.isSueFabVisibleFlow.first()
-        assertTrue(visible)
+    fun setSueEnabled_toTrue_persistsCorrectly() = testScope.runTest {
+        repository.setSueEnabled(true)
+        val enabled = repository.isSueEnabledFlow.first()
+        assertTrue(enabled)
     }
 
     @Test
-    fun setSueFabVisible_toFalse_persistsCorrectly() = testScope.runTest {
-        repository.setSueFabVisible(false)
+    fun isSueFabVisibleFlow_defaultsToFalse() = testScope.runTest {
         val visible = repository.isSueFabVisibleFlow.first()
         assertFalse(visible)
+    }
+
+    @Test
+    fun setSueFabVisible_toTrue_persistsCorrectly() = testScope.runTest {
+        repository.setSueFabVisible(true)
+        val visible = repository.isSueFabVisibleFlow.first()
+        assertTrue(visible)
     }
 
     @Test
