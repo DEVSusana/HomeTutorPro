@@ -1004,6 +1004,7 @@ class SueAgentImpl @Inject constructor(
     }
 
     private val spanishHourWords = mapOf(
+        "cero" to 0, "medianoche" to 0,
         "una" to 1, "un" to 1, "uno" to 1,
         "dos" to 2, "tres" to 3, "cuatro" to 4, "cinco" to 5,
         "seis" to 6, "siete" to 7, "ocho" to 8, "nueve" to 9,
@@ -1012,8 +1013,11 @@ class SueAgentImpl @Inject constructor(
         "dieciséis" to 16, "diecisiete" to 17, "dieciocho" to 18,
         "diecinueve" to 19, "veinte" to 20, "veintiuno" to 21,
         "veintiun" to 21, "veintiún" to 21, "veintidos" to 22,
-        "veintidós" to 22, "veintitres" to 23, "veintitrés" to 23
+        "veintidós" to 22, "veintitres" to 23, "veintitrés" to 23,
+        "veinticuatro" to 0
     )
+
+    private val hourWordsRegexStr = """una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintiun|veintiún|veintidos|veintidós|veintitres|veintitrés|veinticuatro|cero|medianoche"""
 
     private fun parseHourString(str: String): Int? {
         val trimmed = stripAccents(str.trim().lowercase())
@@ -1053,7 +1057,7 @@ class SueAgentImpl @Inject constructor(
 
         // 3. Pattern: Hour + Word/Fraction minutes (e.g. "a las 5 y media", "5 y media", "cinco y media", "5 y cuarto", "5 menos cuarto", "cinco menos cuarto", "5 y 20", "5 y veinte")
         val fractionPattern = Regex(
-            """\b(?:(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)?)?(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres)\s+(y\s+media|y\s+cuarto|menos\s+cuarto|menos\s+veinte|menos\s+diez|menos\s+cinco|y\s+\d{1,2}|y\s+diez|y\s+veinte|y\s+veinticinco|y\s+treinta|y\s+cuarenta|y\s+cuarenta\s+y\s+cinco|y\s+cincuenta)\b"""
+            """\b(?:(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)?)?(\d{1,2}|$hourWordsRegexStr)\s+(y\s+media|y\s+cuarto|menos\s+cuarto|menos\s+veinte|menos\s+diez|menos\s+cinco|y\s+\d{1,2}|y\s+diez|y\s+veinte|y\s+veinticinco|y\s+treinta|y\s+cuarenta|y\s+cuarenta\s+y\s+cinco|y\s+cincuenta)\b"""
         )
         fractionPattern.find(lower)?.let { match ->
             val hVal = parseHourString(match.groupValues[1])
@@ -1096,7 +1100,7 @@ class SueAgentImpl @Inject constructor(
 
         // 4. Pattern: "a las NN", "las NN", "a la NN", "la NN", "para las NN", "sobre las NN", "a eso de las NN" with digits or words
         val prefixHourPattern = Regex(
-            """\b(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres)\s*(?:h|hrs|horas)?\b"""
+            """\b(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)(\d{1,2}|$hourWordsRegexStr)\s*(?:h|hrs|horas)?\b"""
         )
         prefixHourPattern.find(lower)?.let { match ->
             val h = parseHourString(match.groupValues[1])
@@ -1108,7 +1112,7 @@ class SueAgentImpl @Inject constructor(
 
         // 5. Pattern: Hour with time-of-day or h/hrs/horas/pm/am (e.g. "5 de la tarde", "cinco de la tarde", "5 de la mañana", "5 pm", "17h", "17 horas", "5 horas")
         val modifierHourPattern = Regex(
-            """\b(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\s*(?:h|hrs|horas|pm|p\.m\.|am|a\.m\.|de\s+la\s+tarde|de\s+la\s+manana|de\s+la\s+noche|por\s+la\s+tarde|por\s+la\s+manana|por\s+la\s+noche)\b"""
+            """\b(\d{1,2}|$hourWordsRegexStr)\s*(?:h|hrs|horas|pm|p\.m\.|am|a\.m\.|de\s+la\s+tarde|de\s+la\s+manana|de\s+la\s+noche|por\s+la\s+tarde|por\s+la\s+manana|por\s+la\s+noche)\b"""
         )
         modifierHourPattern.find(lower)?.let { match ->
             val h = parseHourString(match.groupValues[1])
@@ -1120,7 +1124,7 @@ class SueAgentImpl @Inject constructor(
 
         // 6. Pattern: Standalone number or word (e.g. user replies "17", "5", "cinco", "diecisiete", "18", etc.)
         val standalonePattern = Regex(
-            """^(?:a\s+)?(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres)$"""
+            """^(?:a\s+)?(\d{1,2}|$hourWordsRegexStr)$"""
         )
         standalonePattern.find(lower)?.let { match ->
             val h = parseHourString(match.groupValues[1])
@@ -1306,7 +1310,7 @@ class SueAgentImpl @Inject constructor(
             return Pair("%02d:%02d".format(resH1, m1), "%02d:%02d".format(resH2, m2))
         }
 
-        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\s+a\s+(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\b""")
+        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2}|$hourWordsRegexStr)\s+a\s+(\d{1,2}|$hourWordsRegexStr)\b""")
         hourRangePattern.find(lower)?.let { match ->
             val h1 = parseHourString(match.groupValues[1])
             val h2 = parseHourString(match.groupValues[2])
@@ -1354,7 +1358,7 @@ class SueAgentImpl @Inject constructor(
         }
 
         // 2. Match H1 a H2 range (e.g. de 5 a 6, 5 a 6, de cinco a seis)
-        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\s+a\s+(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\b""")
+        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2}|$hourWordsRegexStr)\s+a\s+(\d{1,2}|$hourWordsRegexStr)\b""")
         for (match in hourRangePattern.findAll(lower)) {
             val start = match.range.first
             val end = match.range.last
@@ -1382,8 +1386,8 @@ class SueAgentImpl @Inject constructor(
 
         // 3. Match single hour patterns
         val hourPatterns = listOf(
-            Regex("""\b(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\b"""),
-            Regex("""\b(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\s*(?:h|hrs|horas|pm|am|de\s+la\s+tarde|de\s+la\s+manana|de\s+la\s+noche)\b""")
+            Regex("""\b(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)(\d{1,2}|$hourWordsRegexStr)\b"""),
+            Regex("""\b(\d{1,2}|$hourWordsRegexStr)\s*(?:h|hrs|horas|pm|am|de\s+la\s+tarde|de\s+la\s+manana|de\s+la\s+noche)\b""")
         )
 
         for (pattern in hourPatterns) {
@@ -2247,6 +2251,9 @@ class SueAgentImpl @Inject constructor(
 
         if (result is SueOperationResult.Prepare.Success) {
             lastActiveIntentType = null
+            lastMentionedTime = null
+            lastMentionedDuration = null
+            lastMentionedAmount = null
         }
         return result
     }

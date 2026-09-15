@@ -211,6 +211,46 @@ class SueAgentImplTest {
     }
 
     @Test
+    fun `add extra class in 2 turns when user replies with 21 or veintiuno`() = runTest {
+        val student = AgentStudentDetail(
+            studentId = "1",
+            name = "Lucía Moreno García",
+            subjects = "Matemáticas",
+            course = "4º ESO",
+            pendingBalance = 0.0
+        )
+        coEvery { studentTools.extractRelevantStudent(any()) } answers {
+            if (firstArg<String>().contains("lucia", ignoreCase = true)) student else null
+        }
+
+        val pendingAction = SuePendingAction.AddExtraClass(
+            studentName = "Lucía Moreno García",
+            studentId = "1",
+            date = 1758240000000L,
+            startTime = "21:00",
+            endTime = "22:00"
+        )
+        coEvery { scheduleTools.prepareAddExtraClass(any(), any(), "21:00", "22:00") } returns
+                SueOperationResult.Prepare.Success(pendingAction)
+
+        // Case A: 21 digits
+        agent.detectActionIntent("añade una clase extra para Lucia el viernes")
+        val turn2A = agent.detectActionIntent("21")
+        assertTrue("Turn 2 with 21 should succeed", turn2A is SueOperationResult.Prepare.Success)
+        val actionA = (turn2A as SueOperationResult.Prepare.Success).action as SuePendingAction.AddExtraClass
+        assertEquals("21:00", actionA.startTime)
+        assertEquals("22:00", actionA.endTime)
+
+        // Case B: a las veintiuno in words
+        agent.detectActionIntent("añade una clase extra para Lucia el viernes")
+        val turn2B = agent.detectActionIntent("a las veintiuno")
+        assertTrue("Turn 2 with 'a las veintiuno' should succeed", turn2B is SueOperationResult.Prepare.Success)
+        val actionB = (turn2B as SueOperationResult.Prepare.Success).action as SuePendingAction.AddExtraClass
+        assertEquals("21:00", actionB.startTime)
+        assertEquals("22:00", actionB.endTime)
+    }
+
+    @Test
     fun `mock backup JSON has zero schedule overlaps`() {
         val jsonFile = listOf(
             File("docs/mock_sample_students_backup.json"),
