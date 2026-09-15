@@ -165,16 +165,30 @@ Uno de los errores más graves en arquitecturas de IA móvil es **enviar absolut
       ¿Encaja en Fast-Path?                             ¿Pregunta Compleja / Abierta?
    (Palabras clave específicas,                     ("¿Cómo va el progreso de Juan?",
    consultas de saldo, conteos,                     "¿Qué hueco me recomiendas para
-   cancelaciones, altas, bajas)                      una clase extra el viernes?")
+   cancelaciones, altas, bajas,                      una clase extra el viernes?",
+   clases extras, reprogramaciones)                  "¿Qué clases tengo libres?")
                │                                                 │
                ▼                                                 ▼
      NIVEL 1: FAST-PATH                                NIVEL 2: RAG + LLM
   • Ejecuta consulta Room SQL                      • Recupera contexto relevante de Room
-  • Devuelve ReadSuccess / PrepareAction           • Construye prompt estructurado
-  • Latencia: < 5 ms                               • Inferencia local con Gemma 3
+  • Devuelve ReadSuccess / PrepareAction           • Construye prompt estructurado (~200-300 tokens)
+  • Latencia: < 5 ms                               • Inferencia local con Gemma 3 / Qwen
   • 100% Precisión Matemática                      • Latencia: 1.5 s - 3.5 s
   • 0 Alucinaciones                                • SueResponseFormatter (TTS natural)
 ```
+
+### Motor de Lenguaje Natural en Español (NLP Local)
+Para que el Fast-Path no falle ante la variabilidad del lenguaje coloquial en español, diseñamos un motor de análisis sintáctico basado en reglas y normalización diacrítica:
+* **Horas numéricas y palabras completas (0 a 24h):** Reconoce tanto dígitos (`17`, `21`, `22:30`) como palabras (`una`, `cinco`, `veintiuno`, `veintidós`, `veinticuatro`, `cero`, `medianoche`).
+* **Fracciones temporales:** Soporte nativo de expresiones como `y media` (+30m), `y cuarto` (+15m), `menos cuarto` (-15m de la siguiente hora), `y diez`, `menos veinte`.
+* **Modificadores contextuales:** Deducción inteligente de franjas horarias con `de la tarde`, `de la mañana`, `de la noche`, `pm`, `am`.
+* **Máquina de Estados Multi-Turno:** Si el usuario dice *"Añade una clase extra para Lucía el viernes"*, Sue detecta que falta la hora, almacena temporalmente el estado `AWAITING_EXTRA_CLASS_INFO` y, en cuanto el usuario responde *"a las 5"*, transiciona de inmediato a la preparación de la tarjeta interactiva de confirmación. Al completarse la acción, limpia las variables temporales para evitar fugas de contexto en turnos posteriores.
+
+### Validación Transaccional de Conflictos y Sugerencia de Huecos Libres
+Toda operación de modificación de agenda (`rescheduleClass`, `addExtraClass`, `createSchedule`) pasa por los Casos de Uso del Dominio (`SaveScheduleExceptionUseCase`, `SaveScheduleUseCase`):
+1. **Comprobación 360°:** Valida solapamientos contra horarios regulares de todos los alumnos, otras clases extras ya agendadas y otras reprogramaciones hacia esa fecha.
+2. **Liberación de huecos cancelados:** Si una clase regular fue cancelada o movida a otro día, el motor reconoce que ese hueco está libre.
+3. **Respuesta Proactiva ante Conflictos:** Si se detecta un solapamiento (`DomainError.ConflictingStudent`), la base de datos bloquea la mutación y Sue responde verbalmente indicando quién ocupa el hueco e informando qué días u horas están completamente libres esa semana (`scheduleTools.getFreeSlots()`).
 
 ### Flujo de Confirmación en Dos Pasos (*Two-Step Voice Confirmation*)
 
@@ -206,6 +220,11 @@ En aplicaciones de servidor es común utilizar bases de datos vectoriales (Chrom
 * **Escala de Datos:** Un profesor particular gestiona entre 5 y 100 alumnos, con cientos de clases al mes. Este volumen cabe holgadamente en SQLite (Room).
 * **Precisión Relacional:** Las consultas de negocio (*"clases de hoy"*, *"saldo pendiente > 0"*, *"clases canceladas de esta semana"*) se resuelven con mucha mayor velocidad y exactitud mediante consultas SQL indexadas que mediante búsqueda de similitud de coseno.
 
+### Gestión del Presupuesto de Tokens (Token Budgeting en GPU/NPU)
+* **Límite de Hardware:** Configurar un contexto infinito satura la VRAM de la GPU móvil y provoca bloqueos en `LlmInference.createFromOptions`.
+* **Buffer Acotado (`MAX_TOKENS = 512`):** `gatherRelevantContext` realiza una recuperación selectiva: inyecta únicamente los datos estrictamente necesarios (~200-300 tokens), reservando 200 tokens libres para la respuesta generada por Gemma.
+* **Aislamiento de Excepciones:** Si el usuario pregunta solo por cancelaciones, el RAG inyecta exclusivamente las excepciones de calendario (`getCancelledClassesDescription`) para evitar que el LLM confunda clases activas con canceladas.
+
 ### Estructura del Prompt Inyectado (Gemma Chat Template)
 
 Gemma utiliza una plantilla de turnos estricta (`<start_of_turn>user ... <end_of_turn><start_of_turn>model`). Inyectamos 4 bloques de contexto:
@@ -217,11 +236,11 @@ Tu rol es responder a las preguntas del profesor de forma breve, amable y concis
 NUNCA inventes datos. Usa SOLO la información provista en --- AVAILABLE DATA ---.
 
 --- TEMPORAL CONTEXT ---
-Current date/time: martes, 11 septiembre 2026, 17:30
+Current date/time: martes, 16 septiembre 2025, 09:20
 --- END OF TEMPORAL CONTEXT ---
 
---- PROFESSOR WORKING HOURS ---
-Working hours limit: from 08:00 to 22:00
+--- PROFESSOR WORKING HOURS (AGENDA BOUNDARIES) ---
+Working hours limit: from 08:00 to 23:00
 --- END OF WORKING HOURS ---
 
 --- RECENT CONVERSATION HISTORY ---
@@ -235,15 +254,19 @@ Alumnos activos (3):
 • Carlos — 4º ESO — Física — 15.0€/h — Saldo pendiente: 0.0€
 • Darío — 1º Bachillerato — Química — 15.0€/h — Saldo pendiente: 15.0€
 
-Clases de hoy (martes):
-• 16:00 a 17:00: Clase con Lucía (Completada)
-• 18:00 a 19:00: Clase con Darío (Activa)
+Horario de hoy (martes):
+• 16:30 a 18:00: Clase con Lucía (Activa)
+• 18:00 a 19:00: Clase con Carlos (Activa)
+Huecos libres dentro de jornada:
+• 08:00–16:30, 19:00–23:00
+Clases canceladas o reprogramadas esta semana:
+• Viernes 19/09/2025: la clase de Lucía (17:00 - 18:30) está cancelada.
 --- END OF DATA ---
 
-User query: ¿A quién le doy clase después y cuánto me debe?
+User query: ¿A quién le doy clase hoy por la tarde y qué hueco tengo libre?
 <end_of_turn>
 <start_of_turn>model
-Tu próxima clase es con Darío a las 18:00 y tiene un saldo pendiente de 15 euros.<end_of_turn>
+Hoy tienes clase con Lucía de 16:30 a 18:00 y con Carlos de 18:00 a 19:00. Tienes libre a partir de las 19:00.<end_of_turn>
 ```
 
 ---

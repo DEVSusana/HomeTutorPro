@@ -85,8 +85,8 @@ Seguimos rigurosamente **Clean Architecture** estructurada en 3 capas independie
 Un LLM por sí solo solo sabe lo que aprendió durante su entrenamiento (no sabe quién es tu alumno "Darío", ni qué clases tienes hoy). 
 **RAG** es la técnica de:
 1. **Recuperar (Retrieve):** Buscar en la base de datos local la información exacta relevante para la consulta del usuario.
-2. **Aumentar (Augment):** Inyectar esos datos dentro del prompt del sistema.
-3. **Generar (Generate):** Pedirle al LLM que responda utilizando **exclusivamente** los datos proporcionados.
+2. **Aumentar (Augment):** Inyectar esos datos dentro del prompt del sistema bajo un bloque delimitado (`--- AVAILABLE DATA ---`).
+3. **Generar (Generate):** Pedirle al LLM que responda utilizando **exclusivamente** los datos proporcionados, eliminando el riesgo de alucinación factual.
 
 ### Flujo Paso a Paso de una Consulta en SUE:
 
@@ -95,15 +95,26 @@ Profesor habla -> SpeechRecognizer -> Transcripción de texto
        │
        ▼
 SueViewModel -> sueAgent.detectActionIntent(query)
-       ├── [CASO A: Consulta Determinista (Fast-Path)]
-       │     └── Consulta directa a Room DB -> ReadSuccess en 0 ms -> TTS (Audio inmediato)
+       ├── [CASO A: Capa 1 - Fast-Path / SQL Directo en Room]
+       │     ├── Acciones transaccionales: Crear alumno, reprogramar, cancelar, registrar pago, clase extra.
+       │     │     └── Validación estricta de colisiones en DB -> SuePendingAction (Tarjeta interactiva con confirmación por voz)
+       │     └── Consultas estructuradas: Saldo de alumno, conteo, agenda directa, clases canceladas.
+       │           └── Consulta SQL directa -> ReadSuccess en 0 ms -> TTS inmediato (0 alucinaciones)
        │
-       └── [CASO B: Pregunta Abierta / Conversacional]
-             └── sueAgent.gatherRelevantContext(query) (Recupera datos de Room DB)
-                   └── Construye Prompt Estructurado (Gemma Template)
-                         └── MediaPipe GenAI (Inferencia Local Gemma)
-                               └── SueResponseFormatter -> TTS (Audio saneado con pausas)
+       └── [CASO B: Capa 2 - RAG On-Device + LLM Generativo]
+             ├── sueAgent.gatherRelevantContext(query) (Recuperación selectiva en Room DB)
+             │     ├── Agenda del día/semana y huecos libres (getFreeSlots)
+             │     ├── Excepciones activas: canceladas y reprogramadas (getCancelledClassesDescription)
+             │     └── Ficha de alumnos: cursos, tarifas, saldos y notas pedagógicas
+             ├── Construcción de Prompt estructurado (Gemma Chat Template, acotado a ~200-300 tokens)
+             ├── Inferencia local con MediaPipe Tasks GenAI (Gemma 3 / Qwen)
+             └── SueResponseFormatter -> TTS (Audio saneado con pausas y puntuación natural)
 ```
+
+### Gestión del Presupuesto de Tokens (Token Budgeting en GPU/NPU)
+Los dispositivos móviles tienen límites estrictos de memoria de vídeo (VRAM). Enviar el dump completo de la base de datos al LLM desbordaría la memoria y provocaría congelamientos en el subsistema gráfico.
+- **Inyección Contextual Selectiva:** `gatherRelevantContext` solo extrae las tablas y registros vinculados a la intención detectada (evitando sobrecargar el prompt con alumnos no relacionados).
+- **Buffer Acotado (`MAX_TOKENS = 512`):** El tamaño del contexto inyectado se mantiene en ~200-300 tokens, dejando un margen holgado de 200 tokens para la respuesta generada por el LLM.
 
 ### Estructura del Prompt Inyectado (Gemma Chat Template)
 ```text
@@ -113,10 +124,10 @@ Tu rol es responder a las preguntas del profesor de forma breve, amable y concis
 NUNCA inventes datos. Usa SOLO la información provista en --- AVAILABLE DATA ---.
 
 --- TEMPORAL CONTEXT ---
-Current date/time: martes, 1 septiembre 2026, 09:20
+Current date/time: martes, 16 septiembre 2025, 09:20
 --- END OF TEMPORAL CONTEXT ---
 
---- PROFESSOR WORKING HOURS ---
+--- PROFESSOR WORKING HOURS (AGENDA BOUNDARIES) ---
 Working hours limit: from 08:00 to 23:00
 --- END OF WORKING HOURS ---
 
@@ -126,14 +137,16 @@ Sue: ¡Hola! ¿En qué puedo ayudarte hoy?
 --- END OF HISTORY ---
 
 --- AVAILABLE DATA ---
-Clases programadas para hoy:
-• 15:45 a 16:45: Clase con Migue (Activa)
-Clases canceladas:
-• 15:45 a 17:45: Clase de Darío (Cancelada)
-• 20:30 a 21:30: Clase de Arantxa (Cancelada)
+Horario del martes:
+  16:30–18:00: Lucía Moreno García
+  18:00–19:00: Carlos
+Huecos libres dentro de jornada:
+  08:00–16:30, 19:00–23:00
+Clases canceladas o reprogramadas esta semana:
+• Viernes 19/09/2025: la clase de Lucía (17:00 - 18:30) está cancelada.
 --- END OF DATA ---
 
-User query: ¿tengo alguna clase libre esta tarde?
+User query: ¿Qué clases tengo hoy y qué tengo libre por la tarde?
 <end_of_turn>
 <start_of_turn>model
 ```
@@ -145,6 +158,7 @@ User query: ¿tengo alguna clase libre esta tarde?
 * **Familia Gemma:** Modelos ligeros de última generación creados por Google DeepMind a partir de la investigación de Gemini.
 * **Cuantización INT4:** Los pesos originales en coma flotante de 32 bits (FP32) se reducen matemáticamente a enteros de 4 bits. Esto reduce el peso del modelo de 8 GB a ~600 MB sin perder coherencia semántica en tareas conversacionales.
 * **Alineación NDK a 16 KB:** Esencial desde Android 15/17. `MediaPipe Tasks GenAI 0.10.27+` asegura que el mapeo de memoria (`mmap`) del archivo `.bin` o `.task` se divida en bloques de 16 KB en la memoria física del procesador.
+* **Protección ante Descargas Incompletas:** Validación de tamaño mínimo (`MIN_MODEL_SIZE_BYTES = 50 MB`) y verificación de cabeceras HTTP antes de permitir la inicialización nativa en C++.
 
 ---
 
@@ -154,14 +168,22 @@ Un fallo común al crear apps con IA es **enviar absolutamente todo al LLM**. En
 
 En HomeTutorPro implementamos una **Capa Híbrida de Dos Niveles**:
 
-1. **Nivel 1: Capa Determinista (Fast-Path en Kotlin):**
-   * Consultas como saldo pendiente, horas libres, listado de cancelaciones, creación o borrado de clases.
-   * Se procesan en **0 ms** mediante expresiones regulares y consultas SQL en Room.
-   * **Ventaja:** 100% de precisión matemática, 0 alucinaciones y 0 consumo de batería/GPU.
+### 1. Nivel 1: Capa Determinista (Fast-Path en Kotlin / SQL Room)
+- **Casos de uso:** Consultas de saldo pendiente, listado de clases canceladas, conteo de alumnos, horas libres, altas de estudiantes, pagos y reprogramaciones.
+- **Latencia:** **< 5 ms** (inmediata).
+- **Consumo:** 0% de GPU/NPU, 0% de impacto en batería.
+- **Motor de Lenguaje Natural en Español:**
+  - Reconocimiento de horas numéricas (`17:00`, `21`, `22:30`) y en palabras de `cero` a `veinticuatro` y `medianoche`.
+  - Soporte de fracciones temporales (`y media`, `y cuarto`, `menos cuarto`, `y veinte`).
+  - Modificadores contextuales (`de la tarde`, `de la mañana`, `de la noche`, `pm`, `am`).
+  - Máquina de estados conversacional multi-turno (ej. pedir hora tras solicitar clase extra) con reinicio automático de variables temporales al confirmar la acción.
+- **Prevención Estricta de Colisiones Horarias:**
+  - Al reprogramar o añadir clases extras, `SaveScheduleExceptionUseCase` valida solapamientos contra horarios regulares, clases extras y reprogramaciones existentes.
+  - Si hay colisión, bloquea la mutación y SUE informa proactivamente del alumno en conflicto y los días/huecos libres disponibles.
 
-2. **Nivel 2: Capa Generativa (Fallback a Gemma):**
-   * Consultas complejas, abiertas o ambiguas (*"¿Cómo va el progreso de Pepe este mes con las mates?"*, *"Recomiéndame qué hueco ofrecerle a un alumno nuevo"*).
-   * Se ejecutan mediante el LLM alimentado por el RAG.
+### 2. Nivel 2: Capa Generativa (RAG + Inferencia Local con Gemma)
+- **Casos de uso:** Consultas complejas, abiertas, pedagógicas o conversacionales (*"¿Cómo debería organizar el repaso de matemáticas con Carlos?"*, *"Explícame qué horario tengo más despejado esta semana para meter más alumnos"*).
+- **Funcionamiento:** Se alimenta del contexto estructurado extraído en el paso RAG para que el modelo redacte una respuesta natural, veraz y personalizada.
 
 ---
 
