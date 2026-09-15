@@ -1003,44 +1003,133 @@ class SueAgentImpl @Inject constructor(
         return h // AM (9:00 to 12:00)
     }
 
+    private val spanishHourWords = mapOf(
+        "una" to 1, "un" to 1, "uno" to 1,
+        "dos" to 2, "tres" to 3, "cuatro" to 4, "cinco" to 5,
+        "seis" to 6, "siete" to 7, "ocho" to 8, "nueve" to 9,
+        "diez" to 10, "once" to 11, "doce" to 12, "trece" to 13,
+        "catorce" to 14, "quince" to 15, "dieciseis" to 16,
+        "dieciséis" to 16, "diecisiete" to 17, "dieciocho" to 18,
+        "diecinueve" to 19, "veinte" to 20, "veintiuno" to 21,
+        "veintiun" to 21, "veintiún" to 21, "veintidos" to 22,
+        "veintidós" to 22, "veintitres" to 23, "veintitrés" to 23
+    )
+
+    private fun parseHourString(str: String): Int? {
+        val trimmed = stripAccents(str.trim().lowercase())
+        return trimmed.toIntOrNull() ?: spanishHourWords[trimmed]
+    }
+
     /**
      * Attempts to extract a time in "HH:mm" format from the query.
-     * Recognises patterns like "a las 11:00", "a las 11", "11:00", "11h".
+     * Recognises patterns like "a las 11:00", "a las 11", "11:00", "11h",
+     * "5 de la tarde", "a las cinco", "5 y media", "17", etc.
      */
     private fun extractTime(query: String): String? {
-        val lower = query.lowercase()
-        // Pattern: HH:mm
-        val colonPattern = Regex("""\b(\d{1,2}):(\d{2})\b""")
+        val lower = stripAccents(query.lowercase().trim())
+        val originalLower = query.lowercase().trim()
+
+        // 1. Pattern: HH:mm (e.g. 17:00, 5:30, 17:00h, 17:00 horas)
+        val colonPattern = Regex("""\b(\d{1,2}):(\d{2})\s*(?:h|hrs|horas)?\b""")
         colonPattern.find(lower)?.let { match ->
             val h = match.groupValues[1].toInt()
             val m = match.groupValues[2].toInt()
             if (h in 0..23 && m in 0..59) {
-                val resolvedH = resolveHour(h, lower)
+                val resolvedH = resolveHour(h, originalLower)
                 return "%02d:%02d".format(resolvedH, m)
             }
         }
-        // Pattern: HHmm (military format with prefix, e.g. "las 1800")
-        val militaryPattern = Regex("""\b(?:a\s+)?las\s+(\d{2})(\d{2})\b|\b(?:a\s+)?la\s+(\d{2})(\d{2})\b""")
+
+        // 2. Pattern: Military format "a las 1800", "las 1800", "1800h"
+        val militaryPattern = Regex("""\b(?:(?:a\s+)?las\s+)?(\d{2})(\d{2})\s*(?:h|hrs|horas)?\b""")
         militaryPattern.find(lower)?.let { match ->
-            val hStr = match.groupValues[1].takeIf { it.isNotEmpty() } ?: match.groupValues[3]
-            val mStr = match.groupValues[2].takeIf { it.isNotEmpty() } ?: match.groupValues[4]
-            val h = hStr.toIntOrNull()
-            val m = mStr.toIntOrNull()
+            val h = match.groupValues[1].toIntOrNull()
+            val m = match.groupValues[2].toIntOrNull()
             if (h != null && h in 0..23 && m != null && m in 0..59) {
-                val resolvedH = resolveHour(h, lower)
+                val resolvedH = resolveHour(h, originalLower)
                 return "%02d:%02d".format(resolvedH, m)
             }
         }
-        // Pattern: "a las NN", "las NN", "a la NN", "la NN" (whole hours)
-        val hourPattern = Regex("""\b(?:a\s+)?las\s+(\d{1,2})\b|\b(?:a\s+)?la\s+(\d{1,2})\b""")
-        hourPattern.find(lower)?.let { match ->
-            val hStr = match.groupValues[1].takeIf { it.isNotEmpty() } ?: match.groupValues[2]
-            val h = hStr.toIntOrNull()
+
+        // 3. Pattern: Hour + Word/Fraction minutes (e.g. "a las 5 y media", "5 y media", "cinco y media", "5 y cuarto", "5 menos cuarto", "cinco menos cuarto", "5 y 20", "5 y veinte")
+        val fractionPattern = Regex(
+            """\b(?:(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)?)?(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres)\s+(y\s+media|y\s+cuarto|menos\s+cuarto|menos\s+veinte|menos\s+diez|menos\s+cinco|y\s+\d{1,2}|y\s+diez|y\s+veinte|y\s+veinticinco|y\s+treinta|y\s+cuarenta|y\s+cuarenta\s+y\s+cinco|y\s+cincuenta)\b"""
+        )
+        fractionPattern.find(lower)?.let { match ->
+            val hVal = parseHourString(match.groupValues[1])
+            if (hVal != null && hVal in 0..23) {
+                val frac = match.groupValues[2]
+                var h = hVal
+                val m = when {
+                    frac.startsWith("y media") || frac == "y 30" || frac == "y treinta" -> 30
+                    frac.startsWith("y cuarto") || frac == "y 15" || frac == "y quince" -> 15
+                    frac.startsWith("menos cuarto") -> {
+                        h = if (h > 0) h - 1 else 23
+                        45
+                    }
+                    frac.startsWith("menos veinte") -> {
+                        h = if (h > 0) h - 1 else 23
+                        40
+                    }
+                    frac.startsWith("menos diez") -> {
+                        h = if (h > 0) h - 1 else 23
+                        50
+                    }
+                    frac.startsWith("menos cinco") -> {
+                        h = if (h > 0) h - 1 else 23
+                        55
+                    }
+                    frac == "y 10" || frac == "y diez" -> 10
+                    frac == "y 20" || frac == "y veinte" -> 20
+                    frac == "y 25" || frac == "y veinticinco" -> 25
+                    frac == "y 35" -> 35
+                    frac == "y 40" || frac == "y cuarenta" -> 40
+                    frac == "y 45" || frac == "y cuarenta y cinco" -> 45
+                    frac == "y 50" || frac == "y cincuenta" -> 50
+                    frac.startsWith("y ") -> frac.removePrefix("y ").trim().toIntOrNull() ?: 0
+                    else -> 0
+                }
+                val resolvedH = resolveHour(h, originalLower)
+                return "%02d:%02d".format(resolvedH, m)
+            }
+        }
+
+        // 4. Pattern: "a las NN", "las NN", "a la NN", "la NN", "para las NN", "sobre las NN", "a eso de las NN" with digits or words
+        val prefixHourPattern = Regex(
+            """\b(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres)\s*(?:h|hrs|horas)?\b"""
+        )
+        prefixHourPattern.find(lower)?.let { match ->
+            val h = parseHourString(match.groupValues[1])
             if (h != null && h in 0..23) {
-                val resolvedH = resolveHour(h, lower)
+                val resolvedH = resolveHour(h, originalLower)
                 return "%02d:00".format(resolvedH)
             }
         }
+
+        // 5. Pattern: Hour with time-of-day or h/hrs/horas/pm/am (e.g. "5 de la tarde", "cinco de la tarde", "5 de la mañana", "5 pm", "17h", "17 horas", "5 horas")
+        val modifierHourPattern = Regex(
+            """\b(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\s*(?:h|hrs|horas|pm|p\.m\.|am|a\.m\.|de\s+la\s+tarde|de\s+la\s+manana|de\s+la\s+noche|por\s+la\s+tarde|por\s+la\s+manana|por\s+la\s+noche)\b"""
+        )
+        modifierHourPattern.find(lower)?.let { match ->
+            val h = parseHourString(match.groupValues[1])
+            if (h != null && h in 0..23) {
+                val resolvedH = resolveHour(h, originalLower)
+                return "%02d:00".format(resolvedH)
+            }
+        }
+
+        // 6. Pattern: Standalone number or word (e.g. user replies "17", "5", "cinco", "diecisiete", "18", etc.)
+        val standalonePattern = Regex(
+            """^(?:a\s+)?(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres)$"""
+        )
+        standalonePattern.find(lower)?.let { match ->
+            val h = parseHourString(match.groupValues[1])
+            if (h != null && h in 0..23) {
+                val resolvedH = resolveHour(h, originalLower)
+                return "%02d:00".format(resolvedH)
+            }
+        }
+
         return null
     }
 
@@ -1202,7 +1291,9 @@ class SueAgentImpl @Inject constructor(
     }
 
     private fun extractTwoTimes(query: String): Pair<String, String>? {
-        val lower = query.lowercase()
+        val lower = stripAccents(query.lowercase().trim())
+        val originalLower = query.lowercase().trim()
+
         val timePattern = Regex("""\b(\d{1,2}):(\d{2})\b""")
         val matches = timePattern.findAll(lower).toList()
         if (matches.size >= 2) {
@@ -1210,22 +1301,22 @@ class SueAgentImpl @Inject constructor(
             val m1 = matches[0].groupValues[2].toInt()
             val h2 = matches[1].groupValues[1].toInt()
             val m2 = matches[1].groupValues[2].toInt()
-            val resH1 = resolveHour(h1, lower)
-            val resH2 = resolveHour(h2, lower)
+            val resH1 = resolveHour(h1, originalLower)
+            val resH2 = resolveHour(h2, originalLower)
             return Pair("%02d:%02d".format(resH1, m1), "%02d:%02d".format(resH2, m2))
         }
-        
-        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2})\s+a\s+(\d{1,2})\b""")
+
+        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\s+a\s+(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\b""")
         hourRangePattern.find(lower)?.let { match ->
-            val h1 = match.groupValues[1].toInt()
-            val h2 = match.groupValues[2].toInt()
-            if (h1 in 0..23 && h2 in 0..23) {
-                val resH1 = resolveHour(h1, lower)
-                val resH2 = resolveHour(h2, lower)
+            val h1 = parseHourString(match.groupValues[1])
+            val h2 = parseHourString(match.groupValues[2])
+            if (h1 != null && h1 in 0..23 && h2 != null && h2 in 0..23) {
+                val resH1 = resolveHour(h1, originalLower)
+                val resH2 = resolveHour(h2, originalLower)
                 return Pair("%02d:00".format(resH1), "%02d:00".format(resH2))
             }
         }
-        
+
         val singleTime = extractTime(query)
         if (singleTime != null) {
             val parts = singleTime.split(":")
@@ -1239,7 +1330,8 @@ class SueAgentImpl @Inject constructor(
     }
 
     private fun extractAllTimesInQuery(query: String): List<String> {
-        val lower = query.lowercase()
+        val lower = stripAccents(query.lowercase().trim())
+        val originalLower = query.lowercase().trim()
         val matchedIndices = BooleanArray(lower.length)
         
         data class TimeMatch(val index: Int, val timeStr: String)
@@ -1253,21 +1345,19 @@ class SueAgentImpl @Inject constructor(
             val h = match.groupValues[1].toInt()
             val m = match.groupValues[2].toInt()
             if (h in 0..23 && m in 0..59) {
-                // Mark indices
                 for (i in start..end) {
                     matchedIndices[i] = true
                 }
-                val resolvedH = resolveHour(h, lower)
+                val resolvedH = resolveHour(h, originalLower)
                 matches.add(TimeMatch(start, "%02d:%02d".format(resolvedH, m)))
             }
         }
 
-        // 2. Match H1 a H2 range (e.g. de 5 a 6, 5 a 6)
-        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2})\s+a\s+(\d{1,2})\b""")
+        // 2. Match H1 a H2 range (e.g. de 5 a 6, 5 a 6, de cinco a seis)
+        val hourRangePattern = Regex("""\b(?:de\s+)?(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\s+a\s+(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\b""")
         for (match in hourRangePattern.findAll(lower)) {
             val start = match.range.first
             val end = match.range.last
-            // Check if any index in this match is already matched
             var overlap = false
             for (i in start..end) {
                 if (i in matchedIndices.indices && matchedIndices[i]) {
@@ -1276,26 +1366,24 @@ class SueAgentImpl @Inject constructor(
                 }
             }
             if (!overlap) {
-                val h1 = match.groupValues[1].toInt()
-                val h2 = match.groupValues[2].toInt()
-                if (h1 in 0..23 && h2 in 0..23) {
+                val h1 = parseHourString(match.groupValues[1])
+                val h2 = parseHourString(match.groupValues[2])
+                if (h1 != null && h1 in 0..23 && h2 != null && h2 in 0..23) {
                     for (i in start..end) {
                         matchedIndices[i] = true
                     }
-                    val resH1 = resolveHour(h1, lower)
-                    val resH2 = resolveHour(h2, lower)
+                    val resH1 = resolveHour(h1, originalLower)
+                    val resH2 = resolveHour(h2, originalLower)
                     matches.add(TimeMatch(start, "%02d:00".format(resH1)))
                     matches.add(TimeMatch(start + 1, "%02d:00".format(resH2)))
                 }
             }
         }
 
-        // 3. Match single hour patterns (e.g. a las 5, para las 5, de las 5, a la 1)
+        // 3. Match single hour patterns
         val hourPatterns = listOf(
-            Regex("""\b(?:a\s+)?las\s+(\d{1,2})\b"""),
-            Regex("""\b(?:a\s+)?la\s+(\d{1,2})\b"""),
-            Regex("""\bde\s+las?\s+(\d{1,2})\b"""),
-            Regex("""\bpara\s+las?\s+(\d{1,2})\b""")
+            Regex("""\b(?:a\s+eso\s+de\s+|sobre\s+|para\s+|a\s+|de\s+)?(?:las?\s+)(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\b"""),
+            Regex("""\b(\d{1,2}|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte)\s*(?:h|hrs|horas|pm|am|de\s+la\s+tarde|de\s+la\s+manana|de\s+la\s+noche)\b""")
         )
 
         for (pattern in hourPatterns) {
@@ -1310,13 +1398,12 @@ class SueAgentImpl @Inject constructor(
                     }
                 }
                 if (!overlap) {
-                    val hStr = match.groupValues[1]
-                    val h = hStr.toIntOrNull()
+                    val h = parseHourString(match.groupValues[1])
                     if (h != null && h in 0..23) {
                         for (i in start..end) {
                             matchedIndices[i] = true
                         }
-                        val resolvedH = resolveHour(h, lower)
+                        val resolvedH = resolveHour(h, originalLower)
                         matches.add(TimeMatch(start, "%02d:00".format(resolvedH)))
                     }
                 }
@@ -2141,17 +2228,17 @@ class SueAgentImpl @Inject constructor(
             }
 
             IntentType.QUERY_CANCELLED_CLASSES -> {
-                val day = lastMentionedDayOfWeek
-                val studentName = lastMentionedStudentName
-                val cancelledDesc = scheduleTools.getCancelledClassesDescription(day, studentName)
+                val queryStudent = matchedStudent?.name ?: extractStudentName(lower) ?: extractStudentNameForFinance(lower)
+                val queryDay = relativeDay ?: explicitDay
+                val cancelledDesc = scheduleTools.getCancelledClassesDescription(queryDay, queryStudent)
                 if (cancelledDesc.isNotBlank()) {
                     SueOperationResult.ReadSuccess(cancelledDesc)
                 } else {
-                    val dayLabel = if (day != null) {
+                    val dayLabel = if (queryDay != null) {
                         val dayNames = listOf("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
-                        "el ${dayNames.getOrElse(day - 1) { "día seleccionado" }}"
-                    } else if (studentName != null) {
-                        "con $studentName"
+                        "el ${dayNames.getOrElse(queryDay - 1) { "día seleccionado" }}"
+                    } else if (queryStudent != null) {
+                        "con $queryStudent"
                     } else "esta semana"
                     SueOperationResult.ReadSuccess("No hay clases canceladas ni reprogramadas registradas $dayLabel.")
                 }

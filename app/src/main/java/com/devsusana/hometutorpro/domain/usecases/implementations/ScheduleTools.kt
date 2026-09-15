@@ -446,8 +446,18 @@ class ScheduleTools @Inject constructor(
         startTime: String,
         endTime: String
     ): SueOperationResult.Prepare {
-        val students = queryStudentsUseCase.searchByName(studentName)
-        val match = students.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+        val directMatch = queryStudentsUseCase.searchByName(studentName).firstOrNull()
+        val match = directMatch ?: run {
+            val allStudents = queryStudentsUseCase.getAllStudents()
+            val normQuery = java.text.Normalizer.normalize(studentName.lowercase(), java.text.Normalizer.Form.NFD)
+                .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "").trim()
+            val summary = allStudents.firstOrNull {
+                val normName = java.text.Normalizer.normalize(it.name.lowercase(), java.text.Normalizer.Form.NFD)
+                    .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "").trim()
+                normName.contains(normQuery) || normQuery.contains(normName.substringBefore(" "))
+            }
+            summary?.let { queryStudentsUseCase.searchByName(it.name).firstOrNull() }
+        }
 
         if (match == null) {
             return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
@@ -539,8 +549,18 @@ class ScheduleTools @Inject constructor(
         startTime: String,
         endTime: String
     ): SueOperationResult.Prepare {
-        val students = queryStudentsUseCase.searchByName(studentName)
-        val match = students.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+        val directMatch = queryStudentsUseCase.searchByName(studentName).firstOrNull()
+        val match = directMatch ?: run {
+            val allStudents = queryStudentsUseCase.getAllStudents()
+            val normQuery = java.text.Normalizer.normalize(studentName.lowercase(), java.text.Normalizer.Form.NFD)
+                .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "").trim()
+            val summary = allStudents.firstOrNull {
+                val normName = java.text.Normalizer.normalize(it.name.lowercase(), java.text.Normalizer.Form.NFD)
+                    .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "").trim()
+                normName.contains(normQuery) || normQuery.contains(normName.substringBefore(" "))
+            }
+            summary?.let { queryStudentsUseCase.searchByName(it.name).firstOrNull() }
+        }
 
         if (match == null) {
             return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
@@ -584,12 +604,6 @@ class ScheduleTools @Inject constructor(
      *
      * @param dayOfWeek Optional ISO day (1=Monday…7=Sunday). When provided, only exceptions
      *                  for that specific day are returned so the LLM receives focused context.
-     */
-    /**
-     * Returns a human-readable description of cancelled/rescheduled/extra class exceptions.
-     *
-     * @param dayOfWeek Optional ISO day (1=Monday…7=Sunday). When provided, only exceptions
-     *                  for that specific day are returned so the LLM receives focused context.
      * @param studentNameFilter Optional student name filter. When provided, only exceptions
      *                          for that specific student are matched.
      */
@@ -604,10 +618,17 @@ class ScheduleTools @Inject constructor(
         val students = queryStudentsUseCase.searchByName("")
         val schedules = querySchedulesUseCase.getScheduleDetails()
 
+        fun stripAccents(str: String): String {
+            val normalized = java.text.Normalizer.normalize(str.lowercase(), java.text.Normalizer.Form.NFD)
+            return normalized.replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "").trim()
+        }
+
         val matchingStudentIds = if (!studentNameFilter.isNullOrBlank()) {
-            students.filter { it.name.contains(studentNameFilter, ignoreCase = true) }
-                .map { it.studentId }
-                .toSet()
+            val normFilter = stripAccents(studentNameFilter)
+            students.filter {
+                val normStudentName = stripAccents(it.name)
+                normStudentName.contains(normFilter) || normFilter.contains(normStudentName.substringBefore(" "))
+            }.map { it.studentId }.toSet()
         } else null
 
         val today = dateTimeProvider.getNow().toLocalDate()
@@ -618,8 +639,7 @@ class ScheduleTools @Inject constructor(
                 .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
 
             val matchesDay = if (dayOfWeek != null) {
-                val targetDate = nextOccurrenceDate(java.time.DayOfWeek.of(dayOfWeek))
-                localDate == targetDate
+                localDate.dayOfWeek.value == dayOfWeek && !localDate.isBefore(startOfWeek)
             } else {
                 // Whole week from Monday onwards (not past weeks)
                 !localDate.isBefore(startOfWeek)
@@ -627,6 +647,8 @@ class ScheduleTools @Inject constructor(
 
             val matchesStudent = if (matchingStudentIds != null && matchingStudentIds.isNotEmpty()) {
                 exc.studentId in matchingStudentIds
+            } else if (matchingStudentIds != null && matchingStudentIds.isEmpty()) {
+                false
             } else true
 
             matchesDay && matchesStudent
