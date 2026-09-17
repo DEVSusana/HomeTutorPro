@@ -209,4 +209,11 @@ object DatabaseMigrations {
             database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_schedule_exceptions_professorId_originalScheduleId_exceptionDate` ON `schedule_exceptions` (`professorId`, `originalScheduleId`, `exceptionDate`)")
         }
     }
+
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("DROP INDEX IF EXISTS `index_schedule_exceptions_professorId_originalScheduleId_exceptionDate`")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_exceptions_professorId_originalScheduleId_exceptionDate` ON `schedule_exceptions` (`professorId`, `originalScheduleId`, `exceptionDate`)")
+        }
+    }
 }

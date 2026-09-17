@@ -69,7 +69,7 @@ interface ScheduleExceptionDao {
         WHERE id NOT IN (
             SELECT MAX(id) 
             FROM schedule_exceptions 
-            GROUP BY professorId, studentId, originalScheduleId, exceptionDate, type
+            GROUP BY professorId, studentId, originalScheduleId, exceptionDate, type, newStartTime
         )
     """)
     suspend fun deleteDuplicates()

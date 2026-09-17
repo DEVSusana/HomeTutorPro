@@ -23,7 +23,7 @@ import com.devsusana.hometutorpro.data.local.entities.*
         ClassLogEntity::class,
         TransactionLogEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(AppTypeConverters::class)

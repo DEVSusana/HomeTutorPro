@@ -42,7 +42,7 @@ object SupportFactoryHelper {
             val factory = SupportOpenHelperFactory(passphraseString.toByteArray())
             val config = SupportSQLiteOpenHelper.Configuration.builder(context)
                 .name(DATABASE_NAME)
-                .callback(object : SupportSQLiteOpenHelper.Callback(10) {
+                .callback(object : SupportSQLiteOpenHelper.Callback(11) {
                     override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
                     override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
                     override fun onDowngrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
