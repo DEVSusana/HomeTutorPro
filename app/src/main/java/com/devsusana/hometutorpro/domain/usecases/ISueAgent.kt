@@ -42,4 +42,10 @@ interface ISueAgent {
      * Resets the active conversation context values (last mentioned student, time, day).
      */
     fun resetConversationContext()
+
+    /**
+     * Preserves context when an action fails due to a conflict, allowing the user to
+     * retry with an alternative time without having to re-specify the student or day.
+     */
+    fun preserveContextForConflict(action: com.devsusana.hometutorpro.domain.entities.SuePendingAction)
 }

@@ -284,4 +284,95 @@ class SueAgentImplTest {
             }
         }
     }
+
+    @Test
+    fun `add extra class in 4 turns asking student, day and hour progressively`() = runTest {
+        val student = AgentStudentDetail(
+            studentId = "c1",
+            name = "Carlos Santana",
+            subjects = "Física",
+            course = "2º Bachillerato",
+            pendingBalance = 0.0
+        )
+        coEvery { studentTools.extractRelevantStudent("anade una clase extra") } returns null
+        coEvery { studentTools.extractRelevantStudent("para carlos") } returns student
+        coEvery { studentTools.extractRelevantStudent("carlos") } returns student
+        coEvery { studentTools.extractRelevantStudent("el viernes") } returns null
+        coEvery { studentTools.extractRelevantStudent("a las 17:00") } returns null
+
+        val pendingAction = SuePendingAction.AddExtraClass(
+            studentName = "Carlos Santana",
+            studentId = "c1",
+            date = 1758240000000L,
+            startTime = "17:00",
+            endTime = "18:00"
+        )
+        coEvery { scheduleTools.prepareAddExtraClass("Carlos Santana", any(), "17:00", "18:00") } returns
+                SueOperationResult.Prepare.Success(pendingAction)
+
+        // Turn 1: User says "añade una clase extra" without student
+        val turn1 = agent.detectActionIntent("añade una clase extra")
+        assertTrue("Turn 1 should ask for student", turn1 is SueOperationResult.Prepare.Error)
+        assertTrue((turn1 as SueOperationResult.Prepare.Error).details?.contains("alumno") == true)
+
+        // Turn 2: User responds with "para Carlos"
+        val turn2 = agent.detectActionIntent("para Carlos")
+        assertTrue("Turn 2 should ask for day and hour", turn2 is SueOperationResult.Prepare.Error)
+        assertTrue((turn2 as SueOperationResult.Prepare.Error).details?.contains("día") == true)
+
+        // Turn 3: User responds with "el viernes"
+        val turn3 = agent.detectActionIntent("el viernes")
+        assertTrue("Turn 3 should ask for hour on Friday", turn3 is SueOperationResult.Prepare.Error)
+        assertTrue((turn3 as SueOperationResult.Prepare.Error).details?.contains("viernes") == true)
+        assertTrue((turn3 as SueOperationResult.Prepare.Error).details?.contains("hora") == true)
+
+        // Turn 4: User responds with "a las 17:00"
+        val turn4 = agent.detectActionIntent("a las 17:00")
+        assertTrue("Turn 4 should successfully prepare action", turn4 is SueOperationResult.Prepare.Success)
+        val action = (turn4 as SueOperationResult.Prepare.Success).action as SuePendingAction.AddExtraClass
+        assertEquals("Carlos Santana", action.studentName)
+        assertEquals("17:00", action.startTime)
+        assertEquals("18:00", action.endTime)
+    }
+
+    @Test
+    fun `query cancelled classes on specific day routes to read success`() = runTest {
+        coEvery { studentTools.extractRelevantStudent(any()) } returns null
+        coEvery { scheduleTools.getCancelledClassesDescription(5, null) } returns "• Viernes 27/10/2023: la clase de Lucía está cancelada."
+
+        val result = agent.detectActionIntent("¿Qué cancelaciones tengo el viernes?")
+        assertTrue("Should return ReadSuccess", result is SueOperationResult.ReadSuccess)
+        assertTrue((result as SueOperationResult.ReadSuccess).message.contains("cancelada"))
+    }
+
+    @Test
+    fun `preserveContextForConflict preserves student and day so user can simply supply new time`() = runTest {
+        coEvery { studentTools.extractRelevantStudent(any()) } returns null
+        val originalAction = SuePendingAction.AddExtraClass(
+            studentName = "Daniel Torres",
+            studentId = "d1",
+            date = 1758240000000L,
+            startTime = "15:00",
+            endTime = "16:00"
+        )
+        agent.preserveContextForConflict(originalAction)
+
+        val newPendingAction = SuePendingAction.AddExtraClass(
+            studentName = "Daniel Torres",
+            studentId = "d1",
+            date = 1758240000000L,
+            startTime = "16:00",
+            endTime = "17:00"
+        )
+        coEvery { scheduleTools.prepareAddExtraClass("Daniel Torres", any(), "16:00", "17:00") } returns
+                SueOperationResult.Prepare.Success(newPendingAction)
+
+        // User simply says "a las 16:00"
+        val result = agent.detectActionIntent("a las 16:00")
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.AddExtraClass
+        assertEquals("Daniel Torres", action.studentName)
+        assertEquals("16:00", action.startTime)
+        assertEquals("17:00", action.endTime)
+    }
 }

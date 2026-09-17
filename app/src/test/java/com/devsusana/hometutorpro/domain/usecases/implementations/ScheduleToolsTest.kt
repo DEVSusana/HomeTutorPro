@@ -240,6 +240,51 @@ class ScheduleToolsTest {
         assertTrue(gaps.any { it.contains("09:00") && it.contains("11:00") && it.contains("libre por cancelación de Alice") })
     }
 
+    @Test
+    fun `getFreeSlots includes extra classes on Sunday with newDayOfWeek properly splitting gaps`() = runTest {
+        // Sunday (dayOfWeek = 7). Suppose user has no regular Sunday schedule, but 2 extra classes on Sunday:
+        // 15:00-16:00 and 17:00-18:00
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns emptyList()
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+
+        // Date is Thursday 2026-05-28, but newDayOfWeek is SUNDAY (target Sunday is 2026-05-31)
+        val thursdayMillis = java.time.LocalDateTime.of(2026, 5, 28, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val sundayMillis = java.time.LocalDateTime.of(2026, 5, 31, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            ScheduleException(
+                id = "extra-1",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = thursdayMillis,
+                type = ExceptionType.EXTRA,
+                newDayOfWeek = java.time.DayOfWeek.SUNDAY,
+                newStartTime = "15:00",
+                newEndTime = "16:00"
+            ),
+            ScheduleException(
+                id = "extra-2",
+                studentId = "stu-2",
+                professorId = "prof-1",
+                date = sundayMillis,
+                type = ExceptionType.EXTRA,
+                newStartTime = "17:00",
+                newEndTime = "18:00"
+            )
+        )
+
+        val result = scheduleTools.getFreeSlots(workingStart = "08:00", workingEnd = "23:00", dayOfWeek = 7)
+
+        assertTrue(result is SueOperationResult.FreeSlotsDetailed)
+        val gaps = (result as SueOperationResult.FreeSlotsDetailed).gapLines
+        // Expected gaps: 08:00-15:00, 16:00-17:00, 18:00-23:00
+        assertTrue(gaps.any { it.contains("08:00") && it.contains("15:00") })
+        assertTrue(gaps.any { it.contains("16:00") && it.contains("17:00") })
+        assertTrue(gaps.any { it.contains("18:00") && it.contains("23:00") })
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // prepareCancelAction with time filter
     // ──────────────────────────────────────────────────────────────────────────
@@ -474,6 +519,32 @@ class ScheduleToolsTest {
 
         assertTrue(result.contains("Juan"))
         assertTrue(!result.contains("María"))
+    }
+
+    @Test
+    fun `getCancelledClassesDescription returns today cancelled class with Hoy label`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        // dateTimeProvider is Wednesday 2026-05-27 (day 3)
+        val todayMillis = java.time.LocalDateTime.of(2026, 5, 27, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            ScheduleException(
+                id = "exc-today",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = todayMillis,
+                type = ExceptionType.CANCELLED
+            )
+        )
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(mondayScheduleDetail)
+
+        // Query for today (day 3)
+        val result = scheduleTools.getCancelledClassesDescription(dayOfWeek = 3)
+
+        assertTrue(result.contains("Hoy"))
+        assertTrue(result.contains("María"))
+        assertTrue(result.contains("cancelada"))
     }
 
     @Test

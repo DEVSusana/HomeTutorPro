@@ -460,4 +460,99 @@ class SaveScheduleExceptionUseCaseTest {
         assertTrue("Error should be ConflictingStudent", error is DomainError.ConflictingStudent)
         assertTrue("Conflicting student should be Student A", (error as DomainError.ConflictingStudent).studentName == "Student A")
     }
+
+    @Test
+    fun `invoke should allow multiple extra classes on the same day at different times without overwriting ID`() = runTest {
+        // Given
+        val professorId = "prof1"
+        val studentId = "student1"
+        val fridayDate = LocalDate.of(2023, 10, 27) // Friday
+        val fridayMillis = fridayDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val existingExtraClass = ScheduleException(
+            id = "extra_1",
+            studentId = studentId,
+            professorId = professorId,
+            date = fridayMillis,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA",
+            newStartTime = "17:00",
+            newEndTime = "18:00"
+        )
+
+        val newExtraClass = ScheduleException(
+            id = "",
+            studentId = studentId,
+            professorId = professorId,
+            date = fridayMillis,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA",
+            newStartTime = "19:00",
+            newEndTime = "20:00"
+        )
+
+        val studentSummary = StudentSummary(id = studentId, name = "Carlos", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
+        every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(emptyList())
+        every { repository.getExceptions(professorId, studentId) } returns flowOf(listOf(existingExtraClass))
+        coEvery { repository.saveException(professorId, studentId, any()) } returns Result.Success(Unit)
+
+        // When
+        val result = useCase(professorId, studentId, newExtraClass)
+
+        // Then
+        assertTrue("Should succeed because times do not overlap", result is Result.Success)
+        coVerify {
+            repository.saveException(professorId, studentId, match {
+                it.id == "" && it.newStartTime == "19:00" && it.newEndTime == "20:00"
+            })
+        }
+    }
+
+    @Test
+    fun `invoke should return conflict when adding extra class overlapping existing extra class`() = runTest {
+        // Given
+        val professorId = "prof1"
+        val studentId = "student1"
+        val fridayDate = LocalDate.of(2023, 10, 27) // Friday
+        val fridayMillis = fridayDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val existingExtraClass = ScheduleException(
+            id = "extra_1",
+            studentId = studentId,
+            professorId = professorId,
+            date = fridayMillis,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA",
+            newStartTime = "17:00",
+            newEndTime = "18:00"
+        )
+
+        val conflictingExtraClass = ScheduleException(
+            id = "",
+            studentId = studentId,
+            professorId = professorId,
+            date = fridayMillis,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA",
+            newStartTime = "17:00",
+            newEndTime = "18:00"
+        )
+
+        val studentSummary = StudentSummary(id = studentId, name = "Carlos", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
+        every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(emptyList())
+        every { repository.getExceptions(professorId, studentId) } returns flowOf(listOf(existingExtraClass))
+
+        // When
+        val result = useCase(professorId, studentId, conflictingExtraClass)
+
+        // Then
+        assertTrue("Should return conflict error", result is Result.Error)
+        val error = (result as Result.Error).error
+        assertTrue("Error should be ConflictingStudent", error is DomainError.ConflictingStudent)
+        coVerify(exactly = 0) { repository.saveException(any(), any(), any()) }
+    }
 }

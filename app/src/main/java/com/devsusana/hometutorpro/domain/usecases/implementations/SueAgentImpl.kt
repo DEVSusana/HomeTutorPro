@@ -185,6 +185,29 @@ class SueAgentImpl @Inject constructor(
         lastActiveIntentType = null
     }
 
+    override fun preserveContextForConflict(action: SuePendingAction) {
+        when (action) {
+            is SuePendingAction.AddExtraClass -> {
+                lastMentionedStudentName = action.studentName
+                lastMentionedDayOfWeek = java.time.Instant.ofEpochMilli(action.date)
+                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate().dayOfWeek.value
+                lastActiveIntentType = IntentType.ADD_EXTRA_CLASS
+            }
+            is SuePendingAction.RescheduleClass -> {
+                lastMentionedStudentName = action.studentName
+                lastMentionedDayOfWeek = action.newDayOfWeek?.value
+                    ?: java.time.Instant.ofEpochMilli(action.newDate).atZone(java.time.ZoneId.systemDefault()).toLocalDate().dayOfWeek.value
+                lastActiveIntentType = IntentType.RESCHEDULE_CLASS
+            }
+            is SuePendingAction.CreateSchedule -> {
+                lastMentionedStudentName = action.studentName
+                lastMentionedDayOfWeek = action.dayOfWeek
+                lastActiveIntentType = IntentType.CREATE_SCHEDULE
+            }
+            else -> { /* No retry context needed for other actions */ }
+        }
+    }
+
 
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -613,12 +636,21 @@ class SueAgentImpl @Inject constructor(
     }
 
     private fun containsCancelKeywords(query: String): Boolean {
-        if (listOf("cancelada", "canceladas", "cancelado", "cancelados").any { it in query }) {
+        if (containsCancelledQueryKeywords(query)) {
             return false
         }
-        return listOf("cancela", "cancelar", "anula", "anular", "quitar la clase", "quita la clase",
-               "cancel", "remove class", "delete class")
-            .any { it in query }
+        if (listOf("cancelada", "canceladas", "cancelado", "cancelados", "cancelacion", "cancelación", "cancelaciones").any { it in query }) {
+            return false
+        }
+        return listOf(
+            "cancela ", "cancela la", "cancela el", "cancela a",
+            "cancelar ", "cancelar la", "cancelar el", "cancelar a",
+            "anula ", "anula la", "anula el", "anula a",
+            "anular ", "anular la", "anular el", "anular a",
+            "quitar la clase", "quita la clase",
+            "cancel ", "cancel the", "cancel a",
+            "remove class", "delete class"
+        ).any { it in query }
     }
 
     /**
@@ -631,13 +663,14 @@ class SueAgentImpl @Inject constructor(
     private fun containsCancelledQueryKeywords(query: String): Boolean {
         return listOf(
             "cancelada", "canceladas", "cancelado", "cancelados",
-            "reprogramada", "reprogramadas", "reprogramado",
+            "reprogramada", "reprogramadas", "reprogramado", "reprogramados",
             "clase cancelada", "clases canceladas",
-            "hay cancelada", "tengo cancelada", "tengo canceladas",
+            "hay cancelada", "hay canceladas", "tengo cancelada", "tengo canceladas",
             "algo cancelado", "algo cancelada",
             "cancele", "cancelé", "he cancelado", "he cancelada",
             "anulada", "anuladas", "anulado", "anulados", "anule", "anulé",
-            "cancelacion", "cancelación"
+            "cancelacion", "cancelación", "cancelaciones",
+            "que cancelaciones", "qué cancelaciones", "cuales canceladas", "cuáles canceladas"
         ).any { it in query }
     }
 
@@ -763,7 +796,11 @@ class SueAgentImpl @Inject constructor(
         listOf("elimina al alumno", "elimina al estudiante", "borra al alumno", "borra al estudiante", "eliminar alumno", "delete student", "remove student").any { it in query }
 
     private fun containsAddExtraClassKeywords(query: String) =
-        listOf("clase extra", "clase adicional", "tutoría adicional", "tutoria adicional", "extra class", "additional class").any { it in query }
+        listOf(
+            "clase extra", "clases extra", "clase adicional", "clases adicionales",
+            "tutoría adicional", "tutoria adicional", "tutorías adicionales", "tutorias adicionales",
+            "extra class", "extra classes", "additional class", "additional classes"
+        ).any { it in query }
 
     private fun containsCreateScheduleKeywords(query: String) =
         listOf("añade un horario", "añadir horario", "programa una clase los", "crear horario", "create schedule", "add schedule").any { it in query }
@@ -939,7 +976,7 @@ class SueAgentImpl @Inject constructor(
                         "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo",
                         "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
                         "hoy", "mañana", "tomorrow", "esta tarde", "esta mañana", "esta noche", "luego", "ayer", "yesterday",
-                        "tarde", "mañana"
+                        "tarde", "mañana", "semana", "esta semana", "este mes", "este año", "este curso", "fin de semana"
                     )
                     if (name.lowercase() in dayKeywords || dayKeywords.any { name.lowercase().contains(it) }) {
                         continue
@@ -1175,7 +1212,8 @@ class SueAgentImpl @Inject constructor(
                 val dayKeywords = listOf(
                     "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo",
                     "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-                    "hoy", "mañana", "tomorrow", "esta tarde", "esta mañana", "esta noche", "luego", "ayer", "yesterday"
+                    "hoy", "mañana", "tomorrow", "esta tarde", "esta mañana", "esta noche", "luego", "ayer", "yesterday",
+                    "semana", "esta semana", "este mes", "este año", "este curso", "fin de semana"
                 )
                 if (dayKeywords.any { name.lowercase().contains(it) || it.contains(name.lowercase()) }) {
                     return null
@@ -1646,23 +1684,26 @@ class SueAgentImpl @Inject constructor(
             containsAddExtraClassKeywords(lower) -> IntentType.ADD_EXTRA_CLASS
             containsCreateScheduleKeywords(lower) -> IntentType.CREATE_SCHEDULE
             containsDeleteScheduleKeywords(lower) -> IntentType.DELETE_SCHEDULE
+            containsCancelledQueryKeywords(lower) -> IntentType.QUERY_CANCELLED_CLASSES
             containsCancelKeywords(lower) -> IntentType.CANCEL_CLASS
             containsRescheduleKeywords(lower) -> IntentType.RESCHEDULE_CLASS
             containsRegisterPaymentKeywords(lower) -> IntentType.REGISTER_PAYMENT
             containsAddBalanceKeywords(lower) -> IntentType.ADD_BALANCE
             containsUpdateNotesKeywords(lower) -> IntentType.UPDATE_STUDENT_NOTES
 
-            // Read queries — most specific first to avoid catch-all collision
-            containsCancelledQueryKeywords(lower) -> IntentType.QUERY_CANCELLED_CLASSES
-            containsStudentsWithBalanceKeywords(lower) -> IntentType.QUERY_STUDENTS_WITH_BALANCE
-            containsStudentBalanceKeywords(lower) -> IntentType.QUERY_STUDENT_BALANCE
-            containsStudentWeeklyClassesKeywords(lower) -> IntentType.QUERY_STUDENT_WEEKLY_CLASSES
-            containsTodaySummaryKeywords(lower) -> IntentType.QUERY_TODAY_SUMMARY
-            containsNextClassKeywords(lower) -> IntentType.QUERY_NEXT_CLASS
-            containsFreeSlotWithDayKeywords(lower) || containsFreeSlotKeywords(lower) -> IntentType.QUERY_FREE_SLOTS
-            containsStudentCountKeywords(lower) -> IntentType.QUERY_STUDENT_COUNT
-            containsStudentDetailsKeywords(lower) -> IntentType.QUERY_STUDENT_DETAILS
-            containsDayScheduleKeywords(lower) -> IntentType.QUERY_DAY_SCHEDULE
+            // Read queries — only when there is no active multi-turn action in progress, or when user explicitly asks a question
+            lastActiveIntentType == null || isQuestionOrQuery(lower) -> when {
+                containsStudentsWithBalanceKeywords(lower) -> IntentType.QUERY_STUDENTS_WITH_BALANCE
+                containsStudentBalanceKeywords(lower) -> IntentType.QUERY_STUDENT_BALANCE
+                containsStudentWeeklyClassesKeywords(lower) -> IntentType.QUERY_STUDENT_WEEKLY_CLASSES
+                containsTodaySummaryKeywords(lower) -> IntentType.QUERY_TODAY_SUMMARY
+                containsNextClassKeywords(lower) -> IntentType.QUERY_NEXT_CLASS
+                containsFreeSlotWithDayKeywords(lower) || containsFreeSlotKeywords(lower) -> IntentType.QUERY_FREE_SLOTS
+                containsStudentCountKeywords(lower) -> IntentType.QUERY_STUDENT_COUNT
+                containsStudentDetailsKeywords(lower) -> IntentType.QUERY_STUDENT_DETAILS
+                containsDayScheduleKeywords(lower) -> IntentType.QUERY_DAY_SCHEDULE
+                else -> null
+            }
             else -> null
         }
 
@@ -1823,10 +1864,6 @@ class SueAgentImpl @Inject constructor(
                         "¿Para qué alumno quieres programar la clase extra?"
                     )
                 } else {
-                    val dayOfWeek = lastMentionedDayOfWeek ?: dateTimeProvider.getNow().dayOfWeek.value
-                    val targetDate = dateTimeProvider.getNow().toLocalDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.of(dayOfWeek)))
-                    val dateMillis = targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
                     val times = extractTwoTimes(lower) ?: lastMentionedTime?.let { lastTime ->
                         val parts = lastTime.split(":")
                         val h = parts[0].toInt()
@@ -1835,12 +1872,25 @@ class SueAgentImpl @Inject constructor(
                         val endTime = "%02d:%02d".format(endH, m)
                         Pair(lastTime, endTime)
                     }
-                    if (times == null) {
+
+                    val dayOfWeek = lastMentionedDayOfWeek ?: if (times != null) dateTimeProvider.getNow().dayOfWeek.value else null
+                    if (dayOfWeek == null) {
                         SueOperationResult.Prepare.Error(
                             SueOperationResult.ErrorType.UNKNOWN,
-                            "¿A qué hora quieres programar la clase extra de $studentName?"
+                            "¿Qué día y a qué hora quieres la clase extra de $studentName?"
+                        )
+                    } else if (times == null) {
+                        val dayName = when (dayOfWeek) {
+                            1 -> "el lunes"; 2 -> "el martes"; 3 -> "el miércoles"; 4 -> "el jueves"
+                            5 -> "el viernes"; 6 -> "el sábado"; 7 -> "el domingo"; else -> "ese día"
+                        }
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿A qué hora quieres programar la clase extra de $studentName $dayName?"
                         )
                     } else {
+                        val targetDate = dateTimeProvider.getNow().toLocalDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.of(dayOfWeek)))
+                        val dateMillis = targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
                         scheduleTools.prepareAddExtraClass(studentName, dateMillis, times.first, times.second)
                     }
                 }
@@ -2232,15 +2282,15 @@ class SueAgentImpl @Inject constructor(
             }
 
             IntentType.QUERY_CANCELLED_CLASSES -> {
-                val queryStudent = matchedStudent?.name ?: extractStudentName(lower) ?: extractStudentNameForFinance(lower)
+                val queryStudent = matchedStudent?.name
                 val queryDay = relativeDay ?: explicitDay
                 val cancelledDesc = scheduleTools.getCancelledClassesDescription(queryDay, queryStudent)
                 if (cancelledDesc.isNotBlank()) {
                     SueOperationResult.ReadSuccess(cancelledDesc)
                 } else {
                     val dayLabel = if (queryDay != null) {
-                        val dayNames = listOf("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
-                        "el ${dayNames.getOrElse(queryDay - 1) { "día seleccionado" }}"
+                        val dayNames = listOf("el lunes", "el martes", "el miércoles", "el jueves", "el viernes", "el sábado", "el domingo")
+                        dayNames.getOrElse(queryDay - 1) { "el día seleccionado" }
                     } else if (queryStudent != null) {
                         "con $queryStudent"
                     } else "esta semana"

@@ -42,7 +42,9 @@ class ScheduleTools @Inject constructor(
 ) {
 
     companion object {
-        private val TIME_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+        private val TIME_FORMATTER = java.time.format.DateTimeFormatterBuilder()
+            .appendPattern("[HH:mm][H:mm]")
+            .toFormatter()
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -195,19 +197,15 @@ class ScheduleTools @Inject constructor(
 
         for (day in daysToCheck) {
             val targetDate = nextOccurrenceDate(java.time.DayOfWeek.of(day))
-            val dayExceptions = allExceptions.filter { exc ->
-                val localDate = java.time.Instant.ofEpochMilli(exc.date)
-                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                localDate == targetDate
-            }
 
             val activeIntervals = mutableListOf<Pair<LocalTime, LocalTime>>()
             val cancelledOrRescheduledClasses = mutableListOf<Triple<LocalTime, LocalTime, String>>()
 
             // 1. Regular schedules for this day (excluding cancelled ones)
             for (sched in allScheduleDetails.filter { it.dayOfWeek == day }) {
-                val matchingExc = dayExceptions.find {
-                    (it.originalScheduleId == sched.scheduleId || it.studentId == sched.studentId)
+                val matchingExc = allExceptions.find { exc ->
+                    (exc.originalScheduleId == sched.scheduleId || (exc.originalScheduleId.isEmpty() && exc.studentId == sched.studentId && exc.type != ExceptionType.EXTRA)) &&
+                    java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate() == targetDate
                 }
                 if (matchingExc != null && matchingExc.type == ExceptionType.CANCELLED) {
                     // Cancelled class does NOT occupy time
@@ -224,10 +222,12 @@ class ScheduleTools @Inject constructor(
                     if (sStart != null && sEnd != null) {
                         cancelledOrRescheduledClasses.add(Triple(sStart, sEnd, "libre por reprogramación de ${sched.studentName}"))
                     }
-                    val newStart = runCatching { LocalTime.parse(matchingExc.newStartTime, TIME_FORMATTER) }.getOrNull()
-                    val newEnd = runCatching { LocalTime.parse(matchingExc.newEndTime, TIME_FORMATTER) }.getOrNull()
-                    if (newStart != null && newEnd != null) {
-                        activeIntervals.add(newStart to newEnd)
+                    if (matchingExc.newDayOfWeek == null || matchingExc.newDayOfWeek.value == day) {
+                        val newStart = runCatching { LocalTime.parse(matchingExc.newStartTime, TIME_FORMATTER) }.getOrNull()
+                        val newEnd = runCatching { LocalTime.parse(matchingExc.newEndTime, TIME_FORMATTER) }.getOrNull()
+                        if (newStart != null && newEnd != null) {
+                            activeIntervals.add(newStart to newEnd)
+                        }
                     }
                     continue
                 }
@@ -237,11 +237,34 @@ class ScheduleTools @Inject constructor(
                 activeIntervals.add(clsStart to clsEnd)
             }
 
-            // 2. Extra classes for this date
-            for (exc in dayExceptions.filter { it.type == ExceptionType.EXTRA }) {
-                val clsStart = runCatching { LocalTime.parse(exc.newStartTime, TIME_FORMATTER) }.getOrNull() ?: continue
-                val clsEnd   = runCatching { LocalTime.parse(exc.newEndTime,   TIME_FORMATTER) }.getOrNull() ?: continue
-                activeIntervals.add(clsStart to clsEnd)
+            // 2. Rescheduled classes moving TO this day from another day
+            for (exc in allExceptions.filter { it.type == ExceptionType.RESCHEDULED }) {
+                val newDay = exc.newDayOfWeek
+                if (newDay != null && newDay.value == day) {
+                    val origDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    val excTargetDate = origDate.plusDays((newDay.value - origDate.dayOfWeek.value).toLong())
+                    if (excTargetDate == targetDate && newDay.value != origDate.dayOfWeek.value) {
+                        val clsStart = runCatching { LocalTime.parse(exc.newStartTime, TIME_FORMATTER) }.getOrNull() ?: continue
+                        val clsEnd   = runCatching { LocalTime.parse(exc.newEndTime,   TIME_FORMATTER) }.getOrNull() ?: continue
+                        activeIntervals.add(clsStart to clsEnd)
+                    }
+                }
+            }
+
+            // 3. Extra classes for this date
+            for (exc in allExceptions.filter { it.type == ExceptionType.EXTRA }) {
+                val origDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                val newDay = exc.newDayOfWeek
+                val excTargetDate = if (newDay != null) {
+                    val diff = newDay.value - origDate.dayOfWeek.value
+                    origDate.plusDays(diff.toLong())
+                } else origDate
+
+                if (excTargetDate == targetDate) {
+                    val clsStart = runCatching { LocalTime.parse(exc.newStartTime, TIME_FORMATTER) }.getOrNull() ?: continue
+                    val clsEnd   = runCatching { LocalTime.parse(exc.newEndTime,   TIME_FORMATTER) }.getOrNull() ?: continue
+                    activeIntervals.add(clsStart to clsEnd)
+                }
             }
 
             if (activeIntervals.isEmpty()) {
@@ -385,14 +408,10 @@ class ScheduleTools @Inject constructor(
         return SueOperationResult.Prepare.Success(action)
     }
 
-    private fun getProfessorId(): String {
-        val firebaseUid = try {
-            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-        } catch (e: Exception) {
-            null
-        }
-        return firebaseUid ?: authRepository.currentUser.value?.uid ?: ""
-    }
+    private fun getProfessorId(): String =
+        authRepository.currentUser.value?.uid
+            ?: runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid }.getOrNull()
+            ?: ""
 
     /**
      * Executes a confirmed [SuePendingAction.CancelClass].
@@ -638,11 +657,18 @@ class ScheduleTools @Inject constructor(
             val localDate = java.time.Instant.ofEpochMilli(exc.date)
                 .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
 
+            val newDay = exc.newDayOfWeek
+            val excTargetDate = if (newDay != null) {
+                val diff = newDay.value - localDate.dayOfWeek.value
+                localDate.plusDays(diff.toLong())
+            } else localDate
+
             val matchesDay = if (dayOfWeek != null) {
-                localDate.dayOfWeek.value == dayOfWeek && !localDate.isBefore(startOfWeek)
+                (localDate.dayOfWeek.value == dayOfWeek || excTargetDate.dayOfWeek.value == dayOfWeek) &&
+                        (!localDate.isBefore(startOfWeek) || !excTargetDate.isBefore(startOfWeek))
             } else {
                 // Whole week from Monday onwards (not past weeks)
-                !localDate.isBefore(startOfWeek)
+                !localDate.isBefore(startOfWeek) || !excTargetDate.isBefore(startOfWeek)
             }
 
             val matchesStudent = if (matchingStudentIds != null && matchingStudentIds.isNotEmpty()) {
@@ -695,7 +721,11 @@ class ScheduleTools @Inject constructor(
                 appendLine("Clases extra programadas (activas):")
                 extras.forEach { exc ->
                     val localDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                    val dateStr = formatDateStr(localDate)
+                    val newDay = exc.newDayOfWeek
+                    val targetDate = if (newDay != null) {
+                        localDate.plusDays((newDay.value - localDate.dayOfWeek.value).toLong())
+                    } else localDate
+                    val dateStr = formatDateStr(targetDate)
                     val studentName = schedules.firstOrNull { it.studentId == exc.studentId }?.studentName
                         ?: students.firstOrNull { it.studentId == exc.studentId }?.name
                         ?: "Alumno"
@@ -707,7 +737,11 @@ class ScheduleTools @Inject constructor(
                 appendLine("Clases reprogramadas:")
                 rescheduled.forEach { exc ->
                     val localDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                    val dateStr = formatDateStr(localDate)
+                    val newDay = exc.newDayOfWeek
+                    val targetDate = if (newDay != null) {
+                        localDate.plusDays((newDay.value - localDate.dayOfWeek.value).toLong())
+                    } else localDate
+                    val dateStr = formatDateStr(targetDate)
                     val studentName = schedules.firstOrNull { it.studentId == exc.studentId }?.studentName
                         ?: students.firstOrNull { it.studentId == exc.studentId }?.name
                         ?: "Alumno"

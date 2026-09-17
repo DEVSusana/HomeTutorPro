@@ -336,6 +336,31 @@ object SueResponseFormatter {
         return "Los siguientes días están completamente libres esta semana: ${names.joinToString(", ")}."
     }
 
+    fun formatFreeSlotsForConflict(
+        result: SueOperationResult,
+        conflictDayOfWeek: Int?
+    ): String {
+        return when (result) {
+            is SueOperationResult.FreeSlotsDetailed -> {
+                if (conflictDayOfWeek != null && result.freeDays.contains(conflictDayOfWeek)) {
+                    "El ${dayName(conflictDayOfWeek).lowercase()} está completamente libre."
+                } else if (result.gapLines.isNotEmpty()) {
+                    val dayLabel = if (conflictDayOfWeek != null) " el ${dayName(conflictDayOfWeek).lowercase()}" else ""
+                    val slots = result.gapLines.map { line ->
+                        line.substringAfter("hueco libre ").substringBefore(" (").trim()
+                    }
+                    "Tienes disponibles los siguientes huecos libres$dayLabel: ${slots.joinToString(", ")}."
+                } else {
+                    formatFreeDaysList(result.freeDays)
+                }
+            }
+            is SueOperationResult.FreeSlots -> {
+                formatFreeDaysList(result.freeDays)
+            }
+            else -> ""
+        }
+    }
+
     fun formatDomainError(error: DomainError, freeSlotsText: String = ""): String = when (error) {
         is DomainError.StudentNotFound -> "No se encontró el alumno en la base de datos."
         is DomainError.ScheduleConflict -> "Hay un conflicto con el horario seleccionado."

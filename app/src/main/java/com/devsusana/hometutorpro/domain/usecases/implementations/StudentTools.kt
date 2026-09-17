@@ -98,6 +98,7 @@ class StudentTools @Inject constructor(
     suspend fun extractRelevantStudent(query: String): AgentStudentDetail? {
         val students = queryStudentsUseCase.getAllStudents()
         val normalizedQuery = normalizeName(query)
+        val queryWords = normalizedQuery.split(Regex("\\s+"))
 
         val exactMatch = students.find { student ->
             val firstName = student.name.substringBefore(" ")
@@ -109,17 +110,18 @@ class StudentTools @Inject constructor(
             ?: students.find { student ->
                 val firstName = student.name.substringBefore(" ")
                 val normFirst = normalizeName(firstName)
-                normFirst.length >= 4 && normalizedQuery.contains(normFirst)
+                normFirst.length >= 4 && queryWords.any { it.contains(normFirst) }
             }
 
         // Tercer paso: Coincidencia fonética por consonantes (consonant skeleton match)
-        // Permite casar "Arantxa" con "Arntxa" quitando las vocales
+        // Permite casar "Arantxa" con "Arntxa" comparando palabra por palabra
         val matchedStudent = substringMatch
             ?: students.find { student ->
                 val firstName = student.name.substringBefore(" ")
                 val normFirst = normalizeConsonants(firstName)
-                val queryConsonants = normalizeConsonants(query)
-                normFirst.length >= 3 && queryConsonants.contains(normFirst)
+                normFirst.length >= 3 && queryWords.any { word ->
+                    normalizeConsonants(word) == normFirst
+                }
             }
 
         return matchedStudent?.let { student ->

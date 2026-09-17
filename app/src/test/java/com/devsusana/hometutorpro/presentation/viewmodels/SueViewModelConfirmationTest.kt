@@ -29,6 +29,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -335,7 +336,7 @@ class SueViewModelConfirmationTest {
             com.devsusana.hometutorpro.domain.core.DomainError.ConflictingStudent("Pedro", "09:00-10:00")
         )
         coEvery { scheduleTools.executeCreateSchedule(pendingAction) } returns conflictError
-        coEvery { scheduleTools.getFreeSlots() } returns SueOperationResult.FreeSlotsDetailed(listOf(3, 5), emptyList())
+        coEvery { scheduleTools.getFreeSlots(dayOfWeek = 1) } returns SueOperationResult.FreeSlotsDetailed(listOf(3, 5), emptyList())
         coEvery { sueAgent.detectActionIntent(any()) } returns null
 
         coEvery { sueAgent.detectActionIntent("agenda clase con maría") } returns
@@ -352,8 +353,8 @@ class SueViewModelConfirmationTest {
         val expectedFree = "Los siguientes días están completamente libres esta semana: miércoles, viernes."
         assertEquals("$expectedBase $expectedFree", state.agentResponse)
         coVerify { scheduleTools.executeCreateSchedule(pendingAction) }
-        coVerify { scheduleTools.getFreeSlots() }
-
+        coVerify { scheduleTools.getFreeSlots(dayOfWeek = 1) }
+        verify { sueAgent.preserveContextForConflict(pendingAction) }
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -498,5 +499,40 @@ class SueViewModelConfirmationTest {
         viewModel.cancelModelDownload()
         advanceUntilIdle()
         verify { cancelSueModelDownloadUseCase() }
+    }
+
+    @Test
+    fun `execution error with ConflictingStudent queries free slots for conflict day and formats suggestions`() = runTest {
+        val fridayDate = java.time.LocalDate.of(2023, 10, 27)
+        val fridayMillis = fridayDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val action = SuePendingAction.AddExtraClass(
+            studentName = "Carlos",
+            studentId = "c1",
+            date = fridayMillis,
+            startTime = "17:00",
+            endTime = "18:00"
+        )
+        val conflictError = com.devsusana.hometutorpro.domain.core.DomainError.ConflictingStudent("Lucía", "17:00 - 18:00")
+        coEvery { scheduleTools.executeAddExtraClass(action) } returns SueOperationResult.Execute.Error(conflictError)
+        coEvery { scheduleTools.getFreeSlots(dayOfWeek = 5) } returns SueOperationResult.FreeSlotsDetailed(
+            freeDays = emptyList(),
+            gapLines = listOf("Viernes: hueco libre de 08:00 a 17:00", "Viernes: hueco libre de 18:00 a 23:00")
+        )
+
+        coEvery { sueAgent.detectActionIntent("añade una clase extra a Carlos el viernes a las 17:00") } returns
+                SueOperationResult.Prepare.Success(action)
+
+        transcriptionFlow.emit("añade una clase extra a Carlos el viernes a las 17:00")
+        advanceUntilIdle()
+
+        viewModel.onConfirmAction()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue("Response contains conflict message", state.agentResponse?.contains("conflicto") == true)
+        assertTrue("Response contains conflicting student", state.agentResponse?.contains("Lucía") == true)
+        assertTrue("Response contains free slot suggestions", state.agentResponse?.contains("08:00 a 17:00") == true)
+        coVerify { scheduleTools.getFreeSlots(dayOfWeek = 5) }
     }
 }

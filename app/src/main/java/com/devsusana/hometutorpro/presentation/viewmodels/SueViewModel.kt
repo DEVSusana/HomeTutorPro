@@ -561,18 +561,20 @@ class SueViewModel @Inject constructor(
                     studentTools.executeUpdateNotesAction(action)
             }
             val response = if (executeResult is SueOperationResult.Execute.Error && executeResult.domainError is DomainError.ConflictingStudent) {
-                // Use a simple default for working hours in conflict feedback —
-                // the full working-hours-aware getFreeSlots is handled in the RAG context.
-                val freeSlotsResult = scheduleTools.getFreeSlots()
-                val freeSlotsText = when (freeSlotsResult) {
-                    is SueOperationResult.FreeSlotsDetailed ->
-                        SueResponseFormatter.formatFreeDaysList(freeSlotsResult.freeDays)
-                    is SueOperationResult.FreeSlots ->
-                        SueResponseFormatter.formatFreeDaysList(freeSlotsResult.freeDays)
-                    else -> ""
+                sueAgent.preserveContextForConflict(action)
+                val conflictDay = when (action) {
+                    is SuePendingAction.AddExtraClass -> {
+                        java.time.Instant.ofEpochMilli(action.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().dayOfWeek.value
+                    }
+                    is SuePendingAction.RescheduleClass -> {
+                        action.newDayOfWeek?.value ?: java.time.Instant.ofEpochMilli(action.newDate).atZone(java.time.ZoneId.systemDefault()).toLocalDate().dayOfWeek.value
+                    }
+                    is SuePendingAction.CreateSchedule -> action.dayOfWeek
+                    else -> null
                 }
+                val freeSlotsResult = scheduleTools.getFreeSlots(dayOfWeek = conflictDay)
+                val freeSlotsText = SueResponseFormatter.formatFreeSlotsForConflict(freeSlotsResult, conflictDay)
                 SueResponseFormatter.formatDomainError(executeResult.domainError, freeSlotsText)
-
             } else {
                 SueResponseFormatter.format(executeResult)
             }

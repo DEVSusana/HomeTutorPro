@@ -217,6 +217,53 @@ class StudentToolsTest {
         assertEquals(arntxaDetail, result)
     }
 
+    @Test
+    fun `extractRelevantStudent returns null for query containing canceladas when Claudia Serrano is present`() = runTest {
+        val claudiaSummary = AgentStudentSummary(
+            name = "Claudia Serrano",
+            subjects = "Historia",
+            course = "2º Bachillerato",
+            pricePerHour = 25.0,
+            pendingBalance = 0.0,
+            isActive = true,
+            lastPaymentDate = null
+        )
+        coEvery { queryStudentsUseCase.getAllStudents() } returns listOf(mariaSummary, juanSummary, claudiaSummary)
+
+        val result1 = studentTools.extractRelevantStudent("dime las clases canceladas de esta semana")
+        val result2 = studentTools.extractRelevantStudent("qué clases canceladas hay hoy")
+
+        assertNull(result1)
+        assertNull(result2)
+    }
+
+    @Test
+    fun `extractRelevantStudent returns match for Claudia Serrano when explicitly requested`() = runTest {
+        val claudiaSummary = AgentStudentSummary(
+            name = "Claudia Serrano",
+            subjects = "Historia",
+            course = "2º Bachillerato",
+            pricePerHour = 25.0,
+            pendingBalance = 0.0,
+            isActive = true,
+            lastPaymentDate = null
+        )
+        val claudiaDetail = AgentStudentDetail(
+            studentId = "stu-5",
+            name = "Claudia Serrano",
+            subjects = "Historia",
+            course = "2º Bachillerato",
+            pendingBalance = 0.0,
+            lastPaymentDate = null
+        )
+        coEvery { queryStudentsUseCase.getAllStudents() } returns listOf(mariaSummary, juanSummary, claudiaSummary)
+        coEvery { queryStudentsUseCase.searchByName("Claudia Serrano") } returns listOf(claudiaDetail)
+
+        val result = studentTools.extractRelevantStudent("dime las clases de Claudia")
+
+        assertEquals(claudiaDetail, result)
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // prepareRegisterPayment
     // ──────────────────────────────────────────────────────────────────────────
