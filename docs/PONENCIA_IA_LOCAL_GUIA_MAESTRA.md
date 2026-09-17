@@ -308,8 +308,9 @@ En Android 15 y versiones superiores (especialmente Android 17), el sistema oper
 
 ### Nuestra Estrategia: *User-Centric Opt-in* y Descarga Streaming
 
-1. **Diálogo de Onboarding:** En el primer arranque, el usuario elige entre *"Activar con SUE (IA Local)"* o *"Modo Clásico"*.
-2. **Descarga Streaming HTTP Resiliente ([SueModelRepositoryImpl.kt](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/app/src/main/java/com/devsusana/hometutorpro/data/repository/SueModelRepositoryImpl.kt)):**
+1. **Detección Preventiva de Compatibilidad (`SueDeviceCompatibility`):** Antes de ofrecer la activación de Sue en el Onboarding o en Ajustes, la app comprueba `ActivityManager.getMemoryInfo()` y `isLowRamDevice`. Si el dispositivo no alcanza el umbral mínimo (2.5 GB de RAM y Android 9.0+), se previene la descarga del modelo para proteger el rendimiento del terminal y se notifica amablemente al usuario.
+2. **Diálogo de Onboarding:** En dispositivos compatibles, en el primer arranque el usuario elige libremente entre *"Activar con SUE (IA Local)"* o *"Modo Clásico"*.
+3. **Descarga Streaming HTTP Resiliente ([SueModelRepositoryImpl.kt](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/app/src/main/java/com/devsusana/hometutorpro/data/repository/SueModelRepositoryImpl.kt)):**
    * Descarga el archivo vía HTTPS siguiendo redirecciones automáticas (CDN/Hugging Face).
    * Detecta dinámicamente si el modelo es `.task` o `.bin` mediante cabeceras `Content-Disposition` y URL.
    * Escribe en un archivo temporal (`<nombre>.task.tmp`) con reporte de progreso en tiempo real mediante `Flow<SueModelStatus>`.
@@ -435,11 +436,12 @@ Prepárate para responder a estas preguntas habituales de arquitectos senior e i
 ### 1. *"¿Por qué no usar WebLLM o llama.cpp que son más populares?"*
 > **Respuesta:** "llama.cpp es fantástico para entornos C++ o servidores, pero en Android requiere mantener binarios NDK compilados por cada arquitectura (`arm64-v8a`, `armeabi-v7a`, `x86_64`) y gestionar la interfaz JNI manualmente. MediaPipe es la solución oficial de Google AI Edge: se distribuye como dependencia AAR de Maven, se integra de forma transparente con el ciclo de vida de Android, incluye soporte out-of-the-box para aceleración GPU OpenCL/Vulkan y garantiza la compatibilidad con páginas de 16 KB en Android 15 y 16."
 
-### 2. *"¿Qué pasa si el usuario tiene un móvil de gama baja con 3 GB de RAM?"*
-> **Respuesta:** "Diseñamos un sistema defensivo con 3 capas:
-> 1. **Fast-Path Determinista:** El 80% de las consultas comunes (saldo, clases de hoy, conteos) se resuelven en Kotlin con Room sin cargar el LLM.
-> 2. **Fallback Gracioso:** Si `loadModel()` falla por falta de memoria RAM o GPU, la app no crashea; notifica amablemente al usuario y opera exclusivamente en modo determinista.
-> 3. **Smart Unload:** En cuanto se termina de responder, la memoria se libera tras un breve periodo de inactividad."
+### 2. *"¿Qué pasa si el usuario tiene un móvil de gama baja con poca memoria RAM?"*
+> **Respuesta:** "Diseñamos una arquitectura defensiva en 4 niveles para garantizar la máxima estabilidad:
+> 1. **Comprobación Preventiva de Hardware (`SueDeviceCompatibility`):** Antes de permitir la descarga o activación de Sue, la app inspecciona `ActivityManager.getMemoryInfo()` y `isLowRamDevice`. Si el dispositivo no cumple los requisitos mínimos de hardware (al menos 2.5 GB de RAM física y Android 9.0+ / API 28), la sección de IA en Ajustes desactiva la descarga, muestra una tarjeta informativa con la causa exacta (RAM insuficiente o versión de Android) y la app funciona con total normalidad en su modo estándar.
+> 2. **Fast-Path Determinista:** En dispositivos compatibles, el 80% de las consultas habituales (saldo, horarios, clases de hoy, conteos) se procesan directamente en Kotlin con Room (< 5 ms) sin sobrecargar la CPU/GPU ni requerir el modelo en memoria.
+> 3. **Smart Unload y `onTrimMemory`:** El LLM se descarga automáticamente de la memoria RAM/VRAM tras 60 segundos de inactividad (`IDLE_UNLOAD_TIMEOUT_MS`). Además, la app escucha las señales del ciclo de vida del sistema (`ComponentCallbacks2.onTrimMemory`) para liberar inmediatamente la inferencia si el sistema operativo entra en presión de memoria.
+> 4. **Fallback Defensivo:** Si la inicialización del motor (`loadModel()`) fallase por falta puntual de recursos en la GPU/CPU, la aplicación nunca se cierra inesperadamente; captura el error, notifica amablemente al usuario y continúa operando de forma determinista."
 
 ### 3. *"¿Cómo evitas que el LLM alucine cuando le pides datos de un alumno?"*
 > **Respuesta:** "Aplicamos tres técnicas combinadas:
