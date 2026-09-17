@@ -42,9 +42,26 @@ class ScheduleTools @Inject constructor(
 ) {
 
     companion object {
-        private val TIME_FORMATTER = java.time.format.DateTimeFormatterBuilder()
-            .appendPattern("[HH:mm][H:mm]")
-            .toFormatter()
+        private val TIME_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+
+        fun parseTime(timeStr: String): LocalTime {
+            val trimmed = timeStr.trim()
+            val parts = trimmed.split(":")
+            if (parts.size == 2) {
+                val h = parts[0].toIntOrNull()
+                val m = parts[1].toIntOrNull()
+                if (h != null && m != null && h in 0..23 && m in 0..59) {
+                    return LocalTime.of(h, m)
+                }
+            }
+            val padded = if (trimmed.length == 4 && trimmed[1] == ':') "0$trimmed" else trimmed
+            return LocalTime.parse(padded, TIME_FORMATTER)
+        }
+
+        fun parseTimeOrNull(timeStr: String?): LocalTime? {
+            if (timeStr.isNullOrBlank()) return null
+            return runCatching { parseTime(timeStr) }.getOrNull()
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -71,16 +88,16 @@ class ScheduleTools @Inject constructor(
 
         val schedules = when {
             timeFilter == "morning" -> allSchedules.filter {
-                LocalTime.parse(it.startTime, TIME_FORMATTER).isBefore(LocalTime.of(14, 0))
+                parseTime(it.startTime).isBefore(LocalTime.of(14, 0))
             }
             timeFilter == "afternoon" -> allSchedules.filter {
-                LocalTime.parse(it.startTime, TIME_FORMATTER).isAfter(LocalTime.of(13, 59))
+                parseTime(it.startTime).isAfter(LocalTime.of(13, 59))
             }
             timeFilter != null && timeFilter.contains(":") -> {
-                val targetTime = LocalTime.parse(timeFilter, TIME_FORMATTER)
+                val targetTime = parseTime(timeFilter)
                 allSchedules.filter { s ->
-                    val start = LocalTime.parse(s.startTime, TIME_FORMATTER)
-                    val end = LocalTime.parse(s.endTime, TIME_FORMATTER)
+                    val start = parseTime(s.startTime)
+                    val end = parseTime(s.endTime)
                     !targetTime.isBefore(start) && targetTime.isBefore(end)
                 }
             }
@@ -144,7 +161,7 @@ class ScheduleTools @Inject constructor(
         val candidate = sorted.firstOrNull { s ->
             when {
                 s.dayOfWeek > todayIso -> true
-                s.dayOfWeek == todayIso -> LocalTime.parse(s.startTime, TIME_FORMATTER).isAfter(currentTime)
+                s.dayOfWeek == todayIso -> parseTime(s.startTime).isAfter(currentTime)
                 else -> false
             }
         } ?: sorted.firstOrNull() // wrap to start of next week
@@ -152,7 +169,7 @@ class ScheduleTools @Inject constructor(
         if (candidate == null) return SueOperationResult.NextClass(null, null)
 
         val targetDayOfWeek = DayOfWeek.of(candidate.dayOfWeek)
-        val startLocalTime = LocalTime.parse(candidate.startTime, TIME_FORMATTER)
+        val startLocalTime = parseTime(candidate.startTime)
         val isNextWeek = when {
             candidate.dayOfWeek < todayIso -> true
             candidate.dayOfWeek == todayIso -> !startLocalTime.isAfter(currentTime)
@@ -189,8 +206,8 @@ class ScheduleTools @Inject constructor(
 
         val daysToCheck = if (dayOfWeek != null) listOf(dayOfWeek) else (1..5).toList()
 
-        val workStart = runCatching { LocalTime.parse(workingStart, TIME_FORMATTER) }.getOrElse { LocalTime.of(8, 0) }
-        val workEnd   = runCatching { LocalTime.parse(workingEnd,   TIME_FORMATTER) }.getOrElse { LocalTime.of(23, 0) }
+        val workStart = parseTimeOrNull(workingStart) ?: LocalTime.of(8, 0)
+        val workEnd   = parseTimeOrNull(workingEnd) ?: LocalTime.of(23, 0)
 
         val freeSlotLines = mutableListOf<String>()
         val freeDays = mutableListOf<Int>()
@@ -209,22 +226,22 @@ class ScheduleTools @Inject constructor(
                 }
                 if (matchingExc != null && matchingExc.type == ExceptionType.CANCELLED) {
                     // Cancelled class does NOT occupy time
-                    val sStart = runCatching { LocalTime.parse(sched.startTime, TIME_FORMATTER) }.getOrNull()
-                    val sEnd   = runCatching { LocalTime.parse(sched.endTime,   TIME_FORMATTER) }.getOrNull()
+                    val sStart = parseTimeOrNull(sched.startTime)
+                    val sEnd   = parseTimeOrNull(sched.endTime)
                     if (sStart != null && sEnd != null) {
                         cancelledOrRescheduledClasses.add(Triple(sStart, sEnd, "libre por cancelación de ${sched.studentName}"))
                     }
                     continue
                 }
                 if (matchingExc != null && matchingExc.type == ExceptionType.RESCHEDULED) {
-                    val sStart = runCatching { LocalTime.parse(sched.startTime, TIME_FORMATTER) }.getOrNull()
-                    val sEnd   = runCatching { LocalTime.parse(sched.endTime,   TIME_FORMATTER) }.getOrNull()
+                    val sStart = parseTimeOrNull(sched.startTime)
+                    val sEnd   = parseTimeOrNull(sched.endTime)
                     if (sStart != null && sEnd != null) {
                         cancelledOrRescheduledClasses.add(Triple(sStart, sEnd, "libre por reprogramación de ${sched.studentName}"))
                     }
                     if (matchingExc.newDayOfWeek == null || matchingExc.newDayOfWeek.value == day) {
-                        val newStart = runCatching { LocalTime.parse(matchingExc.newStartTime, TIME_FORMATTER) }.getOrNull()
-                        val newEnd = runCatching { LocalTime.parse(matchingExc.newEndTime, TIME_FORMATTER) }.getOrNull()
+                        val newStart = parseTimeOrNull(matchingExc.newStartTime)
+                        val newEnd = parseTimeOrNull(matchingExc.newEndTime)
                         if (newStart != null && newEnd != null) {
                             activeIntervals.add(newStart to newEnd)
                         }
@@ -232,8 +249,8 @@ class ScheduleTools @Inject constructor(
                     continue
                 }
 
-                val clsStart = runCatching { LocalTime.parse(sched.startTime, TIME_FORMATTER) }.getOrNull() ?: continue
-                val clsEnd   = runCatching { LocalTime.parse(sched.endTime,   TIME_FORMATTER) }.getOrNull() ?: continue
+                val clsStart = parseTimeOrNull(sched.startTime) ?: continue
+                val clsEnd   = parseTimeOrNull(sched.endTime) ?: continue
                 activeIntervals.add(clsStart to clsEnd)
             }
 
@@ -244,8 +261,8 @@ class ScheduleTools @Inject constructor(
                     val origDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                     val excTargetDate = origDate.plusDays((newDay.value - origDate.dayOfWeek.value).toLong())
                     if (excTargetDate == targetDate && newDay.value != origDate.dayOfWeek.value) {
-                        val clsStart = runCatching { LocalTime.parse(exc.newStartTime, TIME_FORMATTER) }.getOrNull() ?: continue
-                        val clsEnd   = runCatching { LocalTime.parse(exc.newEndTime,   TIME_FORMATTER) }.getOrNull() ?: continue
+                        val clsStart = parseTimeOrNull(exc.newStartTime) ?: continue
+                        val clsEnd   = parseTimeOrNull(exc.newEndTime) ?: continue
                         activeIntervals.add(clsStart to clsEnd)
                     }
                 }
@@ -261,8 +278,8 @@ class ScheduleTools @Inject constructor(
                 } else origDate
 
                 if (excTargetDate == targetDate) {
-                    val clsStart = runCatching { LocalTime.parse(exc.newStartTime, TIME_FORMATTER) }.getOrNull() ?: continue
-                    val clsEnd   = runCatching { LocalTime.parse(exc.newEndTime,   TIME_FORMATTER) }.getOrNull() ?: continue
+                    val clsStart = parseTimeOrNull(exc.newStartTime) ?: continue
+                    val clsEnd   = parseTimeOrNull(exc.newEndTime) ?: continue
                     activeIntervals.add(clsStart to clsEnd)
                 }
             }
@@ -379,10 +396,10 @@ class ScheduleTools @Inject constructor(
             return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.CLASS_NOT_FOUND)
         }
 
-        val origStart = LocalTime.parse(match.startTime, TIME_FORMATTER)
-        val origEnd = LocalTime.parse(match.endTime, TIME_FORMATTER)
+        val origStart = parseTime(match.startTime)
+        val origEnd = parseTime(match.endTime)
         val durationMinutes = java.time.Duration.between(origStart, origEnd).toMinutes()
-        val parsedNewStart = LocalTime.parse(newStartTime, TIME_FORMATTER)
+        val parsedNewStart = parseTime(newStartTime)
         val newEndTime = parsedNewStart.plusMinutes(durationMinutes).format(TIME_FORMATTER)
 
         val originalDate = nextOccurrenceDate(DayOfWeek.of(fromDayOfWeek))

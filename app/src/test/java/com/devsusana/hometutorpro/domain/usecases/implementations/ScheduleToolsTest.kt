@@ -556,5 +556,40 @@ class ScheduleToolsTest {
 
         assertEquals("", result)
     }
+
+    @Test
+    fun `parseTime parses both single and double digit hours correctly`() {
+        assertEquals(java.time.LocalTime.of(8, 0), ScheduleTools.parseTime("8:00"))
+        assertEquals(java.time.LocalTime.of(8, 0), ScheduleTools.parseTime("08:00"))
+        assertEquals(java.time.LocalTime.of(10, 30), ScheduleTools.parseTime("10:30"))
+        assertEquals(java.time.LocalTime.of(10, 30), ScheduleTools.parseTime(" 10:30 "))
+    }
+
+    @Test
+    fun `parseTimeOrNull safely returns null on invalid or blank strings`() {
+        assertEquals(null, ScheduleTools.parseTimeOrNull(null))
+        assertEquals(null, ScheduleTools.parseTimeOrNull(""))
+        assertEquals(null, ScheduleTools.parseTimeOrNull("   "))
+        assertEquals(null, ScheduleTools.parseTimeOrNull("invalid"))
+    }
+
+    @Test
+    fun `getFreeSlots formats time strings cleanly without duplicated digits`() = runTest {
+        // Monday has class 10:00-11:00
+        val cls1 = AgentScheduleDetail("s1", "stu-1", "Alice", 1, "10:00", "11:00")
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(cls1)
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns emptyList()
+
+        val result = scheduleTools.getFreeSlots(workingStart = "08:00", workingEnd = "13:00", dayOfWeek = 1)
+
+        assertTrue(result is SueOperationResult.FreeSlotsDetailed)
+        val gaps = (result as SueOperationResult.FreeSlotsDetailed).gapLines
+        assertEquals(2, gaps.size)
+        assertEquals("Lunes: hueco libre de 08:00 a 10:00", gaps[0])
+        assertEquals("Lunes: hueco libre de 11:00 a 13:00", gaps[1])
+        // Verify no duplicate patterns like 08:0008:00
+        assertTrue(gaps.none { it.contains("08:0008:00") || it.contains("10:001000") || it.contains("10:0010:00") })
+    }
 }
 
