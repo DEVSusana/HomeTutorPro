@@ -507,6 +507,7 @@
 
     <!-- Edit Profile -->
     <string name="edit_profile_title">Edit Profile</string>
+    <string name="edit_profile_personal_info">Personal Information</string>
     <string name="edit_profile_name">Name</string>
     <string name="edit_profile_email">Email</string>
     <string name="edit_profile_password">New Password (optional)</string>
@@ -516,6 +517,7 @@
     <string name="edit_profile_error">Failed to update profile</string>
     <string name="edit_profile_password_error">Failed to update password</string>
     <string name="edit_profile_working_hours">Working Hours</string>
+    <string name="edit_profile_working_hours_desc">Set your daily working range to help SUE calculate free time slots and avoid schedule conflicts.</string>
     <string name="edit_profile_working_start">Start: %s</string>
     <string name="edit_profile_working_end">End: %s</string>
 

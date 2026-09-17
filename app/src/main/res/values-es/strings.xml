@@ -526,6 +526,7 @@
 
     <!-- Edit Profile -->
     <string name="edit_profile_title">Editar Perfil</string>
+    <string name="edit_profile_personal_info">Datos Personales</string>
     <string name="edit_profile_name">Nombre</string>
     <string name="edit_profile_email">Correo Electrónico</string>
     <string name="edit_profile_password">Nueva Contraseña (opcional)</string>
@@ -535,6 +536,7 @@
     <string name="edit_profile_error">Error al actualizar el perfil</string>
     <string name="edit_profile_password_error">Error al actualizar la contraseña</string>
     <string name="edit_profile_working_hours">Horario de Trabajo</string>
+    <string name="edit_profile_working_hours_desc">Establece tu jornada diaria para que SUE pueda calcular huecos libres y evitar conflictos de horario.</string>
     <string name="edit_profile_working_start">Inicio: %s</string>
     <string name="edit_profile_working_end">Fin: %s</string>
 
