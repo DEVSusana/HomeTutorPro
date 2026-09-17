@@ -108,6 +108,12 @@ fun CompactScheduleCard(
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = 8.sp
                 )
+            } else if (exception?.type == ExceptionType.EXTRA) {
+                Text(
+                    text = "✨",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 8.sp
+                )
             }
         }
     }

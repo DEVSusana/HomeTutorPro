@@ -31,7 +31,7 @@ class SaveScheduleExceptionUseCase @Inject constructor(
 
         // PREVENT DUPLICATES: Check if an exception already exists for this original schedule and date
         var exceptionToSave = exception
-        if (exception.id.isEmpty()) {
+        if (exception.id.isEmpty() && exception.originalScheduleId.isNotEmpty() && exception.originalScheduleId != "EXTRA" && exception.type != ExceptionType.EXTRA) {
             val existingExceptions = repository.getExceptions(professorId, studentId).first()
             val alreadyExists = existingExceptions.find { 
                 it.originalScheduleId == exception.originalScheduleId && 

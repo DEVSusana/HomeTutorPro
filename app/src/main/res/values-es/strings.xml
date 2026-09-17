@@ -337,6 +337,7 @@
     <string name="weekly_schedule_no_classes_grid">Sin clases</string>
     <string name="weekly_schedule_cancelled">Cancelada</string>
     <string name="weekly_schedule_rescheduled">Reprogramada</string>
+    <string name="weekly_schedule_extra">Clase Extra</string>
     <string name="weekly_schedule_success_exception_saved">Excepción guardada con éxito</string>
     <string name="weekly_schedule_error_schedule_conflict">¡Conflicto de horario! Este horario ya está ocupado.</string>
     <string name="weekly_schedule_error_conflicting_student_format">¡Conflicto de horario! %1$s tiene una clase a las %2$s</string>
@@ -487,6 +488,7 @@
     <string name="register_legal_disclaimer">Al registrarte, aceptas nuestras</string>
     <string name="register_legal_terms">Condiciones de Uso</string>
     <string name="register_legal_privacy">Política de Privacidad</string>
+    <string name="settings_developer_options">Opciones de Desarrollador</string>
     <string name="settings_debug_premium">Modo Premium de Depuración</string>
     <string name="settings_premium_status">Estado Premium</string>
     <string name="settings_premium_active">Activo</string>
@@ -524,6 +526,7 @@
 
     <!-- Edit Profile -->
     <string name="edit_profile_title">Editar Perfil</string>
+    <string name="edit_profile_personal_info">Datos Personales</string>
     <string name="edit_profile_name">Nombre</string>
     <string name="edit_profile_email">Correo Electrónico</string>
     <string name="edit_profile_password">Nueva Contraseña (opcional)</string>
@@ -533,6 +536,7 @@
     <string name="edit_profile_error">Error al actualizar el perfil</string>
     <string name="edit_profile_password_error">Error al actualizar la contraseña</string>
     <string name="edit_profile_working_hours">Horario de Trabajo</string>
+    <string name="edit_profile_working_hours_desc">Establece tu jornada diaria para que SUE pueda calcular huecos libres y evitar conflictos de horario.</string>
     <string name="edit_profile_working_start">Inicio: %s</string>
     <string name="edit_profile_working_end">Fin: %s</string>
 
@@ -633,4 +637,57 @@
     <string name="premium_error_not_found">No se encontraron los detalles del producto. Por favor, comprueba tu conexión a internet o inténtalo de nuevo más tarde.</string>
     <string name="premium_go_back">Volver</string>
     <string name="manage_your_students_efficiently">Gestiona tus alumnos de forma eficiente.</string>
+
+    <!-- Sue AI Agent -->
+    <string name="sue_fab_content_description">Asistente IA Sue</string>
+    <string name="sue_listening_title">Escuchando…</string>
+    <string name="sue_listening_hint">Habla ahora…</string>
+    <string name="sue_cancel">Cancelar</string>
+    <string name="sue_error_permission">Se necesita permiso del micrófono para que Sue pueda escucharte.</string>
+    <string name="sue_error_model_not_loaded">El modelo de IA no está cargado. Consulta la guía de configuración.</string>
+    <string name="sue_loading_assistant_brain">Iniciando cerebro de la asistente…</string>
+
+    <!-- Permissions in Settings -->
+    <string name="settings_system_permissions_title">Permisos del Sistema</string>
+    <string name="settings_system_permissions_desc">Gestiona los permisos de alarmas exactas y notificaciones en los ajustes del sistema</string>
+    <string name="settings_system_permissions_button">Abrir Ajustes del Sistema</string>
+
+    <!-- Sue Settings & Onboarding -->
+    <string name="sue_settings_section_title">SUE — Asistente de IA Local</string>
+    <string name="sue_settings_enable_title">Activar SUE</string>
+    <string name="sue_settings_enable_desc">Permite el asistente de voz con inteligencia local en el dispositivo</string>
+    <string name="sue_settings_fab_visibility_title">Mostrar Botón Flotante (FAB)</string>
+    <string name="sue_settings_fab_visibility_desc">Muestra el acceso directo del micrófono en las pantallas principales</string>
+    <string name="sue_onboarding_title">Conoce a SUE, tu asistente inteligente</string>
+    <string name="sue_onboarding_desc">SUE es una asistente de IA local diseñada para profesores particulares. Funciona 100% en tu teléfono con Gemma 3, garantizando privacidad total de datos, funcionamiento sin internet y sin costes de servidores.</string>
+    <string name="sue_onboarding_feature_privacy">100% Privada (Cumple RGPD, sin nube)</string>
+    <string name="sue_onboarding_feature_offline">Funciona totalmente sin internet</string>
+    <string name="sue_onboarding_feature_model_size">Requiere modelo local de ~550 MB</string>
+    <string name="sue_onboarding_btn_enable">Activar con SUE</string>
+    <string name="sue_onboarding_btn_classic">Modo clásico (sin IA)</string>
+    <string name="sue_onboarding_change_anytime">Puedes cambiar esto en cualquier momento desde Ajustes.</string>
+    <string name="sue_download_background_notice">Descargando el modelo de Sue en segundo plano. Puedes comprobar el estado en Ajustes.</string>
+    <string name="sue_download_background_action">Ajustes</string>
+
+    <!-- Sue Model Management -->
+    <string name="sue_model_status_title">Modelo de IA y Almacenamiento</string>
+    <string name="sue_model_downloaded_badge">Modelo descargado (%s)</string>
+    <string name="sue_model_not_downloaded_badge">Modelo no descargado</string>
+    <string name="sue_model_download_desc">El modelo local (~550 MB) permite disponer de IA privada sin servidores en la nube. Se recomienda conexión Wi-Fi.</string>
+    <string name="sue_model_download_btn">Descargar modelo de IA (550 MB)</string>
+    <string name="sue_model_downloading">Descargando modelo: %1$d%% (%2$s / %3$s)</string>
+    <string name="sue_model_download_cancel_btn">Cancelar descarga</string>
+    <string name="sue_model_delete_btn">Eliminar modelo de IA (Liberar %s)</string>
+    <string name="sue_model_delete_confirm_title">¿Eliminar modelo de IA?</string>
+    <string name="sue_model_delete_confirm_desc">Se eliminará el archivo del modelo (550 MB) de tu dispositivo. Podrás volver a descargarlo en cualquier momento para seguir usando a Sue.</string>
+    <string name="sue_model_delete_confirm_btn">Eliminar modelo</string>
+    <string name="sue_model_delete_cancel_btn">Cancelar</string>
+    <string name="sue_model_download_dialog_title">Descargar modelo de SUE</string>
+    <string name="sue_model_download_dialog_desc">Para utilizar a Sue con inteligencia 100% privada en el dispositivo, descarga el modelo Gemma 3 (~550 MB).</string>
+
+    <!-- Sue Device Compatibility -->
+    <string name="sue_compatibility_unsupported_title">SUE no disponible en este dispositivo</string>
+    <string name="sue_compatibility_reason_android">SUE requiere Android 9.0 (Pie) o superior para ejecutar IA en el dispositivo.</string>
+    <string name="sue_compatibility_reason_ram">SUE requiere al menos 4 GB de memoria RAM para ejecutar IA en el dispositivo.</string>
+    <string name="sue_compatibility_reason_generic">Este dispositivo no cumple los requisitos de hardware para ejecutar IA local.</string>
 </resources>

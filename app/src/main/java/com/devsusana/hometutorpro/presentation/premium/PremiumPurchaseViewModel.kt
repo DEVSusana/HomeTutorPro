@@ -1,12 +1,11 @@
 package com.devsusana.hometutorpro.presentation.premium
 
-import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.app.Activity
 import com.devsusana.hometutorpro.core.billing.PremiumBillingService
 import com.devsusana.hometutorpro.core.billing.PremiumProduct
 import com.devsusana.hometutorpro.domain.usecases.IGetPremiumProductUseCase
-import com.devsusana.hometutorpro.domain.usecases.ILaunchPremiumPurchaseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,9 +15,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PremiumPurchaseViewModel @Inject constructor(
-    private val billingService: PremiumBillingService, // Still needed for flows for now
-    private val getPremiumProductUseCase: IGetPremiumProductUseCase,
-    private val launchPremiumPurchaseUseCase: ILaunchPremiumPurchaseUseCase
+    private val billingService: PremiumBillingService,
+    private val billingLauncher: BillingLauncher,
+    private val getPremiumProductUseCase: IGetPremiumProductUseCase
 ) : ViewModel() {
 
     private val _premiumProduct = MutableStateFlow<PremiumProduct?>(null)
@@ -42,6 +41,6 @@ class PremiumPurchaseViewModel @Inject constructor(
     }
 
     fun buyPremium(activity: Activity) {
-        launchPremiumPurchaseUseCase(activity)
+        billingLauncher.launchPremiumPurchase(activity)
     }
 }

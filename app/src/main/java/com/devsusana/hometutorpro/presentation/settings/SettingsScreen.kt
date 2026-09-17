@@ -20,6 +20,12 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,19 +40,25 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devsusana.hometutorpro.BuildConfig
 import com.devsusana.hometutorpro.R
-import com.devsusana.hometutorpro.core.settings.SettingsManager
+import com.devsusana.hometutorpro.core.utils.NotificationHelper
+import com.devsusana.hometutorpro.domain.entities.AppThemeMode
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsItem
 import com.devsusana.hometutorpro.presentation.settings.components.SettingsSectionTitle
 import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import com.devsusana.hometutorpro.presentation.components.FeedbackDialog
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun SettingsScreen(
+    scrollToSue: Boolean = false,
     onLogoutClick: () -> Unit,
     onPremiumClick: () -> Unit,
     onEditProfileClick: () -> Unit,
@@ -274,8 +286,30 @@ fun SettingsScreen(
         )
     }
 
+    if (state.showDeleteModelConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::onDismissDeleteModelDialog,
+            title = { Text(stringResource(R.string.sue_model_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.sue_model_delete_confirm_desc)) },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::onConfirmDeleteModel,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.sue_model_delete_confirm_btn))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onDismissDeleteModelDialog) {
+                    Text(stringResource(R.string.sue_model_delete_cancel_btn))
+                }
+            }
+        )
+    }
+
     SettingsContent(
         state = state,
+        scrollToSue = scrollToSue,
         onEditProfileClick = onEditProfileClick,
         onChangePasswordClick = { viewModel.showChangePasswordDialog(true) },
         onExportBackup = {
@@ -287,6 +321,12 @@ fun SettingsScreen(
         },
         onClassEndNotificationsToggle = viewModel::onClassEndNotificationsToggle,
         onShowTestNotification = viewModel::showTestNotification,
+        onOpenSystemPermissions = { NotificationHelper.openExactAlarmSettings(context) },
+        onSueEnabledToggle = viewModel::onSueEnabledToggle,
+        onSueFabVisibleToggle = viewModel::onSueFabVisibleToggle,
+        onDownloadSueModel = { viewModel.downloadSueModel() },
+        onCancelSueModelDownload = viewModel::cancelSueModelDownload,
+        onDeleteSueModelClick = viewModel::onDeleteModelClick,
         onLanguageChange = { lang ->
             scope.launch {
                 viewModel.setLanguageSync(lang)
@@ -309,18 +349,25 @@ fun SettingsScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SettingsContent(
     state: SettingsState,
+    scrollToSue: Boolean = false,
     onEditProfileClick: () -> Unit,
     onChangePasswordClick: () -> Unit,
     onExportBackup: () -> Unit,
     onImportBackup: () -> Unit,
     onClassEndNotificationsToggle: (Boolean) -> Unit,
     onShowTestNotification: () -> Unit,
+    onOpenSystemPermissions: () -> Unit,
+    onSueEnabledToggle: (Boolean) -> Unit,
+    onSueFabVisibleToggle: (Boolean) -> Unit,
+    onDownloadSueModel: () -> Unit,
+    onCancelSueModelDownload: () -> Unit,
+    onDeleteSueModelClick: () -> Unit,
     onLanguageChange: (String) -> Unit,
-    onThemeModeChange: (SettingsManager.ThemeMode) -> Unit,
+    onThemeModeChange: (AppThemeMode) -> Unit,
     onDebugPremiumToggle: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
@@ -328,6 +375,16 @@ fun SettingsContent(
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showSueHelpDialog by remember { mutableStateOf(false) }
+
+    val sueBringIntoViewRequester = remember { BringIntoViewRequester() }
+
+    LaunchedEffect(scrollToSue) {
+        if (scrollToSue) {
+            delay(300)
+            sueBringIntoViewRequester.bringIntoView()
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -423,6 +480,13 @@ fun SettingsContent(
                     }
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingsItem(
+                    icon = Icons.Default.Tune,
+                    title = stringResource(R.string.settings_system_permissions_title),
+                    subtitle = stringResource(R.string.settings_system_permissions_desc),
+                    onClick = onOpenSystemPermissions
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 TextButton(
                     onClick = onShowTestNotification,
                     modifier = Modifier.padding(start = 56.dp, top = 4.dp, bottom = 8.dp)
@@ -450,13 +514,226 @@ fun SettingsContent(
                     icon = Icons.Default.Palette,
                     title = stringResource(R.string.settings_theme),
                     subtitle = when (state.themeMode) {
-                        SettingsManager.ThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
-                        SettingsManager.ThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
-                        SettingsManager.ThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
+                        AppThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
+                        AppThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
+                        AppThemeMode.SYSTEM -> stringResource(R.string.settings_theme_system)
                     },
                     onClick = { showThemeDialog = true }
                 )
             }
+
+            // SUE Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(sueBringIntoViewRequester)
+            ) {
+                SettingsSectionTitle(stringResource(R.string.sue_settings_section_title))
+                Card(
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                if (!state.sueDeviceCompatibility.isSupported) {
+                    val reasonText = when (state.sueDeviceCompatibility.reason) {
+                        com.devsusana.hometutorpro.domain.entities.SueUnsupportedReason.UNSUPPORTED_ANDROID_VERSION ->
+                            stringResource(R.string.sue_compatibility_reason_android)
+                        com.devsusana.hometutorpro.domain.entities.SueUnsupportedReason.INSUFFICIENT_RAM ->
+                            stringResource(R.string.sue_compatibility_reason_ram)
+                        null ->
+                            stringResource(R.string.sue_compatibility_reason_generic)
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.sue_compatibility_unsupported_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = reasonText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    SettingsItem(
+                        icon = Icons.Default.AutoAwesome,
+                        title = stringResource(R.string.sue_settings_enable_title),
+                        subtitle = stringResource(R.string.sue_settings_enable_desc),
+                        onClick = { onSueEnabledToggle(!state.isSueEnabled) },
+                        trailing = {
+                            Switch(
+                                checked = state.isSueEnabled,
+                                onCheckedChange = { onSueEnabledToggle(it) }
+                            )
+                        }
+                    )
+                    if (state.isSueEnabled) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        SettingsItem(
+                            icon = Icons.Default.Mic,
+                            title = stringResource(R.string.sue_settings_fab_visibility_title),
+                            subtitle = stringResource(R.string.sue_settings_fab_visibility_desc),
+                            onClick = { onSueFabVisibleToggle(!state.isSueFabVisible) },
+                            trailing = {
+                                Switch(
+                                    checked = state.isSueFabVisible,
+                                    onCheckedChange = { onSueFabVisibleToggle(it) }
+                                )
+                            }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        // Model Storage & Download Management
+                        when (val status = state.sueModelStatus) {
+                            is com.devsusana.hometutorpro.domain.entities.SueModelStatus.Downloaded -> {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudDone,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = stringResource(R.string.sue_model_status_title),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.sue_model_downloaded_badge, status.formattedSize),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    TextButton(
+                                        onClick = onDeleteSueModelClick,
+                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(stringResource(R.string.sue_model_delete_btn, status.formattedSize))
+                                    }
+                                }
+                            }
+                            is com.devsusana.hometutorpro.domain.entities.SueModelStatus.Downloading -> {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudDownload,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = stringResource(R.string.sue_model_status_title),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            val percent = if (status.progress >= 0) (status.progress * 100).toInt() else 0
+                                            val downloadedMb = status.bytesDownloaded / (1024 * 1024)
+                                            val totalMb = if (status.totalBytes > 0) status.totalBytes / (1024 * 1024) else 550
+                                            Text(
+                                                text = stringResource(R.string.sue_model_downloading, percent, "${downloadedMb}MB", "${totalMb}MB"),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    if (status.progress >= 0) {
+                                        LinearProgressIndicator(
+                                            progress = { status.progress },
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    } else {
+                                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    OutlinedButton(
+                                        onClick = onCancelSueModelDownload,
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Text(stringResource(R.string.sue_model_download_cancel_btn))
+                                    }
+                                }
+                            }
+                            else -> {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudDownload,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = stringResource(R.string.sue_model_status_title),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.sue_model_download_desc),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Button(
+                                        onClick = onDownloadSueModel,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(stringResource(R.string.sue_model_download_btn))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    SettingsItem(
+                        icon = Icons.Default.Info,
+                        title = "Guía de comandos de SUE",
+                        subtitle = "Aprende cómo hablarle a SUE",
+                        onClick = { showSueHelpDialog = true }
+                    )
+                }
+            }
+        }
 
             // Legal Section
             SettingsSectionTitle(stringResource(R.string.settings_legal_title))
@@ -479,7 +756,9 @@ fun SettingsContent(
                     onClick = { uriHandler.openUri("https://hometutorpro.web.app/privacy_policy.html") }
                 )
             }
-            
+
+
+
             // Actions Section
             Spacer(modifier = Modifier.height(24.dp))
             Card(
@@ -530,7 +809,7 @@ fun SettingsContent(
                 Column {
                     TextButton(
                         onClick = {
-                            onLanguageChange(SettingsManager.LANGUAGE_ENGLISH)
+                            onLanguageChange("en")
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -545,7 +824,7 @@ fun SettingsContent(
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick = {
-                            onLanguageChange(SettingsManager.LANGUAGE_SPANISH)
+                            onLanguageChange("es")
                             showLanguageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -582,9 +861,9 @@ fun SettingsContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.LIGHT,
+                            selected = state.themeMode == AppThemeMode.LIGHT,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.LIGHT)
+                                onThemeModeChange(AppThemeMode.LIGHT)
                                 showThemeDialog = false
                             }
                         )
@@ -604,9 +883,9 @@ fun SettingsContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.DARK,
+                            selected = state.themeMode == AppThemeMode.DARK,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.DARK)
+                                onThemeModeChange(AppThemeMode.DARK)
                                 showThemeDialog = false
                             }
                         )
@@ -623,12 +902,12 @@ fun SettingsContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = state.themeMode == SettingsManager.ThemeMode.SYSTEM,
+                            selected = state.themeMode == AppThemeMode.SYSTEM,
                             onClick = {
-                                onThemeModeChange(SettingsManager.ThemeMode.SYSTEM)
+                                onThemeModeChange(AppThemeMode.SYSTEM)
                                 showThemeDialog = false
                             }
                         )
@@ -649,6 +928,98 @@ fun SettingsContent(
         )
     }
 
+    if (showSueHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showSueHelpDialog = false },
+            title = { Text("Guía de Ayuda de SUE") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "SUE es tu asistente inteligente local. Puedes pedirle que realice tareas mediante comandos de voz coloquiales.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text("Ejemplos de Comandos Soportados:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    HelpExampleItem(
+                        intent = "Crear Alumno",
+                        examples = listOf(
+                            "\"Crea un alumno llamado Pepe los miércoles a las 3 de la tarde\"",
+                            "\"Añade un estudiante llamado Ana de bachillerato a 15 la hora\""
+                        )
+                    )
+                    HelpExampleItem(
+                        intent = "Consultar Horario",
+                        examples = listOf(
+                            "\"¿Qué clases tengo el viernes?\"",
+                            "\"¿Qué clase tengo hoy a las 1800?\"",
+                            "\"¿Cuál es mi siguiente clase?\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Consultar Huecos Libres",
+                        examples = listOf(
+                            "\"¿Tengo huecos libres hoy?\"",
+                            "\"¿Qué huecos libres tengo esta semana?\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Consultar Clases Canceladas",
+                        examples = listOf(
+                            "\"¿Qué clases tengo canceladas hoy?\"",
+                            "\"¿Tengo alguna clase cancelada el jueves?\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Mover o Reprogramar Clases",
+                        examples = listOf(
+                            "\"Mueve la clase de Pepe del lunes al viernes\"",
+                            "\"Reprograma la clase de Ana de hoy para mañana a las 5 de la tarde\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Cancelar Clases",
+                        examples = listOf(
+                            "\"Cancela la clase de Pepe de este viernes\"",
+                            "\"Borra el horario de Ana los martes\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Pagos y Deudas",
+                        examples = listOf(
+                            "\"Pepe me ha pagado 30 euros en efectivo\"",
+                            "\"Súmale 20 euros a la deuda de Ana\""
+                        )
+                    )
+                    
+                    HelpExampleItem(
+                        intent = "Iniciar Clases",
+                        examples = listOf(
+                            "\"Inicia una clase con Pepe de 60 minutos\""
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSueHelpDialog = false }) {
+                    Text("Entendido")
+                }
+            }
+        )
+    }
+
     // Backup Feedback
     state.backupMessage?.let { message ->
         FeedbackDialog(
@@ -659,6 +1030,27 @@ fun SettingsContent(
     }
 }
 
+@Composable
+private fun HelpExampleItem(intent: String, examples: List<String>) {
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Text(
+            text = intent,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        examples.forEach { example ->
+            Text(
+                text = example,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun SettingsContentPreview() {
@@ -666,7 +1058,7 @@ private fun SettingsContentPreview() {
         SettingsContent(
             state = SettingsState(
                 language = "en",
-                themeMode = SettingsManager.ThemeMode.SYSTEM
+                themeMode = AppThemeMode.SYSTEM
             ),
             onEditProfileClick = {},
             onChangePasswordClick = {},
@@ -674,6 +1066,12 @@ private fun SettingsContentPreview() {
             onImportBackup = {},
             onClassEndNotificationsToggle = {},
             onShowTestNotification = {},
+            onOpenSystemPermissions = {},
+            onSueEnabledToggle = {},
+            onSueFabVisibleToggle = {},
+            onDownloadSueModel = {},
+            onCancelSueModelDownload = {},
+            onDeleteSueModelClick = {},
             onLanguageChange = {},
             onThemeModeChange = {},
             onDebugPremiumToggle = {},
