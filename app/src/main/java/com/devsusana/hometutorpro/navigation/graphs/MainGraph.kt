@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.navigation.graphs
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import com.devsusana.hometutorpro.navigation.Route
 import com.devsusana.hometutorpro.presentation.dashboard.DashboardScreen
 import com.devsusana.hometutorpro.presentation.migration.MigrationScreen
@@ -58,8 +59,10 @@ fun NavGraphBuilder.mainGraph(navController: NavController) {
         )
     }
 
-    composable<Route.Settings> {
+    composable<Route.Settings> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.Settings>()
         SettingsScreen(
+            scrollToSue = route.scrollToSue,
             onLogoutClick = {
                 navController.navigate(Route.Login) {
                     popUpTo(0) { inclusive = true }

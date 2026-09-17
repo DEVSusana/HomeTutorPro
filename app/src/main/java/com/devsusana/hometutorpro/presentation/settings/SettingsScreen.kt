@@ -48,12 +48,17 @@ import com.devsusana.hometutorpro.presentation.utils.LocaleHelper
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import com.devsusana.hometutorpro.presentation.components.FeedbackDialog
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun SettingsScreen(
+    scrollToSue: Boolean = false,
     onLogoutClick: () -> Unit,
     onPremiumClick: () -> Unit,
     onEditProfileClick: () -> Unit,
@@ -304,6 +309,7 @@ fun SettingsScreen(
 
     SettingsContent(
         state = state,
+        scrollToSue = scrollToSue,
         onEditProfileClick = onEditProfileClick,
         onChangePasswordClick = { viewModel.showChangePasswordDialog(true) },
         onExportBackup = {
@@ -343,10 +349,11 @@ fun SettingsScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SettingsContent(
     state: SettingsState,
+    scrollToSue: Boolean = false,
     onEditProfileClick: () -> Unit,
     onChangePasswordClick: () -> Unit,
     onExportBackup: () -> Unit,
@@ -369,6 +376,15 @@ fun SettingsContent(
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showSueHelpDialog by remember { mutableStateOf(false) }
+
+    val sueBringIntoViewRequester = remember { BringIntoViewRequester() }
+
+    LaunchedEffect(scrollToSue) {
+        if (scrollToSue) {
+            delay(300)
+            sueBringIntoViewRequester.bringIntoView()
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -507,13 +523,18 @@ fun SettingsContent(
             }
 
             // SUE Section
-            SettingsSectionTitle(stringResource(R.string.sue_settings_section_title))
-            Card(
-                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(sueBringIntoViewRequester)
             ) {
+                SettingsSectionTitle(stringResource(R.string.sue_settings_section_title))
+                Card(
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
                 if (!state.sueDeviceCompatibility.isSupported) {
                     val reasonText = when (state.sueDeviceCompatibility.reason) {
                         com.devsusana.hometutorpro.domain.entities.SueUnsupportedReason.UNSUPPORTED_ANDROID_VERSION ->
@@ -712,6 +733,7 @@ fun SettingsContent(
                     )
                 }
             }
+        }
 
             // Legal Section
             SettingsSectionTitle(stringResource(R.string.settings_legal_title))

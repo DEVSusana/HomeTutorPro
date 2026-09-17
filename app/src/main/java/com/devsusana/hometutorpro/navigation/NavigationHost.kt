@@ -92,7 +92,7 @@ fun NavigationHost() {
         isRoute(Route.Dashboard) ||
         isRoute(Route.WeeklySchedule) ||
         isRoute(Route.StudentList) ||
-        isRoute(Route.Settings)
+        isRoute(Route.Settings())
 
     val navigationControl = remember(scope, drawerState) {
         NavigationControl(
@@ -244,7 +244,7 @@ fun NavigationHost() {
                                         duration = SnackbarDuration.Long
                                     )
                                     if (result == SnackbarResult.ActionPerformed) {
-                                        navController.navigate(Route.Settings)
+                                        navController.navigate(Route.Settings(scrollToSue = true))
                                     }
                                 }
                             },
