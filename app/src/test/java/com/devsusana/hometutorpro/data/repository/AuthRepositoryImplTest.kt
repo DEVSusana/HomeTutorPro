@@ -558,4 +558,81 @@ class AuthRepositoryImplTest {
         assertTrue(result is Result.Error)
         assertEquals(DomainError.UserNotFound, (result as Result.Error).error)
     }
+
+    // ============================================================================
+    // Update Password & Delete Account Tests
+    // ============================================================================
+
+    @Test
+    fun `updatePassword with active firebase user and valid current password succeeds`() = runTest {
+        val mockFirebaseUser = mockk<FirebaseUser>(relaxed = true)
+        every { mockFirebaseUser.email } returns "test@domain.com"
+        every { mockFirebaseUser.reauthenticate(any()) } returns Tasks.forResult(null)
+        every { mockFirebaseUser.updatePassword("newPass123") } returns Tasks.forResult(null)
+        every { firebaseAuth.currentUser } returns mockFirebaseUser
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.updatePassword("oldPass123", "newPass123")
+
+        assertTrue(result is Result.Success)
+        verify { authManager.updatePassword("newPass123") }
+    }
+
+    @Test
+    fun `updatePassword with local user and invalid password returns InvalidCredentials`() = runTest {
+        every { firebaseAuth.currentUser } returns null
+        every { authManager.getEmail() } returns "local@domain.com"
+        every { authManager.validateCredentials("local@domain.com", "wrongPass") } returns false
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.updatePassword("wrongPass", "newPass123")
+
+        assertTrue(result is Result.Error)
+        assertEquals(DomainError.InvalidCredentials, (result as Result.Error).error)
+    }
+
+    @Test
+    fun `deleteAccount with active firebase user succeeds and clears session`() = runTest {
+        val mockFirebaseUser = mockk<FirebaseUser>(relaxed = true)
+        every { mockFirebaseUser.email } returns "test@domain.com"
+        every { mockFirebaseUser.reauthenticate(any()) } returns Tasks.forResult(null)
+        every { mockFirebaseUser.delete() } returns Tasks.forResult(null)
+        every { firebaseAuth.currentUser } returns mockFirebaseUser
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.deleteAccount("password123")
+
+        assertTrue(result is Result.Success)
+        verify { authManager.clearCredentials() }
+        assertEquals(null, repository.currentUser.first())
+    }
+
+    @Test
+    fun `sendPasswordResetEmail success returns Success`() = runTest {
+        every { firebaseAuth.sendPasswordResetEmail("test@domain.com") } returns Tasks.forResult(null)
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.sendPasswordResetEmail("test@domain.com")
+
+        assertTrue(result is Result.Success)
+    }
+
+    @Test
+    fun `sendPasswordResetEmail with network error returns NetworkError`() = runTest {
+        every { firebaseAuth.sendPasswordResetEmail("test@domain.com") } returns Tasks.forException(
+            com.google.firebase.FirebaseNetworkException("Network error")
+        )
+
+        repository = createRepository(backgroundScope)
+
+        val result = repository.sendPasswordResetEmail("test@domain.com")
+
+        assertTrue(result is Result.Error)
+        assertEquals(DomainError.NetworkError, (result as Result.Error).error)
+    }
 }
+

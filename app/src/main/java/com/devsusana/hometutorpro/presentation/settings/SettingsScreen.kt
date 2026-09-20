@@ -332,7 +332,6 @@ fun SettingsScreen(
                 viewModel.setLanguageSync(lang)
                 val activity = context as? android.app.Activity ?: return@launch
                 LocaleHelper.setLocale(activity, lang)
-                activity.recreate()
             }
         },
         onThemeModeChange = viewModel::onThemeModeChange,

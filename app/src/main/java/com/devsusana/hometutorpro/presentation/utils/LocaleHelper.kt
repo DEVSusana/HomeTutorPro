@@ -21,8 +21,17 @@ object LocaleHelper {
      * @param languageCode Language code (e.g., "en", "es")
      */
     fun setLocale(activity: Activity, languageCode: String) {
-        // We don't need to update configuration here as it's handled in onAttach
-        // Just recreate the activity to apply the new language from DataStore
+        val locale = Locale.forLanguageTag(languageCode)
+        Locale.setDefault(locale)
+        
+        val config = Configuration(activity.resources.configuration)
+        config.setLocale(locale)
+        
+        @Suppress("DEPRECATION")
+        activity.resources.updateConfiguration(config, activity.resources.displayMetrics)
+        @Suppress("DEPRECATION")
+        activity.applicationContext.resources.updateConfiguration(config, activity.applicationContext.resources.displayMetrics)
+        
         activity.recreate()
     }
     
@@ -55,12 +64,16 @@ object LocaleHelper {
             "es"
         }
         
-        val locale = Locale(language)
+        val locale = Locale.forLanguageTag(language)
         Locale.setDefault(locale)
         
         val config = Configuration(context.resources.configuration)
         config.setLocale(locale)
         
+        @Suppress("DEPRECATION")
+        context.resources.updateConfiguration(config, context.resources.displayMetrics)
+        
         return context.createConfigurationContext(config)
     }
 }
+
