@@ -49,15 +49,6 @@ class LocaleHelperTest {
     fun setLocale_recreatesActivityAndUpdatesDefaultLocale() {
         // Given: A mock activity
         val mockActivity = mockk<Activity>(relaxed = true)
-        val mockResources = mockk<Resources>(relaxed = true)
-        val mockAppContext = mockk<Context>(relaxed = true)
-        val mockAppResources = mockk<Resources>(relaxed = true)
-        
-        every { mockActivity.resources } returns mockResources
-        every { mockResources.configuration } returns Configuration()
-        every { mockActivity.applicationContext } returns mockAppContext
-        every { mockAppContext.resources } returns mockAppResources
-        every { mockAppResources.configuration } returns Configuration()
 
         // When: Set locale
         LocaleHelper.setLocale(mockActivity, "en")

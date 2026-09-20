@@ -23,15 +23,6 @@ object LocaleHelper {
     fun setLocale(activity: Activity, languageCode: String) {
         val locale = Locale.forLanguageTag(languageCode)
         Locale.setDefault(locale)
-        
-        val config = Configuration(activity.resources.configuration)
-        config.setLocale(locale)
-        
-        @Suppress("DEPRECATION")
-        activity.resources.updateConfiguration(config, activity.resources.displayMetrics)
-        @Suppress("DEPRECATION")
-        activity.applicationContext.resources.updateConfiguration(config, activity.applicationContext.resources.displayMetrics)
-        
         activity.recreate()
     }
     
@@ -69,9 +60,6 @@ object LocaleHelper {
         
         val config = Configuration(context.resources.configuration)
         config.setLocale(locale)
-        
-        @Suppress("DEPRECATION")
-        context.resources.updateConfiguration(config, context.resources.displayMetrics)
         
         return context.createConfigurationContext(config)
     }
