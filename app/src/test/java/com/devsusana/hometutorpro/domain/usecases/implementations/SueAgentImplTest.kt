@@ -43,7 +43,7 @@ class SueAgentImplTest {
         scheduleTools = mockk(relaxed = true)
         dateTimeProvider = mockk {
             every { getNow() } returns fixedNow
-            every { getLocale() } returns Locale("es", "ES")
+            every { getLocale() } returns Locale.forLanguageTag("es-ES")
         }
         authRepository = mockk {
             val user = User(
@@ -201,7 +201,7 @@ class SueAgentImplTest {
 
         // Step 2: User asks general cancellation query without specifying student
         coEvery { studentTools.extractRelevantStudent("¿que clases tengo canceladas?") } returns null
-        coEvery { scheduleTools.getCancelledClassesDescription(null, null) } returns
+        coEvery { scheduleTools.getCancelledClassesDescription(null, null, any()) } returns
                 "Clases canceladas:\n• Viernes 19/09/2025: la clase de Lucía (17:00 - 18:30) está cancelada."
 
         val result = agent.detectActionIntent("¿Qué clases tengo canceladas?")
@@ -324,7 +324,7 @@ class SueAgentImplTest {
         val turn3 = agent.detectActionIntent("el viernes")
         assertTrue("Turn 3 should ask for hour on Friday", turn3 is SueOperationResult.Prepare.Error)
         assertTrue((turn3 as SueOperationResult.Prepare.Error).details?.contains("viernes") == true)
-        assertTrue((turn3 as SueOperationResult.Prepare.Error).details?.contains("hora") == true)
+        assertTrue(turn3.details?.contains("hora") == true)
 
         // Turn 4: User responds with "a las 17:00"
         val turn4 = agent.detectActionIntent("a las 17:00")
@@ -338,7 +338,7 @@ class SueAgentImplTest {
     @Test
     fun `query cancelled classes on specific day routes to read success`() = runTest {
         coEvery { studentTools.extractRelevantStudent(any()) } returns null
-        coEvery { scheduleTools.getCancelledClassesDescription(5, null) } returns "• Viernes 27/10/2023: la clase de Lucía está cancelada."
+        coEvery { scheduleTools.getCancelledClassesDescription(5, null, any()) } returns "• Viernes 27/10/2023: la clase de Lucía está cancelada."
 
         val result = agent.detectActionIntent("¿Qué cancelaciones tengo el viernes?")
         assertTrue("Should return ReadSuccess", result is SueOperationResult.ReadSuccess)
@@ -374,5 +374,54 @@ class SueAgentImplTest {
         assertEquals("Daniel Torres", action.studentName)
         assertEquals("16:00", action.startTime)
         assertEquals("17:00", action.endTime)
+    }
+
+    @Test
+    fun `hour parsing infers afternoon 15_00 for a las 3 without dawn fallback`() = runTest {
+        val student = AgentStudentDetail(
+            studentId = "1",
+            name = "Claudia Serrano",
+            subjects = "Matemáticas",
+            course = "4º ESO",
+            pendingBalance = 0.0
+        )
+        coEvery { studentTools.extractRelevantStudent(any()) } returns student
+        val pendingAction = SuePendingAction.AddExtraClass(
+            studentName = "Claudia Serrano",
+            studentId = "1",
+            date = 1758240000000L,
+            startTime = "15:00",
+            endTime = "16:00"
+        )
+        coEvery { scheduleTools.prepareAddExtraClass("Claudia Serrano", any(), "15:00", "16:00") } returns
+                SueOperationResult.Prepare.Success(pendingAction)
+
+        val result = agent.detectActionIntent("Añade una clase extra para Claudia el viernes a las 3")
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.AddExtraClass
+        assertEquals("15:00", action.startTime)
+        assertEquals("16:00", action.endTime)
+    }
+
+    @Test
+    fun `querying weekly extra classes returns read success and does not trigger add action`() = runTest {
+        coEvery { studentTools.extractRelevantStudent(any()) } returns null
+        coEvery { scheduleTools.getCancelledClassesDescription(null, null, any()) } returns
+                "Clases extra programadas (activas):\n• Domingo 31/05/2026: clase extra con Claudia de 17:00 a 18:00."
+
+        val result = agent.detectActionIntent("Dime las clases extra de la semana")
+        assertTrue("Should return ReadSuccess", result is SueOperationResult.ReadSuccess)
+        assertTrue((result as SueOperationResult.ReadSuccess).message.contains("17:00 a 18:00"))
+    }
+
+    @Test
+    fun `querying weekly rescheduled classes returns read success`() = runTest {
+        coEvery { studentTools.extractRelevantStudent(any()) } returns null
+        coEvery { scheduleTools.getCancelledClassesDescription(null, null, any()) } returns
+                "Clases reprogramadas:\n• Domingo 31/05/2026: clase de Juan movida a nuevo horario de 15:00 a 16:00."
+
+        val result = agent.detectActionIntent("Dime las clases reprogramadas de la semana")
+        assertTrue("Should return ReadSuccess", result is SueOperationResult.ReadSuccess)
+        assertTrue((result as SueOperationResult.ReadSuccess).message.contains("Juan"))
     }
 }

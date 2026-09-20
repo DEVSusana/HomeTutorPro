@@ -98,6 +98,9 @@ class SueAgentImpl @Inject constructor(
                 Limitaciones:
                 - Solo conoces los datos del profesor que está usando la app.
 
+                INSTRUCCIÓN HORARIA:
+                Para horas sin especificar (ej. "a las 3", "a las 4", "a las 5", "a las 6"), interpreta SIEMPRE que se refiere a la tarde en formato 24h (15:00, 16:00, 17:00, 18:00) y NUNCA a horas de madrugada (03:00, 04:00, etc.), ya que las clases particulares no se imparten de madrugada. Solo interpreta mañana para horas entre 8 y 12 (08:00 - 12:00) o si se especifica "de la mañana" / "am".
+
                 INSTRUCCIÓN MUY IMPORTANTE (EXTRACCIÓN DE INTENCIONES):
                 Si la frase del usuario requiere ejecutar una acción en la app (crear, modificar o borrar clases, estudiantes o pagos, o actualizar sus notas), debes devolver UNA ÚNICA LÍNEA AL PRINCIPIO de tu respuesta con el siguiente formato exacto:
                 [ACTION: TIPO_DE_ACCION, parametro1: valor, parametro2: valor]
@@ -329,13 +332,25 @@ class SueAgentImpl @Inject constructor(
                 if (containsNextClassKeywords(lowerQuery)) {
                     appendLine(formatResult(scheduleTools.getNextClass()))
                 } else if (isAskingPurelyAboutCancellations) {
-                    // Exclusive branch: user is asking ONLY about cancelled/rescheduled classes.
+                    // Exclusive branch: user is asking ONLY about cancelled/rescheduled/extra classes.
                     // Do NOT inject the normal schedule — only inject exceptions so the LLM
                     // does not confuse active classes with cancelled ones.
-                    val exceptionsCtx = scheduleTools.getCancelledClassesDescription(day, studentName)
+                    val typeFilter = when {
+                        listOf("extra", "extras", "adicional", "adicionales").any { it in lowerQuery } -> com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA
+                        listOf("reprogramada", "reprogramadas", "reprogramado", "reprogramados", "movida", "movidas").any { it in lowerQuery } -> com.devsusana.hometutorpro.domain.entities.ExceptionType.RESCHEDULED
+                        listOf("cancelada", "canceladas", "cancelado", "cancelados", "anulada", "anuladas", "anulado", "anulados").any { it in lowerQuery } -> com.devsusana.hometutorpro.domain.entities.ExceptionType.CANCELLED
+                        else -> null
+                    }
+                    val exceptionsCtx = scheduleTools.getCancelledClassesDescription(day, studentName, typeFilter)
                     if (exceptionsCtx.isNotBlank()) {
                         appendLine(exceptionsCtx)
                     } else {
+                        val typeLabel = when (typeFilter) {
+                            com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA -> "clases extra registradas"
+                            com.devsusana.hometutorpro.domain.entities.ExceptionType.RESCHEDULED -> "clases reprogramadas registradas"
+                            com.devsusana.hometutorpro.domain.entities.ExceptionType.CANCELLED -> "clases canceladas registradas"
+                            null -> "clases canceladas, reprogramadas ni extra registradas"
+                        }
                         val dayLabel = if (day != null) {
                             when (day) {
                                 1 -> "el lunes"; 2 -> "el martes"; 3 -> "el miércoles"
@@ -345,7 +360,7 @@ class SueAgentImpl @Inject constructor(
                         } else if (studentName != null) {
                             "con $studentName"
                         } else "esta semana"
-                        appendLine("No hay clases canceladas ni reprogramadas registradas $dayLabel.")
+                        appendLine("No hay $typeLabel $dayLabel.")
                     }
                 } else if (containsFreeSlotWithDayKeywords(lowerQuery)) {
                     // "¿tengo algún hueco el jueves?" — compute gaps for that specific day
@@ -661,7 +676,7 @@ class SueAgentImpl @Inject constructor(
      * detects imperative cancel actions.
      */
     private fun containsCancelledQueryKeywords(query: String): Boolean {
-        return listOf(
+        val hasExceptionQuery = listOf(
             "cancelada", "canceladas", "cancelado", "cancelados",
             "reprogramada", "reprogramadas", "reprogramado", "reprogramados",
             "clase cancelada", "clases canceladas",
@@ -670,8 +685,20 @@ class SueAgentImpl @Inject constructor(
             "cancele", "cancelé", "he cancelado", "he cancelada",
             "anulada", "anuladas", "anulado", "anulados", "anule", "anulé",
             "cancelacion", "cancelación", "cancelaciones",
-            "que cancelaciones", "qué cancelaciones", "cuales canceladas", "cuáles canceladas"
+            "que cancelaciones", "qué cancelaciones", "cuales canceladas", "cuáles canceladas",
+            "clase extra", "clases extra", "clases extras", "clase adicional", "clases adicionales",
+            "reprogramaciones", "excepciones", "excepcion", "excepción"
         ).any { it in query }
+
+        val isActionCommand = listOf(
+            "cancela ", "cancela la", "cancela el", "cancela a",
+            "cancelar ", "cancelar la", "cancelar el", "cancelar a",
+            "anula ", "anula la", "anula el", "anula a",
+            "añade una clase extra", "pon una clase extra", "agrega una clase extra",
+            "añadir clase extra", "poner clase extra"
+        ).any { it in query }
+
+        return hasExceptionQuery && !isActionCommand
     }
 
     /**
@@ -790,20 +817,39 @@ class SueAgentImpl @Inject constructor(
         listOf("inicia una clase", "inicia clase", "empieza clase", "comienza clase", "start class").any { it in query }
 
     private fun containsCreateStudentKeywords(query: String) =
-        listOf("crea un alumno", "crear un alumno", "crea al alumno", "crea el alumno", "añade al alumno", "añade al estudiante", "añadir estudiante", "create student", "add student").any { it in query }
+        listOf(
+            "crea un alumno", "crear un alumno", "crea al alumno", "crea el alumno",
+            "anade al alumno", "añade al alumno", "anade al estudiante", "añade al estudiante",
+            "anadir estudiante", "añadir estudiante", "create student", "add student"
+        ).any { it in query }
 
     private fun containsDeleteStudentKeywords(query: String) =
         listOf("elimina al alumno", "elimina al estudiante", "borra al alumno", "borra al estudiante", "eliminar alumno", "delete student", "remove student").any { it in query }
 
-    private fun containsAddExtraClassKeywords(query: String) =
-        listOf(
-            "clase extra", "clases extra", "clase adicional", "clases adicionales",
-            "tutoría adicional", "tutoria adicional", "tutorías adicionales", "tutorias adicionales",
+    private fun containsAddExtraClassKeywords(query: String): Boolean {
+        val hasWriteVerb = listOf(
+            "anade", "añade", "anadir", "añadir", "agrega", "agregar",
+            "pon", "pone", "poner", "ponle", "ponme",
+            "programa", "programar", "crea", "crear",
+            "mete", "meter", "incluye", "incluir",
+            "add", "create", "schedule", "insert"
+        ).any { it in query }
+
+        val hasExtra = listOf(
+            "clase extra", "clases extra", "clases extras",
+            "clase adicional", "clases adicionales",
+            "tutoria adicional", "tutoría adicional", "tutorias adicionales", "tutorías adicionales",
             "extra class", "extra classes", "additional class", "additional classes"
         ).any { it in query }
 
+        return hasExtra && hasWriteVerb
+    }
+
     private fun containsCreateScheduleKeywords(query: String) =
-        listOf("añade un horario", "añadir horario", "programa una clase los", "crear horario", "create schedule", "add schedule").any { it in query }
+        listOf(
+            "anade un horario", "añade un horario", "anadir horario", "añadir horario",
+            "programa una clase los", "crear horario", "create schedule", "add schedule"
+        ).any { it in query }
 
     private fun containsDeleteScheduleKeywords(query: String) =
         listOf(
@@ -1016,7 +1062,13 @@ class SueAgentImpl @Inject constructor(
             return if (h == 12) 12 else h + 12
         }
 
-        // 3. Check working hours fit
+        // 3. For hours 1..7 without morning keywords, they are NEVER dawn (madrugada: 01:00..07:00).
+        // In private tutoring they ALWAYS default to afternoon (13:00..19:00).
+        if (h in 1..7) {
+            return h + 12
+        }
+
+        // 4. Check working hours fit for 8..12
         val workStart = try { LocalTime.parse(workingStartTime) } catch (e: Exception) { LocalTime.of(8, 0) }
         val workEnd = try { LocalTime.parse(workingEndTime) } catch (e: Exception) { LocalTime.of(23, 0) }
 
@@ -1033,11 +1085,8 @@ class SueAgentImpl @Inject constructor(
             return if (h == 12) 12 else h + 12
         }
 
-        // 4. Default fallback convention
-        if (h in 1..8) {
-            return h + 12 // PM (13:00 to 20:00)
-        }
-        return h // AM (9:00 to 12:00)
+        // 5. Default fallback convention for 8..12: morning (08:00..12:00)
+        return h
     }
 
     private val spanishHourWords = mapOf(
@@ -1517,8 +1566,8 @@ class SueAgentImpl @Inject constructor(
         val h = parts[0].toIntOrNull() ?: return timeStr
         val m = if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
 
-        // If the hour is in 1..8, convert to 13..20 (PM)
-        val resolvedH = if (h in 1..8) h + 12 else h
+        // If the hour is in 1..7, convert to 13..19 (PM) because tutoring classes are not given at dawn (madrugada)
+        val resolvedH = if (h in 1..7) h + 12 else h
         
         return String.format(Locale.US, "%02d:%02d", resolvedH, m)
     }
@@ -2284,17 +2333,29 @@ class SueAgentImpl @Inject constructor(
             IntentType.QUERY_CANCELLED_CLASSES -> {
                 val queryStudent = matchedStudent?.name
                 val queryDay = relativeDay ?: explicitDay
-                val cancelledDesc = scheduleTools.getCancelledClassesDescription(queryDay, queryStudent)
+                val typeFilter = when {
+                    listOf("extra", "extras", "adicional", "adicionales").any { it in lower } -> com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA
+                    listOf("reprogramada", "reprogramadas", "reprogramado", "reprogramados", "movida", "movidas").any { it in lower } -> com.devsusana.hometutorpro.domain.entities.ExceptionType.RESCHEDULED
+                    listOf("cancelada", "canceladas", "cancelado", "cancelados", "anulada", "anuladas", "anulado", "anulados").any { it in lower } -> com.devsusana.hometutorpro.domain.entities.ExceptionType.CANCELLED
+                    else -> null
+                }
+                val cancelledDesc = scheduleTools.getCancelledClassesDescription(queryDay, queryStudent, typeFilter)
                 if (cancelledDesc.isNotBlank()) {
                     SueOperationResult.ReadSuccess(cancelledDesc)
                 } else {
+                    val typeLabel = when (typeFilter) {
+                        com.devsusana.hometutorpro.domain.entities.ExceptionType.EXTRA -> "clases extra registradas"
+                        com.devsusana.hometutorpro.domain.entities.ExceptionType.RESCHEDULED -> "clases reprogramadas registradas"
+                        com.devsusana.hometutorpro.domain.entities.ExceptionType.CANCELLED -> "clases canceladas registradas"
+                        null -> "clases canceladas, reprogramadas ni extra registradas"
+                    }
                     val dayLabel = if (queryDay != null) {
                         val dayNames = listOf("el lunes", "el martes", "el miércoles", "el jueves", "el viernes", "el sábado", "el domingo")
                         dayNames.getOrElse(queryDay - 1) { "el día seleccionado" }
                     } else if (queryStudent != null) {
                         "con $queryStudent"
                     } else "esta semana"
-                    SueOperationResult.ReadSuccess("No hay clases canceladas ni reprogramadas registradas $dayLabel.")
+                    SueOperationResult.ReadSuccess("No hay $typeLabel $dayLabel.")
                 }
             }
         }

@@ -69,42 +69,145 @@ class ScheduleTools @Inject constructor(
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Returns the full weekly schedule.
+     * Returns the full weekly schedule, including recurring classes and any active exceptions
+     * (extra and rescheduled classes) while omitting cancelled classes for the current week.
      */
     suspend fun getWeeklySchedule(): SueOperationResult {
-        val schedules = querySchedulesUseCase.getAllSchedules()
-        return SueOperationResult.WeeklySchedule(schedules)
+        val weekSchedules = mutableListOf<com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary>()
+        for (day in 1..7) {
+            val dayRes = getScheduleForDay(day, null)
+            if (dayRes is SueOperationResult.DaySchedule) {
+                weekSchedules.addAll(dayRes.schedules)
+            }
+        }
+        return SueOperationResult.WeeklySchedule(weekSchedules)
     }
 
     /**
-     * Returns the schedule for a specific day of the week.
+     * Returns the schedule for a specific day of the week, combining recurring schedules with
+     * active exceptions (extra classes and rescheduled classes) and filtering out cancelled classes.
      *
      * @param dayOfWeek ISO day value (1=Monday … 7=Sunday).
      * @param timeFilter Optional filter: "morning" (before 14:00), "afternoon" (14:00+), or null (all day).
      */
     suspend fun getScheduleForDay(dayOfWeek: Int, timeFilter: String? = null): SueOperationResult {
-        val allSchedules = querySchedulesUseCase.getAllSchedules()
-            .filter { it.dayOfWeek == dayOfWeek }
+        val allScheduleDetails = querySchedulesUseCase.getScheduleDetails()
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() }
+        val allExceptions = if (professorId != null) exceptionRepository.getAllExceptions(professorId) else emptyList()
+        val allStudents = queryStudentsUseCase.searchByName("")
 
-        val schedules = when {
-            timeFilter == "morning" -> allSchedules.filter {
+        val targetDate = nextOccurrenceDate(DayOfWeek.of(dayOfWeek))
+        val activeSchedules = mutableListOf<com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary>()
+
+        // 1. Regular recurring schedules for this dayOfWeek
+        for (sched in allScheduleDetails.filter { it.dayOfWeek == dayOfWeek }) {
+            val matchingExc = allExceptions.find { exc ->
+                (exc.originalScheduleId == sched.scheduleId || (exc.originalScheduleId.isEmpty() && exc.studentId == sched.studentId && exc.type != ExceptionType.EXTRA)) &&
+                java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate() == targetDate
+            }
+
+            if (matchingExc != null && matchingExc.type == ExceptionType.CANCELLED) {
+                // Cancelled for this date — do not include in active schedule
+                continue
+            }
+
+            if (matchingExc != null && matchingExc.type == ExceptionType.RESCHEDULED) {
+                // If it was rescheduled to another day, do not include on this day
+                if (matchingExc.newDayOfWeek != null && matchingExc.newDayOfWeek.value != dayOfWeek) {
+                    continue
+                }
+                // If it stayed on this day with a new time, add with new time
+                val newStart = matchingExc.newStartTime.takeIf { it.isNotBlank() } ?: sched.startTime
+                val newEnd = matchingExc.newEndTime.takeIf { it.isNotBlank() } ?: sched.endTime
+                activeSchedules.add(
+                    com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary(
+                        studentName = "${sched.studentName} (reprogramada)",
+                        dayOfWeek = dayOfWeek,
+                        startTime = newStart,
+                        endTime = newEnd
+                    )
+                )
+                continue
+            }
+
+            // Normal active recurring class
+            activeSchedules.add(
+                com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary(
+                    studentName = sched.studentName,
+                    dayOfWeek = dayOfWeek,
+                    startTime = sched.startTime,
+                    endTime = sched.endTime
+                )
+            )
+        }
+
+        // 2. Rescheduled classes moving TO this day from another day
+        for (exc in allExceptions.filter { it.type == ExceptionType.RESCHEDULED }) {
+            val newDay = exc.newDayOfWeek
+            if (newDay != null && newDay.value == dayOfWeek) {
+                val origDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                val excTargetDate = origDate.plusDays((newDay.value - origDate.dayOfWeek.value).toLong())
+                if (excTargetDate == targetDate && newDay.value != origDate.dayOfWeek.value) {
+                    val studentName = allScheduleDetails.firstOrNull { it.studentId == exc.studentId }?.studentName
+                        ?: allStudents.firstOrNull { it.studentId == exc.studentId }?.name
+                        ?: "Alumno"
+                    activeSchedules.add(
+                        com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary(
+                            studentName = "$studentName (reprogramada)",
+                            dayOfWeek = dayOfWeek,
+                            startTime = exc.newStartTime,
+                            endTime = exc.newEndTime
+                        )
+                    )
+                }
+            }
+        }
+
+        // 3. Extra classes for this date
+        for (exc in allExceptions.filter { it.type == ExceptionType.EXTRA }) {
+            val origDate = java.time.Instant.ofEpochMilli(exc.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            val newDay = exc.newDayOfWeek
+            val excTargetDate = if (newDay != null) {
+                val diff = newDay.value - origDate.dayOfWeek.value
+                origDate.plusDays(diff.toLong())
+            } else origDate
+
+            if (excTargetDate == targetDate) {
+                val studentName = allScheduleDetails.firstOrNull { it.studentId == exc.studentId }?.studentName
+                    ?: allStudents.firstOrNull { it.studentId == exc.studentId }?.name
+                    ?: "Alumno"
+                activeSchedules.add(
+                    com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary(
+                        studentName = "$studentName (clase extra)",
+                        dayOfWeek = dayOfWeek,
+                        startTime = exc.newStartTime,
+                        endTime = exc.newEndTime
+                    )
+                )
+            }
+        }
+
+        val sortedSchedules = activeSchedules.sortedBy { parseTime(it.startTime) }
+
+        val filteredSchedules = when {
+            timeFilter == "morning" -> sortedSchedules.filter {
                 parseTime(it.startTime).isBefore(LocalTime.of(14, 0))
             }
-            timeFilter == "afternoon" -> allSchedules.filter {
+            timeFilter == "afternoon" -> sortedSchedules.filter {
                 parseTime(it.startTime).isAfter(LocalTime.of(13, 59))
             }
             timeFilter != null && timeFilter.contains(":") -> {
                 val targetTime = parseTime(timeFilter)
-                allSchedules.filter { s ->
+                sortedSchedules.filter { s ->
                     val start = parseTime(s.startTime)
                     val end = parseTime(s.endTime)
                     !targetTime.isBefore(start) && targetTime.isBefore(end)
                 }
             }
-            else -> allSchedules
+            else -> sortedSchedules
         }
 
-        return SueOperationResult.DaySchedule(dayOfWeek, timeFilter, schedules)
+        return SueOperationResult.DaySchedule(dayOfWeek, timeFilter, filteredSchedules)
     }
 
     /**
@@ -480,7 +583,7 @@ class ScheduleTools @Inject constructor(
         studentName: String,
         dayOfWeek: Int,
         startTime: String,
-        endTime: String
+        endTime: String = ""
     ): SueOperationResult.Prepare {
         val directMatch = queryStudentsUseCase.searchByName(studentName).firstOrNull()
         val match = directMatch ?: run {
@@ -499,12 +602,18 @@ class ScheduleTools @Inject constructor(
             return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
         }
 
+        val resolvedEndTime = if (endTime.isNotBlank()) endTime else {
+            runCatching {
+                parseTime(startTime).plusHours(1).format(TIME_FORMATTER)
+            }.getOrElse { "16:00" }
+        }
+
         val action = SuePendingAction.CreateSchedule(
             studentName = match.name,
             studentId = match.studentId,
             dayOfWeek = dayOfWeek,
             startTime = startTime,
-            endTime = endTime
+            endTime = resolvedEndTime
         )
         return SueOperationResult.Prepare.Success(action)
     }
@@ -583,7 +692,7 @@ class ScheduleTools @Inject constructor(
         studentName: String,
         dateMillis: Long,
         startTime: String,
-        endTime: String
+        endTime: String = ""
     ): SueOperationResult.Prepare {
         val directMatch = queryStudentsUseCase.searchByName(studentName).firstOrNull()
         val match = directMatch ?: run {
@@ -602,12 +711,18 @@ class ScheduleTools @Inject constructor(
             return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
         }
 
+        val resolvedEndTime = if (endTime.isNotBlank()) endTime else {
+            runCatching {
+                parseTime(startTime).plusHours(1).format(TIME_FORMATTER)
+            }.getOrElse { "16:00" }
+        }
+
         val action = SuePendingAction.AddExtraClass(
             studentName = match.name,
             studentId = match.studentId,
             date = dateMillis,
             startTime = startTime,
-            endTime = endTime
+            endTime = resolvedEndTime
         )
         return SueOperationResult.Prepare.Success(action)
     }
@@ -642,10 +757,12 @@ class ScheduleTools @Inject constructor(
      *                  for that specific day are returned so the LLM receives focused context.
      * @param studentNameFilter Optional student name filter. When provided, only exceptions
      *                          for that specific student are matched.
+     * @param exceptionTypeFilter Optional filter for specific exception types (CANCELLED, RESCHEDULED, EXTRA).
      */
     suspend fun getCancelledClassesDescription(
         dayOfWeek: Int? = null,
-        studentNameFilter: String? = null
+        studentNameFilter: String? = null,
+        exceptionTypeFilter: ExceptionType? = null
     ): String {
         val professorId = getProfessorId().takeIf { it.isNotEmpty() } ?: return ""
         val allExceptions = exceptionRepository.getAllExceptions(professorId)
@@ -694,7 +811,9 @@ class ScheduleTools @Inject constructor(
                 false
             } else true
 
-            matchesDay && matchesStudent
+            val matchesType = exceptionTypeFilter == null || exc.type == exceptionTypeFilter
+
+            matchesDay && matchesStudent && matchesType
         }
 
         if (exceptions.isEmpty()) return ""

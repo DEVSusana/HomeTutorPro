@@ -126,6 +126,12 @@ class ScheduleToolsTest {
     @Test
     fun `getWeeklySchedule returns WeeklySchedule result with all schedules`() = runTest {
         coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(mondaySchedule, wednesdaySchedule)
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(
+            mondayScheduleDetail,
+            AgentScheduleDetail("s-wed", "stu-2", "Juan", 3, "16:00", "17:00")
+        )
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns emptyList()
 
         val result = scheduleTools.getWeeklySchedule()
 
@@ -141,6 +147,9 @@ class ScheduleToolsTest {
     @Test
     fun `getScheduleForDay filters by day and returns DaySchedule`() = runTest {
         coEvery { querySchedulesUseCase.getAllSchedules() } returns listOf(mondaySchedule, wednesdaySchedule)
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(mondayScheduleDetail)
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns emptyList()
 
         val result = scheduleTools.getScheduleForDay(dayOfWeek = 1, timeFilter = null)
 
@@ -148,6 +157,69 @@ class ScheduleToolsTest {
         val dayResult = result as SueOperationResult.DaySchedule
         assertEquals(1, dayResult.schedules.size)
         assertEquals("María", dayResult.schedules.first().studentName)
+    }
+
+    @Test
+    fun `getScheduleForDay merges rescheduled and extra classes on Sunday`() = runTest {
+        // No regular recurring schedules on Sunday (day 7)
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(
+            mondayScheduleDetail,
+            AgentScheduleDetail("s-juan", "stu-2", "Juan", 3, "16:00", "17:00")
+        )
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+
+        // Target Sunday is 2026-05-31
+        val targetSundayMillis = java.time.LocalDateTime.of(2026, 5, 31, 15, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            // Rescheduled from Wednesday to Sunday 15:00-16:00
+            ScheduleException(
+                id = "exc-resched",
+                studentId = "stu-2",
+                professorId = "prof-1",
+                originalScheduleId = "s-juan",
+                date = java.time.LocalDateTime.of(2026, 5, 27, 16, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                type = ExceptionType.RESCHEDULED,
+                newDayOfWeek = java.time.DayOfWeek.SUNDAY,
+                newStartTime = "15:00",
+                newEndTime = "16:00"
+            ),
+            // Extra class 1 on Sunday 17:00-18:00
+            ScheduleException(
+                id = "exc-extra-1",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                originalScheduleId = "EXTRA",
+                date = targetSundayMillis,
+                type = ExceptionType.EXTRA,
+                newStartTime = "17:00",
+                newEndTime = "18:00"
+            ),
+            // Extra class 2 on Sunday 18:00-19:00
+            ScheduleException(
+                id = "exc-extra-2",
+                studentId = "stu-2",
+                professorId = "prof-1",
+                originalScheduleId = "EXTRA",
+                date = targetSundayMillis,
+                type = ExceptionType.EXTRA,
+                newStartTime = "18:00",
+                newEndTime = "19:00"
+            )
+        )
+
+        val result = scheduleTools.getScheduleForDay(dayOfWeek = 7, timeFilter = null)
+
+        assertTrue(result is SueOperationResult.DaySchedule)
+        val daySchedule = result as SueOperationResult.DaySchedule
+        assertEquals(3, daySchedule.schedules.size)
+        assertEquals("Juan (reprogramada)", daySchedule.schedules[0].studentName)
+        assertEquals("15:00", daySchedule.schedules[0].startTime)
+        assertEquals("María (clase extra)", daySchedule.schedules[1].studentName)
+        assertEquals("17:00", daySchedule.schedules[1].startTime)
+        assertEquals("Juan (clase extra)", daySchedule.schedules[2].studentName)
+        assertEquals("18:00", daySchedule.schedules[2].startTime)
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -590,6 +662,41 @@ class ScheduleToolsTest {
         assertEquals("Lunes: hueco libre de 11:00 a 13:00", gaps[1])
         // Verify no duplicate patterns like 08:0008:00
         assertTrue(gaps.none { it.contains("08:0008:00") || it.contains("10:001000") || it.contains("10:0010:00") })
+    }
+
+    @Test
+    fun `getCancelledClassesDescription filters by ExceptionType when provided`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        val todayMillis = java.time.LocalDateTime.of(2026, 5, 27, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        coEvery { exceptionRepository.getAllExceptions("prof-1") } returns listOf(
+            ScheduleException(
+                id = "exc-cancel",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = todayMillis,
+                type = ExceptionType.CANCELLED
+            ),
+            ScheduleException(
+                id = "exc-extra",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                date = todayMillis,
+                type = ExceptionType.EXTRA,
+                newStartTime = "17:00",
+                newEndTime = "18:00"
+            )
+        )
+        coEvery { querySchedulesUseCase.getScheduleDetails() } returns listOf(mondayScheduleDetail)
+
+        val resultExtraOnly = scheduleTools.getCancelledClassesDescription(exceptionTypeFilter = ExceptionType.EXTRA)
+        assertTrue(resultExtraOnly.contains("clase extra"))
+        assertTrue(!resultExtraOnly.contains("cancelada"))
+
+        val resultCancelOnly = scheduleTools.getCancelledClassesDescription(exceptionTypeFilter = ExceptionType.CANCELLED)
+        assertTrue(resultCancelOnly.contains("cancelada"))
+        assertTrue(!resultCancelOnly.contains("clase extra"))
     }
 }
 
