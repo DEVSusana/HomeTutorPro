@@ -363,11 +363,21 @@ class SueAgentImpl @Inject constructor(
                         appendLine("No hay $typeLabel $dayLabel.")
                     }
                 } else if (containsFreeSlotWithDayKeywords(lowerQuery)) {
-                    // "¿tengo algún hueco el jueves?" — compute gaps for that specific day
-                    appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd, day)))
+                    // "¿tengo algún hueco el jueves?" o "¿a quién le doy clase hoy y qué hueco tengo libre?"
+                    val targetDay = day ?: dateTimeProvider.getNow().dayOfWeek.value
+                    appendLine(formatResult(scheduleTools.getScheduleForDay(targetDay, extractTimeOfDayFilter(lowerQuery))))
+                    appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd, targetDay)))
+                    val exceptionsCtx = scheduleTools.getCancelledClassesDescription(targetDay)
+                    if (exceptionsCtx.isNotBlank()) {
+                        appendLine(exceptionsCtx)
+                    }
                 } else if (containsFreeSlotKeywords(lowerQuery)) {
                     // General free slot query without a day — compute gaps for all week
                     appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd)))
+                    val exceptionsCtx = scheduleTools.getCancelledClassesDescription()
+                    if (exceptionsCtx.isNotBlank()) {
+                        appendLine(exceptionsCtx)
+                    }
                 } else {
                     val daysToInject = mutableSetOf<Int>()
 
@@ -402,10 +412,12 @@ class SueAgentImpl @Inject constructor(
                     for (d in daysToInject.sorted()) {
                         appendLine(formatResult(scheduleTools.getScheduleForDay(d, timeFilter)))
                     }
-                    // For general schedule queries also inject any exceptions as extra context
                     val exceptionsCtx = scheduleTools.getCancelledClassesDescription(day)
                     if (exceptionsCtx.isNotBlank()) {
                         appendLine(exceptionsCtx)
+                    }
+                    if (listOf("libre", "libres", "hueco", "huecos", "despejado", "despejada", "disponible").any { it in lowerQuery }) {
+                        appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd, day)))
                     }
                 }
             }
