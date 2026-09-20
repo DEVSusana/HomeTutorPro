@@ -125,6 +125,11 @@ class DataSynchronizer @Inject constructor(
         val pendingStudents = studentDao.getStudentsBySyncStatus(professorId, SyncStatus.PENDING_UPLOAD)
         val pendingDeletes = studentDao.getStudentsBySyncStatus(professorId, SyncStatus.PENDING_DELETE)
         
+        // Pre-fetch students into a lookup map to avoid N+1 database queries during child sync
+        val allStudents = studentDao.getAllStudents(professorId).first()
+        val studentMap = allStudents.associateBy { it.id }.toMutableMap()
+        pendingDeletes.forEach { studentMap.putIfAbsent(it.id, it) }
+
         // Handle student updates/inserts (NOT deletions yet — children need the student cloudId)
         for (student in pendingStudents) {
             try {
@@ -138,11 +143,13 @@ class DataSynchronizer @Inject constructor(
                     idempotencyField = "name"
                 )
                 
-                // Update local entity
-                studentDao.updateStudent(student.copy(
+                // Update local entity and memory cache
+                val updatedStudent = student.copy(
                     cloudId = finalCloudId,
                     syncStatus = SyncStatus.SYNCED
-                ))
+                )
+                studentDao.updateStudent(updatedStudent)
+                studentMap[student.id] = updatedStudent
             } catch (e: Exception) {
                 studentDao.updateSyncStatus(student.id, professorId, SyncStatus.ERROR)
             }
@@ -155,8 +162,8 @@ class DataSynchronizer @Inject constructor(
         // Handle schedule updates/inserts
         for (schedule in pendingSchedules) {
             try {
-                // Get student's cloudId
-                val student = studentDao.getStudentById(schedule.studentId, professorId).first()
+                // Get student's cloudId from memory map, falling back to query if missing
+                val student = studentMap[schedule.studentId] ?: studentDao.getStudentById(schedule.studentId, professorId).first()
                 if (student?.cloudId != null) {
                     val data = schedule.toFirestoreMap()
                     val path = "professors/$professorId/students/${student.cloudId}/schedules"
@@ -182,7 +189,8 @@ class DataSynchronizer @Inject constructor(
         // Handle schedule deletions
         for (schedule in pendingScheduleDeletes) {
             try {
-                val student = studentDao.getStudentById(schedule.studentId, professorId).first()
+                val student = studentMap[schedule.studentId]
+                    ?: studentDao.getStudentById(schedule.studentId, professorId).first()
                     ?: studentDao.getStudentsBySyncStatus(professorId, SyncStatus.PENDING_DELETE)
                         .find { it.id == schedule.studentId }
                 if (student?.cloudId != null && schedule.cloudId != null) {
@@ -202,7 +210,7 @@ class DataSynchronizer @Inject constructor(
         // Handle exception updates/inserts
         for (exception in pendingExceptions) {
             try {
-                val student = studentDao.getStudentById(exception.studentId, professorId).first()
+                val student = studentMap[exception.studentId] ?: studentDao.getStudentById(exception.studentId, professorId).first()
                 if (student?.cloudId != null) {
                     val data = exception.toFirestoreMap()
                     val path = "professors/$professorId/students/${student.cloudId}/schedule_exceptions"
@@ -227,7 +235,8 @@ class DataSynchronizer @Inject constructor(
         // Handle exception deletions
         for (exception in pendingExceptionDeletes) {
             try {
-                val student = studentDao.getStudentById(exception.studentId, professorId).first()
+                val student = studentMap[exception.studentId]
+                    ?: studentDao.getStudentById(exception.studentId, professorId).first()
                     ?: studentDao.getStudentsBySyncStatus(professorId, SyncStatus.PENDING_DELETE)
                         .find { it.id == exception.studentId }
                 if (student?.cloudId != null && exception.cloudId != null) {
