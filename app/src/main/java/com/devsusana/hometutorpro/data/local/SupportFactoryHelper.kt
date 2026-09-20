@@ -123,7 +123,8 @@ object SupportFactoryHelper {
                 SQLiteDatabase.OPEN_READWRITE
             ).use { unencryptedDb ->
                 val escapedPassword = passphraseString.replace("'", "''")
-                unencryptedDb.rawExecSQL("ATTACH DATABASE '${encryptedFile.absolutePath}' AS encrypted KEY '$escapedPassword';")
+                val escapedPath = encryptedFile.absolutePath.replace("'", "''")
+                unencryptedDb.rawExecSQL("ATTACH DATABASE '$escapedPath' AS encrypted KEY '$escapedPassword';")
                 unencryptedDb.rawExecSQL("SELECT sqlcipher_export('encrypted');")
                 unencryptedDb.rawExecSQL("DETACH DATABASE encrypted;")
             }

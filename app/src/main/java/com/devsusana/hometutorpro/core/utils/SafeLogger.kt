@@ -23,6 +23,19 @@ object SafeLogger {
         } catch (_: Throwable) {}
     }
 
+    fun w(tag: String, message: String, throwable: Throwable? = null) {
+        val sanitizedMessage = sanitize(message)
+        try {
+            Log.w(TAG_PREFIX + tag, sanitizedMessage, throwable)
+        } catch (_: Throwable) {}
+    }
+
+    fun i(tag: String, message: String) {
+        try {
+            Log.i(TAG_PREFIX + tag, sanitize(message))
+        } catch (_: Throwable) {}
+    }
+
     fun d(tag: String, message: String) {
         try {
             Log.d(TAG_PREFIX + tag, sanitize(message))

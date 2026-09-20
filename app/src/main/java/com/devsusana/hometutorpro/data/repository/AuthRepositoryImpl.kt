@@ -1,7 +1,7 @@
 package com.devsusana.hometutorpro.data.repository
 
 import android.content.ContentValues.TAG
-import android.util.Log
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.data.billing.BillingManager
 import com.devsusana.hometutorpro.data.local.dao.SyncMetadataDao
 import com.devsusana.hometutorpro.data.security.SecureAuthManager
@@ -76,7 +76,7 @@ class AuthRepositoryImpl @Inject constructor(
                             displayName = firebaseUser.displayName
                         )
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to auto-register restore credential on startup: ${e.message}")
+                        SafeLogger.w(TAG, "Failed to auto-register restore credential on startup: ${e.message}")
                     }
                 }
 
@@ -115,7 +115,7 @@ class AuthRepositoryImpl @Inject constructor(
                             displayName = name
                         )
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to auto-register restore credential for local user: ${e.message}")
+                        SafeLogger.w(TAG, "Failed to auto-register restore credential for local user: ${e.message}")
                     }
                 }
             } else {
@@ -141,7 +141,7 @@ class AuthRepositoryImpl @Inject constructor(
                 authManager.saveCredentials(email, credentialsToken, user.displayName ?: "", user.uid)
                 
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName, token = password)
+                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName)
                 }
 
                 if (billingManager.isPremium.value) {
@@ -164,7 +164,7 @@ class AuthRepositoryImpl @Inject constructor(
             return Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
             // Network error or other transient failure — try local fallback
-            android.util.Log.e("AuthRepositoryImpl", "Firebase login failed, trying local fallback", e)
+            SafeLogger.e("AuthRepositoryImpl", "Firebase login failed, trying local fallback", e)
             firebaseError = e
         }
 
@@ -180,7 +180,7 @@ class AuthRepositoryImpl @Inject constructor(
                 val user = buildUser(userId, email, name)
                 _currentUser.value = user
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(user.uid, user.email, user.displayName, token = password)
+                    restoreCredentialManager.saveRestoreCredential(user.uid, user.email, user.displayName)
                 }
                 Result.Success(user)
             } else {
@@ -216,22 +216,22 @@ class AuthRepositoryImpl @Inject constructor(
                 val domainUser = buildUser(firebaseUser.uid, firebaseUser.email ?: "", name)
                 _currentUser.value = domainUser
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName, token = password)
+                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName)
                 }
                 Result.Success(domainUser)
             } else {
-                android.util.Log.e("AuthRepositoryImpl", "Registration failed: firebaseUser is null")
+                SafeLogger.e("AuthRepositoryImpl", "Registration failed: firebaseUser is null")
                 Result.Error(DomainError.Unknown)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
             // Explicit error: do NOT silently login
-            android.util.Log.e("AuthRepositoryImpl", "Registration failed: user already exists", e)
+            SafeLogger.e("AuthRepositoryImpl", "Registration failed: user already exists", e)
             Result.Error(DomainError.UserAlreadyExists)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
-            android.util.Log.e("AuthRepositoryImpl", "Registration failed: network error", e)
+            SafeLogger.e("AuthRepositoryImpl", "Registration failed: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Registration failed with unexpected exception", e)
+            SafeLogger.e("AuthRepositoryImpl", "Registration failed with unexpected exception", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -314,10 +314,10 @@ class AuthRepositoryImpl @Inject constructor(
 
             Result.Success(Unit)
         } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to update password: invalid credentials", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to update password: invalid credentials", e)
             Result.Error(DomainError.InvalidCredentials)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to update password", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to update password", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -347,16 +347,16 @@ class AuthRepositoryImpl @Inject constructor(
 
             Result.Success(Unit)
         } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: invalid credentials", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to delete account: invalid credentials", e)
             Result.Error(DomainError.InvalidCredentials)
         } catch (e: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: recent login required", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to delete account: recent login required", e)
             Result.Error(DomainError.RecentLoginRequired)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: network error", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to delete account: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to delete account", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -366,13 +366,13 @@ class AuthRepositoryImpl @Inject constructor(
             firebaseAuth.sendPasswordResetEmail(email).await()
             Result.Success(Unit)
         } catch (e: com.google.firebase.auth.FirebaseAuthInvalidUserException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email: user not found", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to send reset email: user not found", e)
             Result.Error(DomainError.UserNotFound)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email: network error", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to send reset email: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to send reset email", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -396,10 +396,10 @@ class AuthRepositoryImpl @Inject constructor(
             }
             Result.Success(user)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to sign in with Google: network error", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to sign in with Google: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to sign in with Google", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to sign in with Google", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -428,7 +428,7 @@ class AuthRepositoryImpl @Inject constructor(
 
                 val restoredUser = buildUser(payload.userId, payload.email, payload.displayName)
                 _currentUser.value = restoredUser
-                android.util.Log.d("AuthRepositoryImpl", "Zero-Tap restore successful with active Firebase session for: ${payload.email}")
+                SafeLogger.d("AuthRepositoryImpl", "Zero-Tap restore successful with active Firebase session")
 
                 if (billingManager.isPremium.value) {
                     internalScope.launch {
@@ -459,7 +459,7 @@ class AuthRepositoryImpl @Inject constructor(
 
                         val restoredUser = buildUser(firebaseUser.uid, payload.email, payload.displayName)
                         _currentUser.value = restoredUser
-                        android.util.Log.d("AuthRepositoryImpl", "Zero-Tap restore successfully authenticated with Firebase for: ${payload.email}")
+                        SafeLogger.d("AuthRepositoryImpl", "Zero-Tap restore successfully authenticated with Firebase")
 
                         if (billingManager.isPremium.value) {
                             internalScope.launch {
@@ -474,18 +474,18 @@ class AuthRepositoryImpl @Inject constructor(
                         return Result.Success(restoredUser)
                     }
                 } catch (e: Exception) {
-                    android.util.Log.w("AuthRepositoryImpl", "Failed to authenticate restored credential with Firebase: ${e.message}")
+                    SafeLogger.w("AuthRepositoryImpl", "Failed to authenticate restored credential with Firebase: ${e.message}")
                 }
             }
 
             // If Firebase could not be authenticated on this device, leave the user in the login flow
-            android.util.Log.w(
+            SafeLogger.w(
                 "AuthRepositoryImpl",
-                "Restore credential found for ${payload.email} but Firebase session could not be established. Directing to login flow."
+                "Restore credential found but Firebase session could not be established. Directing to login flow."
             )
             Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Silent session restoration failed", e)
+            SafeLogger.e("AuthRepositoryImpl", "Silent session restoration failed", e)
             Result.Error(DomainError.Unknown)
         }
     }
