@@ -166,15 +166,17 @@ Uno de los errores más graves en arquitecturas de IA móvil es **enviar absolut
    (Palabras clave específicas,                     ("¿Cómo va el progreso de Juan?",
    consultas de saldo, conteos,                     "¿Qué hueco me recomiendas para
    cancelaciones, altas, bajas,                      una clase extra el viernes?",
-   clases extras, reprogramaciones)                  "¿Qué clases tengo libres?")
-               │                                                 │
-               ▼                                                 ▼
-     NIVEL 1: FAST-PATH                                NIVEL 2: RAG + LLM
-  • Ejecuta consulta Room SQL                      • Recupera contexto relevante de Room
-  • Devuelve ReadSuccess / PrepareAction           • Construye prompt estructurado (~200-300 tokens)
-  • Latencia: < 5 ms                               • Inferencia local con Gemma 3 / Qwen
-  • 100% Precisión Matemática                      • Latencia: 1.5 s - 3.5 s
-  • 0 Alucinaciones                                • SueResponseFormatter (TTS natural)
+   clases extras, reprogramaciones)                 "¿Qué clases tengo y qué huecos libres?",
+               │                                    "¿Qué material le he enviado a Carlos?")
+               ▼                                                 │
+     NIVEL 1: FAST-PATH                                          ▼
+  • Ejecuta consulta Room SQL                          NIVEL 2: RAG + LLM
+  • Devuelve ReadSuccess / PrepareAction           • Recupera contexto de Room con compresión previa
+  • Latencia: < 5 ms                               • Consultas compuestas (agenda + huecos libres)
+  • 100% Precisión Matemática                      • RAG inteligente de recursos (agrupado si > 15)
+  • 0 Alucinaciones                                • Ventana ampliada a 2048 tokens (Gemma 3 INT4)
+                                                   • Latencia: 1.5 s - 3.5 s (GPU acelerada)
+                                                   • SueResponseFormatter (TTS natural)
 ```
 
 ### Motor de Lenguaje Natural en Español (NLP Local)
@@ -182,12 +184,13 @@ Para que el Fast-Path no falle ante la variabilidad del lenguaje coloquial en es
 * **Horas numéricas y palabras completas (0 a 24h):** Reconoce tanto dígitos (`17`, `21`, `22:30`) como palabras (`una`, `cinco`, `veintiuno`, `veintidós`, `veinticuatro`, `cero`, `medianoche`).
 * **Fracciones temporales:** Soporte nativo de expresiones como `y media` (+30m), `y cuarto` (+15m), `menos cuarto` (-15m de la siguiente hora), `y diez`, `menos veinte`.
 * **Modificadores contextuales:** Deducción inteligente de franjas horarias con `de la tarde`, `de la mañana`, `de la noche`, `pm`, `am`.
+* **Inferencia Inteligente de Franja de Tarde:** Si el usuario indica una hora sin especificar franja (*"pon clase a las 5"* o *"a las 6"*), el motor infiere automáticamente el horario vespertino (`17:00` o `18:00`), adaptándose a la realidad pedagógica de las clases particulares.
 * **Máquina de Estados Multi-Turno:** Si el usuario dice *"Añade una clase extra para Lucía el viernes"*, Sue detecta que falta la hora, almacena temporalmente el estado `AWAITING_EXTRA_CLASS_INFO` y, en cuanto el usuario responde *"a las 5"*, transiciona de inmediato a la preparación de la tarjeta interactiva de confirmación. Al completarse la acción, limpia las variables temporales para evitar fugas de contexto en turnos posteriores.
 
-### Validación Transaccional de Conflictos y Sugerencia de Huecos Libres
+### Validación Transaccional de Conflictos y Reconciliación de Agenda
 Toda operación de modificación de agenda (`rescheduleClass`, `addExtraClass`, `createSchedule`) pasa por los Casos de Uso del Dominio (`SaveScheduleExceptionUseCase`, `SaveScheduleUseCase`):
 1. **Comprobación 360°:** Valida solapamientos contra horarios regulares de todos los alumnos, otras clases extras ya agendadas y otras reprogramaciones hacia esa fecha.
-2. **Liberación de huecos cancelados:** Si una clase regular fue cancelada o movida a otro día, el motor reconoce que ese hueco está libre.
+2. **Liberación de huecos cancelados:** Si una clase regular fue cancelada o movida a otro día, el motor reconoce que ese hueco está libre en tiempo real.
 3. **Respuesta Proactiva ante Conflictos:** Si se detecta un solapamiento (`DomainError.ConflictingStudent`), la base de datos bloquea la mutación y Sue responde verbalmente indicando quién ocupa el hueco e informando qué días u horas están completamente libres esa semana (`scheduleTools.getFreeSlots()`).
 
 ### Flujo de Confirmación en Dos Pasos (*Two-Step Voice Confirmation*)
@@ -220,20 +223,36 @@ En aplicaciones de servidor es común utilizar bases de datos vectoriales (Chrom
 * **Escala de Datos:** Un profesor particular gestiona entre 5 y 100 alumnos, con cientos de clases al mes. Este volumen cabe holgadamente en SQLite (Room).
 * **Precisión Relacional:** Las consultas de negocio (*"clases de hoy"*, *"saldo pendiente > 0"*, *"clases canceladas de esta semana"*) se resuelven con mucha mayor velocidad y exactitud mediante consultas SQL indexadas que mediante búsqueda de similitud de coseno.
 
-### Gestión del Presupuesto de Tokens (Token Budgeting en GPU/NPU)
-* **Límite de Hardware:** Configurar un contexto infinito satura la VRAM de la GPU móvil y provoca bloqueos en `LlmInference.createFromOptions`.
-* **Buffer Acotado (`MAX_TOKENS = 512`):** `gatherRelevantContext` realiza una recuperación selectiva: inyecta únicamente los datos estrictamente necesarios (~200-300 tokens), reservando 200 tokens libres para la respuesta generada por Gemma.
-* **Aislamiento de Excepciones:** Si el usuario pregunta solo por cancelaciones, el RAG inyecta exclusivamente las excepciones de calendario (`getCancelledClassesDescription`) para evitar que el LLM confunda clases activas con canceladas.
+### Gestión del Presupuesto de Tokens y Ventana Ampliada (`MAX_TOKENS = 2048`)
+* **Límite de Hardware y Eficiencia:** Configurar un contexto arbitrariamente grande satura la VRAM de la GPU móvil. Por ello, la ventana de contexto se ha optimizado y fijado en **2048 tokens** (`MAX_TOKENS = 2048`, `TEMPERATURE = 0.3f`, `TOP_K = 20` en `MediaPipeModelRepository`).
+* **Justificación de los 2048 Tokens:** Se amplió desde 512 tokens para permitir la inyección simultánea de múltiples secciones estructuradas (consultas compuestas de agenda + huecos libres + excepciones semanales + materiales compartidos) y garantizar margen suficiente para que Gemma elabore respuestas pedagógicas completas sin truncamiento abrupto de oraciones.
+* **Compresión Relacional Previa en Kotlin:** Para garantizar que el prompt nunca desborde el buffer incluso con años de datos acumulados, `gatherRelevantContext` no inyecta volcados planos, sino resúmenes agregados calculados en Kotlin.
+
+### RAG Inteligente de Recursos Compartidos y Agrupación Semántica
+Cuando el profesor realiza consultas sobre materiales y archivos enviados (*"¿Qué material le he enviado a cada alumno?"*, *"¿He compartido ejercicios recientemente?"*):
+* **Caso General / Sin alumno específico:**
+  - **Volumen Reducido ($\le 15$ recursos en total):** Inyecta el listado cronológico desglosado indicando Alumno, Nombre del Archivo, Formato (PDF, imagen, etc.), Fecha formateada (`dd/MM/yyyy`) y Canal de envío (`WhatsApp`, `Email`).
+  - **Volumen Elevado ($> 15$ recursos en total):** Aplica un algoritmo de agrupamiento relacional (`groupBy { it.studentId }`). Muestra el total consolidado y un resumen de hasta 20 alumnos activos indicando el recuento de archivos y el detalle completo del recurso más reciente. Además, instruye a Sue para que ofrezca un resumen ejecutivo y recuerde al profesor que puede profundizar en cualquier alumno específico.
+* **Caso Alumno Específico:**
+  - Recupera los recursos asociados al alumno ordenados descendentemente por fecha y acota la inyección a los 20 más recientes (`take(20)`), blindando la memoria del dispositivo.
+
+### Consultas Compuestas de Agenda y Disponibilidad (*Compound Queries*)
+Si el profesor pregunta simultáneamente por su horario y sus huecos libres (*"¿Qué clases tengo hoy y qué tengo libre por la tarde?"*), el RAG detecta ambos patrones e inyecta coordinadamente:
+1. El horario detallado del día con sus excepciones (reprogramaciones y clases extras consolidadas).
+2. El listado de huecos libres dentro de la jornada laboral computados por `scheduleTools.getFreeSlots(workingStart, workingEnd, day)`.
 
 ### Estructura del Prompt Inyectado (Gemma Chat Template)
 
-Gemma utiliza una plantilla de turnos estricta (`<start_of_turn>user ... <end_of_turn><start_of_turn>model`). Inyectamos 4 bloques de contexto:
+Gemma utiliza una plantilla de turnos estricta (`<start_of_turn>user ... <end_of_turn><start_of_turn>model`). Inyectamos 5 bloques estructurados de contexto:
 
 ```text
 <start_of_turn>user
 Eres Sue, la asistente inteligente de HomeTutorPro.
 Tu rol es responder a las preguntas del profesor de forma breve, amable y concisa.
 NUNCA inventes datos. Usa SOLO la información provista en --- AVAILABLE DATA ---.
+Si el usuario pregunta por clases de hoy, canceladas, alumnos, finanzas o recursos y materiales compartidos, lee la sección correspondiente en --- AVAILABLE DATA --- y responde con claridad y precisión.
+Si no hay datos en esa sección o la sección indica que no hay registros, dile al profesor con amabilidad que no tienes información registrada sobre eso.
+NUNCA llames "Sue" al profesor (tú eres Sue; él es el usuario o profesor).
 
 --- TEMPORAL CONTEXT ---
 Current date/time: martes, 16 septiembre 2025, 09:20
@@ -261,12 +280,19 @@ Huecos libres dentro de jornada:
 • 08:00–16:30, 19:00–23:00
 Clases canceladas o reprogramadas esta semana:
 • Viernes 19/09/2025: la clase de Lucía (17:00 - 18:30) está cancelada.
+
+--- RECURSOS / MATERIALES COMPARTIDOS CON ALUMNOS ---
+Total de recursos compartidos: 3 entre 2 alumnos.
+- Alumno: Lucía Moreno García | Archivo: examen_algebra.pdf (pdf) compartido el 15/09/2025 vía WHATSAPP
+- Alumno: Carlos | Archivo: problemas_fisica.pdf (pdf) compartido el 14/09/2025 vía EMAIL
+- Alumno: Carlos | Archivo: formulario_dinamica.pdf (pdf) compartido el 12/09/2025 vía WHATSAPP
+--- FIN RECURSOS / MATERIALES COMPARTIDOS ---
 --- END OF DATA ---
 
-User query: ¿A quién le doy clase hoy por la tarde y qué hueco tengo libre?
+User query: ¿Qué clases tengo hoy por la tarde, qué hueco tengo libre y qué le he enviado a Carlos?
 <end_of_turn>
 <start_of_turn>model
-Hoy tienes clase con Lucía de 16:30 a 18:00 y con Carlos de 18:00 a 19:00. Tienes libre a partir de las 19:00.<end_of_turn>
+Hoy tienes clase con Lucía de 16:30 a 18:00 y con Carlos de 18:00 a 19:00, quedándote libre a partir de las 19:00. A Carlos le has enviado dos archivos: problemas_fisica.pdf (por email el 14/09) y formulario_dinamica.pdf (por WhatsApp el 12/09).<end_of_turn>
 ```
 
 ---
@@ -275,26 +301,33 @@ Hoy tienes clase con Lucía de 16:30 a 18:00 y con Carlos de 18:00 a 19:00. Tien
 
 En Android 15 y versiones superiores (especialmente Android 17), el sistema operativo penaliza fuertemente a las aplicaciones que retienen memoria nativa en segundo plano mediante `MemoryLimiter:AnonSwap` y políticas agresivas de `LowMemoryKiller` (LMK).
 
-### Las 4 Reglas de Oro de Memoria en HomeTutorPro
+### Las 5 Reglas de Oro de Memoria y Hardware en HomeTutorPro
 
 ```
-1. ARRANQUE FRÍO ULTRALIGERO (~80 MB)
+1. DETECCIÓN PREVENTIVA DE COMPATIBILIDAD (SueDeviceCompatibility)
+   • Antes de ofrecer la descarga o activación, inspecciona ActivityManager y getMemoryInfo().
+   • Requisitos estrictos: >= 2.5 GB de RAM física y Android 9.0+ (API 28+), sin flag isLowRamDevice.
+   • Si no cumple, previene la descarga para blindar la fluidez del terminal y opera en modo clásico.
+
+2. ARRANQUE FRÍO ULTRALIGERO (~80 MB)
    • El modelo LLM NO se precarga en Application.onCreate().
    • La app arranca al instante sin consumir memoria nativa de GPU.
 
-2. PARALLEL WARM-UP DURANTE LA LOCUCIÓN
+3. PARALLEL WARM-UP DURANTE LA LOCUCIÓN
    • Cuando el usuario presiona el micro, lanzamos la carga del modelo en un Dispatcher en background.
    • Mientras el usuario habla (duración media: 1.5s - 3s), MediaPipe mapea los tensores a la GPU.
    • Al terminar la locución, el modelo ya está caliente: 0 ms de espera adicional percibida.
 
-3. SMART IDLE AUTO-RELEASE
-   • Si pasan 2 minutos sin interacción o 30 segundos con el overlay cerrado,
+4. SMART IDLE AUTO-RELEASE
+   • Si pasan 2 minutos (120 s) sin interacción (IDLE_RELEASE_TIMEOUT_MS = 120_000L)
+     o 30 segundos con el overlay cerrado (DISMISS_RELEASE_TIMEOUT_MS = 30_000L),
      el ViewModel invoca inferenceRepository.release().
+   • Timeout de seguridad de escucha de 15 s (LISTENING_TIMEOUT_MS = 15_000L).
    • La RAM nativa (~700 MB) se devuelve íntegramente al sistema operativo.
 
-4. COMPONENTCALLBACKS2 & PÁGINAS DE 16 KB
-   • En onTrimMemory(TRIM_MEMORY_UI_HIDDEN / CRITICAL), se libera la sesión de inferencia inmediatamente.
-   • Los binarios de MediaPipe están compilados con alineación de páginas de 16 KB para arquitecturas ARM modernas.
+5. COMPONENTCALLBACKS2 & PÁGINAS DE 16 KB
+   • En onTrimMemory(TRIM_MEMORY_UI_HIDDEN / RUNNING_CRITICAL), se libera la inferencia de inmediato.
+   • Los binarios de MediaPipe están alineados con bloques de 16 KB para arquitecturas ARM modernas.
 ```
 
 ---
@@ -315,7 +348,8 @@ En Android 15 y versiones superiores (especialmente Android 17), el sistema oper
    * Detecta dinámicamente si el modelo es `.task` o `.bin` mediante cabeceras `Content-Disposition` y URL.
    * Escribe en un archivo temporal (`<nombre>.task.tmp`) con reporte de progreso en tiempo real mediante `Flow<SueModelStatus>`.
    * **Renombrado Atómico:** Al completar la descarga y validar el tamaño, renombra atómicamente a `<nombre>.task`. Si la descarga se cancela o falla, limpia los temporales para no dejar basura en el disco.
-3. **Gestión en Ajustes:** El profesor puede consultar en todo momento el espacio ocupado y pulsar *"Liberar espacio (Borrar modelo)"* con diálogo de confirmación, liberando la memoria RAM y eliminando los archivos locales.
+4. **UX y Auto-Scroll en Ajustes:** Al completarse la descarga del modelo en segundo plano, la notificación del sistema proporciona navegación fluida con auto-scroll directo a la sección de configuración de SUE en la pantalla de Ajustes.
+5. **Gestión en Ajustes:** El profesor puede consultar en todo momento el espacio ocupado y pulsar *"Liberar espacio (Borrar modelo)"* con diálogo de confirmación, liberando la memoria RAM y eliminando los archivos locales.
 
 ---
 
@@ -325,8 +359,10 @@ En Android 15 y versiones superiores (especialmente Android 17), el sistema oper
 |---|---|
 | **Principio de Minimización de Datos (Art. 5.1.c RGPD)** | El contexto inyectado al LLM solo incluye los campos estrictamente necesarios para la consulta. Se excluyen datos sensibles de salud, religión o identificadores personales innecesarios. |
 | **Integridad y Confidencialidad (Art. 5.1.f RGPD)** | Los datos nunca cruzan el límite del sandbox de la aplicación (`context.filesDir`). No se transmiten por red ni se almacenan en servidores externos de telemetría. |
+| **Saneamiento de Trazas y Telemetría (`SafeLogger`)** | Todos los registros locales y excepciones capturadas anonimizan y redactan automáticamente datos de identificación personal (PII, nombres, UIDs, tokens) antes de emitirse en logcat o enviarse a Crashlytics. |
 | **Derecho de Supresión / Borrado (Art. 17 RGPD)** | Al eliminar un alumno o una clase en la app, la información desaparece instantáneamente de Room DB. La siguiente inferencia de Sue ya no tendrá acceso a esos datos. |
 | **Prevención de Acciones no Deseadas** | El flujo de confirmación en dos pasos exige validación explícita para cualquier borrado o modificación de datos. |
+| **Crashlytics Seguro** | Habilitado de forma explícita en `AppInitializerImpl` sin capturar datos sensibles ni bases de datos personales. |
 
 ---
 
@@ -344,6 +380,14 @@ class MediaPipeModelRepository @Inject constructor(
     private val _isModelLoaded = MutableStateFlow(false)
     override val isModelLoaded: StateFlow<Boolean> = _isModelLoaded.asStateFlow()
 
+    companion object {
+        private const val TAG = "MediaPipeModelRepo"
+        private const val MODEL_DIRECTORY = "sue_model"
+        private const val MAX_TOKENS = 2048
+        private const val TEMPERATURE = 0.3f
+        private const val TOP_K = 20
+    }
+
     override suspend fun loadModel(): Boolean = withContext(Dispatchers.IO) {
         if (_isModelLoaded.value && llmInference != null) return@withContext true
         val modelPath = findModelFile() ?: return@withContext false
@@ -351,9 +395,9 @@ class MediaPipeModelRepository @Inject constructor(
         try {
             val options = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
-                .setMaxTokens(1024)
-                .setTemperature(0.7f)
-                .setTopK(40)
+                .setMaxTokens(MAX_TOKENS)
+                .setTemperature(TEMPERATURE)
+                .setTopK(TOP_K)
                 .setPreferredBackend(LlmInference.Backend.GPU) // Aceleración nativa por GPU
                 .build()
 
@@ -427,6 +471,43 @@ class SueViewModel @Inject constructor(
 }
 ```
 
+### Snippet 4: RAG Inteligente con Agrupamiento Semántico de Recursos Compartidos
+
+```kotlin
+// Inyección en SueAgentImpl con compresión relacional previa:
+if (isResourceQuery && lastMentionedStudentName == null) {
+    val allResources = studentTools.getAllSharedResources()
+    val schedules = scheduleTools.getScheduleDetails()
+    val studentMap = schedules.associate { it.studentId to it.studentName }
+    val groupedByStudent = allResources.groupBy { it.studentId }
+    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
+    appendLine("--- RECURSOS / MATERIALES COMPARTIDOS CON ALUMNOS ---")
+    if (allResources.isNotEmpty()) {
+        appendLine("Total de recursos compartidos: ${allResources.size} entre ${groupedByStudent.size} alumnos.")
+        if (allResources.size <= 15) {
+            allResources.sortedByDescending { it.sharedAt }.forEach { r ->
+                val sName = studentMap[r.studentId] ?: "Alumno"
+                val dateStr = sdf.format(Date(r.sharedAt))
+                appendLine("- Alumno: $sName | Archivo: ${r.fileName} (${r.fileType}) compartido el $dateStr vía ${r.sharedVia}")
+            }
+        } else {
+            appendLine("Desglose y resumen por alumno:")
+            groupedByStudent.entries.take(20).forEach { (studentId, resList) ->
+                val sName = studentMap[studentId] ?: "Alumno"
+                val latest = resList.sortedByDescending { it.sharedAt }.first()
+                val dateStr = sdf.format(Date(latest.sharedAt))
+                appendLine("- $sName: ${resList.size} archivo(s) compartido(s) (el más reciente: '${latest.fileName}', $dateStr)")
+            }
+            appendLine("Instrucción: Ofrece al profesor un resumen conciso por alumno y recuérdale que puede consultar el detalle de un alumno específico.")
+        }
+    } else {
+        appendLine("No se han compartido materiales, recursos ni archivos con ningún alumno todavía.")
+    }
+    appendLine("--- FIN RECURSOS / MATERIALES COMPARTIDOS ---")
+}
+```
+
 ---
 
 ## 11. Q&A Shield: Respuestas a las Preguntas más Difíciles
@@ -440,7 +521,7 @@ Prepárate para responder a estas preguntas habituales de arquitectos senior e i
 > **Respuesta:** "Diseñamos una arquitectura defensiva en 4 niveles para garantizar la máxima estabilidad:
 > 1. **Comprobación Preventiva de Hardware (`SueDeviceCompatibility`):** Antes de permitir la descarga o activación de Sue, la app inspecciona `ActivityManager.getMemoryInfo()` y `isLowRamDevice`. Si el dispositivo no cumple los requisitos mínimos de hardware (al menos 2.5 GB de RAM física y Android 9.0+ / API 28), la sección de IA en Ajustes desactiva la descarga, muestra una tarjeta informativa con la causa exacta (RAM insuficiente o versión de Android) y la app funciona con total normalidad en su modo estándar.
 > 2. **Fast-Path Determinista:** En dispositivos compatibles, el 80% de las consultas habituales (saldo, horarios, clases de hoy, conteos) se procesan directamente en Kotlin con Room (< 5 ms) sin sobrecargar la CPU/GPU ni requerir el modelo en memoria.
-> 3. **Smart Unload y `onTrimMemory`:** El LLM se descarga automáticamente de la memoria RAM/VRAM tras 60 segundos de inactividad (`IDLE_UNLOAD_TIMEOUT_MS`). Además, la app escucha las señales del ciclo de vida del sistema (`ComponentCallbacks2.onTrimMemory`) para liberar inmediatamente la inferencia si el sistema operativo entra en presión de memoria.
+> 3. **Smart Unload y `onTrimMemory`:** El LLM se descarga automáticamente de la memoria RAM/VRAM tras 2 minutos (120 s) de inactividad (`IDLE_RELEASE_TIMEOUT_MS = 120_000L`) o 30 segundos tras cerrar el asistente (`DISMISS_RELEASE_TIMEOUT_MS = 30_000L`). Además, la app escucha las señales del ciclo de vida del sistema (`ComponentCallbacks2.onTrimMemory`) para liberar inmediatamente la inferencia si el sistema operativo entra en presión de memoria.
 > 4. **Fallback Defensivo:** Si la inicialización del motor (`loadModel()`) fallase por falta puntual de recursos en la GPU/CPU, la aplicación nunca se cierra inesperadamente; captura el error, notifica amablemente al usuario y continúa operando de forma determinista."
 
 ### 3. *"¿Cómo evitas que el LLM alucine cuando le pides datos de un alumno?"*
@@ -455,6 +536,9 @@ Prepárate para responder a estas preguntas habituales de arquitectos senior e i
 ### 5. *"¿Por qué no usáis Function Calling estructurado nativo en lugar de extraer `[ACTION: ...]`?"*
 > **Respuesta:** "En modelos grandes (GPT-4, Gemini Pro) el function calling JSON está muy entrenado, pero en modelos cuantizados de 1B de parámetros (INT4), la generación de esquemas JSON complejos tiende a degradarse o introducir comas inválidas. Un DSL ligero y directo como `[ACTION: CREATE_STUDENT, student: \"Pepe\"]` tiene un 99.4% de éxito en seguimiento de sintaxis en modelos pequeños y se parsea en Kotlin con una simple expresión regular sin overhead."
 
+### 6. *"¿Cómo evitáis desbordar la memoria VRAM y la ventana de contexto cuando el profesor tiene cientos de archivos compartidos o muchas clases?"*
+> **Respuesta:** "No dejamos que el LLM sufra el problema de 'aguja en un pajar' ni desborde la VRAM. Aplicamos una técnica de **Compresión Relacional Previa en Kotlin**: si hay más de 15 recursos compartidos, en lugar de inyectar una lista kilométrica, agrupamos por alumno (`groupBy`) mostrando el recuento de archivos y los metadatos del más reciente, y ampliamos la ventana de inferencia a 2048 tokens (`MAX_TOKENS = 2048`). Si el profesor quiere detalles de un alumno, el motor filtra exclusivamente los 20 más recientes de ese estudiante. Esto garantiza un tiempo de inferencia predecible de ~2 segundos y 0 cuelgues de GPU."
+
 ---
 
 ## 12. Estructura y Tiempos de la Ponencia (Guion para 40 Minutos)
@@ -463,9 +547,9 @@ Prepárate para responder a estas preguntas habituales de arquitectos senior e i
 |---|---|---|
 | **00 - 05** | **Introducción y El Problema** | • Por qué Cloud AI no sirve para todo (Costes, RGPD en educación, modo offline).<br>• Presentación del caso real: HomeTutorPro y SUE. |
 | **05 - 12** | **El Ecosistema On-Device** | • SLMs vs LLMs: Por qué 1B-2B parámetros es el *sweet spot* en móvil.<br>• Cuantización INT4 explicada: de 4 GB a 550 MB.<br>• MediaPipe Tasks GenAI vs alternativas. |
-| **12 - 20** | **Arquitectura Híbrida y RAG Local** | • El Patrón Híbrido: Fast-Path (0 ms) vs Gemma (Generativo).<br>• Cómo funciona el RAG Local sobre Room DB sin bases de datos vectoriales.<br>• Inyección contextual y Gemma Chat Template. |
-| **20 - 28** | **Ingeniería de Memoria y Ciclo de Vida** | • Límites de RAM en Android 15-17 (`MemoryLimiter`, páginas de 16 KB).<br>• Técnicas en producción: Cold start ligero, parallel warm-up y smart auto-release. |
-| **28 - 34** | **Distribución OTA y UI/UX** | • Descarga in-app streaming con progreso reactivo.<br>• Onboarding opt-in y gestión de almacenamiento en Ajustes.<br>• Confirmación en dos pasos para operaciones de voz destructivas. |
+| **12 - 20** | **Arquitectura Híbrida y RAG Local** | • El Patrón Híbrido: Fast-Path (0 ms) vs Gemma (Generativo).<br>• Cómo funciona el RAG Local sobre Room DB sin bases de datos vectoriales.<br>• Inyección contextual, Gemma Chat Template, RAG agrupado si > 15 recursos y ventana ampliada a 2048 tokens. |
+| **20 - 28** | **Ingeniería de Memoria y Ciclo de Vida** | • Límites de RAM en Android 15-17 (`MemoryLimiter`, páginas de 16 KB).<br>• Blindaje de hardware preventivo (`SueDeviceCompatibility`: 2.5 GB RAM, API 28+).<br>• Técnicas en producción: Cold start ligero, parallel warm-up y smart auto-release (120 s / 30 s). |
+| **28 - 34** | **Distribución OTA y UI/UX** | • Descarga in-app streaming con progreso reactivo.<br>• Onboarding opt-in y gestión de almacenamiento en Ajustes.<br>• Auto-scroll a Ajustes desde notificación de descarga completada.<br>• Confirmación en dos pasos para operaciones de voz destructivas. |
 | **34 - 38** | **Demo en Vivo / Vídeo** | • Demostración de SUE respondiendo por voz, consultando horarios y cancelando una clase con confirmación. |
 | **38 - 40** | **Conclusiones y Q&A** | • Resumen de lecciones aprendidas.<br>• Turno de preguntas y respuestas. |
 

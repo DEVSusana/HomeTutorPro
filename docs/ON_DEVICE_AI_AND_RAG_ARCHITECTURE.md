@@ -103,18 +103,27 @@ SueViewModel -> sueAgent.detectActionIntent(query)
        │
        └── [CASO B: Capa 2 - RAG On-Device + LLM Generativo]
              ├── sueAgent.gatherRelevantContext(query) (Recuperación selectiva en Room DB)
-             │     ├── Agenda del día/semana y huecos libres (getFreeSlots)
-             │     ├── Excepciones activas: canceladas y reprogramadas (getCancelledClassesDescription)
-             │     └── Ficha de alumnos: cursos, tarifas, saldos y notas pedagógicas
-             ├── Construcción de Prompt estructurado (Gemma Chat Template, acotado a ~200-300 tokens)
-             ├── Inferencia local con MediaPipe Tasks GenAI (Gemma 3 / Qwen)
+             │     ├── Consultas Compuestas: Agenda del día/semana y huecos libres simultáneos (getFreeSlots)
+             │     ├── Excepciones activas unificadas: canceladas, reprogramadas y extras (getCancelledClassesDescription)
+             │     ├── RAG de Recursos y Materiales compartidos (Agrupamiento inteligente relacional)
+             │     ├── Finanzas globales, facturación y saldos pendientes (getStudentsWithBalance, transacciones)
+             │     ├── Historial global y asistencias de clases impartidas (getAllClassLogs)
+             │     └── Ficha detallada de alumno: cursos, tarifas, saldos, notas pedagógicas y materiales (take 20)
+             ├── Construcción de Prompt estructurado (Gemma Chat Template con ventana ampliada a 2048 tokens)
+             ├── Inferencia local con MediaPipe Tasks GenAI (Gemma 3 INT4, maxTokens = 2048, temp = 0.3)
              └── SueResponseFormatter -> TTS (Audio saneado con pausas y puntuación natural)
 ```
 
 ### Gestión del Presupuesto de Tokens (Token Budgeting en GPU/NPU)
-Los dispositivos móviles tienen límites estrictos de memoria de vídeo (VRAM). Enviar el dump completo de la base de datos al LLM desbordaría la memoria y provocaría congelamientos en el subsistema gráfico.
-- **Inyección Contextual Selectiva:** `gatherRelevantContext` solo extrae las tablas y registros vinculados a la intención detectada (evitando sobrecargar el prompt con alumnos no relacionados).
-- **Buffer Acotado (`MAX_TOKENS = 512`):** El tamaño del contexto inyectado se mantiene en ~200-300 tokens, dejando un margen holgado de 200 tokens para la respuesta generada por el LLM.
+Los dispositivos móviles tienen límites estrictos de memoria de vídeo (VRAM). Enviar volcados masivos de base de datos provocaría bloqueos del subsistema gráfico y Out-Of-Memory (OOM). Para conciliar respuestas ricas y estabilidad absoluta aplicamos:
+- **Inyección Contextual Selectiva y Compresión Previa en Kotlin:** `gatherRelevantContext` no delega la síntesis bruta al LLM. Filtra y resume los datos mediante consultas SQL y estructuras relacionales antes de generar el prompt.
+- **RAG Inteligente con Agrupamiento de Recursos Compartidos:**
+  - Cuando el profesor pregunta por materiales enviados a nivel global (*"¿Qué recursos he compartido?"*, *"¿Qué material le he enviado a cada alumno?"*):
+    - **Si total $\le 15$ archivos:** Inyecta el desglose completo (Alumno, Archivo, Tipo, Fecha `dd/MM/yyyy`, Vía de envío como WhatsApp o Email).
+    - **Si total $> 15$ archivos:** Aplica compresión semántica agrupando por alumno (`groupBy { it.studentId }`), inyectando el número total de archivos y el recurso más reciente de los 20 alumnos más activos, instruyendo a Sue a ofrecer un resumen conciso y sugerir consultar el detalle de un alumno en particular.
+  - Para consultas sobre un alumno específico, se ordenan cronológicamente y se acotan a los 20 recursos más recientes (`take(20)`).
+- **Ventana de Contexto Ampliada (`MAX_TOKENS = 2048`):** 
+  Configurada en `MediaPipeModelRepository` (`MAX_TOKENS = 2048`, `TEMPERATURE = 0.3f`, `TOP_K = 20`). Se amplió desde 512 tokens para permitir consultas compuestas complejas (horario del día + huecos libres + materiales compartidos + deudas) y asegurar respuestas explicativas completas sin truncamiento de frases, manteniendo el consumo de VRAM estrictamente acotado gracias a las reglas de agrupamiento.
 
 ### Estructura del Prompt Inyectado (Gemma Chat Template)
 ```text
@@ -122,6 +131,9 @@ Los dispositivos móviles tienen límites estrictos de memoria de vídeo (VRAM).
 Eres Sue, la asistente inteligente de HomeTutorPro.
 Tu rol es responder a las preguntas del profesor de forma breve, amable y concisa.
 NUNCA inventes datos. Usa SOLO la información provista en --- AVAILABLE DATA ---.
+Si el usuario pregunta por clases de hoy, canceladas, alumnos, finanzas o recursos y materiales compartidos, lee la sección correspondiente en --- AVAILABLE DATA --- y responde con claridad y precisión.
+Si no hay datos en esa sección o la sección indica que no hay registros, dile al profesor con amabilidad que no tienes información registrada sobre eso.
+NUNCA llames "Sue" al profesor (tú eres Sue; él es el usuario o profesor).
 
 --- TEMPORAL CONTEXT ---
 Current date/time: martes, 16 septiembre 2025, 09:20
@@ -144,9 +156,16 @@ Huecos libres dentro de jornada:
   08:00–16:30, 19:00–23:00
 Clases canceladas o reprogramadas esta semana:
 • Viernes 19/09/2025: la clase de Lucía (17:00 - 18:30) está cancelada.
+
+--- RECURSOS / MATERIALES COMPARTIDOS CON ALUMNOS ---
+Total de recursos compartidos: 3 entre 2 alumnos.
+- Alumno: Lucía Moreno García | Archivo: examen_algebra.pdf (pdf) compartido el 15/09/2025 vía WHATSAPP
+- Alumno: Carlos | Archivo: problemas_fisica.pdf (pdf) compartido el 14/09/2025 vía EMAIL
+- Alumno: Carlos | Archivo: formulario_dinamica.pdf (pdf) compartido el 12/09/2025 vía WHATSAPP
+--- FIN RECURSOS / MATERIALES COMPARTIDOS ---
 --- END OF DATA ---
 
-User query: ¿Qué clases tengo hoy y qué tengo libre por la tarde?
+User query: ¿Qué clases tengo hoy por la tarde y qué material le he enviado a Carlos?
 <end_of_turn>
 <start_of_turn>model
 ```
@@ -176,35 +195,46 @@ En HomeTutorPro implementamos una **Capa Híbrida de Dos Niveles**:
   - Reconocimiento de horas numéricas (`17:00`, `21`, `22:30`) y en palabras de `cero` a `veinticuatro` y `medianoche`.
   - Soporte de fracciones temporales (`y media`, `y cuarto`, `menos cuarto`, `y veinte`).
   - Modificadores contextuales (`de la tarde`, `de la mañana`, `de la noche`, `pm`, `am`).
+  - **Inferencia Inteligente de Franja Horaria:** Si el usuario no especifica la franja (*"pon una clase a las 5"* o *"a las 6"*), el motor infiere automáticamente la tarde (`17:00` o `18:00`), adaptándose a la realidad habitual de las clases particulares extraescolares.
   - Máquina de estados conversacional multi-turno (ej. pedir hora tras solicitar clase extra) con reinicio automático de variables temporales al confirmar la acción.
-- **Prevención Estricta de Colisiones Horarias:**
+- **Prevención Estricta de Colisiones y Reconciliación de Excepciones:**
   - Al reprogramar o añadir clases extras, `SaveScheduleExceptionUseCase` valida solapamientos contra horarios regulares, clases extras y reprogramaciones existentes.
+  - Reconcilia en tiempo real las cancelaciones, de modo que un hueco cancelado queda inmediatamente disponible para nuevas clases.
   - Si hay colisión, bloquea la mutación y SUE informa proactivamente del alumno en conflicto y los días/huecos libres disponibles.
 
 ### 2. Nivel 2: Capa Generativa (RAG + Inferencia Local con Gemma)
-- **Casos de uso:** Consultas complejas, abiertas, pedagógicas o conversacionales (*"¿Cómo debería organizar el repaso de matemáticas con Carlos?"*, *"Explícame qué horario tengo más despejado esta semana para meter más alumnos"*).
-- **Funcionamiento:** Se alimenta del contexto estructurado extraído en el paso RAG para que el modelo redacte una respuesta natural, veraz y personalizada.
+- **Casos de uso:** Consultas complejas, abiertas, pedagógicas o conversacionales (*"¿Cómo debería organizar el repaso de matemáticas con Carlos?"*, *"¿Qué material le he enviado a cada alumno?"*, *"¿Qué clases tengo hoy y qué tengo libre por la tarde?"*).
+- **Funcionamiento:** Se alimenta del contexto estructurado extraído en el paso RAG (con compresión relacional previa en Kotlin y ventana ampliada a 2048 tokens) para que el modelo redacte una respuesta natural, veraz y personalizada.
 
 ---
 
-## 7. Ingeniería de Memoria RAM y Ciclo de Vida (Android 17)
+## 7. Ingeniería de Memoria RAM, Hardware y Ciclo de Vida (Android 15-17)
 
-En Android 17, Google introduce **límites estrictos de memoria por aplicación (*Per-App Memory Limits*)** y mata procesos que excedan su cuota (`MemoryLimiter:AnonSwap`).
+En Android 15 y versiones superiores (especialmente Android 17), Google introduce **límites estrictos de memoria por aplicación (*Per-App Memory Limits*)** y mata procesos que excedan su cuota (`MemoryLimiter:AnonSwap`).
 
-### Nuestras 4 Estrategias de Optimización:
+### Nuestras 5 Estrategias de Optimización y Defensa:
 
-1. **Arranque Frío Ultraligero:** La app inicia consumiendo únicamente **~80 MB** de RAM (no se precarga el modelo al arrancar).
-2. **Carga en Paralelo durante la Locución:** Al pulsar el botón de voz, Gemma se carga en un hilo secundario en paralelo mientras el usuario habla. Cuando el usuario se calla, el modelo ya está listo (**0 ms de espera adicional percibida**).
-3. **Smart Idle Auto-Release:** Tras 2 minutos de inactividad o 30 segundos tras cerrar el asistente, el ViewModel descarga el modelo de la RAM mediante `inferenceRepository.release()`.
-4. **Protección en Segundo Plano (`onTrimMemory`):** Al minimizar la app (`TRIM_MEMORY_UI_HIDDEN`), se libera inmediatamente la memoria nativa de GPU/RAM.
+1. **Detección Preventiva de Compatibilidad de Hardware (`SueDeviceCompatibility`):**
+   - Antes de permitir la descarga o activación de SUE (tanto en Onboarding como en Ajustes), la app inspecciona `ActivityManager.getMemoryInfo()` y `isLowRamDevice`.
+   - **Requisitos Mínimos:** Al menos **2.5 GB de RAM física** y **Android 9.0+ (API 28+)**.
+   - Si el dispositivo no alcanza estos requisitos, se previene la descarga para evitar degradar el terminal, mostrándose una tarjeta informativa en Ajustes y funcionando con normalidad en modo clásico.
+2. **Arranque Frío Ultraligero:** La app inicia consumiendo únicamente **~80 MB** de RAM (no se precarga el modelo al arrancar).
+3. **Carga en Paralelo durante la Locución (*Parallel Warm-Up*):** Al pulsar el botón de voz, Gemma se carga en un hilo secundario en paralelo mientras el usuario habla. Cuando el usuario se calla, el modelo ya está listo (**0 ms de espera adicional percibida**).
+4. **Smart Idle Auto-Release (Descarga Automática de RAM):** 
+   - Tras **2 minutos (120 s)** de inactividad (`IDLE_RELEASE_TIMEOUT_MS = 120_000L`) o **30 segundos** tras cerrar el asistente (`DISMISS_RELEASE_TIMEOUT_MS = 30_000L`), el ViewModel descarga el modelo de la RAM mediante `inferenceRepository.release()`.
+   - Incluye un temporizador de seguridad de escucha de 15 segundos (`LISTENING_TIMEOUT_MS = 15_000L`) para reanudar el estado si se produce una interrupción del micrófono.
+5. **Protección en Segundo Plano (`onTrimMemory`):** Al minimizar la app (`TRIM_MEMORY_UI_HIDDEN`) o ante presión de memoria (`TRIM_MEMORY_RUNNING_CRITICAL`), se libera inmediatamente la memoria nativa de GPU/RAM.
+6. **UX y Distribución OTA:** Al completarse la descarga del modelo en segundo plano, la notificación del sistema incluye navegación directa con auto-scroll a la sección de SUE en la pantalla de Ajustes.
 
 ---
 
 ## 8. Seguridad, Privacidad y RGPD
 
 1. **Privacidad por Diseño (*Privacy by Design*):** Ningún dato de los alumnos sale del teléfono. No hay servidores intermedios, ni logs en la nube, ni venta de telemetría.
-2. **Minimización de Datos:** En el MVP, el modelo de datos de `Student` excluye campos sensibles (como diagnósticos médicos o problemas de aprendizaje) para cumplir con el principio de minimización de datos del RGPD.
-3. **Confirmación en Dos Pasos para Escrituras:** Toda modificación destructiva en la base de datos (cancelar clase, borrar alumno, registrar pago) pasa por un estado `Prepare` donde Sue pide confirmación verbal explícita (*"¿Confirmas cancelar la clase de Pepe? Di sí o no"*), evitando acciones accidentales por malas interpretaciones de audio.
+2. **Redacción de PII en Logs (`SafeLogger`):** Todas las trazas de depuración de SUE, autenticación y base de datos utilizan `SafeLogger`, que redacta automáticamente datos sensibles (PII, nombres, UIDs, identificadores) antes de emitirlos en logcat o enviarlos a Crashlytics.
+3. **Minimización de Datos:** En el MVP, el modelo de datos de `Student` excluye campos sensibles (como diagnósticos médicos o problemas de aprendizaje) para cumplir con el principio de minimización de datos del RGPD.
+4. **Confirmación en Dos Pasos para Escrituras:** Toda modificación destructiva en la base de datos (cancelar clase, borrar alumno, registrar pago) pasa por un estado `Prepare` donde Sue pide confirmación verbal explícita (*"¿Confirmas cancelar la clase de Pepe? Di sí o no"*), evitando acciones accidentales por malas interpretaciones de audio.
+5. **Crashlytics Seguro:** Habilitado de forma controlada en `AppInitializerImpl` protegiendo los datos confidenciales locales del profesor.
 
 ---
 
@@ -217,8 +247,8 @@ Si presentas esta arquitectura, esta es una estructura ganadora de 30-40 minutos
 | 1 | **La Era de la IA en el Dispositivo (Edge AI)** | Por qué no todo debe estar en la nube (Privacidad, Costes de Servidor = 0€, Modo Offline). |
 | 2 | **El Problema: LLMs en Móvil y el RGPD** | Retos de memoria, latencia y gestión de datos de menores en educación. |
 | 3 | **Arquitectura de HomeTutorPro** | Clean Architecture + MVVM + Jetpack Compose. Separación de capas. |
-| 4 | **¿Qué es RAG Local?** | Diferencia entre Fine-Tuning y RAG. Cómo inyectar Room DB en el contexto de Gemma. |
-| 5 | **El Patrón Híbrido: Cuando NO usar el LLM** | Mostrar cómo resolver cancelaciones y saldos en 0 ms con Kotlin y dejar a Gemma solo para lenguaje natural. |
-| 6 | **Ingeniería de Memoria en Android 17** | Retos de RAM, zRAM, páginas de 16 KB y nuestra solución de *Smart Auto-Release*. |
-| 7 | **Demo en Vivo / Video de SUE** | Mostrar la app respondiendo a consultas por voz y confirmando acciones en tiempo real. |
+| 4 | **¿Qué es RAG Local y Agrupamiento Inteligente?** | Diferencia entre Fine-Tuning y RAG. Inyección de Room DB en Gemma con ventana de 2048 tokens y compresión relacional previa (agrupación de recursos si > 15). |
+| 5 | **El Patrón Híbrido: Cuando NO usar el LLM** | Mostrar cómo resolver cancelaciones, huecos y saldos en 0 ms con Kotlin y dejar a Gemma solo para lenguaje natural y consultas compuestas. |
+| 6 | **Ingeniería de Memoria en Android 15-17** | Retos de RAM, zRAM, páginas de 16 KB, validación de hardware (2.5 GB RAM) y solución de *Smart Auto-Release*. |
+| 7 | **Demo en Vivo / Video de SUE** | Mostrar la app respondiendo a consultas por voz (agenda, materiales compartidos) y confirmando acciones en tiempo real. |
 | 8 | **Conclusiones y Q&A** | La IA en el cliente ya es viable en Android hoy sin arruinarse en costes de API. |
