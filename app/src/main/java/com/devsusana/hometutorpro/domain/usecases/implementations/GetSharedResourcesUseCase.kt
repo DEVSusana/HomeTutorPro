@@ -20,4 +20,9 @@ class GetSharedResourcesUseCase @Inject constructor(
     override operator fun invoke(professorId: String?, studentId: String): Flow<List<SharedResource>> {
         return resourceRepository.getSharedResources(professorId, studentId)
     }
+
+    override operator fun invoke(professorId: String?): Flow<List<SharedResource>> {
+        val pId = professorId ?: ""
+        return resourceRepository.getAllSharedResources(pId)
+    }
 }

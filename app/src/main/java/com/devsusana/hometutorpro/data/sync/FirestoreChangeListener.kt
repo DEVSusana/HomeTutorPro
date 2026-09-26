@@ -4,7 +4,7 @@ import com.devsusana.hometutorpro.data.local.dao.StudentDao
 import com.devsusana.hometutorpro.data.local.entities.StudentEntity
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import com.devsusana.hometutorpro.data.mappers.toStudentEntity
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore

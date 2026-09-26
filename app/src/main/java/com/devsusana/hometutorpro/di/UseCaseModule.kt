@@ -26,6 +26,7 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.GetSharedResou
 import com.devsusana.hometutorpro.domain.usecases.implementations.SaveSharedResourceUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.DeleteSharedResourceUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.MigrateDataFromLocalUseCase
+import com.devsusana.hometutorpro.domain.usecases.implementations.NotifyClassEndUseCaseImpl
 import com.devsusana.hometutorpro.domain.usecases.implementations.UpdateProfileUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.UpdatePasswordUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.DeleteAccountUseCase
@@ -161,8 +162,7 @@ abstract class UseCaseModule {
     @Binds
     abstract fun bindGetPremiumProductUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetPremiumProductUseCase): IGetPremiumProductUseCase
 
-    @Binds
-    abstract fun bindLaunchPremiumPurchaseUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.LaunchPremiumPurchaseUseCase): ILaunchPremiumPurchaseUseCase
+
 
     @Binds
     abstract fun bindShowTestNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.ShowTestNotificationUseCase): IShowTestNotificationUseCase
@@ -172,6 +172,45 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindUpdateBalanceUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.UpdateBalanceUseCase): IUpdateBalanceUseCase
+
+    @Binds
+    abstract fun bindGetLanguageUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetLanguageUseCase): IGetLanguageUseCase
+
+    @Binds
+    abstract fun bindGetThemeModeUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetThemeModeUseCase): IGetThemeModeUseCase
+
+    @Binds
+    abstract fun bindGetClassEndNotificationsUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetClassEndNotificationsUseCase): IGetClassEndNotificationsUseCase
+
+    @Binds
+    abstract fun bindGetDebugPremiumUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetDebugPremiumUseCase): IGetDebugPremiumUseCase
+
+    @Binds
+    abstract fun bindGetOnboardingCompletedUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetOnboardingCompletedUseCase): IGetOnboardingCompletedUseCase
+
+    @Binds
+    abstract fun bindSetOnboardingCompletedUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetOnboardingCompletedUseCase): ISetOnboardingCompletedUseCase
+
+    @Binds
+    abstract fun bindGetSueEnabledUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetSueEnabledUseCase): IGetSueEnabledUseCase
+
+    @Binds
+    abstract fun bindSetSueEnabledUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetSueEnabledUseCase): ISetSueEnabledUseCase
+
+    @Binds
+    abstract fun bindGetSueFabVisibleUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetSueFabVisibleUseCase): IGetSueFabVisibleUseCase
+
+    @Binds
+    abstract fun bindSetSueFabVisibleUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetSueFabVisibleUseCase): ISetSueFabVisibleUseCase
+
+    @Binds
+    abstract fun bindGetSueOnboardingCompletedUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetSueOnboardingCompletedUseCase): IGetSueOnboardingCompletedUseCase
+
+    @Binds
+    abstract fun bindSetSueOnboardingCompletedUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.SetSueOnboardingCompletedUseCase): ISetSueOnboardingCompletedUseCase
+
+    @Binds
+    abstract fun bindNotifyClassEndUseCase(impl: NotifyClassEndUseCaseImpl): INotifyClassEndUseCase
 
     @Binds
     abstract fun bindDeleteAccountUseCase(impl: DeleteAccountUseCase): IDeleteAccountUseCase
@@ -185,3 +224,4 @@ abstract class UseCaseModule {
     @Binds
     abstract fun bindRestoreSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.RestoreSessionUseCase): IRestoreSessionUseCase
 }
+

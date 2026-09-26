@@ -4,7 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
-import com.devsusana.hometutorpro.core.settings.dataStore
+import com.devsusana.hometutorpro.di.SettingsRepositoryEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.util.Locale
@@ -20,8 +21,8 @@ object LocaleHelper {
      * @param languageCode Language code (e.g., "en", "es")
      */
     fun setLocale(activity: Activity, languageCode: String) {
-        // We don't need to update configuration here as it's handled in onAttach
-        // Just recreate the activity to apply the new language from DataStore
+        val locale = Locale.forLanguageTag(languageCode)
+        Locale.setDefault(locale)
         activity.recreate()
     }
     
@@ -35,31 +36,26 @@ object LocaleHelper {
         return primaryLocale.language
     }
 
-    private fun detectFallbackLanguage(context: Context): String {
-        val primaryLocale = androidx.core.os.ConfigurationCompat.getLocales(context.resources.configuration)[0] ?: Locale.getDefault()
-        val deviceLang = primaryLocale.language ?: ""
-        return if (deviceLang == "es" || deviceLang == "ca" || deviceLang == "gl" || deviceLang == "eu") {
-            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_SPANISH
-        } else {
-            com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_ENGLISH
-        }
-    }
-
     /**
      * Attach the base context with the saved locale.
      * Should be called in Activity.attachBaseContext().
      */
     fun onAttach(context: Context): Context {
         val language = try {
-            kotlinx.coroutines.runBlocking {
-                val savedLanguage = context.dataStore.data.first()[com.devsusana.hometutorpro.core.settings.SettingsManager.LANGUAGE_KEY]
-                savedLanguage ?: detectFallbackLanguage(context)
+            val entryPoint = EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                SettingsRepositoryEntryPoint::class.java
+            )
+            val settingsRepository = entryPoint.settingsRepository()
+            runBlocking {
+                settingsRepository.languageFlow.first()
             }
         } catch (e: Exception) {
-            detectFallbackLanguage(context)
+            // If Hilt or DataStore is not available yet, fall back to Spanish
+            "es"
         }
         
-        val locale = Locale(language)
+        val locale = Locale.forLanguageTag(language)
         Locale.setDefault(locale)
         
         val config = Configuration(context.resources.configuration)
@@ -68,3 +64,4 @@ object LocaleHelper {
         return context.createConfigurationContext(config)
     }
 }
+

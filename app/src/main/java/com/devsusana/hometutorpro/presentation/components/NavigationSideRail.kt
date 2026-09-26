@@ -44,7 +44,7 @@ fun NavigationSideRail(navController: NavController) {
             icon = Icons.Default.People
         ),
         BottomNavItem(
-            route = Route.Settings,
+            route = Route.Settings(),
             label = stringResource(R.string.nav_settings),
             icon = Icons.Default.Settings
         )

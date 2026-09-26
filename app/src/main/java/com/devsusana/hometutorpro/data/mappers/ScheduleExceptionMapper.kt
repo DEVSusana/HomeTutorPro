@@ -11,19 +11,20 @@ import java.time.DayOfWeek
  */
 
 fun ScheduleExceptionDataModel.toDomain(): ScheduleException {
+    val exceptionType = try {
+        ExceptionType.valueOf(type)
+    } catch (e: IllegalArgumentException) {
+        ExceptionType.CANCELLED
+    }
     return ScheduleException(
         id = id,
         studentId = studentId,
         date = date,
-        type = try {
-            ExceptionType.valueOf(type)
-        } catch (e: IllegalArgumentException) {
-            ExceptionType.CANCELLED
-        },
+        type = exceptionType,
         originalScheduleId = originalScheduleId,
-        newStartTime = newStartTime,
-        newEndTime = newEndTime,
-        newDayOfWeek = newDayOfWeek?.let {
+        newStartTime = if (exceptionType == ExceptionType.CANCELLED) "" else newStartTime,
+        newEndTime = if (exceptionType == ExceptionType.CANCELLED) "" else newEndTime,
+        newDayOfWeek = if (exceptionType == ExceptionType.CANCELLED) null else newDayOfWeek?.let {
             try {
                 DayOfWeek.valueOf(it)
             } catch (e: IllegalArgumentException) {

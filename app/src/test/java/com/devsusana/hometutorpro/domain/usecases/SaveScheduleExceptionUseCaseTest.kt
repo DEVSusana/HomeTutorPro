@@ -48,8 +48,8 @@ class SaveScheduleExceptionUseCaseTest {
         val studentSummary = StudentSummary(id = studentId, name = "Student 1", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
 
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
-        every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(emptyList())
-        every { repository.getExceptions(professorId, studentId) } returns flowOf(emptyList())
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(emptyList())
+        coEvery { repository.getAllExceptions(professorId) } returns emptyList()
         coEvery { repository.saveException(professorId, studentId, exception) } returns Result.Success(Unit)
 
         // When
@@ -81,8 +81,8 @@ class SaveScheduleExceptionUseCaseTest {
         val existingSchedule = Schedule(id = "s2", studentId = studentId, dayOfWeek = DayOfWeek.MONDAY, startTime = "10:00", endTime = "11:00")
 
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
-        every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(listOf(existingSchedule))
-        every { repository.getExceptions(professorId, studentId) } returns flowOf(emptyList())
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(listOf(existingSchedule))
+        coEvery { repository.getAllExceptions(professorId) } returns emptyList()
 
         // When
         val result = useCase(professorId, studentId, exception)
@@ -119,8 +119,8 @@ class SaveScheduleExceptionUseCaseTest {
         )
 
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
-        every { studentRepository.getSchedules(professorId, "student2") } returns flowOf(listOf(conflictingSchedule))
-        every { repository.getExceptions(professorId, "student2") } returns flowOf(listOf(cancellation))
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(listOf(conflictingSchedule))
+        coEvery { repository.getAllExceptions(professorId) } returns listOf(cancellation)
         coEvery { repository.saveException(professorId, studentId, exception) } returns Result.Success(Unit)
 
         // When
@@ -157,8 +157,8 @@ class SaveScheduleExceptionUseCaseTest {
         )
 
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
-        every { studentRepository.getSchedules(professorId, "student2") } returns flowOf(emptyList())
-        every { repository.getExceptions(professorId, "student2") } returns flowOf(listOf(existingException))
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(emptyList())
+        coEvery { repository.getAllExceptions(professorId) } returns listOf(existingException)
 
         // When
         val result = useCase(professorId, studentId, exception)
@@ -202,7 +202,8 @@ class SaveScheduleExceptionUseCaseTest {
 
         every { repository.getExceptions(professorId, studentId) } returns flowOf(listOf(existingException))
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
-        every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(emptyList())
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(emptyList())
+        coEvery { repository.getAllExceptions(professorId) } returns emptyList()
         
         // We expect the repository to receive the exception with the PRE-EXISTING ID
         coEvery { repository.saveException(professorId, studentId, any()) } returns Result.Success(Unit)
@@ -253,14 +254,8 @@ class SaveScheduleExceptionUseCaseTest {
         val studentB = StudentSummary(id = studentBId, name = "Student B", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
 
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentA, studentB))
-        
-        // Setup for Student A checks
-        every { studentRepository.getSchedules(professorId, studentAId) } returns flowOf(listOf(scheduleA))
-        every { repository.getExceptions(professorId, studentAId) } returns flowOf(listOf(rescheduleA))
-        
-        // Setup for Student B checks
-        every { studentRepository.getSchedules(professorId, studentBId) } returns flowOf(emptyList())
-        every { repository.getExceptions(professorId, studentBId) } returns flowOf(emptyList())
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(listOf(scheduleA))
+        coEvery { repository.getAllExceptions(professorId) } returns listOf(rescheduleA)
         
         coEvery { repository.saveException(professorId, studentBId, any()) } returns Result.Success(Unit)
 
@@ -270,6 +265,7 @@ class SaveScheduleExceptionUseCaseTest {
         // Then
         assertTrue("Should succeed because the slot was freed by rescheduling", result is Result.Success)
     }
+
     @Test
     fun `invoke should calculate targetDate when moving to a different day`() = runTest {
         // Given
@@ -307,16 +303,12 @@ class SaveScheduleExceptionUseCaseTest {
         val student1 = StudentSummary(id = studentId, name = "Student 1", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
         val student2 = StudentSummary(id = student2Id, name = "Student 2", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
 
-        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(student1, student2))
-        
-        // Setup for Student 1
-        every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(emptyList())
         val existingException = ScheduleException(id = "excNew", studentId = studentId, date = dateMillis, type = ExceptionType.CANCELLED, originalScheduleId = "s1")
         every { repository.getExceptions(professorId, studentId) } returns flowOf(listOf(existingException))
-        
-        // Setup for Student 2
-        every { studentRepository.getSchedules(professorId, student2Id) } returns flowOf(listOf(schedule2))
-        every { repository.getExceptions(professorId, student2Id) } returns flowOf(listOf(cancellation2))
+
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(student1, student2))
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(listOf(schedule2))
+        coEvery { repository.getAllExceptions(professorId) } returns listOf(existingException, cancellation2)
         
         coEvery { repository.saveException(professorId, studentId, any()) } returns Result.Success(Unit)
 
@@ -352,8 +344,8 @@ class SaveScheduleExceptionUseCaseTest {
         val studentSummary = StudentSummary(id = studentId, name = "Student 1", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
 
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
-        every { studentRepository.getSchedules(professorId, studentId) } returns flowOf(listOf(existingSchedule))
-        every { repository.getExceptions(professorId, studentId) } returns flowOf(emptyList()) // No cancellations yet
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(listOf(existingSchedule))
+        coEvery { repository.getAllExceptions(professorId) } returns emptyList()
         coEvery { repository.saveException(professorId, studentId, any()) } returns Result.Success(Unit)
 
         // When
@@ -400,12 +392,8 @@ class SaveScheduleExceptionUseCaseTest {
         val studentB = StudentSummary(id = studentBId, name = "Student B", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
 
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentA, studentB))
-        
-        every { studentRepository.getSchedules(professorId, studentAId) } returns flowOf(listOf(scheduleA))
-        every { repository.getExceptions(professorId, studentAId) } returns flowOf(listOf(rescheduleA))
-        
-        every { studentRepository.getSchedules(professorId, studentBId) } returns flowOf(listOf(scheduleB))
-        every { repository.getExceptions(professorId, studentBId) } returns flowOf(listOf(rescheduleB))
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(listOf(scheduleA, scheduleB))
+        coEvery { repository.getAllExceptions(professorId) } returns listOf(rescheduleA, rescheduleB)
         
         coEvery { repository.saveException(professorId, studentBId, any()) } returns Result.Success(Unit)
 
@@ -444,12 +432,8 @@ class SaveScheduleExceptionUseCaseTest {
         val studentB = StudentSummary(id = studentBId, name = "Student B", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
 
         every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentA, studentB))
-        
-        every { studentRepository.getSchedules(professorId, studentAId) } returns flowOf(listOf(scheduleATuesday))
-        every { repository.getExceptions(professorId, studentAId) } returns flowOf(emptyList()) // No cancellations
-        
-        every { studentRepository.getSchedules(professorId, studentBId) } returns flowOf(emptyList()) // B has no Tuesday schedule
-        every { repository.getExceptions(professorId, studentBId) } returns flowOf(emptyList())
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(listOf(scheduleATuesday))
+        coEvery { repository.getAllExceptions(professorId) } returns emptyList()
 
         // When
         val result = useCase(professorId, studentBId, rescheduleB)
@@ -459,5 +443,100 @@ class SaveScheduleExceptionUseCaseTest {
         val error = (result as Result.Error).error
         assertTrue("Error should be ConflictingStudent", error is DomainError.ConflictingStudent)
         assertTrue("Conflicting student should be Student A", (error as DomainError.ConflictingStudent).studentName == "Student A")
+    }
+
+    @Test
+    fun `invoke should allow multiple extra classes on the same day at different times without overwriting ID`() = runTest {
+        // Given
+        val professorId = "prof1"
+        val studentId = "student1"
+        val fridayDate = LocalDate.of(2023, 10, 27) // Friday
+        val fridayMillis = fridayDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val existingExtraClass = ScheduleException(
+            id = "extra_1",
+            studentId = studentId,
+            professorId = professorId,
+            date = fridayMillis,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA",
+            newStartTime = "17:00",
+            newEndTime = "18:00"
+        )
+
+        val newExtraClass = ScheduleException(
+            id = "",
+            studentId = studentId,
+            professorId = professorId,
+            date = fridayMillis,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA",
+            newStartTime = "19:00",
+            newEndTime = "20:00"
+        )
+
+        val studentSummary = StudentSummary(id = studentId, name = "Carlos", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(emptyList())
+        coEvery { repository.getAllExceptions(professorId) } returns listOf(existingExtraClass)
+        coEvery { repository.saveException(professorId, studentId, any()) } returns Result.Success(Unit)
+
+        // When
+        val result = useCase(professorId, studentId, newExtraClass)
+
+        // Then
+        assertTrue("Should succeed because times do not overlap", result is Result.Success)
+        coVerify {
+            repository.saveException(professorId, studentId, match {
+                it.id == "" && it.newStartTime == "19:00" && it.newEndTime == "20:00"
+            })
+        }
+    }
+
+    @Test
+    fun `invoke should return conflict when adding extra class overlapping existing extra class`() = runTest {
+        // Given
+        val professorId = "prof1"
+        val studentId = "student1"
+        val fridayDate = LocalDate.of(2023, 10, 27) // Friday
+        val fridayMillis = fridayDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val existingExtraClass = ScheduleException(
+            id = "extra_1",
+            studentId = studentId,
+            professorId = professorId,
+            date = fridayMillis,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA",
+            newStartTime = "17:00",
+            newEndTime = "18:00"
+        )
+
+        val conflictingExtraClass = ScheduleException(
+            id = "",
+            studentId = studentId,
+            professorId = professorId,
+            date = fridayMillis,
+            type = ExceptionType.EXTRA,
+            originalScheduleId = "EXTRA",
+            newStartTime = "17:00",
+            newEndTime = "18:00"
+        )
+
+        val studentSummary = StudentSummary(id = studentId, name = "Carlos", subjects = "", color = null, pendingBalance = 0.0, pricePerHour = 0.0, isActive = true, lastClassDate = null)
+
+        every { studentRepository.getStudents(professorId) } returns flowOf(listOf(studentSummary))
+        every { studentRepository.getAllSchedules(professorId) } returns flowOf(emptyList())
+        coEvery { repository.getAllExceptions(professorId) } returns listOf(existingExtraClass)
+
+        // When
+        val result = useCase(professorId, studentId, conflictingExtraClass)
+
+        // Then
+        assertTrue("Should return conflict error", result is Result.Error)
+        val error = (result as Result.Error).error
+        assertTrue("Error should be ConflictingStudent", error is DomainError.ConflictingStudent)
+        coVerify(exactly = 0) { repository.saveException(any(), any(), any()) }
     }
 }

@@ -17,12 +17,16 @@ android {
 
     defaultConfig {
         applicationId = "com.devsusana.hometutorpro"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 108
         versionName = "1.0.8"
 
         testInstrumentationRunner = "com.devsusana.hometutorpro.CustomTestRunner"
+    }
+
+    base {
+        archivesName.set("HomeTutorPro-v${defaultConfig.versionName}(${defaultConfig.versionCode})")
     }
 
     signingConfigs {
@@ -81,6 +85,9 @@ android {
             isMinifyEnabled = false
             enableUnitTestCoverage = true
             enableAndroidTestCoverage = true
+            firebaseCrashlytics {
+                mappingFileUploadEnabled = false
+            }
         }
     }
     
@@ -98,6 +105,14 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/io.netty.versions.properties"
+            excludes += "META-INF/DEPENDENCIES"
         }
     }
 }
@@ -158,6 +173,9 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
 
+    // MediaPipe LLM Inference — on-device Gemma (Sue)
+    implementation(libs.mediapipe.tasks.genai)
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -175,6 +193,7 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.androidx.room.testing)
     kspAndroidTest(libs.hilt.android.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

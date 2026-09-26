@@ -227,4 +227,19 @@ class ScheduleExceptionRepositoryImplTest {
             }) 
         }
     }
+
+    @Test
+    fun `getAllExceptions queries DAO and returns domain list`() = runTest {
+        // Given
+        coEvery { exceptionDao.getAllExceptionsOnce(testUserId) } returns listOf(testExceptionEntity)
+
+        // When
+        val result = repository.getAllExceptions(testUserId)
+
+        // Then
+        assertEquals(1, result.size)
+        assertEquals(testException.id, result[0].id)
+        assertEquals(testException.type, result[0].type)
+        coVerify { exceptionDao.getAllExceptionsOnce(testUserId) }
+    }
 }

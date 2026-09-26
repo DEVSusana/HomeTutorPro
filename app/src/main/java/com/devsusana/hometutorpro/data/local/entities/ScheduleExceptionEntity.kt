@@ -27,8 +27,8 @@ import kotlinx.serialization.Serializable
         Index(value = ["cloudId"]),
         Index(value = ["syncStatus"]),
         Index(value = ["professorId"]),
-        // Ensure only one exception per schedule and date for a professor
-        Index(value = ["professorId", "originalScheduleId", "exceptionDate"], unique = true)
+        // Non-unique index for fast schedule exception queries without preventing multiple extra classes per date
+        Index(value = ["professorId", "originalScheduleId", "exceptionDate"])
     ]
 )
 data class ScheduleExceptionEntity(

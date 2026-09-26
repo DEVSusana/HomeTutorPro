@@ -46,18 +46,15 @@ class LocaleHelperTest {
     }
 
     @Test
-    fun setLocale_recreatesActivity() {
+    fun setLocale_recreatesActivityAndUpdatesDefaultLocale() {
         // Given: A mock activity
         val mockActivity = mockk<Activity>(relaxed = true)
 
         // When: Set locale
         LocaleHelper.setLocale(mockActivity, "en")
 
-        // Then: Activity should be recreated
+        // Then: Activity should be recreated and default locale set
         verify { mockActivity.recreate() }
+        assertEquals("en", Locale.getDefault().language)
     }
-    
-    // Note: onAttach is difficult to test because it relies on DataStore extension property
-    // which is hard to mock without full integration test or dependency injection.
-    // We skip it here as it's covered by LanguageSettingsPersistenceTest integration test.
 }
