@@ -424,4 +424,95 @@ class SueAgentImplTest {
         assertTrue("Should return ReadSuccess", result is SueOperationResult.ReadSuccess)
         assertTrue((result as SueOperationResult.ReadSuccess).message.contains("Juan"))
     }
+
+    @Test
+    fun `buildPromptWithContext injects global shared resources when asked about sent material`() = runTest {
+        val resources = listOf(
+            com.devsusana.hometutorpro.domain.entities.SharedResource(
+                id = "res-1",
+                studentId = "stu-1",
+                professorId = "prof_123",
+                fileName = "algebra_ejercicios.pdf",
+                fileType = "pdf",
+                fileSizeBytes = 1024,
+                sharedVia = com.devsusana.hometutorpro.domain.entities.ShareMethod.WHATSAPP,
+                sharedAt = 1758240000000L
+            )
+        )
+        val schedules = listOf(
+            com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail(
+                scheduleId = "sch-1",
+                studentId = "stu-1",
+                studentName = "Claudia",
+                dayOfWeek = 1,
+                startTime = "17:00",
+                endTime = "18:00"
+            )
+        )
+        coEvery { studentTools.extractRelevantStudent(any()) } returns null
+        coEvery { studentTools.getAllSharedResources() } returns resources
+        coEvery { scheduleTools.getScheduleDetails() } returns schedules
+
+        val prompt = agent.buildPromptWithContext("¿Que material le he enviado a cada alumno?", emptyList())
+
+        assertTrue("Prompt should contain section for shared resources", prompt.contains("RECURSOS / MATERIALES COMPARTIDOS"))
+        assertTrue("Prompt should contain student name Claudia", prompt.contains("Claudia"))
+        assertTrue("Prompt should contain file name algebra_ejercicios.pdf", prompt.contains("algebra_ejercicios.pdf"))
+    }
+
+    @Test
+    fun `buildPromptWithContext handles empty shared resources gracefully`() = runTest {
+        coEvery { studentTools.extractRelevantStudent(any()) } returns null
+        coEvery { studentTools.getAllSharedResources() } returns emptyList()
+        coEvery { scheduleTools.getScheduleDetails() } returns emptyList()
+
+        val prompt = agent.buildPromptWithContext("¿He enviado recursos a algun alumno?", emptyList())
+
+        assertTrue("Prompt should contain section for shared resources", prompt.contains("RECURSOS / MATERIALES COMPARTIDOS"))
+        assertTrue("Prompt should state no resources shared", prompt.contains("No se han compartido materiales"))
+    }
+
+    @Test
+    fun `buildPromptWithContext groups shared resources by student when count exceeds 15`() = runTest {
+        val resources = (1..20).map { i ->
+            com.devsusana.hometutorpro.domain.entities.SharedResource(
+                id = "res-$i",
+                studentId = if (i <= 10) "stu-1" else "stu-2",
+                professorId = "prof_123",
+                fileName = "tema_$i.pdf",
+                fileType = "pdf",
+                fileSizeBytes = 1024,
+                sharedVia = com.devsusana.hometutorpro.domain.entities.ShareMethod.WHATSAPP,
+                sharedAt = 1758240000000L + (i * 1000L)
+            )
+        }
+        val scheduleDetails = listOf(
+            com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail(
+                scheduleId = "sch-1",
+                studentId = "stu-1",
+                studentName = "Claudia",
+                dayOfWeek = 1,
+                startTime = "17:00",
+                endTime = "18:00"
+            ),
+            com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail(
+                scheduleId = "sch-2",
+                studentId = "stu-2",
+                studentName = "Marcos",
+                dayOfWeek = 2,
+                startTime = "18:00",
+                endTime = "19:00"
+            )
+        )
+        coEvery { studentTools.extractRelevantStudent(any()) } returns null
+        coEvery { studentTools.getAllSharedResources() } returns resources
+        coEvery { scheduleTools.getScheduleDetails() } returns scheduleDetails
+
+        val prompt = agent.buildPromptWithContext("¿Que material le he enviado a cada alumno?", emptyList())
+
+        assertTrue("Prompt should contain section for shared resources", prompt.contains("RECURSOS / MATERIALES COMPARTIDOS"))
+        assertTrue("Prompt should show total count and students count", prompt.contains("20 entre 2 alumnos"))
+        assertTrue("Prompt should show Claudia with count", prompt.contains("Claudia: 10 archivo(s)"))
+        assertTrue("Prompt should show Marcos with count", prompt.contains("Marcos: 10 archivo(s)"))
+    }
 }

@@ -85,6 +85,9 @@ android {
             isMinifyEnabled = false
             enableUnitTestCoverage = true
             enableAndroidTestCoverage = true
+            firebaseCrashlytics {
+                mappingFileUploadEnabled = false
+            }
         }
     }
     

@@ -16,6 +16,7 @@ interface ResourceRepository {
     suspend fun deleteResource(professorId: String, resourceId: String): Result<Unit, DomainError>
     
     // Shared resources methods
+    fun getAllSharedResources(professorId: String): Flow<List<SharedResource>>
     fun getSharedResources(professorId: String?, studentId: String): Flow<List<SharedResource>>
     suspend fun saveSharedResource(professorId: String?, resource: SharedResource): Result<Unit, DomainError>
     suspend fun deleteSharedResource(professorId: String?, resourceId: String): Result<Unit, DomainError>

@@ -29,6 +29,11 @@ class AppInitializerImpl @Inject constructor(
 ) : AppInitializer {
 
     override fun initialize() {
+        // Enable Crashlytics collection
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
+        } catch (_: Exception) {}
+
         // Create notification channel
         NotificationHelper.createNotificationChannel(context)
 

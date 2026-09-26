@@ -110,6 +110,12 @@ class ResourceRepositoryImpl @Inject constructor(
     }
 
     // Shared resources methods
+    override fun getAllSharedResources(professorId: String): Flow<List<SharedResource>> {
+        return sharedResourceDao.getAllSharedResources(professorId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
     override fun getSharedResources(professorId: String?, studentId: String): Flow<List<SharedResource>> {
         val pId = professorId ?: ""
         val id = studentId.toRoomId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())

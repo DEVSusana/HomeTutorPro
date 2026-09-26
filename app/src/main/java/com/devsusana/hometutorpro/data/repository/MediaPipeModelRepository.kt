@@ -30,7 +30,7 @@ class MediaPipeModelRepository @Inject constructor(
     companion object {
         private const val TAG = "MediaPipeModelRepo"
         private const val MODEL_DIRECTORY = "sue_model"
-        private const val MAX_TOKENS = 512
+        private const val MAX_TOKENS = 2048
         private const val TEMPERATURE = 0.3f
         private const val TOP_K = 20
     }

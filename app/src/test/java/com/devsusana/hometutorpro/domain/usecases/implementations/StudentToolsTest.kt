@@ -431,5 +431,26 @@ class StudentToolsTest {
         assertTrue(result is SueOperationResult.Execute.Success)
         coVerify { deleteStudentUseCase("prof-1", "stu-1") }
     }
+
+    @Test
+    fun `getAllSharedResources returns shared resources from usecase`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(User(uid = "prof-1", email = "test@example.com", displayName = "Professor"))
+        val resources = listOf(
+            com.devsusana.hometutorpro.domain.entities.SharedResource(
+                id = "res1",
+                studentId = "stu-1",
+                professorId = "prof-1",
+                fileName = "algebra.pdf",
+                fileType = "pdf",
+                fileSizeBytes = 2048,
+                sharedVia = com.devsusana.hometutorpro.domain.entities.ShareMethod.WHATSAPP
+            )
+        )
+        every { getSharedResourcesUseCase("prof-1") } returns flowOf(resources)
+
+        val result = studentTools.getAllSharedResources()
+
+        assertEquals(resources, result)
+    }
 }
 

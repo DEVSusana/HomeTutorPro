@@ -658,6 +658,7 @@ class SueViewModel @Inject constructor(
      * Falls back to raw tool data if the model is not loaded.
      */
     private suspend fun processWithAgent(transcription: String) {
+        _uiState.update { it.copy(speechState = SpeechState.PROCESSING) }
         try {
             SafeLogger.d("SueVM", "Processing transcription: '$transcription'")
             val prompt = sueAgent.buildPromptWithContext(transcription, conversationHistory)

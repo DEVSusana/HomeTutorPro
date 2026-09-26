@@ -64,8 +64,8 @@ class SueAgentImpl @Inject constructor(
                     Eres Sue, la asistente inteligente de HomeTutorPro.
                     Tu rol es responder a las preguntas del profesor de forma breve, amable y concisa.
                     NUNCA inventes datos. Usa SOLO la información provista en la sección --- AVAILABLE DATA ---.
-                    Si el usuario pregunta por clases de hoy o canceladas, lee la sección correspondiente en --- AVAILABLE DATA --- y responde enumerando con claridad a los alumnos y sus horas.
-                    Si no hay datos en esa sección o la sección está vacía, dile al profesor que no tienes clases o información registrada sobre eso.
+                    Si el usuario pregunta por clases de hoy, canceladas, alumnos, finanzas o recursos y materiales compartidos, lee la sección correspondiente en --- AVAILABLE DATA --- y responde con claridad y precisión.
+                    Si no hay datos en esa sección o la sección indica que no hay registros, dile al profesor con amabilidad que no tienes información registrada sobre eso.
                     NUNCA llames "Sue" al profesor (tú eres Sue; él es el usuario o profesor).
                     $languageInstruction
                 """.trimIndent()
@@ -244,12 +244,12 @@ class SueAgentImpl @Inject constructor(
 
         val toolContext = gatherRelevantContext(userQuery, workingStart, workingEnd)
 
-        android.util.Log.d("SueAgentImpl", "--- SUE DEBUG LOG ---")
-        android.util.Log.d("SueAgentImpl", "User Query: $userQuery")
-        android.util.Log.d("SueAgentImpl", "Firebase UID: $firebaseUid | AuthRepository UID: ${professor?.uid}")
-        android.util.Log.d("SueAgentImpl", "Working hours: $workingStart – $workingEnd")
-        android.util.Log.d("SueAgentImpl", "RAG Context:\n$toolContext")
-        android.util.Log.d("SueAgentImpl", "----------------------")
+        com.devsusana.hometutorpro.core.utils.SafeLogger.d("SueAgentImpl", "--- SUE DEBUG LOG ---")
+        com.devsusana.hometutorpro.core.utils.SafeLogger.d("SueAgentImpl", "User Query: $userQuery")
+        com.devsusana.hometutorpro.core.utils.SafeLogger.d("SueAgentImpl", "Firebase UID: $firebaseUid | AuthRepository UID: ${professor?.uid}")
+        com.devsusana.hometutorpro.core.utils.SafeLogger.d("SueAgentImpl", "Working hours: $workingStart – $workingEnd")
+        com.devsusana.hometutorpro.core.utils.SafeLogger.d("SueAgentImpl", "RAG Context:\n$toolContext")
+        com.devsusana.hometutorpro.core.utils.SafeLogger.d("SueAgentImpl", "----------------------")
 
 
         return buildString {
@@ -530,6 +530,50 @@ class SueAgentImpl @Inject constructor(
                 appendLine("--- FIN SALDOS PENDIENTES ---")
             }
 
+            // 2d. Shared resources / materials query without a specific student (or across all students)
+            val isResourceQuery = listOf(
+                "material", "materiales", "recurso", "recursos", "archivo", "archivos",
+                "documento", "documentos", "pdf", "enviado", "compartido", "compartir",
+                "resource", "resources", "shared"
+            ).any { it in lowerQuery }
+
+            if (isResourceQuery && lastMentionedStudentName == null) {
+                val allResources = studentTools.getAllSharedResources()
+                val schedules = scheduleTools.getScheduleDetails()
+                val studentMap = schedules.associate { it.studentId to it.studentName }
+                val groupedByStudent = allResources.groupBy { it.studentId }
+                val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
+                appendLine("--- RECURSOS / MATERIALES COMPARTIDOS CON ALUMNOS ---")
+                if (allResources.isNotEmpty()) {
+                    appendLine("Total de recursos compartidos: ${allResources.size} entre ${groupedByStudent.size} alumnos.")
+                    if (allResources.size <= 15) {
+                        allResources.sortedByDescending { it.sharedAt }.forEach { r ->
+                            val sName = studentMap[r.studentId] ?: "Alumno"
+                            val dateStr = sdf.format(java.util.Date(r.sharedAt))
+                            appendLine("- Alumno: $sName | Archivo: ${r.fileName} (${r.fileType}) compartido el $dateStr vía ${r.sharedVia}")
+                        }
+                    } else {
+                        appendLine("Desglose y resumen por alumno:")
+                        groupedByStudent.entries.take(20).forEach { (studentId, resList) ->
+                            val sName = studentMap[studentId] ?: "Alumno"
+                            val sortedRes = resList.sortedByDescending { it.sharedAt }
+                            val count = resList.size
+                            val latest = sortedRes.first()
+                            val dateStr = sdf.format(java.util.Date(latest.sharedAt))
+                            appendLine("- $sName: $count archivo(s) compartido(s) (el más reciente: '${latest.fileName}', $dateStr)")
+                        }
+                        if (groupedByStudent.size > 20) {
+                            appendLine("(Se muestran 20 alumnos con actividad más reciente de un total de ${groupedByStudent.size})")
+                        }
+                        appendLine("Instrucción: Ofrece al profesor un resumen conciso por alumno y recuérdale que puede consultar el detalle completo de un alumno específico.")
+                    }
+                } else {
+                    appendLine("No se han compartido materiales, recursos ni archivos con ningún alumno todavía.")
+                }
+                appendLine("--- FIN RECURSOS / MATERIALES COMPARTIDOS ---")
+            }
+
             when {
                 lastMentionedStudentName != null -> {
                     appendLine(formatResult(studentTools.searchStudent(lastMentionedStudentName!!)))
@@ -552,8 +596,11 @@ class SueAgentImpl @Inject constructor(
                     val resources = studentTools.getSharedResources(lastMentionedStudentName!!)
                     if (resources.isNotEmpty()) {
                         appendLine("--- RECURSOS COMPARTIDOS CON $lastMentionedStudentName ---")
-                        resources.forEach { r ->
+                        resources.sortedByDescending { it.sharedAt }.take(20).forEach { r ->
                             appendLine("- ${r.fileName} (${r.fileType}) compartido vía ${r.sharedVia}")
+                        }
+                        if (resources.size > 20) {
+                            appendLine("(Se muestran los 20 recursos más recientes)")
                         }
                         appendLine("--- FIN RECURSOS COMPARTIDOS ---")
                     }

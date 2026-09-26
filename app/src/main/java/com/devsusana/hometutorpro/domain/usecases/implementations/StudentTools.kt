@@ -396,6 +396,14 @@ class StudentTools @Inject constructor(
     }
 
     /**
+     * Returns all resources shared with any student for the current professor.
+     */
+    suspend fun getAllSharedResources(): List<com.devsusana.hometutorpro.domain.entities.SharedResource> {
+        val professorId = authRepository.currentUser.value?.uid ?: return emptyList()
+        return getSharedResourcesUseCase(professorId).first()
+    }
+
+    /**
      * Returns the list of completed class logs for a student.
      */
     suspend fun getClassLogs(studentName: String): List<com.devsusana.hometutorpro.domain.entities.AgentClassLog> {
