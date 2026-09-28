@@ -6,20 +6,12 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Exclude Keystore-encrypted preferences and database from cloud backup to prevent AEADBadTagException on restore -->
-        <exclude domain="sharedpref" path="db_security_prefs.xml"/>
-        <exclude domain="sharedpref" path="secure_auth_prefs.xml"/>
-        <exclude domain="database" path="hometutorpro.db"/>
-
-        <!-- Include user settings from DataStore -->
+        <!-- In allowlist mode, only user settings from DataStore are backed up. Keystore-encrypted preferences and databases are excluded by default to prevent AEADBadTagException on restore. -->
         <include domain="file" path="datastore/"/>
     </cloud-backup>
 
     <device-transfer>
-        <!-- Exclude Keystore-encrypted preferences and database from device transfer as Keystore keys are device-bound -->
-        <exclude domain="sharedpref" path="db_security_prefs.xml"/>
-        <exclude domain="sharedpref" path="secure_auth_prefs.xml"/>
-        <exclude domain="database" path="hometutorpro.db"/>
+        <!-- In allowlist mode, only user settings from DataStore are transferred. Keystore-bound data is excluded by default. -->
         <include domain="file" path="datastore/"/>
     </device-transfer>
 </data-extraction-rules>
