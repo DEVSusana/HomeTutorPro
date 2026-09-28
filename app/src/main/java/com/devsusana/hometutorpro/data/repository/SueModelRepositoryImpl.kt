@@ -73,7 +73,7 @@ class SueModelRepositoryImpl @Inject constructor(
         private const val PROGRESS_EMIT_INTERVAL_BYTES = 512 * 1024 // 512 KB
         private const val CONNECT_TIMEOUT_MS = 30_000
         private const val READ_TIMEOUT_MS = 60_000
-        private const val USER_AGENT = "HomeTutorPro/1.0.8 (Android; On-Device AI)"
+        private const val USER_AGENT = "HomeTutorPro/1.0.9 (Android; On-Device AI)"
     }
 
     private val _modelStatusFlow = MutableStateFlow<SueModelStatus>(SueModelStatus.NotDownloaded)
