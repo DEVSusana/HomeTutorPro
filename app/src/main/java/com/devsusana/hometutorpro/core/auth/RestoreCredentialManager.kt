@@ -2,7 +2,6 @@ package com.devsusana.hometutorpro.core.auth
 
 import android.content.Context
 import android.util.Base64
-import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CreateRestoreCredentialRequest
 import androidx.credentials.CredentialManager
@@ -12,6 +11,7 @@ import androidx.credentials.RestoreCredential
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.CreateCredentialException
 import androidx.credentials.exceptions.GetCredentialException
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -155,10 +155,10 @@ class RestoreCredentialManager @Inject constructor(
                 isCloudBackupEnabled = true
             )
             credentialManager.createCredential(context, request)
-            Log.d(TAG, "Restore credential created successfully with cloud backup for $userEmail")
+            SafeLogger.d(TAG, "Restore credential created successfully with cloud backup")
             return true
         } catch (e: Exception) {
-            Log.w(TAG, "Failed creating restore credential with cloud backup: ${e.message}. Retrying with local D2D backup...")
+            SafeLogger.w(TAG, "Failed creating restore credential with cloud backup: ${e.message}. Retrying with local D2D backup...")
         }
 
         // Fallback to local D2D backup if Cloud Backup fails (e.g. debug build or device without E2EE)
@@ -168,10 +168,10 @@ class RestoreCredentialManager @Inject constructor(
                 isCloudBackupEnabled = false
             )
             credentialManager.createCredential(context, fallbackRequest)
-            Log.d(TAG, "Restore credential created successfully (local D2D backup) for $userEmail")
+            SafeLogger.d(TAG, "Restore credential created successfully (local D2D backup)")
             true
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to create fallback restore credential: ${e.message}", e)
+            SafeLogger.w(TAG, "Failed to create fallback restore credential: ${e.message}", e)
             false
         }
     }
@@ -198,7 +198,7 @@ class RestoreCredentialManager @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.d(TAG, "Standard restore option with '{}' returned: ${e.message}")
+            SafeLogger.d(TAG, "Standard restore option with '{}' returned: ${e.message}")
         }
 
         // 2. Fallback: try with explicit WebAuthn get json
@@ -220,14 +220,14 @@ class RestoreCredentialManager @Inject constructor(
                     null
                 }
             } else {
-                Log.d(TAG, "No RestoreCredential returned by CredentialManager")
+                SafeLogger.d(TAG, "No RestoreCredential returned by CredentialManager")
                 null
             }
         } catch (e: GetCredentialException) {
-            Log.d(TAG, "No restore credential available or error fetching: ${e.message}")
+            SafeLogger.d(TAG, "No restore credential available or error fetching: ${e.message}")
             null
         } catch (e: Exception) {
-            Log.w(TAG, "Unexpected error retrieving restore credential: ${e.message}", e)
+            SafeLogger.w(TAG, "Unexpected error retrieving restore credential: ${e.message}", e)
             null
         }
     }
@@ -249,7 +249,7 @@ class RestoreCredentialManager @Inject constructor(
                         val email = userObj.optString("email", "")
                         val name = userObj.optString("name", "")
                         val token = userObj.optString("token", "")
-                        Log.d(TAG, "Restore credential decoded from JSON userHandle: $email")
+                        SafeLogger.d(TAG, "Restore credential decoded from JSON userHandle successfully")
                         return RestorePayload(
                             user = RestoreUser(id = uid, name = email, displayName = name),
                             token = token
@@ -265,7 +265,7 @@ class RestoreCredentialManager @Inject constructor(
                     val email = parts.getOrNull(1) ?: ""
                     val name = parts.getOrNull(2) ?: ""
                     val token = parts.getOrNull(3) ?: ""
-                    Log.d(TAG, "Restore credential decoded from userHandle: $email")
+                    SafeLogger.d(TAG, "Restore credential decoded from userHandle successfully")
                     return RestorePayload(
                         user = RestoreUser(id = uid, name = email, displayName = name),
                         token = token
@@ -275,10 +275,10 @@ class RestoreCredentialManager @Inject constructor(
 
             // 2. Direct RestorePayload format fallback
             val payload = json.decodeFromString<RestorePayload>(authJson)
-            Log.d(TAG, "Restore credential parsed from raw payload: ${payload.email}")
+            SafeLogger.d(TAG, "Restore credential parsed from raw payload successfully")
             payload
         } catch (e: Exception) {
-            Log.w(TAG, "Error parsing restore payload: ${e.message}")
+            SafeLogger.w(TAG, "Error parsing restore payload: ${e.message}")
             null
         }
     }
@@ -290,13 +290,13 @@ class RestoreCredentialManager @Inject constructor(
         return try {
             val request = ClearCredentialStateRequest()
             credentialManager.clearCredentialState(request)
-            Log.d(TAG, "Restore credentials cleared successfully")
+            SafeLogger.d(TAG, "Restore credentials cleared successfully")
             true
         } catch (e: ClearCredentialException) {
-            Log.w(TAG, "Failed to clear restore credential: ${e.message}", e)
+            SafeLogger.w(TAG, "Failed to clear restore credential: ${e.message}", e)
             false
         } catch (e: Exception) {
-            Log.w(TAG, "Unexpected error clearing restore credential: ${e.message}", e)
+            SafeLogger.w(TAG, "Unexpected error clearing restore credential: ${e.message}", e)
             false
         }
     }

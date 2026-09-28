@@ -50,7 +50,7 @@ class DomainEntitiesTest {
     @Test
     fun `calendar occurrence should use exception times when provided`() {
         val schedule = Schedule(startTime = "09:00", endTime = "10:00")
-        val exception = ScheduleException(newStartTime = "11:00", newEndTime = "12:00")
+        val exception = ScheduleException(type = ExceptionType.RESCHEDULED, newStartTime = "11:00", newEndTime = "12:00")
         val occurrence = CalendarOccurrence(
             schedule = schedule,
             student = StudentSummary(

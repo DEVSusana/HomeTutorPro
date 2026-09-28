@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SharedResourceDao {
     
+    @Query("SELECT * FROM shared_resources WHERE professorId = :professorId AND pendingDelete = 0 ORDER BY sharedAt DESC")
+    fun getAllSharedResources(professorId: String): Flow<List<SharedResourceEntity>>
+
+    @Query("SELECT * FROM shared_resources WHERE professorId = :professorId AND pendingDelete = 0 ORDER BY sharedAt DESC")
+    suspend fun getAllSharedResourcesOnce(professorId: String): List<SharedResourceEntity>
+
     @Query("SELECT * FROM shared_resources WHERE studentId = :studentId AND professorId = :professorId AND pendingDelete = 0 ORDER BY sharedAt DESC")
     fun getSharedResourcesByStudent(studentId: Long, professorId: String): Flow<List<SharedResourceEntity>>
     

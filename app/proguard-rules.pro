@@ -121,3 +121,10 @@
 -keepclassmembers class * {
     *** Companion;
 }
+
+# ============================================================================
+# Google MediaPipe LLM Inference & Protobuf
+# ============================================================================
+-keep class com.google.mediapipe.tasks.genai.llminference.** { *; }
+-dontwarn com.google.mediapipe.**
+-dontwarn com.google.protobuf.**
