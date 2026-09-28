@@ -35,7 +35,7 @@ sealed interface Route {
     data object WeeklySchedule : Route
 
     @Serializable
-    data object Settings : Route
+    data class Settings(val scrollToSue: Boolean = false) : Route
 
     @Serializable
     data object Resources : Route

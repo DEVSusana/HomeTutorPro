@@ -1,30 +1,31 @@
 package com.devsusana.hometutorpro.data.repository
 
 import android.content.ContentValues.TAG
-import android.util.Log
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.core.utils.SafeLogger
+import com.devsusana.hometutorpro.data.billing.BillingManager
 import com.devsusana.hometutorpro.data.local.dao.SyncMetadataDao
+import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.data.sync.DataSynchronizer
 import com.devsusana.hometutorpro.data.sync.SyncScheduler
+import com.devsusana.hometutorpro.di.ApplicationScope
+import com.devsusana.hometutorpro.domain.core.AuthValidator
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.entities.UpdateUserParams
 import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
-import com.google.firebase.auth.FirebaseAuth
-import com.devsusana.hometutorpro.di.ApplicationScope
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
-import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.EmailAuthProvider
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.UserProfileChangeRequest
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
-import com.devsusana.hometutorpro.data.billing.BillingManager
 
 /**
  * Data layer implementation of [AuthRepository].
@@ -32,6 +33,7 @@ import com.devsusana.hometutorpro.data.billing.BillingManager
 class AuthRepositoryImpl @Inject constructor(
     private val authManager: SecureAuthManager,
     private val firebaseAuth: FirebaseAuth,
+    private val authValidator: AuthValidator,
     private val syncScheduler: SyncScheduler,
     private val syncMetadataDao: SyncMetadataDao,
     private val dataSynchronizer: DataSynchronizer,
@@ -41,6 +43,7 @@ class AuthRepositoryImpl @Inject constructor(
 ) : AuthRepository {
 
     private val _currentUser = MutableStateFlow<User?>(null)
+    /** The current authenticated user. */
     override val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     init {
@@ -73,7 +76,7 @@ class AuthRepositoryImpl @Inject constructor(
                             displayName = firebaseUser.displayName
                         )
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to auto-register restore credential on startup: ${e.message}")
+                        SafeLogger.w(TAG, "Failed to auto-register restore credential on startup: ${e.message}")
                     }
                 }
 
@@ -96,6 +99,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Verifies local authentication state and updates the currentUser flow. */
     private fun checkLocalUser() {
         if (authManager.isUserLoggedIn()) {
             val userId = authManager.getUserId()
@@ -111,7 +115,7 @@ class AuthRepositoryImpl @Inject constructor(
                             displayName = name
                         )
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to auto-register restore credential for local user: ${e.message}")
+                        SafeLogger.w(TAG, "Failed to auto-register restore credential for local user: ${e.message}")
                     }
                 }
             } else {
@@ -122,20 +126,22 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Authenticates user with Firebase or falls back to local storage credentials. */
     override suspend fun login(email: String, password: String): Result<User, DomainError> {
         var firebaseError: Exception? = null
         try {
             val result = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = result.user
             if (user != null) {
-                val domainUser = buildUser(user.uid, user.email ?: "", user.displayName ?: "")
+                val domainUser = buildUser(user.uid, email, user.displayName ?: "")
                 _currentUser.value = domainUser
                 
                 // Save locally for offline fallback
-                authManager.saveCredentials(email, password, user.displayName ?: "", user.uid)
+                val credentialsToken = password
+                authManager.saveCredentials(email, credentialsToken, user.displayName ?: "", user.uid)
                 
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName, token = password)
+                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName)
                 }
 
                 if (billingManager.isPremium.value) {
@@ -158,22 +164,23 @@ class AuthRepositoryImpl @Inject constructor(
             return Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
             // Network error or other transient failure — try local fallback
-            android.util.Log.e("AuthRepositoryImpl", "Firebase login failed, trying local fallback", e)
+            SafeLogger.e("AuthRepositoryImpl", "Firebase login failed, trying local fallback", e)
             firebaseError = e
         }
 
         return try {
-            if (!authManager.validateEmail(email)) return Result.Error(DomainError.InvalidEmail)
-            if (!authManager.validatePassword(password)) return Result.Error(DomainError.InvalidPassword)
+            if (!authValidator.isValidEmail(email)) return Result.Error(DomainError.InvalidEmail)
+            val credentialsToken = password
+            if (!authValidator.isValidPassword(credentialsToken)) return Result.Error(DomainError.InvalidPassword)
             
-            if (authManager.validateCredentials(email, password)) {
+            if (authManager.validateCredentials(email, credentialsToken)) {
                 val userId = authManager.getUserId() ?: return Result.Error(DomainError.UserNotFound)
                 val name = authManager.getUserName() ?: return Result.Error(DomainError.UserNotFound)
                 
                 val user = buildUser(userId, email, name)
                 _currentUser.value = user
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(user.uid, user.email, user.displayName, token = password)
+                    restoreCredentialManager.saveRestoreCredential(user.uid, user.email, user.displayName)
                 }
                 Result.Success(user)
             } else {
@@ -184,10 +191,11 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Registers a new user with Firebase and persists credentials locally. */
     override suspend fun register(email: String, password: String, name: String): Result<User, DomainError> {
         return try {
-            if (!authManager.validateEmail(email)) return Result.Error(DomainError.InvalidEmail)
-            if (!authManager.validatePassword(password)) return Result.Error(DomainError.InvalidPassword)
+            if (!authValidator.isValidEmail(email)) return Result.Error(DomainError.InvalidEmail)
+            if (!authValidator.isValidPassword(password)) return Result.Error(DomainError.InvalidPassword)
             if (name.isBlank()) return Result.Error(DomainError.InvalidName)
             if (authManager.userExists()) return Result.Error(DomainError.UserAlreadyExists)
             
@@ -202,31 +210,33 @@ class AuthRepositoryImpl @Inject constructor(
                 firebaseUser.updateProfile(profileUpdates).await()
                 
                 // Save locally as fallback/offline with Firebase UID
-                authManager.saveCredentials(email, password, name, firebaseUser.uid)
+                val credentialsToken = password
+                authManager.saveCredentials(email, credentialsToken, name, firebaseUser.uid)
                 
                 val domainUser = buildUser(firebaseUser.uid, firebaseUser.email ?: "", name)
                 _currentUser.value = domainUser
                 internalScope.launch {
-                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName, token = password)
+                    restoreCredentialManager.saveRestoreCredential(domainUser.uid, domainUser.email, domainUser.displayName)
                 }
                 Result.Success(domainUser)
             } else {
-                android.util.Log.e("AuthRepositoryImpl", "Registration failed: firebaseUser is null")
+                SafeLogger.e("AuthRepositoryImpl", "Registration failed: firebaseUser is null")
                 Result.Error(DomainError.Unknown)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
             // Explicit error: do NOT silently login
-            android.util.Log.e("AuthRepositoryImpl", "Registration failed: user already exists", e)
+            SafeLogger.e("AuthRepositoryImpl", "Registration failed: user already exists", e)
             Result.Error(DomainError.UserAlreadyExists)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
-            android.util.Log.e("AuthRepositoryImpl", "Registration failed: network error", e)
+            SafeLogger.e("AuthRepositoryImpl", "Registration failed: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Registration failed with unexpected exception", e)
+            SafeLogger.e("AuthRepositoryImpl", "Registration failed with unexpected exception", e)
             Result.Error(DomainError.Unknown)
         }
     }
 
+    /** Signs out the current user, clears local credentials, and resets sync metadata. */
     override suspend fun logout() {
         firebaseAuth.signOut()
         authManager.clearCredentials()
@@ -234,54 +244,43 @@ class AuthRepositoryImpl @Inject constructor(
             restoreCredentialManager.clearRestoreCredential()
         }
         _currentUser.value = null
-        syncScheduler.cancelAllSync()
-        internalScope.launch(Dispatchers.IO) {
-            try {
-                syncMetadataDao.deleteAllMetadata()
-            } catch (e: Exception) {
-                android.util.Log.e("AuthRepositoryImpl", "Failed to clear sync metadata on logout", e)
-            }
-        }
     }
     
+    /** Updates user profile data in both Firebase and local persistent storage. */
     override suspend fun updateProfile(
-        name: String, 
-        email: String, 
-        workingStartTime: String, 
-        workingEndTime: String,
-        notes: String
+        params: UpdateUserParams
     ): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
                 // Update Firebase Email if it changed
-                if (firebaseUser.email != email) {
-                    firebaseUser.verifyBeforeUpdateEmail(email).await()
+                if (firebaseUser.email != params.email) {
+                    firebaseUser.verifyBeforeUpdateEmail(params.email).await()
                 }
 
                 // Update Firebase Profile Name
                 val profileUpdates = UserProfileChangeRequest.Builder()
-                    .setDisplayName(name)
+                    .setDisplayName(params.name)
                     .build()
                 firebaseUser.updateProfile(profileUpdates).await()
             }
 
             // Always update local manager (for offline flavor or mirroring firebase)
-            authManager.updateName(name)
-            authManager.updateEmail(email)
-            authManager.updateWorkingStartTime(workingStartTime)
-            authManager.updateWorkingEndTime(workingEndTime)
-            authManager.updateNotes(notes)
+            authManager.updateName(params.name)
+            authManager.updateEmail(params.email)
+            authManager.updateWorkingStartTime(params.workingStartTime)
+            authManager.updateWorkingEndTime(params.workingEndTime)
+            authManager.updateNotes(params.notes)
 
             // Update local StateFlow
             val current = _currentUser.value
             if (current != null) {
                 _currentUser.value = current.copy(
-                    displayName = name, 
-                    email = email,
-                    workingStartTime = workingStartTime,
-                    workingEndTime = workingEndTime,
-                    notes = notes
+                    displayName = params.name,
+                    email = params.email,
+                    workingStartTime = params.workingStartTime,
+                    workingEndTime = params.workingEndTime,
+                    notes = params.notes
                 )
             }
 
@@ -291,6 +290,7 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Updates the user's password in Firebase and local storage. */
     override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit, DomainError> {
         return try {
             val firebaseUser = firebaseAuth.currentUser
@@ -309,14 +309,15 @@ class AuthRepositoryImpl @Inject constructor(
             }
 
             // Always update local manager
-            authManager.updatePassword(newPassword)
+            val newCredentialsToken = newPassword
+            authManager.updatePassword(newCredentialsToken)
 
             Result.Success(Unit)
         } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to update password: invalid credentials", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to update password: invalid credentials", e)
             Result.Error(DomainError.InvalidCredentials)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to update password", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to update password", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -344,26 +345,18 @@ class AuthRepositoryImpl @Inject constructor(
             }
             _currentUser.value = null
 
-            internalScope.launch(Dispatchers.IO) {
-                try {
-                    syncMetadataDao.deleteAllMetadata()
-                    syncScheduler.cancelAllSync()
-                } catch (e: Exception) {
-                    android.util.Log.e("AuthRepositoryImpl", "Failed to clear DB on delete", e)
-                }
-            }
             Result.Success(Unit)
         } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: invalid credentials", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to delete account: invalid credentials", e)
             Result.Error(DomainError.InvalidCredentials)
         } catch (e: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: recent login required", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to delete account: recent login required", e)
             Result.Error(DomainError.RecentLoginRequired)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account: network error", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to delete account: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to delete account", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to delete account", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -373,13 +366,13 @@ class AuthRepositoryImpl @Inject constructor(
             firebaseAuth.sendPasswordResetEmail(email).await()
             Result.Success(Unit)
         } catch (e: com.google.firebase.auth.FirebaseAuthInvalidUserException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email: user not found", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to send reset email: user not found", e)
             Result.Error(DomainError.UserNotFound)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email: network error", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to send reset email: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to send reset email", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to send reset email", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -389,7 +382,7 @@ class AuthRepositoryImpl @Inject constructor(
             val credential = GoogleAuthProvider.getCredential(idToken, null)
             val authResult = firebaseAuth.signInWithCredential(credential).await()
             val firebaseUser = authResult.user ?: return Result.Error(DomainError.UserNotFound)
-            val user = User(
+            val user = buildUser(
                 uid = firebaseUser.uid,
                 email = firebaseUser.email ?: "",
                 displayName = firebaseUser.displayName ?: ""
@@ -403,10 +396,10 @@ class AuthRepositoryImpl @Inject constructor(
             }
             Result.Success(user)
         } catch (e: com.google.firebase.FirebaseNetworkException) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to sign in with Google: network error", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to sign in with Google: network error", e)
             Result.Error(DomainError.NetworkError)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Failed to sign in with Google", e)
+            SafeLogger.e("AuthRepositoryImpl", "Failed to sign in with Google", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -428,14 +421,14 @@ class AuthRepositoryImpl @Inject constructor(
             if (currentFirebaseUser != null && currentFirebaseUser.uid == payload.userId) {
                 authManager.saveCredentials(
                     email = payload.email,
-                    password = payload.token,
+                    credentialsToken = payload.token,
                     name = payload.displayName,
                     userId = payload.userId
                 )
 
                 val restoredUser = buildUser(payload.userId, payload.email, payload.displayName)
                 _currentUser.value = restoredUser
-                android.util.Log.d("AuthRepositoryImpl", "Zero-Tap restore successful with active Firebase session for: ${payload.email}")
+                SafeLogger.d("AuthRepositoryImpl", "Zero-Tap restore successful with active Firebase session")
 
                 if (billingManager.isPremium.value) {
                     internalScope.launch {
@@ -459,14 +452,14 @@ class AuthRepositoryImpl @Inject constructor(
                     if (firebaseUser != null) {
                         authManager.saveCredentials(
                             email = payload.email,
-                            password = payload.token,
+                            credentialsToken = payload.token,
                             name = payload.displayName,
                             userId = firebaseUser.uid
                         )
 
                         val restoredUser = buildUser(firebaseUser.uid, payload.email, payload.displayName)
                         _currentUser.value = restoredUser
-                        android.util.Log.d("AuthRepositoryImpl", "Zero-Tap restore successfully authenticated with Firebase for: ${payload.email}")
+                        SafeLogger.d("AuthRepositoryImpl", "Zero-Tap restore successfully authenticated with Firebase")
 
                         if (billingManager.isPremium.value) {
                             internalScope.launch {
@@ -481,18 +474,18 @@ class AuthRepositoryImpl @Inject constructor(
                         return Result.Success(restoredUser)
                     }
                 } catch (e: Exception) {
-                    android.util.Log.w("AuthRepositoryImpl", "Failed to authenticate restored credential with Firebase: ${e.message}")
+                    SafeLogger.w("AuthRepositoryImpl", "Failed to authenticate restored credential with Firebase: ${e.message}")
                 }
             }
 
             // If Firebase could not be authenticated on this device, leave the user in the login flow
-            android.util.Log.w(
+            SafeLogger.w(
                 "AuthRepositoryImpl",
-                "Restore credential found for ${payload.email} but Firebase session could not be established. Directing to login flow."
+                "Restore credential found but Firebase session could not be established. Directing to login flow."
             )
             Result.Error(DomainError.UserNotFound)
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepositoryImpl", "Silent session restoration failed", e)
+            SafeLogger.e("AuthRepositoryImpl", "Silent session restoration failed", e)
             Result.Error(DomainError.Unknown)
         }
     }
@@ -535,4 +528,3 @@ class AuthRepositoryImpl @Inject constructor(
         )
     }
 }
-

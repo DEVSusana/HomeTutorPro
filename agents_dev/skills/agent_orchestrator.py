@@ -41,5 +41,52 @@ def start_mission(target_file):
     print("✅ MISSION COMPLETE: You now have a 360° view of your code.")
 
 if __name__ == "__main__":
-    target = "app/src/main/java/com/devsusana/hometutorpro/data/repository/StudentRepositoryImpl.kt"
-    start_mission(target)
+    import sys
+    import subprocess
+    
+    def get_modified_kt_files():
+        try:
+            status_output = subprocess.check_output(
+                ["git", "status", "--porcelain"], 
+                stderr=subprocess.DEVNULL
+            ).decode("utf-8")
+            
+            modified_files = []
+            for line in status_output.splitlines():
+                if line.strip() and len(line) >= 4:
+                    # git status --porcelain formats output as:
+                    # XY path
+                    # where XY is exactly 2 characters of status and 1 separator space.
+                    filepath = line[3:].strip().strip('"')
+                    if filepath.endswith(".kt") and os.path.exists(filepath):
+                        modified_files.append(filepath)
+            
+            if not modified_files:
+                diff_output = subprocess.check_output(
+                    ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+                    stderr=subprocess.DEVNULL
+                ).decode("utf-8")
+                for line in diff_output.splitlines():
+                    filepath = line.strip().strip('"')
+                    if filepath.endswith(".kt") and os.path.exists(filepath):
+                        modified_files.append(filepath)
+                        
+            return list(set(modified_files))
+        except Exception:
+            return []
+
+    if len(sys.argv) > 1:
+        targets = [sys.argv[1]]
+    else:
+        targets = get_modified_kt_files()
+        
+    if not targets:
+        print("ℹ️ No modified Kotlin files detected via git. Nothing to audit.")
+        sys.exit(0)
+        
+    print(f"🔍 Files to audit: {targets}")
+    for idx, target in enumerate(targets):
+        start_mission(target)
+        if idx < len(targets) - 1:
+            print("\n🧘 Resting 35s between files to keep API free...")
+            time.sleep(35)

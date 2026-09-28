@@ -41,4 +41,27 @@ class GetSharedResourcesUseCaseTest {
         assertEquals(resources, result)
         verify(exactly = 1) { resourceRepository.getSharedResources(professorId, studentId) }
     }
+
+    @Test
+    fun `invoke with only professorId should return all shared resources for professor`() = runTest {
+        val professorId = "prof1"
+        val resources = listOf(
+            SharedResource(
+                id = "res1",
+                studentId = "stu1",
+                professorId = professorId,
+                fileName = "worksheet.pdf",
+                fileType = "pdf",
+                fileSizeBytes = 1200,
+                sharedVia = ShareMethod.EMAIL
+            )
+        )
+
+        every { resourceRepository.getAllSharedResources(professorId) } returns flowOf(resources)
+
+        val result = useCase(professorId).first()
+
+        assertEquals(resources, result)
+        verify(exactly = 1) { resourceRepository.getAllSharedResources(professorId) }
+    }
 }

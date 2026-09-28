@@ -128,4 +128,22 @@ class ScheduleMapperTest {
         assertEquals("08:30", dataModel.startTime)
         assertEquals("09:45", dataModel.endTime)
     }
+
+    @Test
+    fun `toDomain should handle invalid dayOfWeek with default MONDAY`() {
+        // Given
+        val dataModel = ScheduleDataModel(
+            id = "test_invalid_day",
+            dayOfWeek = "INVALID_DAY_OF_WEEK",
+            startTime = "10:00",
+            endTime = "11:00"
+        )
+
+        // When
+        val domain = dataModel.toDomain("student1")
+
+        // Then
+        assertEquals(DayOfWeek.MONDAY, domain.dayOfWeek)
+    }
 }
+

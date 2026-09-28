@@ -1,9 +1,18 @@
+@file:Suppress("DEPRECATION")
+
 package com.devsusana.hometutorpro.di
 
 import android.content.Context
-import com.devsusana.hometutorpro.core.auth.SecureAuthManager
+import com.devsusana.hometutorpro.data.security.SecureAuthManager
+import com.devsusana.hometutorpro.core.auth.CryptographyProvider
+import com.devsusana.hometutorpro.domain.auth.PasswordHasher
+import com.devsusana.hometutorpro.data.security.AndroidCryptographyProvider
+import com.devsusana.hometutorpro.data.security.Pbkdf2PasswordHasher
 import com.devsusana.hometutorpro.data.local.AppDatabase
+import com.devsusana.hometutorpro.data.local.SupportFactoryHelper
+import com.devsusana.hometutorpro.data.local.migrations.DatabaseMigrations
 import com.devsusana.hometutorpro.data.local.dao.*
+import androidx.room.Room
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.Module
@@ -20,7 +29,23 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getInstance(context)
+        val factory = SupportFactoryHelper.createFactory(context)
+        return Room.databaseBuilder(
+            context.applicationContext,
+            AppDatabase::class.java,
+            "hometutorpro.db"
+        )
+            .openHelperFactory(factory)
+            .addMigrations(
+                DatabaseMigrations.MIGRATION_4_5,
+                DatabaseMigrations.MIGRATION_5_6,
+                DatabaseMigrations.MIGRATION_6_7,
+                DatabaseMigrations.MIGRATION_7_8,
+                DatabaseMigrations.MIGRATION_8_9,
+                DatabaseMigrations.MIGRATION_10_11
+            )
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
@@ -54,19 +79,76 @@ object DatabaseModule {
     }
 
     @Provides
-    @Singleton
-    fun provideSecureAuthManager(@ApplicationContext context: Context): SecureAuthManager {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+    fun provideClassLogDao(database: AppDatabase): ClassLogDao {
+        return database.classLogDao()
+    }
 
-        val sharedPreferences = EncryptedSharedPreferences.create(
-            context,
-            "secure_auth_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-        return SecureAuthManager(sharedPreferences)
+    @Provides
+    fun provideTransactionLogDao(database: AppDatabase): TransactionLogDao {
+        return database.transactionLogDao()
+    }
+
+
+
+    @Provides
+    @Singleton
+    fun provideCryptographyProvider(): CryptographyProvider {
+        return AndroidCryptographyProvider()
+    }
+
+    @Provides
+    @Singleton
+    fun providePasswordHasher(): PasswordHasher {
+        return Pbkdf2PasswordHasher()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSecureAuthManager(
+        @ApplicationContext context: Context,
+        cryptographyProvider: CryptographyProvider,
+        passwordHasher: PasswordHasher
+    ): SecureAuthManager {
+        val sharedPreferences = try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+
+            EncryptedSharedPreferences.create(
+                context,
+                "secure_auth_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            com.devsusana.hometutorpro.core.utils.SafeLogger.e(
+                "DatabaseModule",
+                "Failed to initialize secure_auth_prefs: ${e.message}. Recreating...",
+                e
+            )
+            SupportFactoryHelper.deletePreferencesFile(context, "secure_auth_prefs")
+            try {
+                val masterKey = MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+
+                EncryptedSharedPreferences.create(
+                    context,
+                    "secure_auth_prefs",
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (e2: Exception) {
+                com.devsusana.hometutorpro.core.utils.SafeLogger.e(
+                    "DatabaseModule",
+                    "Fallback to standard preferences for secure_auth_prefs: ${e2.message}",
+                    e2
+                )
+                context.getSharedPreferences("secure_auth_prefs", Context.MODE_PRIVATE)
+            }
+        }
+        return SecureAuthManager(sharedPreferences, cryptographyProvider, passwordHasher)
     }
 }

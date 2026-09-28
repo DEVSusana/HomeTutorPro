@@ -1,0 +1,41 @@
+package com.devsusana.hometutorpro.presentation.sue
+
+import com.devsusana.hometutorpro.domain.entities.SueDeviceCompatibility
+import com.devsusana.hometutorpro.domain.entities.SueModelStatus
+import com.devsusana.hometutorpro.domain.entities.SuePendingAction
+import com.devsusana.hometutorpro.domain.entities.SpeechState
+
+/**
+ * UI state for the Sue AI agent overlay.
+ *
+ * @param speechState          Current state of the speech subsystem.
+ * @param partialTranscription Real-time partial transcription while listening.
+ * @param finalTranscription   The completed transcription sent to the agent.
+ * @param agentResponse        The textual response from Sue.
+ * @param isOverlayVisible     Whether the conversational overlay is shown.
+ * @param isModelLoaded        Whether the Gemma model is loaded and ready.
+ * @param isDeviceCompatible   Whether the device meets OS and hardware requirements.
+ * @param errorMessage         An optional error message to display to the user.
+ * @param pendingAction        A resolved action (cancel/reschedule) waiting for
+ *                             user confirmation before being executed.
+ */
+data class SueUiState(
+    val speechState: SpeechState = SpeechState.IDLE,
+    val partialTranscription: String = "",
+    val finalTranscription: String = "",
+    val agentResponse: String = "",
+    val isOverlayVisible: Boolean = false,
+    val isModelLoaded: Boolean = false,
+    val isModelLoading: Boolean = false,
+    val isDeviceCompatible: Boolean = true,
+    val deviceCompatibility: SueDeviceCompatibility = SueDeviceCompatibility(isSupported = true),
+    val isSueEnabled: Boolean = false,
+    val isSueFabVisible: Boolean = false,
+    val isSueOnboardingCompleted: Boolean = false,
+    val modelStatus: SueModelStatus = SueModelStatus.NotDownloaded,
+    val errorMessage: String? = null,
+    val pendingActions: List<SuePendingAction> = emptyList()
+) {
+    val pendingAction: SuePendingAction?
+        get() = pendingActions.firstOrNull()
+}

@@ -9,6 +9,8 @@ import com.devsusana.hometutorpro.data.local.dao.ScheduleDao
 import com.devsusana.hometutorpro.data.local.dao.ScheduleExceptionDao
 import com.devsusana.hometutorpro.data.local.dao.ResourceDao
 import com.devsusana.hometutorpro.data.local.dao.SharedResourceDao
+import com.devsusana.hometutorpro.data.local.dao.ClassLogDao
+import com.devsusana.hometutorpro.data.local.dao.TransactionLogDao
 import com.devsusana.hometutorpro.data.sync.SyncScheduler
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
@@ -38,6 +40,8 @@ class StudentRepositoryImplTest {
     private lateinit var scheduleExceptionDao: ScheduleExceptionDao
     private lateinit var resourceDao: ResourceDao
     private lateinit var sharedResourceDao: SharedResourceDao
+    private lateinit var classLogDao: ClassLogDao
+    private lateinit var transactionLogDao: TransactionLogDao
     private lateinit var firestore: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
     private lateinit var syncScheduler: SyncScheduler
@@ -82,6 +86,8 @@ class StudentRepositoryImplTest {
         scheduleExceptionDao = mockk(relaxed = true)
         resourceDao = mockk(relaxed = true)
         sharedResourceDao = mockk(relaxed = true)
+        classLogDao = mockk(relaxed = true)
+        transactionLogDao = mockk(relaxed = true)
         firestore = mockk(relaxed = true)
         auth = mockk(relaxed = true)
         syncScheduler = mockk(relaxed = true)
@@ -92,6 +98,8 @@ class StudentRepositoryImplTest {
             scheduleExceptionDao = scheduleExceptionDao,
             resourceDao = resourceDao,
             sharedResourceDao = sharedResourceDao,
+            classLogDao = classLogDao,
+            transactionLogDao = transactionLogDao,
             firestore = firestore,
             auth = auth,
             syncScheduler = syncScheduler

@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -74,17 +75,23 @@ class WeeklyScheduleViewModel @Inject constructor(
                     getStudentsUseCase(user.uid),
                     getAllSchedulesUseCase(user.uid)
                 ) { students, schedules ->
-                    Triple(user, students, schedules)
+                    Pair(students, schedules)
+                }.flatMapLatest { (students, schedules) ->
+                    if (students.isEmpty()) {
+                        flowOf(Triple(students, schedules, emptyList()))
+                    } else {
+                        val flows = students.map { student ->
+                            getScheduleExceptionsUseCase(user.uid, student.id)
+                        }
+                        combine(flows) { exceptionsArray ->
+                            Triple(students, schedules, exceptionsArray.flatMap { it })
+                        }
+                    }
                 }
-            }.collect { (user, students, schedules) ->
+            }.collect { (students, schedules, allExceptions) ->
                 val today = LocalDate.now()
                 val startOfWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 val endOfWeek = startOfWeek.plusDays(6)
-                
-                val allExceptions = mutableListOf<com.devsusana.hometutorpro.domain.entities.ScheduleException>()
-                students.filter { it.id.isNotEmpty() }.forEach { student ->
-                    allExceptions.addAll(getScheduleExceptionsUseCase(user.uid, student.id).first())
-                }
 
                 val occurrences = generateCalendarOccurrencesUseCase(
                     students = students,
