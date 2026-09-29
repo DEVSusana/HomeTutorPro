@@ -210,10 +210,56 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("DROP INDEX IF EXISTS `index_schedule_exceptions_professorId_originalScheduleId_exceptionDate`")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_exceptions_professorId_originalScheduleId_exceptionDate` ON `schedule_exceptions` (`professorId`, `originalScheduleId`, `exceptionDate`)")
+        }
+    }
+
     val MIGRATION_10_11 = object : Migration(10, 11) {
         override fun migrate(database: SupportSQLiteDatabase) {
             database.execSQL("DROP INDEX IF EXISTS `index_schedule_exceptions_professorId_originalScheduleId_exceptionDate`")
             database.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_exceptions_professorId_originalScheduleId_exceptionDate` ON `schedule_exceptions` (`professorId`, `originalScheduleId`, `exceptionDate`)")
+        }
+    }
+
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // 1. Create class_logs table for SUE completed classes history
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS `class_logs` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `professorId` TEXT NOT NULL,
+                    `studentId` INTEGER NOT NULL,
+                    `scheduleId` TEXT NOT NULL,
+                    `date` INTEGER NOT NULL,
+                    `startTime` TEXT NOT NULL,
+                    `endTime` TEXT NOT NULL,
+                    `isExtra` INTEGER NOT NULL,
+                    FOREIGN KEY(`studentId`) REFERENCES `students`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+            """.trimIndent())
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_class_logs_studentId` ON `class_logs` (`studentId`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_class_logs_professorId` ON `class_logs` (`professorId`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_class_logs_date` ON `class_logs` (`date`)")
+
+            // 2. Create transaction_logs table for SUE payment/financial history
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS `transaction_logs` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `professorId` TEXT NOT NULL,
+                    `studentId` INTEGER NOT NULL,
+                    `type` TEXT NOT NULL,
+                    `amount` REAL NOT NULL,
+                    `paymentType` TEXT,
+                    `timestamp` INTEGER NOT NULL,
+                    FOREIGN KEY(`studentId`) REFERENCES `students`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+            """.trimIndent())
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_transaction_logs_studentId` ON `transaction_logs` (`studentId`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_transaction_logs_professorId` ON `transaction_logs` (`professorId`)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_transaction_logs_timestamp` ON `transaction_logs` (`timestamp`)")
         }
     }
 }
