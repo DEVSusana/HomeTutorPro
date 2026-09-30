@@ -690,4 +690,21 @@
     <string name="sue_compatibility_reason_android">SUE requiere Android 9.0 (Pie) o superior para ejecutar IA en el dispositivo.</string>
     <string name="sue_compatibility_reason_ram">SUE requiere al menos 4 GB de memoria RAM para ejecutar IA en el dispositivo.</string>
     <string name="sue_compatibility_reason_generic">Este dispositivo no cumple los requisitos de hardware para ejecutar IA local.</string>
+
+    <!-- Class Timer Widget -->
+    <string name="widget_title">Cronómetro de Clase</string>
+    <string name="widget_description">Controla el tiempo de tus clases activas y visualiza las próximas sesiones desde la pantalla de inicio.</string>
+    <string name="widget_no_active_class">Sin clase activa</string>
+    <string name="widget_no_upcoming_class">Sin clases programadas próximamente</string>
+    <string name="widget_next_class_header">PRÓXIMA CLASE</string>
+    <string name="widget_active_class_header">CLASE EN CURSO</string>
+    <string name="widget_next_student">Siguiente: %1$s</string>
+    <string name="widget_start_class">Iniciar Clase</string>
+    <string name="widget_stop_class">Finalizar Clase</string>
+    <string name="widget_ongoing_class">Clase con %1$s</string>
+    <string name="widget_time_remaining">Restante</string>
+    <string name="widget_time_completed">Completado</string>
+    <string name="widget_started_at">Inició: %1$s • %2$d min</string>
+    <string name="widget_today">Hoy</string>
+    <string name="widget_tomorrow">Mañana</string>
 </resources>

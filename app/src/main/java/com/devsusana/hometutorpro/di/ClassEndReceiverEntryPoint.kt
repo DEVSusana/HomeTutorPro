@@ -16,6 +16,9 @@ interface ClassEndReceiverEntryPoint {
     /** Provides the class end notification use case. */
     fun notifyClassEndUseCase(): INotifyClassEndUseCase
 
+    /** Provides the stop active session use case. */
+    fun stopActiveSessionUseCase(): com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
+
     /** Provides the application-scoped CoroutineScope. */
     @ApplicationScope
     fun applicationScope(): CoroutineScope

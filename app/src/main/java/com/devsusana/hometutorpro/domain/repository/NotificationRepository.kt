@@ -27,4 +27,9 @@ interface NotificationRepository {
      * @param studentName The name of the student.
      */
     fun showClassEndNotification(studentName: String)
+
+    /**
+     * Cancels any scheduled class-end notification.
+     */
+    fun cancelClassEndNotification()
 }

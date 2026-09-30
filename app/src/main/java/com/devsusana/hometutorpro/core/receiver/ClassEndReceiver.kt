@@ -46,6 +46,14 @@ class ClassEndReceiver : BroadcastReceiver() {
             context.applicationContext,
             ClassEndReceiverEntryPoint::class.java
         )
+        val stopActiveSessionUseCase = entryPoint.stopActiveSessionUseCase()
+        try {
+            stopActiveSessionUseCase()
+            com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget.updateWidget(context)
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Error stopping active session on class end", e)
+        }
+
         val notifyClassEndUseCase = entryPoint.notifyClassEndUseCase()
         val applicationScope = entryPoint.applicationScope()
 
