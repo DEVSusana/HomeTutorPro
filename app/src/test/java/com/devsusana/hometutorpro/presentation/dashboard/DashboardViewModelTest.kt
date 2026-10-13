@@ -23,7 +23,7 @@ class DashboardViewModelTest {
     private lateinit var getCurrentUserUseCase: IGetCurrentUserUseCase
     private lateinit var getStudentsUseCase: IGetStudentsUseCase
     private lateinit var getAllSchedulesUseCase: IGetAllSchedulesUseCase
-    private lateinit var getScheduleExceptionsUseCase: IGetScheduleExceptionsUseCase
+    private lateinit var getAllScheduleExceptionsUseCase: IGetAllScheduleExceptionsUseCase
     private lateinit var saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase
     private lateinit var deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
@@ -41,7 +41,7 @@ class DashboardViewModelTest {
         getCurrentUserUseCase = mockk()
         getStudentsUseCase = mockk()
         getAllSchedulesUseCase = mockk()
-        getScheduleExceptionsUseCase = mockk()
+        getAllScheduleExceptionsUseCase = mockk()
         saveScheduleExceptionUseCase = mockk()
         deleteScheduleExceptionUseCase = mockk()
         getStudentByIdUseCase = mockk()
@@ -89,7 +89,7 @@ class DashboardViewModelTest {
         
         every { getStudentsUseCase("user123") } returns flowOf(listOf(studentSummary))
         every { getAllSchedulesUseCase("user123") } returns flowOf(listOf(scheduleToday))
-        every { getScheduleExceptionsUseCase("user123", "student1") } returns flowOf(emptyList())
+        every { getAllScheduleExceptionsUseCase("user123") } returns flowOf(emptyList())
         coEvery { generateCalendarOccurrencesUseCase(any(), any(), any(), any(), any()) } returns listOf(
             CalendarOccurrence(
                 schedule = scheduleToday,
@@ -104,7 +104,7 @@ class DashboardViewModelTest {
             getCurrentUserUseCase,
             getStudentsUseCase,
             getAllSchedulesUseCase,
-            getScheduleExceptionsUseCase,
+            getAllScheduleExceptionsUseCase,
             saveScheduleExceptionUseCase,
             deleteScheduleExceptionUseCase,
             getStudentByIdUseCase,
@@ -147,7 +147,7 @@ class DashboardViewModelTest {
             
             every { getStudentsUseCase("user123") } returns flowOf(listOf(studentSummary))
             every { getAllSchedulesUseCase("user123") } returns flowOf(listOf(schedulePast))
-            every { getScheduleExceptionsUseCase("user123", "student1") } returns flowOf(emptyList())
+            every { getAllScheduleExceptionsUseCase("user123") } returns flowOf(emptyList())
             coEvery { generateCalendarOccurrencesUseCase(any(), any(), any(), any(), any()) } returns emptyList()
 
             // When
@@ -156,7 +156,7 @@ class DashboardViewModelTest {
                 getCurrentUserUseCase,
                 getStudentsUseCase,
                 getAllSchedulesUseCase,
-                getScheduleExceptionsUseCase,
+                getAllScheduleExceptionsUseCase,
                 saveScheduleExceptionUseCase,
                 deleteScheduleExceptionUseCase,
                 getStudentByIdUseCase,

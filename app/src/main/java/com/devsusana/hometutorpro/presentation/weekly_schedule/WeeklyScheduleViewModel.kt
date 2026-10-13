@@ -11,7 +11,7 @@ import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
 import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleExceptionUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetScheduleExceptionsUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetAllScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
@@ -44,7 +44,7 @@ class WeeklyScheduleViewModel @Inject constructor(
     private val getStudentsUseCase: IGetStudentsUseCase,
     private val getAllSchedulesUseCase: IGetAllSchedulesUseCase,
     private val getStudentByIdUseCase: IGetStudentByIdUseCase,
-    private val getScheduleExceptionsUseCase: IGetScheduleExceptionsUseCase,
+    private val getAllScheduleExceptionsUseCase: IGetAllScheduleExceptionsUseCase,
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val addToBalanceUseCase: IAddToBalanceUseCase,
@@ -73,20 +73,10 @@ class WeeklyScheduleViewModel @Inject constructor(
             getCurrentUserUseCase().filterNotNull().flatMapLatest { user ->
                 combine(
                     getStudentsUseCase(user.uid),
-                    getAllSchedulesUseCase(user.uid)
-                ) { students, schedules ->
-                    Pair(students, schedules)
-                }.flatMapLatest { (students, schedules) ->
-                    if (students.isEmpty()) {
-                        flowOf(Triple(students, schedules, emptyList()))
-                    } else {
-                        val flows = students.map { student ->
-                            getScheduleExceptionsUseCase(user.uid, student.id)
-                        }
-                        combine(flows) { exceptionsArray ->
-                            Triple(students, schedules, exceptionsArray.flatMap { it })
-                        }
-                    }
+                    getAllSchedulesUseCase(user.uid),
+                    getAllScheduleExceptionsUseCase(user.uid)
+                ) { students, schedules, allExceptions ->
+                    Triple(students, schedules, allExceptions)
                 }
             }.collect { (students, schedules, allExceptions) ->
                 val today = LocalDate.now()
@@ -103,17 +93,9 @@ class WeeklyScheduleViewModel @Inject constructor(
 
                 val allRegularSchedules = occurrences.map { WeeklyScheduleItem.Regular(it) }
                 
-                val groupedByDay = mutableMapOf<DayOfWeek, List<WeeklyScheduleItem>>()
-
-                for (day in DayOfWeek.entries) {
-                    val daySchedules = allRegularSchedules
-                        .filter { (it.exception?.newDayOfWeek ?: it.schedule.dayOfWeek) == day }
-                        .sortedBy { it.startTime }
-
-                    if (daySchedules.isNotEmpty()) {
-                        groupedByDay[day] = daySchedules
-                    }
-                }
+                val groupedByDay = allRegularSchedules
+                    .groupBy { it.exception?.newDayOfWeek ?: it.schedule.dayOfWeek }
+                    .mapValues { (_, items) -> items.sortedBy { it.startTime } }
                 
                 minDelayJob.join()
                 

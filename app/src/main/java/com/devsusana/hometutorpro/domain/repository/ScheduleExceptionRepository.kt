@@ -10,6 +10,11 @@ import kotlinx.coroutines.flow.Flow
  */
 interface ScheduleExceptionRepository {
     fun getExceptions(professorId: String, studentId: String): Flow<List<ScheduleException>>
+    
+    /**
+     * Observes all schedule exceptions for the given [professorId] as a reactive flow.
+     */
+    fun getAllExceptionsFlow(professorId: String): Flow<List<ScheduleException>>
     suspend fun getAllExceptions(professorId: String): List<ScheduleException>
     suspend fun saveException(professorId: String, studentId: String, exception: ScheduleException): Result<Unit, DomainError>
     suspend fun deleteException(professorId: String, studentId: String, exceptionId: String): Result<Unit, DomainError>

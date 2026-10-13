@@ -12,7 +12,7 @@ import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetScheduleExceptionsUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetAllScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
@@ -48,7 +48,7 @@ class DashboardViewModel @Inject constructor(
     private val getCurrentUserUseCase: IGetCurrentUserUseCase,
     private val getStudentsUseCase: IGetStudentsUseCase,
     private val getAllSchedulesUseCase: IGetAllSchedulesUseCase,
-    private val getScheduleExceptionsUseCase: IGetScheduleExceptionsUseCase,
+    private val getAllScheduleExceptionsUseCase: IGetAllScheduleExceptionsUseCase,
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val getStudentByIdUseCase: IGetStudentByIdUseCase,
@@ -74,20 +74,10 @@ class DashboardViewModel @Inject constructor(
                 _state.update { it.copy(userName = user.displayName ?: application.getString(R.string.dashboard_default_user_name)) }
                 combine(
                     getStudentsUseCase(user.uid),
-                    getAllSchedulesUseCase(user.uid)
-                ) { students, schedules ->
-                    Pair(students, schedules)
-                }.flatMapLatest { (students, schedules) ->
-                    if (students.isEmpty()) {
-                        flowOf(Triple(students, schedules, emptyList()))
-                    } else {
-                        val flows = students.map { student ->
-                            getScheduleExceptionsUseCase(user.uid, student.id)
-                        }
-                        combine(flows) { exceptionsArray ->
-                            Triple(students, schedules, exceptionsArray.flatMap { it })
-                        }
-                    }
+                    getAllSchedulesUseCase(user.uid),
+                    getAllScheduleExceptionsUseCase(user.uid)
+                ) { students, schedules, allExceptions ->
+                    Triple(students, schedules, allExceptions)
                 }
             }.collect { (students, schedules, allExceptions) ->
                 val today = LocalDate.now()
