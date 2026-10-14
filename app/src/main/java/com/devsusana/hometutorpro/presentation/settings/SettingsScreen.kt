@@ -942,6 +942,13 @@ fun SettingsContent(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "💡 Consejo: En los comandos de mover, cancelar o añadir clases, sustituye los nombres de ejemplo (Pepe, Ana) por los alumnos que tengas registrados en tu agenda.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Text("Ejemplos de Comandos Soportados:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -950,19 +957,44 @@ fun SettingsContent(
                     HelpExampleItem(
                         intent = "Crear Alumno",
                         examples = listOf(
-                            "\"Crea un alumno llamado Pepe los miércoles a las 3 de la tarde\"",
+                            "\"Crea un alumno llamado Pepe a 15 la hora\"",
                             "\"Añade un estudiante llamado Ana de bachillerato a 15 la hora\""
+                        )
+                    )
+                    HelpExampleItem(
+                        intent = "Añadir Clases y Refuerzos (Pon, Añade)",
+                        examples = listOf(
+                            "\"Pon una clase a Pepe el viernes a las 5\"",
+                            "\"Ponle a Ana una clase extra mañana\"",
+                            "\"Añade una clase extra para Carlos el jueves a las 17:00\""
+                        )
+                    )
+                    HelpExampleItem(
+                        intent = "Mover o Reprogramar Clases (Mueve, Cambia, Pasa)",
+                        examples = listOf(
+                            "\"Mueve la clase de Pepe del lunes al viernes\"",
+                            "\"Muévele la clase a Ana a las 5 de la tarde\"",
+                            "\"Cambia a Carlos para el domingo a las 18:00\"",
+                            "\"Reprograma la clase de Ana de hoy para mañana\""
+                        )
+                    )
+                    HelpExampleItem(
+                        intent = "Cancelar o Quitar Clases (Quita, Cancela, Anula)",
+                        examples = listOf(
+                            "\"Quita la clase de Pepe de este viernes\"",
+                            "\"Quítale la clase a Ana de hoy\"",
+                            "\"Cancela la clase de Carlos de este martes\"",
+                            "\"Borra el horario de Ana los martes\""
                         )
                     )
                     HelpExampleItem(
                         intent = "Consultar Horario",
                         examples = listOf(
                             "\"¿Qué clases tengo el viernes?\"",
-                            "\"¿Qué clase tengo hoy a las 1800?\"",
+                            "\"¿Qué clase tengo hoy a las 18:00?\"",
                             "\"¿Cuál es mi siguiente clase?\""
                         )
                     )
-                    
                     HelpExampleItem(
                         intent = "Consultar Huecos Libres",
                         examples = listOf(
@@ -970,7 +1002,6 @@ fun SettingsContent(
                             "\"¿Qué huecos libres tengo esta semana?\""
                         )
                     )
-                    
                     HelpExampleItem(
                         intent = "Consultar Clases Canceladas",
                         examples = listOf(
@@ -978,23 +1009,6 @@ fun SettingsContent(
                             "\"¿Tengo alguna clase cancelada el jueves?\""
                         )
                     )
-                    
-                    HelpExampleItem(
-                        intent = "Mover o Reprogramar Clases",
-                        examples = listOf(
-                            "\"Mueve la clase de Pepe del lunes al viernes\"",
-                            "\"Reprograma la clase de Ana de hoy para mañana a las 5 de la tarde\""
-                        )
-                    )
-                    
-                    HelpExampleItem(
-                        intent = "Cancelar Clases",
-                        examples = listOf(
-                            "\"Cancela la clase de Pepe de este viernes\"",
-                            "\"Borra el horario de Ana los martes\""
-                        )
-                    )
-                    
                     HelpExampleItem(
                         intent = "Pagos y Deudas",
                         examples = listOf(
@@ -1002,7 +1016,6 @@ fun SettingsContent(
                             "\"Súmale 20 euros a la deuda de Ana\""
                         )
                     )
-                    
                     HelpExampleItem(
                         intent = "Iniciar Clases",
                         examples = listOf(

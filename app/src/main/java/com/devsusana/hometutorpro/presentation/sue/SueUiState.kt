@@ -34,7 +34,8 @@ data class SueUiState(
     val isSueOnboardingCompleted: Boolean = false,
     val modelStatus: SueModelStatus = SueModelStatus.NotDownloaded,
     val errorMessage: String? = null,
-    val pendingActions: List<SuePendingAction> = emptyList()
+    val pendingActions: List<SuePendingAction> = emptyList(),
+    val contextualSuggestions: List<String> = emptyList()
 ) {
     val pendingAction: SuePendingAction?
         get() = pendingActions.firstOrNull()

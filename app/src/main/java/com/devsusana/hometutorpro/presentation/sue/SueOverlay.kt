@@ -31,6 +31,7 @@ import com.devsusana.hometutorpro.domain.entities.SuePendingAction
  * @param onDismiss Callback when the overlay should be dismissed.
  * @param onConfirmAction Callback when the user confirms the pending action manually.
  * @param onCancelAction Callback when the user cancels the pending action manually.
+ * @param onSuggestionClick Callback when a suggestion chip is tapped.
  */
 @Composable
 fun SueOverlay(
@@ -40,6 +41,7 @@ fun SueOverlay(
     onCancelAction: () -> Unit = {},
     onDownloadModel: () -> Unit = {},
     onCancelModelDownload: () -> Unit = {},
+    onSuggestionClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
@@ -78,6 +80,8 @@ fun SueOverlay(
                     pendingAction = uiState.pendingAction,
                     isModelLoading = uiState.isModelLoading,
                     modelStatus = uiState.modelStatus,
+                    contextualSuggestions = uiState.contextualSuggestions,
+                    onSuggestionClick = onSuggestionClick,
                     onDownloadModel = onDownloadModel,
                     onCancelModelDownload = onCancelModelDownload,
                     onConfirmAction = onConfirmAction,

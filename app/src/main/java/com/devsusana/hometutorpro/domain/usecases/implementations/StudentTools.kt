@@ -22,6 +22,8 @@ import javax.inject.Singleton
 import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
 import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
 
+import com.devsusana.hometutorpro.domain.usecases.implementations.sue.SpanishPhoneticMatcher
+
 /**
  * Tool definitions for student-related queries and finance operations.
  *
@@ -39,8 +41,34 @@ class StudentTools @Inject constructor(
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
     private val authRepository: AuthRepository,
     private val getSharedResourcesUseCase: IGetSharedResourcesUseCase,
-    private val agentContextRepository: AgentContextRepository
+    private val agentContextRepository: AgentContextRepository,
+    private val phoneticMatcher: SpanishPhoneticMatcher
 ) {
+
+    constructor(
+        queryStudentsUseCase: IQueryStudentsForAgentUseCase,
+        registerPaymentUseCase: IRegisterPaymentUseCase,
+        addToBalanceUseCase: IAddToBalanceUseCase,
+        saveStudentUseCase: ISaveStudentUseCase,
+        deleteStudentUseCase: IDeleteStudentUseCase,
+        getStudentByIdUseCase: IGetStudentByIdUseCase,
+        scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
+        authRepository: AuthRepository,
+        getSharedResourcesUseCase: IGetSharedResourcesUseCase,
+        agentContextRepository: AgentContextRepository
+    ) : this(
+        queryStudentsUseCase = queryStudentsUseCase,
+        registerPaymentUseCase = registerPaymentUseCase,
+        addToBalanceUseCase = addToBalanceUseCase,
+        saveStudentUseCase = saveStudentUseCase,
+        deleteStudentUseCase = deleteStudentUseCase,
+        getStudentByIdUseCase = getStudentByIdUseCase,
+        scheduleClassEndNotificationUseCase = scheduleClassEndNotificationUseCase,
+        authRepository = authRepository,
+        getSharedResourcesUseCase = getSharedResourcesUseCase,
+        agentContextRepository = agentContextRepository,
+        phoneticMatcher = SpanishPhoneticMatcher()
+    )
 
     /**
      * Returns a summary of all students.
@@ -75,25 +103,9 @@ class StudentTools @Inject constructor(
      * 1. Exact first-name word-boundary match.
      * 2. Partial match fallback (min 4 chars).
      */
-    private fun normalizeName(name: String): String {
-        val temp = java.text.Normalizer.normalize(name.lowercase(), java.text.Normalizer.Form.NFD)
-        val cleaned = temp.replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
-        return cleaned
-            .replace("christian", "cristian")
-            .replace("ph", "f")
-            .replace("th", "t")
-            .replace("ch", "c")
-            .replace("k", "c")
-            .replace("y", "i")
-            .replace("v", "b")
-            .replace("z", "s")
-            .trim()
-    }
+    private fun normalizeName(name: String): String = phoneticMatcher.normalizeName(name)
 
-    private fun normalizeConsonants(name: String): String {
-        val norm = normalizeName(name)
-        return norm.replace(Regex("[aeiou]"), "")
-    }
+    private fun normalizeConsonants(name: String): String = phoneticMatcher.normalizeConsonants(name)
 
     suspend fun extractRelevantStudent(query: String): AgentStudentDetail? {
         val students = queryStudentsUseCase.getAllStudents()

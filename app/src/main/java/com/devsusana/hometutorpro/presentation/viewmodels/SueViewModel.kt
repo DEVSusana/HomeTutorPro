@@ -19,6 +19,7 @@ import com.devsusana.hometutorpro.domain.usecases.ISetSueOnboardingCompletedUseC
 import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
 import com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
 import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
+import com.devsusana.hometutorpro.presentation.sue.SueSuggestionProvider
 import com.devsusana.hometutorpro.presentation.sue.SueUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -180,13 +181,15 @@ class SueViewModel @Inject constructor(
                     preloadModel()
                 }
                 speechService.initializeTts()
+                val suggestions = SueSuggestionProvider.getSuggestionsForTime()
                 _uiState.update {
                     it.copy(
                         isOverlayVisible = true,
                         errorMessage = null,
                         partialTranscription = "",
                         finalTranscription = "",
-                        agentResponse = ""
+                        agentResponse = "",
+                        contextualSuggestions = suggestions
                     )
                 }
                 
@@ -205,6 +208,24 @@ class SueViewModel @Inject constructor(
             else -> {
                 _uiState.update { it.copy(isOverlayVisible = true) }
             }
+        }
+    }
+
+    /**
+     * Handles tapping on a contextual suggestion chip.
+     * Stops active listening, sets the query as transcription, and processes it.
+     */
+    fun onSuggestionClick(suggestion: String) {
+        cancelListeningTimeout()
+        speechService.stopListening()
+        _uiState.update {
+            it.copy(
+                finalTranscription = suggestion,
+                partialTranscription = ""
+            )
+        }
+        viewModelScope.launch {
+            handleTranscription(suggestion)
         }
     }
 

@@ -209,7 +209,8 @@ object SueResponseFormatter {
     private fun formatPreparationConfirmation(action: SuePendingAction): String = when (action) {
         is SuePendingAction.CancelClass -> {
             val dayLabel = epochMillisToLabel(action.date)
-            "¿Confirmas que quieres cancelar la clase de ${action.studentName} " +
+            val classType = if (action.isExtraException) "la clase extra" else "la clase"
+            "¿Confirmas que quieres cancelar $classType de ${action.studentName} " +
                 "el $dayLabel de ${action.startTime} a ${action.endTime}? " +
                 "Di sí para confirmar o no para cancelar."
         }
@@ -279,7 +280,8 @@ object SueResponseFormatter {
     private fun formatExecutionSuccess(action: SuePendingAction): String = when (action) {
         is SuePendingAction.CancelClass -> {
             val dayLabel = epochMillisToLabel(action.date)
-            "Hecho. La clase de ${action.studentName} del $dayLabel de " +
+            val classType = if (action.isExtraException) "La clase extra" else "La clase"
+            "Hecho. $classType de ${action.studentName} del $dayLabel de " +
                 "${action.startTime} a ${action.endTime} ha sido cancelada. " +
                 "El alumno sigue teniendo su hora habitual la semana siguiente."
         }

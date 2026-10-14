@@ -122,9 +122,15 @@ object SupportFactoryHelper {
                 null,
                 SQLiteDatabase.OPEN_READWRITE
             ).use { unencryptedDb ->
-                val escapedPassword = passphraseString.replace("'", "''")
-                val escapedPath = encryptedFile.absolutePath.replace("'", "''")
-                unencryptedDb.rawExecSQL("ATTACH DATABASE '$escapedPath' AS encrypted KEY '$escapedPassword';")
+                // Strict validation to prevent SQL injection in raw DDL ATTACH command
+                require(passphraseString.matches(Regex("^[a-zA-Z0-9\\-]+$"))) {
+                    "Invalid passphrase format for SQLCipher database encryption"
+                }
+                val canonicalPath = encryptedFile.canonicalPath
+                require(!canonicalPath.contains("'") && !canonicalPath.contains(";")) {
+                    "Database path contains invalid characters"
+                }
+                unencryptedDb.rawExecSQL("ATTACH DATABASE '$canonicalPath' AS encrypted KEY '$passphraseString';")
                 unencryptedDb.rawExecSQL("SELECT sqlcipher_export('encrypted');")
                 unencryptedDb.rawExecSQL("DETACH DATABASE encrypted;")
             }

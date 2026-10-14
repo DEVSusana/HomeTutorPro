@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -534,5 +535,32 @@ class SueViewModelConfirmationTest {
         assertTrue("Response contains conflicting student", state.agentResponse?.contains("Lucía") == true)
         assertTrue("Response contains free slot suggestions", state.agentResponse?.contains("08:00 a 17:00") == true)
         coVerify { scheduleTools.getFreeSlots(dayOfWeek = 5) }
+    }
+
+    @Test
+    fun `onFabClick populates contextualSuggestions when opening overlay`() = runTest {
+        viewModel.onFabClick()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue("Overlay should be visible", state.isOverlayVisible)
+        assertFalse("Suggestions should not be empty", state.contextualSuggestions.isEmpty())
+    }
+
+    @Test
+    fun `onSuggestionClick stops listening, updates transcription and processes query`() = runTest {
+        val query = "¿Qué clases tengo hoy?"
+        val fakeResult = SueOperationResult.Execute.Success(
+            SuePendingAction.DeleteStudent("Dummy", "d1")
+        )
+        coEvery { sueAgent.detectActionIntent(query) } returns fakeResult
+
+        viewModel.onSuggestionClick(query)
+        advanceUntilIdle()
+
+        verify { speechService.stopListening() }
+        val state = viewModel.uiState.value
+        assertEquals(query, state.finalTranscription)
+        coVerify { sueAgent.detectActionIntent(query) }
     }
 }

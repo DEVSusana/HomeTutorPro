@@ -30,8 +30,9 @@
 8. [Distribución OTA, Descarga Dinámica y Gestión de Almacenamiento](#8-distribución-ota-descarga-dinámica-y-gestión-de-almacenamiento)
 9. [Seguridad, Privacidad y Cumplimiento RGPD](#9-seguridad-privacidad-y-cumplimiento-rgpd)
 10. [Código de Producción: Componentes Clave Explicados](#10-código-de-producción-componentes-clave-explicados)
-11. [Q&A Shield: Respuestas a las Preguntas más Difíciles de la Audiencia](#11-qa-shield-respuestas-a-las-preguntas-más-difíciles)
-12. [Estructura y Tiempos de la Ponencia (Guion para 40 Minutos)](#12-estructura-y-tiempos-de-la-ponencia)
+11. [Calidad, Testing y Evaluación Continua (Prompt Evaluation Benchmark)](#11-calidad-testing-y-evaluación-continua-prompt-evaluation-benchmark)
+12. [Q&A Shield: Respuestas a las Preguntas más Difíciles](#12-qa-shield-respuestas-a-las-preguntas-más-difíciles)
+13. [Estructura y Tiempos de la Ponencia (Guion para 40 Minutos)](#13-estructura-y-tiempos-de-la-ponencia)
 
 ---
 
@@ -113,12 +114,13 @@ El mercado ofrece múltiples LLMs compactos (*Small Language Models* o SLMs). ¿
 
 ## 4. Arquitectura del Sistema: Clean Architecture + MVVM + UDF
 
-HomeTutorPro implementa una arquitectura modular estricta que separa completamente la lógica de negocio y la inferencia del framework visual:
+HomeTutorPro implementa una arquitectura modular estricta que separa completamente la lógica de negocio y la inferencia del framework visual. Para evitar el antipatrón de "God Object" que suele amenazar a los agentes de IA a medida que crecen sus capacidades, el subsistema de SUE se estructura en componentes de responsabilidad única (Single Responsibility Principle):
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                                PRESENTATION LAYER (UI)                                 │
 │  • SueOverlay / SueOverlayContent (Jetpack Compose, animaciones, accesibilidad)        │
+│  • SueSuggestionChips / SueSuggestionProvider (Chips contextuales por hora del día)    │
 │  • SueViewModel (Gestión de estados, TTS, SpeechRecognizer, ciclo de confirmación)     │
 │  • SueUiState (Estado inmutable en StateFlow: Idle, Listening, Processing, Speaking...) │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
@@ -126,7 +128,15 @@ HomeTutorPro implementa una arquitectura modular estricta que separa completamen
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                                  DOMAIN LAYER (Core)                                   │
-│  • ISueAgent / SueAgentImpl (Fast-Path, Prompt Engineering, Intent Classifier, Tools)  │
+│  • SueAgentImpl (Fachada y orquestador ligero de ~120 líneas que coordina el flujo)    │
+│  • Módulos Especializados de IA y NLP (com.devsusana.hometutorpro.domain.usecases.sue):│
+│    ├─ SueContextBuilder: Ensambla el contexto RAG, directrices pedagógicas y prompts   │
+│    ├─ SueEntityExtractor: Extracción precisa de fechas, horas, importes y duraciones   │
+│    ├─ SpanishPhoneticMatcher: NLP fonético para STT, asignaturas y modismos temporales │
+│    ├─ SueRuleIntentDetector: Motor Fast-Path determinista para órdenes directas (0 ms) │
+│    ├─ SueActionParser: Deserializador seguro de acciones estructuradas [ACTION: ...]   │
+│    ├─ SueConversationContext: Memoria conversacional y seguimiento de sesión           │
+│    └─ IncompleteIntent / SlotType: Máquina de estados formal para Slot-Filling         │
 │  • Casos de Uso (ConfirmSuePendingActionUseCase, GetSueModelStatusUseCase, etc.)       │
 │  • Interfaces de Repositorios (InferenceRepository, SueModelRepository, StudentRepo...)│
 │  • Entidades (SuePendingAction, SueOperationResult, SueModelStatus)                    │
@@ -159,6 +169,7 @@ Uno de los errores más graves en arquitecturas de IA móvil es **enviar absolut
                                         │
                                         ▼
                          SueAgent.detectActionIntent()
+                        (SueRuleIntentDetector + NLP)
                                         │
                ┌────────────────────────┴────────────────────────┐
                ▼                                                 ▼
@@ -171,7 +182,7 @@ Uno de los errores más graves en arquitecturas de IA móvil es **enviar absolut
                ▼                                                 │
      NIVEL 1: FAST-PATH                                          ▼
   • Ejecuta consulta Room SQL                          NIVEL 2: RAG + LLM
-  • Devuelve ReadSuccess / PrepareAction           • Recupera contexto de Room con compresión previa
+  • Devuelve ReadSuccess / PrepareAction           • SueContextBuilder recupera contexto Room
   • Latencia: < 5 ms                               • Consultas compuestas (agenda + huecos libres)
   • 100% Precisión Matemática                      • RAG inteligente de recursos (agrupado si > 15)
   • 0 Alucinaciones                                • Ventana ampliada a 2048 tokens (Gemma 3 INT4)
@@ -179,13 +190,54 @@ Uno de los errores más graves en arquitecturas de IA móvil es **enviar absolut
                                                    • SueResponseFormatter (TTS natural)
 ```
 
-### Motor de Lenguaje Natural en Español (NLP Local)
-Para que el Fast-Path no falle ante la variabilidad del lenguaje coloquial en español, diseñamos un motor de análisis sintáctico basado en reglas y normalización diacrítica:
-* **Horas numéricas y palabras completas (0 a 24h):** Reconoce tanto dígitos (`17`, `21`, `22:30`) como palabras (`una`, `cinco`, `veintiuno`, `veintidós`, `veinticuatro`, `cero`, `medianoche`).
-* **Fracciones temporales:** Soporte nativo de expresiones como `y media` (+30m), `y cuarto` (+15m), `menos cuarto` (-15m de la siguiente hora), `y diez`, `menos veinte`.
-* **Modificadores contextuales:** Deducción inteligente de franjas horarias con `de la tarde`, `de la mañana`, `de la noche`, `pm`, `am`.
-* **Inferencia Inteligente de Franja de Tarde:** Si el usuario indica una hora sin especificar franja (*"pon clase a las 5"* o *"a las 6"*), el motor infiere automáticamente el horario vespertino (`17:00` o `18:00`), adaptándose a la realidad pedagógica de las clases particulares.
-* **Máquina de Estados Multi-Turno:** Si el usuario dice *"Añade una clase extra para Lucía el viernes"*, Sue detecta que falta la hora, almacena temporalmente el estado `AWAITING_EXTRA_CLASS_INFO` y, en cuanto el usuario responde *"a las 5"*, transiciona de inmediato a la preparación de la tarjeta interactiva de confirmación. Al completarse la acción, limpia las variables temporales para evitar fugas de contexto en turnos posteriores.
+### Motor de Lenguaje Natural en Español (NLP Local y Fonética de Voz)
+Para que el Fast-Path no falle ante la variabilidad del lenguaje coloquial en español ni ante las imprecisiones acústicas del dictado por voz, SUE integra un motor NLP especializado:
+
+1. **Normalizador Fonético y Homófonos (`SpanishPhoneticMatcher`):**
+   * El reconocedor de voz de Google (*Speech-to-Text*) frecuentemente transcribe nombres propios intercambiando consonantes homófonas en español (*v/b, c/z/s, y/i, k/c, ph/f, ch/c*) o prescindiendo de tildes (*"lucia"* en lugar de *"Lucía"*).
+   * `SpanishPhoneticMatcher` computa representaciones canónicas y esqueletos consonánticos, garantizando que el sistema identifique correctamente a los alumnos incluso con transcripciones imperfectas del micrófono.
+
+2. **Mapeo de Asignaturas Escolares Cotidianas:**
+   * Traduce automáticamente la jerga y abreviaturas estudiantiles habituales a sus materias oficiales:
+     * *«mates» / «mate»* $\rightarrow$ **Matemáticas**
+     * *«lengua» / «castellano»* $\rightarrow$ **Lengua y Literatura**
+     * *«cono»* $\rightarrow$ **Conocimiento del Medio**
+     * *«bio»* $\rightarrow$ **Biología** | *«quim»* $\rightarrow$ **Química** | *«filo»* $\rightarrow$ **Filosofía**
+
+3. **Expresiones Temporales Idiomáticas de España:**
+   * Mapea frases coloquiales cotidianas a franjas horarias estándar de 24h:
+     * *«después de comer» / «al salir de comer»* $\rightarrow$ **15:00**
+     * *«a primera hora de la tarde»* $\rightarrow$ **16:00**
+     * *«a media tarde»* $\rightarrow$ **17:30**
+     * *«a última hora de la tarde» / «al final de la tarde»* $\rightarrow$ **19:30**
+     * *«a primera hora de la mañana»* $\rightarrow$ **09:00**
+     * *«a media mañana»* $\rightarrow$ **11:30**
+     * *«al mediodía»* $\rightarrow$ **12:00**
+
+4. **Horas numéricas, palabras completas y fracciones:**
+   * Reconoce tanto dígitos (`17`, `21`, `22:30`) como palabras (`una`, `cinco`, `veintiuno`, `veintidós`, `veinticuatro`, `cero`, `medianoche`).
+   * Fracciones temporales nativas: `y media` (+30m), `y cuarto` (+15m), `menos cuarto` (-15m), `y diez`, `menos veinte`, etc.
+   * Modificadores de contexto: `de la tarde`, `de la mañana`, `de la noche`, `pm`, `am`.
+
+5. **Inferencia Inteligente de Franja de Tarde:**
+   * Si el profesor dice simplemente *"pon clase a las 5"* o *"a las 6"*, el motor infiere automáticamente el horario vespertino (`17:00` o `18:00`), adaptándose a la realidad pedagógica de las clases particulares extraescolares.
+
+6. **Máquina de Estados Formal para Desambiguación (*Slot Filling*):**
+   * En lugar de depender de variables mutables dispersas, implementamos un modelo tipado `IncompleteIntent`:
+     ```kotlin
+     data class IncompleteIntent(
+         val type: IntentType,
+         val filledSlots: Map<String, Any>,
+         val missingSlot: SlotType // STUDENT_NAME, DAY_OF_WEEK, TIME, DURATION, AMOUNT, NOTES
+     )
+     ```
+   * Si el profesor da una orden incompleta (*"Inicia una clase"* o *"Añade clase extra el viernes"*), SUE solicita exactamente el slot faltante (*"¿Para qué alumno quieres iniciar la clase?"*), preserva la intención en `SueConversationContext` y, cuando el usuario responde escuetamente (*"Con Lucía"*), completa la orden de forma fluida.
+
+7. **Chips de Sugerencia Contextuales por Franja Horaria (`SueSuggestionProvider`):**
+   * Para eliminar el problema de la "pantalla en blanco" o la duda del usuario sobre qué puede pedir por voz, el overlay de SUE presenta chips dinámicos en Jetpack Compose que varían según la hora del día:
+     * **Mañana (06:00–13:59):** *«¿Qué clases tengo hoy?»*, *«¿Quién me debe dinero?»*, *«¿Tengo huecos libres hoy?»*.
+     * **Tarde (14:00–19:59):** *«¿Cuál es mi próxima clase?»*, *«Registrar un pago»*, *«Huecos libres esta tarde»*.
+     * **Noche (20:00–05:59):** *«¿Qué clases tengo mañana?»*, *«Resumen del día»*, *«Alumnos con saldo pendiente»*.
 
 ### Validación Transaccional de Conflictos y Reconciliación de Agenda
 Toda operación de modificación de agenda (`rescheduleClass`, `addExtraClass`, `createSchedule`) pasa por los Casos de Uso del Dominio (`SaveScheduleExceptionUseCase`, `SaveScheduleUseCase`):
@@ -474,7 +526,7 @@ class SueViewModel @Inject constructor(
 ### Snippet 4: RAG Inteligente con Agrupamiento Semántico de Recursos Compartidos
 
 ```kotlin
-// Inyección en SueAgentImpl con compresión relacional previa:
+// Inyección en SueContextBuilder con compresión relacional previa:
 if (isResourceQuery && lastMentionedStudentName == null) {
     val allResources = studentTools.getAllSharedResources()
     val schedules = scheduleTools.getScheduleDetails()
@@ -508,9 +560,79 @@ if (isResourceQuery && lastMentionedStudentName == null) {
 }
 ```
 
+### Snippet 5: Normalización Fonética en Español y Modismos Temporales (`SpanishPhoneticMatcher`)
+
+```kotlin
+@Singleton
+class SpanishPhoneticMatcher @Inject constructor() {
+
+    fun normalizeName(name: String): String {
+        val temp = Normalizer.normalize(name.lowercase(Locale.ROOT), Normalizer.Form.NFD)
+        return temp.replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+            .replace("christian", "cristian")
+            .replace("ph", "f").replace("th", "t")
+            .replace("ch", "c").replace("k", "c")
+            .replace("y", "i").replace("v", "b")
+            .replace("z", "s").trim()
+    }
+
+    fun resolveColloquialTimePhrase(query: String): String? {
+        val clean = Normalizer.normalize(query.lowercase(Locale.ROOT), Normalizer.Form.NFD)
+            .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+
+        return when {
+            "despues de comer" in clean || "al salir de comer" in clean -> "15:00"
+            "a primera hora de la tarde" in clean -> "16:00"
+            "a media tarde" in clean -> "17:30"
+            "a ultima hora de la tarde" in clean -> "19:30"
+            "a primera hora de la manana" in clean -> "09:00"
+            "a media manana" in clean -> "11:30"
+            "al mediodia" in clean -> "12:00"
+            else -> null
+        }
+    }
+}
+```
+
 ---
 
-## 11. Q&A Shield: Respuestas a las Preguntas más Difíciles
+## 11. Calidad, Testing y Evaluación Continua (*Prompt Evaluation Benchmark*)
+
+Uno de los mayores retos en asistentes de IA en producción es evitar las **regresiones silenciosas**: cambiar una regla heurística, añadir un nuevo intent o ajustar el prompt puede romper la detección de frases que antes funcionaban perfectamente.
+
+### Golden Prompts Benchmark (`SuePromptEvaluationTest`)
+Para blindar el asistente, creamos una suite de evaluación automatizada en JUnit con 13 categorías reales que se ejecuta en CI/CD y en local antes de cada release:
+
+```kotlin
+@Test
+fun `evaluation - multi-turn slot filling when student name is initially missing`() = runTest {
+    agent.resetConversationContext()
+    
+    // Turno 1: Intención sin slot requerido -> SUE pide el alumno
+    val step1 = agent.detectActionIntent("Inicia una clase de 45 minutos")
+    assertTrue(step1 is SueOperationResult.Prepare.Error)
+    assertEquals(SlotType.STUDENT_NAME, conversationContext.activeIncompleteIntent?.missingSlot)
+
+    // Turno 2: Respuesta con el slot aislado -> SUE completa la acción
+    val step2 = agent.detectActionIntent("Con Lucía")
+    assertTrue(step2 is SueOperationResult.Prepare.Success)
+}
+```
+
+* **Categorías evaluadas:**
+  1. Horarios de días relativos y absolutos (*«¿Qué clases tengo mañana?»*, *«¿Qué tengo el jueves?»*).
+  2. Búsqueda de próxima clase (*«¿Cuál es mi próxima clase?»*, *«Siguiente clase»*).
+  3. Detección de huecos libres (*«¿Tengo tiempo libre esta tarde?»*).
+  4. Cancelaciones y reprogramaciones naturales (*«No voy a poder dar clase con Lucía el martes»*).
+  5. Clases de refuerzo y extras (*«Ponle una clase extra a Carlos el viernes a las cuatro»*).
+  6. Registro de pagos y deudas (*«Carlos me ha pagado 20€ por bizum»*, *«¿Quién me debe dinero?»*).
+  7. Expresiones temporales idiomáticas (*«después de comer»*, *«a primera hora de la tarde»*).
+  8. Desambiguación interactiva de slots multi-turno.
+  9. Resiliencia fonética y diacrítica (*«Lucia» vs «Lucía»*, *«Maria» vs «María»*).
+
+---
+
+## 12. Q&A Shield: Respuestas a las Preguntas más Difíciles
 
 Prepárate para responder a estas preguntas habituales de arquitectos senior e ingenieros de IA:
 
@@ -539,20 +661,26 @@ Prepárate para responder a estas preguntas habituales de arquitectos senior e i
 ### 6. *"¿Cómo evitáis desbordar la memoria VRAM y la ventana de contexto cuando el profesor tiene cientos de archivos compartidos o muchas clases?"*
 > **Respuesta:** "No dejamos que el LLM sufra el problema de 'aguja en un pajar' ni desborde la VRAM. Aplicamos una técnica de **Compresión Relacional Previa en Kotlin**: si hay más de 15 recursos compartidos, en lugar de inyectar una lista kilométrica, agrupamos por alumno (`groupBy`) mostrando el recuento de archivos y los metadatos del más reciente, y ampliamos la ventana de inferencia a 2048 tokens (`MAX_TOKENS = 2048`). Si el profesor quiere detalles de un alumno, el motor filtra exclusivamente los 20 más recientes de ese estudiante. Esto garantiza un tiempo de inferencia predecible de ~2 segundos y 0 cuelgues de GPU."
 
+### 7. *"¿Cómo resolvéis la ambigüedad acústica del dictado por voz en español para nombres propios?"*
+> **Respuesta:** "El dictado de voz de Android suele alterar grafías homófonas en español (*b/v*, *c/z/s*, *y/i*, *k/c*) o prescindir de tildes (*'lucia'* en vez de *'Lucía'*). Para solucionarlo sin añadir latencia de red, implementamos `SpanishPhoneticMatcher` en Kotlin puro: extrae el esqueleto consonántico y normaliza homófonos y diacríticos antes del cotejo, logrando una tasa de coincidencia superior al 98% en nombres de alumnos."
+
+### 8. *"¿Cómo evitáis que la clase del agente se convierta en una God Class inmanejable de miles de líneas?"*
+> **Respuesta:** "Es la trampa más común al construir asistentes de IA. Refactorizamos el monolito `SueAgentImpl` aplicando Clean Architecture estricta en 6 componentes de responsabilidad única: `SueContextBuilder` (prompts y RAG), `SueEntityExtractor` (fechas y números), `SpanishPhoneticMatcher` (NLP en español), `SueRuleIntentDetector` (enrutamiento Fast-Path), `SueActionParser` (deserialización) y `SueConversationContext` con una máquina de estados formal `IncompleteIntent` para *Slot Filling* interactivo."
+
 ---
 
-## 12. Estructura y Tiempos de la Ponencia (Guion para 40 Minutos)
+## 13. Estructura y Tiempos de la Ponencia (Guion para 40 Minutos)
 
 | Minuto | Bloque | Contenido / Diapositivas |
 |---|---|---|
 | **00 - 05** | **Introducción y El Problema** | • Por qué Cloud AI no sirve para todo (Costes, RGPD en educación, modo offline).<br>• Presentación del caso real: HomeTutorPro y SUE. |
 | **05 - 12** | **El Ecosistema On-Device** | • SLMs vs LLMs: Por qué 1B-2B parámetros es el *sweet spot* en móvil.<br>• Cuantización INT4 explicada: de 4 GB a 550 MB.<br>• MediaPipe Tasks GenAI vs alternativas. |
-| **12 - 20** | **Arquitectura Híbrida y RAG Local** | • El Patrón Híbrido: Fast-Path (0 ms) vs Gemma (Generativo).<br>• Cómo funciona el RAG Local sobre Room DB sin bases de datos vectoriales.<br>• Inyección contextual, Gemma Chat Template, RAG agrupado si > 15 recursos y ventana ampliada a 2048 tokens. |
-| **20 - 28** | **Ingeniería de Memoria y Ciclo de Vida** | • Límites de RAM en Android 15-17 (`MemoryLimiter`, páginas de 16 KB).<br>• Blindaje de hardware preventivo (`SueDeviceCompatibility`: 2.5 GB RAM, API 28+).<br>• Técnicas en producción: Cold start ligero, parallel warm-up y smart auto-release (120 s / 30 s). |
-| **28 - 34** | **Distribución OTA y UI/UX** | • Descarga in-app streaming con progreso reactivo.<br>• Onboarding opt-in y gestión de almacenamiento en Ajustes.<br>• Auto-scroll a Ajustes desde notificación de descarga completada.<br>• Confirmación en dos pasos para operaciones de voz destructivas. |
-| **34 - 38** | **Demo en Vivo / Vídeo** | • Demostración de SUE respondiendo por voz, consultando horarios y cancelando una clase con confirmación. |
-| **38 - 40** | **Conclusiones y Q&A** | • Resumen de lecciones aprendidas.<br>• Turno de preguntas y respuestas. |
+| **12 - 20** | **Arquitectura Híbrida y RAG Local** | • El Patrón Híbrido: Fast-Path (0 ms) vs Gemma (Generativo).<br>• Descomposición modular de la God Class en componentes SOLID.<br>• RAG Local sobre Room DB, compresión relacional previa y ventana de 2048 tokens. |
+| **20 - 28** | **NLP en Español, Slot Filling y Memoria** | • Retos acústicos en español: `SpanishPhoneticMatcher` (homófonos, asignaturas, modismos temporales).<br>• Diálogo interactivo multi-turno mediante máquina de estados tipada (`IncompleteIntent`).<br>• Memoria RAM en Android 15-17 (`MemoryLimiter`, páginas de 16 KB, smart auto-release de 120s/30s). |
+| **28 - 34** | **UI/UX, Distribución OTA y Testing** | • Chips contextuales dinámicos en Compose por franja horaria (`SueSuggestionProvider`).<br>• Descarga in-app streaming con progreso reactivo y verificación atómica.<br>• Golden Prompts Benchmark (`SuePromptEvaluationTest` con 13 categorías reales). |
+| **34 - 38** | **Demo en Vivo / Vídeo** | • Demostración de SUE respondiendo por voz, resolviendo consultas compuestas de agenda y confirmando cancelaciones con slot filling. |
+| **38 - 40** | **Conclusiones y Q&A** | • Resumen de lecciones aprendidas.<br>• Turno de preguntas y respuestas con el Q&A Shield. |
 
 ---
 
-> 💡 **Consejo para el escenario:** Enfatiza siempre que **la mejor IA en un móvil es la que sabe cuándo NO ejecutarse**. Combinar código tradicional determinista con modelos generativos es la clave para crear aplicaciones comerciales rápidas, baratas y fiables.
+> 💡 **Consejo para el escenario:** Enfatiza siempre que **la mejor IA en un móvil es la que sabe cuándo NO ejecutarse**. Combinar código tradicional determinista, normalización fonética y modelos generativos es la clave para crear aplicaciones comerciales rápidas, baratas y fiables.

@@ -172,6 +172,42 @@ class BackupRepositoryImplTest {
     }
 
     @Test
+    fun restoreBackup_fails_whenStudentNameIsBlank() = runTest {
+        val corruptedBackup = AppBackup(
+            version = 1,
+            students = listOf(createTestStudent(id = 100L, name = "   ")),
+            schedules = emptyList(),
+            exceptions = emptyList(),
+            resources = emptyList()
+        )
+        val jsonStr = Json.encodeToString(corruptedBackup)
+
+        val result = repository.restoreBackup(jsonStr)
+
+        assertTrue("Restore should fail when student name is blank", result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        coVerify(exactly = 0) { studentDao.insertStudent(any()) }
+    }
+
+    @Test
+    fun restoreBackup_fails_whenPricePerHourIsNegative() = runTest {
+        val corruptedBackup = AppBackup(
+            version = 1,
+            students = listOf(createTestStudent(id = 101L).copy(pricePerHour = -10.0)),
+            schedules = emptyList(),
+            exceptions = emptyList(),
+            resources = emptyList()
+        )
+        val jsonStr = Json.encodeToString(corruptedBackup)
+
+        val result = repository.restoreBackup(jsonStr)
+
+        assertTrue("Restore should fail when price per hour is negative", result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        coVerify(exactly = 0) { studentDao.insertStudent(any()) }
+    }
+
+    @Test
     fun backupCryptoHelper_encryptAndDecryptRoundtrip() {
         val plainText = """{"testKey":"secretValue123"}"""
         val secretKey = "user_secret_uid_abc"
