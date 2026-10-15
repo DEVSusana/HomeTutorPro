@@ -363,6 +363,8 @@ class ScheduleToolsTest {
 
     @Test
     fun `prepareCancelAction returns Prepare Success matching exact time`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions(any()) } returns emptyList()
         val s1 = AgentScheduleDetail("sched-1", "stu-1", "María", 1, "10:00", "11:00")
         val s2 = AgentScheduleDetail("sched-2", "stu-1", "María", 1, "17:00", "18:00")
         coEvery { querySchedulesUseCase.getSchedulesByStudentName("María") } returns listOf(s1, s2)

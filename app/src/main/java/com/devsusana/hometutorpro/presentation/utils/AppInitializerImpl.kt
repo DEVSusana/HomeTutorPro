@@ -2,9 +2,9 @@ package com.devsusana.hometutorpro.presentation.utils
 
 import android.content.Context
 import com.devsusana.hometutorpro.core.utils.NotificationHelper
-import com.devsusana.hometutorpro.data.util.DuplicateCleanupUtil
 import com.devsusana.hometutorpro.di.ApplicationScope
 import com.devsusana.hometutorpro.domain.usecases.AppInitializer
+import com.devsusana.hometutorpro.domain.usecases.ICleanupDuplicateStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISyncCoordinator
 import com.devsusana.hometutorpro.domain.usecases.implementations.RescueOrphanedDataUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,7 +24,7 @@ class AppInitializerImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val syncCoordinator: ISyncCoordinator,
     private val rescueOrphanedDataUseCase: RescueOrphanedDataUseCase,
-    private val duplicateCleanupUtil: DuplicateCleanupUtil,
+    private val cleanupDuplicateStudentsUseCase: ICleanupDuplicateStudentsUseCase,
     @ApplicationScope private val applicationScope: CoroutineScope
 ) : AppInitializer {
 
@@ -44,8 +44,7 @@ class AppInitializerImpl @Inject constructor(
         applicationScope.launch(Dispatchers.IO) {
             try {
                 rescueOrphanedDataUseCase()
-                duplicateCleanupUtil.removeDuplicateStudents()
-                duplicateCleanupUtil.removeLocalDuplicates()
+                cleanupDuplicateStudentsUseCase()
             } catch (e: Exception) {
                 // Silently fail - startup cleanup is best effort
             }

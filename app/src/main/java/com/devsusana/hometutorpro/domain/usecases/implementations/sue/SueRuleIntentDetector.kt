@@ -8,7 +8,6 @@ import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
 import com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
-import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
 import java.time.DayOfWeek
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters

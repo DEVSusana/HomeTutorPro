@@ -8,8 +8,6 @@ import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
 import com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
-import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
@@ -141,12 +139,6 @@ class SueContextBuilder @Inject constructor(
         val formatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy, HH:mm", locale)
         val currentDateTime = dateTimeProvider.getNow().format(formatter)
 
-        val firebaseUid = try {
-            FirebaseAuth.getInstance().currentUser?.uid
-        } catch (e: Exception) {
-            null
-        }
-
         val professor = authRepository.currentUser.value
             ?: withTimeoutOrNull(2000L) {
                 authRepository.currentUser.first { it != null }
@@ -158,7 +150,7 @@ class SueContextBuilder @Inject constructor(
 
         SafeLogger.d("SueAgentImpl", "--- SUE DEBUG LOG ---")
         SafeLogger.d("SueAgentImpl", "User Query: $userQuery")
-        SafeLogger.d("SueAgentImpl", "Firebase UID: $firebaseUid | AuthRepository UID: ${professor?.uid}")
+        SafeLogger.d("SueAgentImpl", "AuthRepository UID: ${professor?.uid}")
         SafeLogger.d("SueAgentImpl", "Working hours: $workingStart – $workingEnd")
         SafeLogger.d("SueAgentImpl", "RAG Context:\n$toolContext")
         SafeLogger.d("SueAgentImpl", "----------------------")

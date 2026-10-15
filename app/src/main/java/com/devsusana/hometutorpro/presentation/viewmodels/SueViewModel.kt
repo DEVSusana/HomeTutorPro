@@ -8,16 +8,16 @@ import com.devsusana.hometutorpro.domain.entities.SpeechState
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.repository.SpeechService
-import com.devsusana.hometutorpro.domain.repository.InferenceRepository
+import com.devsusana.hometutorpro.domain.usecases.IGenerateSueResponseUseCase
+import com.devsusana.hometutorpro.domain.usecases.IManageSueInferenceUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISueAgent
 import com.devsusana.hometutorpro.domain.usecases.IGetSueEnabledUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetSueFabVisibleUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetSueOnboardingCompletedUseCase
+import com.devsusana.hometutorpro.domain.usecases.IExecuteSuePendingActionUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISetSueEnabledUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISetSueFabVisibleUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISetSueOnboardingCompletedUseCase
-import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
-import com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
 import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
 import com.devsusana.hometutorpro.presentation.sue.SueSuggestionProvider
 import com.devsusana.hometutorpro.presentation.sue.SueUiState
@@ -48,9 +48,9 @@ import javax.inject.Inject
 class SueViewModel @Inject constructor(
     private val speechService: SpeechService,
     private val sueAgent: ISueAgent,
-    private val inferenceRepository: InferenceRepository,
-    private val scheduleTools: ScheduleTools,
-    private val studentTools: StudentTools,
+    private val generateSueResponseUseCase: IGenerateSueResponseUseCase,
+    private val manageSueInferenceUseCase: IManageSueInferenceUseCase,
+    private val executeSuePendingActionUseCase: IExecuteSuePendingActionUseCase,
     private val getSueEnabledUseCase: IGetSueEnabledUseCase,
     private val getSueFabVisibleUseCase: IGetSueFabVisibleUseCase,
     private val getSueOnboardingCompletedUseCase: IGetSueOnboardingCompletedUseCase,
@@ -291,7 +291,7 @@ class SueViewModel @Inject constructor(
         cancelIdleReleaseTimer()
         cancelListeningTimeout()
         speechService.release()
-        inferenceRepository.release()
+        manageSueInferenceUseCase.release()
     }
 
     private fun startIdleReleaseTimer(timeoutMs: Long = IDLE_RELEASE_TIMEOUT_MS) {
@@ -299,7 +299,7 @@ class SueViewModel @Inject constructor(
         idleReleaseJob = viewModelScope.launch {
             delay(timeoutMs)
             SafeLogger.d("SueVM", "Idle timeout reached ($timeoutMs ms): releasing LLM model to free RAM.")
-            inferenceRepository.release()
+            manageSueInferenceUseCase.release()
         }
     }
 
@@ -313,7 +313,7 @@ class SueViewModel @Inject constructor(
             if (delayMs > 0) {
                 delay(delayMs)
             }
-            inferenceRepository.loadModel()
+            manageSueInferenceUseCase.loadModel()
         }
     }
 
@@ -369,7 +369,7 @@ class SueViewModel @Inject constructor(
 
     private fun collectModelState() {
         viewModelScope.launch {
-            inferenceRepository.isModelLoaded.collect { loaded ->
+            manageSueInferenceUseCase.isModelLoaded.collect { loaded ->
                 _uiState.update { it.copy(isModelLoaded = loaded) }
                 // Auto-start listening if the user is looking at the overlay and waiting for the model
                 if (loaded && _uiState.value.isOverlayVisible && _uiState.value.speechState == SpeechState.IDLE) {
@@ -379,7 +379,7 @@ class SueViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            inferenceRepository.isLoading.collect { loading ->
+            manageSueInferenceUseCase.isLoading.collect { loading ->
                 _uiState.update { it.copy(isModelLoading = loading) }
             }
         }
@@ -557,30 +557,7 @@ class SueViewModel @Inject constructor(
      */
     private suspend fun executePendingAction(transcription: String, action: SuePendingAction) {
         try {
-            val executeResult = when (action) {
-                is SuePendingAction.CancelClass ->
-                    scheduleTools.executeCancelAction(action)
-                is SuePendingAction.RescheduleClass ->
-                    scheduleTools.executeRescheduleAction(action)
-                is SuePendingAction.RegisterPayment ->
-                    studentTools.executeRegisterPayment(action)
-                is SuePendingAction.AddBalance ->
-                    studentTools.executeAddBalance(action)
-                is SuePendingAction.StartClass ->
-                    studentTools.executeStartClass(action)
-                is SuePendingAction.CreateStudent ->
-                    studentTools.executeCreateStudent(action)
-                is SuePendingAction.DeleteStudent ->
-                    studentTools.executeDeleteStudent(action)
-                is SuePendingAction.CreateSchedule ->
-                    scheduleTools.executeCreateSchedule(action)
-                is SuePendingAction.DeleteSchedule ->
-                    scheduleTools.executeDeleteSchedule(action)
-                is SuePendingAction.AddExtraClass ->
-                    scheduleTools.executeAddExtraClass(action)
-                is SuePendingAction.UpdateStudentNotes ->
-                    studentTools.executeUpdateNotesAction(action)
-            }
+            val executeResult = executeSuePendingActionUseCase(action)
             val response = if (executeResult is SueOperationResult.Execute.Error && executeResult.domainError is DomainError.ConflictingStudent) {
                 sueAgent.preserveContextForConflict(action)
                 val conflictDay = when (action) {
@@ -593,7 +570,7 @@ class SueViewModel @Inject constructor(
                     is SuePendingAction.CreateSchedule -> action.dayOfWeek
                     else -> null
                 }
-                val freeSlotsResult = scheduleTools.getFreeSlots(dayOfWeek = conflictDay)
+                val freeSlotsResult = executeSuePendingActionUseCase.getConflictFreeSlots(dayOfWeek = conflictDay)
                 val freeSlotsText = SueResponseFormatter.formatFreeSlotsForConflict(freeSlotsResult, conflictDay)
                 SueResponseFormatter.formatDomainError(executeResult.domainError, freeSlotsText)
             } else {
@@ -621,19 +598,7 @@ class SueViewModel @Inject constructor(
             val errors = mutableListOf<String>()
 
             for (action in actions) {
-                val executeResult = when (action) {
-                    is SuePendingAction.CancelClass -> scheduleTools.executeCancelAction(action)
-                    is SuePendingAction.RescheduleClass -> scheduleTools.executeRescheduleAction(action)
-                    is SuePendingAction.RegisterPayment -> studentTools.executeRegisterPayment(action)
-                    is SuePendingAction.AddBalance -> studentTools.executeAddBalance(action)
-                    is SuePendingAction.StartClass -> studentTools.executeStartClass(action)
-                    is SuePendingAction.CreateStudent -> studentTools.executeCreateStudent(action)
-                    is SuePendingAction.DeleteStudent -> studentTools.executeDeleteStudent(action)
-                    is SuePendingAction.CreateSchedule -> scheduleTools.executeCreateSchedule(action)
-                    is SuePendingAction.DeleteSchedule -> scheduleTools.executeDeleteSchedule(action)
-                    is SuePendingAction.AddExtraClass -> scheduleTools.executeAddExtraClass(action)
-                    is SuePendingAction.UpdateStudentNotes -> studentTools.executeUpdateNotesAction(action)
-                }
+                val executeResult = executeSuePendingActionUseCase(action)
                 if (executeResult is SueOperationResult.Execute.Success) {
                     successCount.add(action)
                 } else {
@@ -689,7 +654,7 @@ class SueViewModel @Inject constructor(
             SafeLogger.d("SueVM", "Is Model Loaded: $modelLoaded")
 
             val rawResponse = if (modelLoaded) {
-                val resp = inferenceRepository.generateResponse(prompt)
+                val resp = generateSueResponseUseCase(prompt)
                 SafeLogger.d("SueVM", "LLM Raw Response: '$resp'")
                 resp
             } else {

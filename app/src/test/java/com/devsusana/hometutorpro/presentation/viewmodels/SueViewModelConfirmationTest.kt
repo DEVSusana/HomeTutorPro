@@ -5,7 +5,6 @@ import com.devsusana.hometutorpro.domain.entities.SpeechState
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.repository.SpeechService
-import com.devsusana.hometutorpro.domain.repository.InferenceRepository
 import com.devsusana.hometutorpro.domain.usecases.ISueAgent
 import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
 import com.devsusana.hometutorpro.presentation.sue.SueResponseFormatter
@@ -46,7 +45,8 @@ class SueViewModelConfirmationTest {
 
     private lateinit var speechService: SpeechService
     private lateinit var sueAgent: ISueAgent
-    private lateinit var inferenceRepository: InferenceRepository
+    private lateinit var generateSueResponseUseCase: com.devsusana.hometutorpro.domain.usecases.IGenerateSueResponseUseCase
+    private lateinit var manageSueInferenceUseCase: com.devsusana.hometutorpro.domain.usecases.IManageSueInferenceUseCase
     private lateinit var scheduleTools: ScheduleTools
     private lateinit var studentTools: com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
     private lateinit var getSueEnabledUseCase: com.devsusana.hometutorpro.domain.usecases.IGetSueEnabledUseCase
@@ -90,7 +90,8 @@ class SueViewModelConfirmationTest {
             coEvery { detectActionIntent(any()) } returns null
             coEvery { parseLlmActionResponse(any()) } returns null
         }
-        inferenceRepository = mockk(relaxed = true) {
+        generateSueResponseUseCase = mockk(relaxed = true)
+        manageSueInferenceUseCase = mockk(relaxed = true) {
             every { isModelLoaded } returns modelLoadedFlow
             every { isLoading } returns modelLoadingFlow
         }
@@ -119,12 +120,17 @@ class SueViewModelConfirmationTest {
             every { this@mockk.invoke() } returns com.devsusana.hometutorpro.domain.entities.SueDeviceCompatibility(isSupported = true)
         }
 
+        val executeSuePendingActionUseCase = com.devsusana.hometutorpro.domain.usecases.implementations.ExecuteSuePendingActionUseCase(
+            scheduleTools = scheduleTools,
+            studentTools = studentTools
+        )
+
         viewModel = SueViewModel(
             speechService = speechService,
             sueAgent = sueAgent,
-            inferenceRepository = inferenceRepository,
-            scheduleTools = scheduleTools,
-            studentTools = studentTools,
+            generateSueResponseUseCase = generateSueResponseUseCase,
+            manageSueInferenceUseCase = manageSueInferenceUseCase,
+            executeSuePendingActionUseCase = executeSuePendingActionUseCase,
             getSueEnabledUseCase = getSueEnabledUseCase,
             getSueFabVisibleUseCase = getSueFabVisibleUseCase,
             getSueOnboardingCompletedUseCase = getSueOnboardingCompletedUseCase,
@@ -459,14 +465,14 @@ class SueViewModelConfirmationTest {
     fun `onDismiss schedules model release and executes release after timeout`() = runTest {
         viewModel.onDismiss()
         advanceUntilIdle()
-        verify(atLeast = 1) { inferenceRepository.release() }
+        verify(atLeast = 1) { manageSueInferenceUseCase.release() }
     }
 
     @Test
     fun `onFabClick triggers model preload in parallel`() = runTest {
         viewModel.onFabClick()
         advanceUntilIdle()
-        coVerify { inferenceRepository.loadModel() }
+        coVerify { manageSueInferenceUseCase.loadModel() }
     }
 
     @Test

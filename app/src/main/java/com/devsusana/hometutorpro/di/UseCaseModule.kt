@@ -227,5 +227,10 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindRestoreSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.RestoreSessionUseCase): IRestoreSessionUseCase
+
+    @Binds
+    abstract fun bindCleanupDuplicateStudentsUseCase(
+        impl: com.devsusana.hometutorpro.data.util.DuplicateCleanupUtil
+    ): ICleanupDuplicateStudentsUseCase
 }
 
