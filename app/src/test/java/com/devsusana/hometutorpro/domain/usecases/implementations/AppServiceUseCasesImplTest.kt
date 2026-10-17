@@ -37,6 +37,8 @@ class AppServiceUseCasesImplTest {
         }
 
         override fun showClassEndNotification(studentName: String) {}
+
+        override fun cancelClassEndNotification() {}
     }
 
     @Test

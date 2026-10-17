@@ -1,24 +1,25 @@
-# Contribuyendo a HomeTutorPro 🤝
+# Contributing to HomeTutorPro 🤝
 
-¡Gracias por tu interés en mejorar HomeTutorPro! Para mantener la calidad del código y la coherencia técnica, sigue estas pautas.
+Thank you for your interest in improving HomeTutorPro! To maintain code quality and technical consistency, please follow these guidelines.
 
-## 🚀 Proceso de Desarrollo
+## 🚀 Development Process
 
-1.  **Fork** del proyecto.
-2.  Crea una rama para tu funcionalidad: `git checkout -b feature/NuevaFuncionalidad`.
-3.  Asegúrate de seguir los estándares de **Kotlin Style Guide**.
-4.  **Importante:** Cada nueva funcionalidad debe incluir sus respectivos tests unitarios.
+1.  **Fork** the project.
+2.  Create a branch for your feature: `git checkout -b feature/NewFeature`.
+3.  Ensure you adhere to the **Kotlin Style Guide** standards.
+4.  **Important:** Every new feature must include its respective unit tests.
 
-## 🏗️ Estándares de Arquitectura
+## 🏗️ Architecture Standards
 
-Cualquier contribución debe respetar la separación de capas:
-* No pongas lógica de negocio en los ViewModels (usa UseCases).
-* Toda interacción con la base de datos o API debe pasar por un Repositorio.
-* Usa `State` en Compose para evitar recomposiciones innecesarias.
+Any contribution must respect layer separation:
+* Do not put business logic in ViewModels (use UseCases).
+* All interactions with the database or API must go through a Repository.
+* Use `State` in Compose to avoid unnecessary recompositions.
 
 ## 🧪 Testing
 
-Antes de enviar un Pull Request, ejecuta la suite de tests completa:
+Before submitting a Pull Request, run the full test suite:
 ```bash
 ./gradlew test
 ./gradlew connectedAndroidTest
+```

@@ -19,6 +19,12 @@ abstract class RepositoryModule {
         syncCoordinator: com.devsusana.hometutorpro.data.sync.SyncCoordinator
     ): com.devsusana.hometutorpro.domain.usecases.ISyncCoordinator
 
+    @Binds
+    @Singleton
+    abstract fun bindActiveSessionRepository(
+        activeSessionRepositoryImpl: ActiveSessionRepositoryImpl
+    ): IActiveSessionRepository
+
 
     @Binds
     @Singleton

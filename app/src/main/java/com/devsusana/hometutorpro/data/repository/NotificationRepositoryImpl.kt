@@ -23,4 +23,8 @@ class NotificationRepositoryImpl @Inject constructor(
     override fun showClassEndNotification(studentName: String) {
         NotificationHelper.showClassEndNotification(context, studentName)
     }
+
+    override fun cancelClassEndNotification() {
+        NotificationHelper.cancelClassEndNotification(context)
+    }
 }
