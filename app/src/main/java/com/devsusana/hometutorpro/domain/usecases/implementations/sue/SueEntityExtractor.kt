@@ -153,12 +153,12 @@ class SueEntityExtractor @Inject constructor(
     fun cleanExtractedName(candidate: String): String? {
         var clean = candidate.trim()
         clean = clean.replace(
-            Regex("""^(?:a\s+un\s+alumno\s+llamado|a\s+una\s+alumna\s+llamada|un\s+alumno\s+llamado|un\s+estudiante\s+llamado|una\s+alumna\s+llamada|una\s+estudiante\s+llamada|al\s+alumno\s+llamado|al\s+estudiante\s+llamado|alumno\s+llamado|estudiante\s+llamado|al\s+alumno|al\s+estudiante|a\s+la\s+alumna|a\s+la\s+estudiante|llamado|llamada|de\s+nombre|a\s+student\s+named|student\s+named|named|called)\s+""", RegexOption.IGNORE_CASE),
+            Regex("""^(?:a\s+un\s+alumno\s+llamado|a\s+una\s+alumna\s+llamada|un\s+alumno\s+llamado|un\s+estudiante\s+llamado|una\s+alumna\s+llamada|una\s+estudiante\s+llamada|al\s+alumno\s+llamado|al\s+estudiante\s+llamado|al\s+alumno\s+llamalo|al\s+alumno\s+llámalo|alumno\s+llamado|estudiante\s+llamado|al\s+alumno|al\s+estudiante|a\s+la\s+alumna|a\s+la\s+estudiante|llamado|llamada|llámalo|llamalo|llámale|llamale|que\s+se\s+llama|que\s+se\s+llame|se\s+llama|se\s+llame|de\s+nombre|con\s+nombre|nombre|a\s+student\s+named|student\s+named|named|called)\s+""", RegexOption.IGNORE_CASE),
             ""
         ).trim()
         if (clean.isBlank()) return null
 
-        val trailingWordsToStrip = Regex("""\s+(?:hoy|esta\s+tarde|esta\s+mañana|esta\s+manana|esta\s+noche|mañana|manana|ayer|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo|que\s+es|que\s+tiene|que\s+esta|que\s+está)\b.*$""", RegexOption.IGNORE_CASE)
+        val trailingWordsToStrip = Regex("""\s+(?:hoy|esta\s+tarde|esta\s+mañana|esta\s+manana|esta\s+noche|mañana|manana|ayer|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo|que\s+es|que\s+tiene|que\s+esta|que\s+está|y\s+ponle|y\s+pon|y\s+la\s+clase|y\s+el\s+precio|y\s+cobrale|y\s+cóbrale|con\s+precio|con\s+tarifa|a\s+\d).*$""", RegexOption.IGNORE_CASE)
         clean = clean.replace(trailingWordsToStrip, "").trim()
         if (clean.isBlank()) return null
 
@@ -518,7 +518,7 @@ class SueEntityExtractor @Inject constructor(
      * Extracts a numeric amount from the query (supports euros, pavos, $, and hourly rates like 'a 15 la hora').
      */
     fun extractAmount(query: String, fallbackAmount: Double? = null): Double? {
-        val amountPattern = Regex("""\b(\d+(?:[.,]\d{1,2})?)\s*(?:euros?|€|pavitos|pavos|dollars?|\$)\b""")
+        val amountPattern = Regex("""\b(\d+(?:[.,]\d{1,2})?)\s*(?:euros?\b|pavitos\b|pavos\b|dollars?\b|€|\$)""")
         amountPattern.find(query)?.let { match ->
             return match.groupValues[1].replace(',', '.').toDoubleOrNull()
         }
@@ -539,6 +539,46 @@ class SueEntityExtractor @Inject constructor(
                 return fallbackAmount
             }
         }
+        return null
+    }
+
+    /**
+     * Extracts an hourly rate or price for student creation and schedule workflows.
+     * Supports formats like 'a 9 la hora', 'ponle la clase a 9€', 'a 9€', 'tarifa de 9',
+     * or bare numbers ('9', '9.50', '9€') when answering a price prompt.
+     */
+    fun extractPrice(query: String): Double? {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return null
+
+        // 1. Explicit hourly rate / price setting expressions
+        val ratePattern = Regex(
+            """(?:(?:precio|tarifa|clase|ponle|pon|pónle|cobrale|cóbrale|a|por)\s+)*(?:la\s+clase\s+a\s+|el\s+precio\s+a\s+|a\s+|por\s+)?(\d+(?:[.,]\d{1,2})?)\s*(?:euros?|€|pavitos|pavos)?(?:\s*(?:/h|/hora|la\s+hora|por\s+hora|cada\s+hora|la\s+clase|por\s+clase))?""",
+            RegexOption.IGNORE_CASE
+        )
+        ratePattern.findAll(trimmed).forEach { match ->
+            val numStr = match.groupValues[1]
+            val candidate = numStr.replace(',', '.').toDoubleOrNull()
+            if (candidate != null && candidate > 0.0 && candidate <= 500.0) {
+                val matchedText = match.value.lowercase()
+                if (matchedText.contains("hora") || matchedText.contains("clase") ||
+                    matchedText.contains("€") || matchedText.contains("euro") ||
+                    matchedText.contains("precio") || matchedText.contains("tarifa") ||
+                    matchedText.contains("ponle") || matchedText.contains("a ") || matchedText.startsWith("a")) {
+                    return candidate
+                }
+            }
+        }
+
+        // 2. Standard extractAmount (e.g. "9€", "15 euros")
+        extractAmount(trimmed, null)?.let { return it }
+
+        // 3. Bare number input (e.g. user answering "¿Cuál será el precio?" with "9", "9.50", "a 9")
+        val barePattern = Regex("""^\s*(?:a\s+|ponle\s+|pon\s+|pónle\s+)?(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?|pavitos|pavos)?\s*$""", RegexOption.IGNORE_CASE)
+        barePattern.find(trimmed)?.let { match ->
+            return match.groupValues[1].replace(',', '.').toDoubleOrNull()
+        }
+
         return null
     }
 
@@ -608,9 +648,9 @@ class SueEntityExtractor @Inject constructor(
         }
         if (name.isBlank()) return null
 
-        val price = extractAmount(lower) ?: 15.0
+        val price = extractPrice(lower) ?: extractAmount(lower) ?: 15.0
 
-        var subjects = "General"
+        var subjects = ""
         val subjectKeywords = listOf(" de ", " in ", " para ", " for ")
         for (kw in subjectKeywords) {
             val idx = lower.indexOf(kw)
@@ -631,9 +671,10 @@ class SueEntityExtractor @Inject constructor(
         }
 
         val courseKeywords = listOf("eso", "bachillerato", "bach", "primaria", "secundaria", "universidad")
-        val course = courseKeywords.find { it in lower } ?: "Other"
+        val course = courseKeywords.find { it in lower } ?: ""
 
-        return SuePendingAction.CreateStudent(name, course, phoneticMatcher.normalizeSubject(subjects), price)
+        val normalizedSubjects = if (subjects.isNotBlank()) phoneticMatcher.normalizeSubjects(subjects) else ""
+        return SuePendingAction.CreateStudent(name, course, normalizedSubjects, price)
     }
 
     fun extractTwoTimes(query: String): Pair<String, String>? {

@@ -29,11 +29,19 @@ class SueRuleIntentDetector @Inject constructor(
 ) {
 
     suspend fun detectActionIntent(query: String): SueOperationResult? {
+        val lower = entityExtractor.stripAccents(query.lowercase().trim())
+
+        // If the query is creating a student and setting their price/class attributes (e.g. "crea un alumno llamalo nuevo y ponle la clase a 9€ la hora"),
+        // do not split on "y ponle ...". Treat it as a single CREATE_STUDENT action.
+        val isCreatingStudentWithAttributes = containsCreateStudentKeywords(lower) &&
+            Regex("""\s+y\s+(?:ponle|pon|pónle|cobrale|cóbrale)\s+(?:la\s+clase\s+a|el\s+precio|la\s+tarifa|precio|tarifa|a\s+\d|\d+\s*(?:€|euros?|la\s+hora))\b""", RegexOption.IGNORE_CASE)
+                .containsMatchIn(lower)
+
         val compoundSplitRegex = Regex(
             """\s+(?:y\s+que|y|e|además|ademas|y\s+luego|and\s+then|and\s+also|and)\s+(?=(?:adelanta|adelantar|adelante|adelantale|adelántale|mueve|mover|mueva|muevele|muévele|pasa|pasar|pase|pasale|pásale|reprograma|reprogramar|reprograme|reprogramale|reprográmale|cambia|cambiar|cambie|cambiale|cámbiale|cancela|cancelar|cancele|cancelale|cancélale|anula|anular|anule|anulale|anúlale|quita|quitar|quite|quitale|quítale|pon|poner|ponga|ponle|pónle|añade|añadir|anade|anadir|agrega|agregar|inicia|iniciar|move|reschedule|postpone|advance|cancel|remove|delete|add|create|schedule|start)\b)""",
             RegexOption.IGNORE_CASE
         )
-        if (compoundSplitRegex.containsMatchIn(query)) {
+        if (!isCreatingStudentWithAttributes && compoundSplitRegex.containsMatchIn(query)) {
             val clauses = query.split(compoundSplitRegex).map { it.trim() }.filter { it.isNotBlank() }
             if (clauses.size > 1) {
                 val preparedActions = mutableListOf<SuePendingAction>()
@@ -52,6 +60,10 @@ class SueRuleIntentDetector @Inject constructor(
                     conversationContext.lastMentionedTime = null
                     conversationContext.lastMentionedDuration = null
                     conversationContext.lastMentionedAmount = null
+                    conversationContext.lastMentionedPrice = null
+                    conversationContext.lastMentionedStudentName = null
+                    conversationContext.lastMentionedSubjects = null
+                    conversationContext.lastMentionedCourse = null
                     SueOperationResult.Prepare.MultipleSuccess(preparedActions)
                 } else if (preparedActions.size == 1) {
                     conversationContext.lastActiveIntentType = null
@@ -59,6 +71,10 @@ class SueRuleIntentDetector @Inject constructor(
                     conversationContext.lastMentionedTime = null
                     conversationContext.lastMentionedDuration = null
                     conversationContext.lastMentionedAmount = null
+                    conversationContext.lastMentionedPrice = null
+                    conversationContext.lastMentionedStudentName = null
+                    conversationContext.lastMentionedSubjects = null
+                    conversationContext.lastMentionedCourse = null
                     SueOperationResult.Prepare.Success(preparedActions.first())
                 } else null
             }
@@ -82,19 +98,24 @@ class SueRuleIntentDetector @Inject constructor(
         }
 
         // 2. Extract and update context memory variables
-        val matchedStudent = studentTools.extractRelevantStudent(lower)
-        val matchedName = matchedStudent?.name
-            ?: entityExtractor.extractStudentName(lower)
-            ?: entityExtractor.extractStudentNameForFinance(lower)
-            ?: entityExtractor.extractNameAfter(lower, listOf(
-                "inicia una clase para ", "inicia clase para ", "empieza clase para ",
-                "inicia una clase con ", "inicia clase con ", "empieza clase con ",
-                "start class for ", "start class with "
-            ))
-        if (matchedName != null) {
+        val isCreateStudent = containsCreateStudentKeywords(lower)
+        val matchedStudent = if (isCreateStudent) null else studentTools.extractRelevantStudent(lower)
+        val matchedName = matchedStudent?.name?.takeIf { it.isNotBlank() }
+            ?: if (isCreateStudent) null else (
+                entityExtractor.extractStudentName(lower)?.takeIf { it.isNotBlank() }
+                    ?: entityExtractor.extractStudentNameForFinance(lower)?.takeIf { it.isNotBlank() }
+                    ?: entityExtractor.extractNameAfter(lower, listOf(
+                        "inicia una clase para ", "inicia clase para ", "empieza clase para ",
+                        "inicia una clase con ", "inicia clase con ", "empieza clase con ",
+                        "start class for ", "start class with "
+                    ))?.takeIf { it.isNotBlank() }
+            )
+        if (!matchedName.isNullOrBlank()) {
             val cleanName = entityExtractor.cleanExtractedName(matchedName) ?: matchedName
-            val capitalizedName = cleanName.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            conversationContext.lastMentionedStudentName = capitalizedName
+            if (cleanName.isNotBlank()) {
+                val capitalizedName = cleanName.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                conversationContext.lastMentionedStudentName = capitalizedName
+            }
         }
 
         val relativeDay = entityExtractor.extractRelativeDayOfWeek(lower)
@@ -195,15 +216,23 @@ class SueRuleIntentDetector @Inject constructor(
 
             IntentType.CREATE_STUDENT -> {
                 val prefixesToStrip = listOf(
+                    "crear un nuevo estudiante", "crear un nuevo alumno", "crear una nueva estudiante", "crear una nueva alumna",
+                    "crea un nuevo estudiante", "crea un nuevo alumno", "crea una nueva estudiante", "crea una nueva alumna",
+                    "añadir un nuevo estudiante", "añadir un nuevo alumno", "añade un nuevo estudiante", "añade un nuevo alumno",
+                    "anadir un nuevo estudiante", "anadir un nuevo alumno", "anade un nuevo estudiante", "anade un nuevo alumno",
                     "crear un estudiante", "crear un alumno", "crea un estudiante", "crea un alumno",
                     "crear al estudiante", "crear al alumno", "crea al estudiante", "crea al alumno",
                     "crear el estudiante", "crear el alumno", "crea el estudiante", "crea el alumno",
+                    "crear a un estudiante", "crear a un alumno", "crea a un estudiante", "crea a un alumno",
                     "añadir un estudiante", "añadir un alumno", "añade un estudiante", "añade un alumno",
                     "anadir un estudiante", "anadir un alumno", "anade un estudiante", "anade un alumno",
                     "añadir al estudiante", "añadir al alumno", "añade al estudiante", "añade al alumno",
                     "anadir al estudiante", "anadir al alumno", "anade al estudiante", "anade al alumno",
+                    "añadir a un estudiante", "añadir a un alumno", "añade a un estudiante", "añade a un alumno",
+                    "anadir a un estudiante", "anadir a un alumno", "anade a un estudiante", "anade a un alumno",
                     "añadir estudiante", "añadir alumno", "anadir estudiante", "anadir alumno",
                     "añade estudiante", "añade alumno", "anade estudiante", "anade alumno",
+                    "agregar un alumno", "agrega un alumno", "agregar alumno", "agrega alumno",
                     "nuevo estudiante", "nuevo alumno", "nueva estudiante", "nueva alumna",
                     "create student", "add student"
                 )
@@ -213,22 +242,29 @@ class SueRuleIntentDetector @Inject constructor(
                 }
                 queryWithoutKeywords = queryWithoutKeywords.trim()
 
-                if (conversationContext.lastMentionedStudentName == null) {
-                    val stopWords = listOf(" de ", " a ", " para ", " in ", " at ", " for ", " los ", " el ", " las ", " la ")
-                    var nameCandidate = queryWithoutKeywords
+                if (conversationContext.lastMentionedStudentName.isNullOrBlank()) {
+                    val nameIntroRegex = Regex("""^(?:llamado|llamada|llámalo|llamalo|llámale|llamale|que\s+se\s+llama|que\s+se\s+llame|se\s+llama|se\s+llame|de\s+nombre|con\s+nombre|nombre)\s+""", RegexOption.IGNORE_CASE)
+                    var nameCandidate = queryWithoutKeywords.replace(nameIntroRegex, "").trim()
+                    val stopWords = listOf(
+                        " y ponle ", " y pon ", " y la clase ", " y el precio ", " y cobrale ", " y cóbrale ",
+                        " con precio ", " con tarifa ", " con clase ", " y ", " e ", " con ", " a ", " por ",
+                        " para ", " de ", " en ", " que ", ",", "."
+                    )
+                    var firstStopIdx = nameCandidate.length
                     for (stop in stopWords) {
                         val stopIdx = nameCandidate.indexOf(stop)
-                        if (stopIdx >= 0) {
-                            nameCandidate = nameCandidate.substring(0, stopIdx).trim()
+                        if (stopIdx in 0 until firstStopIdx) {
+                            firstStopIdx = stopIdx
                         }
                     }
+                    nameCandidate = nameCandidate.substring(0, firstStopIdx).trim()
                     val cleanCandidate = entityExtractor.cleanExtractedName(nameCandidate) ?: nameCandidate.trim()
                     if (cleanCandidate.isNotBlank() && !cleanCandidate.contains(Regex("""\d"""))) {
                         conversationContext.lastMentionedStudentName = cleanCandidate.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
                     }
                 }
 
-                val price = entityExtractor.extractAmount(lower, null)
+                val price = entityExtractor.extractPrice(lower) ?: entityExtractor.extractAmount(lower, null)
                 if (price != null) {
                     conversationContext.lastMentionedPrice = price
                 }
@@ -238,7 +274,7 @@ class SueRuleIntentDetector @Inject constructor(
                     val idx = lower.indexOf(kw)
                     if (idx >= 0) {
                         val rest = query.substring(idx + kw.length).trim()
-                        val stopWords = listOf(" a ", " por ", " at ", " for ")
+                        val stopWords = listOf(" a ", " por ", " at ", " for ", " y ponle ", " y pon ", " con precio ")
                         var end = rest.length
                         for (stop in stopWords) {
                             val stopIdx = rest.lowercase().indexOf(stop)
@@ -247,8 +283,11 @@ class SueRuleIntentDetector @Inject constructor(
                         val candidate = rest.substring(0, end).trim()
                         if (candidate.isNotBlank() && !candidate.contains(Regex("""\d""")) && 
                             !listOf("lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo").any { it in candidate.lowercase() }) {
-                            conversationContext.lastMentionedSubjects = entityExtractor.getPhoneticMatcher().normalizeSubject(candidate)
-                            break
+                            val normalized = entityExtractor.getPhoneticMatcher().normalizeSubjects(candidate)
+                            if (normalized.isNotBlank()) {
+                                conversationContext.lastMentionedSubjects = normalized
+                                break
+                            }
                         }
                     }
                 }
@@ -275,8 +314,8 @@ class SueRuleIntentDetector @Inject constructor(
                             "¿Cuál será el precio por hora de $studentName?"
                         )
                     } else {
-                        val finalCourse = conversationContext.lastMentionedCourse ?: "Other"
-                        val finalSubjects = conversationContext.lastMentionedSubjects ?: "General"
+                        val finalCourse = conversationContext.lastMentionedCourse ?: ""
+                        val finalSubjects = conversationContext.lastMentionedSubjects ?: ""
                         studentTools.prepareCreateStudent(studentName, finalCourse, finalSubjects, priceVal)
                     }
                 }
@@ -849,6 +888,10 @@ class SueRuleIntentDetector @Inject constructor(
             conversationContext.lastMentionedTime = null
             conversationContext.lastMentionedDuration = null
             conversationContext.lastMentionedAmount = null
+            conversationContext.lastMentionedPrice = null
+            conversationContext.lastMentionedStudentName = null
+            conversationContext.lastMentionedSubjects = null
+            conversationContext.lastMentionedCourse = null
         }
         return result
     }
@@ -1044,11 +1087,19 @@ class SueRuleIntentDetector @Inject constructor(
 
     private fun containsCreateStudentKeywords(query: String) =
         listOf(
-            "crea un alumno", "crear un alumno", "crea al alumno", "crea el alumno",
-            "crea un estudiante", "crear un estudiante", "crea al estudiante", "crea el estudiante",
+            "crear un nuevo estudiante", "crear un nuevo alumno", "crear una nueva estudiante", "crear una nueva alumna",
+            "crea un nuevo estudiante", "crea un nuevo alumno", "crea una nueva estudiante", "crea una nueva alumna",
+            "crear un estudiante", "crear un alumno", "crea al alumno", "crea el alumno", "crea un alumno",
+            "crea al estudiante", "crea el estudiante", "crea un estudiante", "crear al estudiante", "crear al alumno",
+            "crear a un estudiante", "crear a un alumno", "crea a un estudiante", "crea a un alumno",
+            "crea alumno", "crear alumno", "crea estudiante", "crear estudiante",
             "anade un alumno", "añade un alumno", "anade al alumno", "añade al alumno",
             "anade un estudiante", "añade un estudiante", "anade al estudiante", "añade al estudiante",
             "anadir estudiante", "añadir estudiante", "anadir alumno", "añadir alumno",
+            "anade estudiante", "añade estudiante", "anade alumno", "añade alumno",
+            "agrega un alumno", "agregar un alumno", "agrega al alumno", "agregar al alumno", "agrega alumno", "agregar alumno",
+            "registra un alumno", "registrar un alumno", "registra al alumno", "registrar al alumno", "registra alumno", "registrar alumno",
+            "un alumno nuevo", "un nuevo alumno", "una nueva alumna", "una alumna nueva",
             "nuevo alumno", "nuevo estudiante", "nueva estudiante", "nueva alumna",
             "create student", "add student"
         ).any { it in query }

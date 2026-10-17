@@ -40,6 +40,7 @@ class SueAgentImplTest {
     @Before
     fun setUp() {
         studentTools = mockk(relaxed = true)
+        coEvery { studentTools.extractRelevantStudent(any()) } returns null
         scheduleTools = mockk(relaxed = true)
         dateTimeProvider = mockk {
             every { getNow() } returns fixedNow
@@ -514,5 +515,82 @@ class SueAgentImplTest {
         assertTrue("Prompt should show total count and students count", prompt.contains("20 entre 2 alumnos"))
         assertTrue("Prompt should show Claudia with count", prompt.contains("Claudia: 10 archivo(s)"))
         assertTrue("Prompt should show Marcos with count", prompt.contains("Marcos: 10 archivo(s)"))
+    }
+
+    @Test
+    fun `detectActionIntent creates student in one turn with llamalo and y ponle`() = runTest {
+        coEvery { studentTools.prepareCreateStudent("Nuevo", "", "", 9.0) } returns
+            SueOperationResult.Prepare.Success(
+                SuePendingAction.CreateStudent("Nuevo", "", "", 9.0)
+            )
+
+        agent.resetConversationContext()
+        val result = agent.detectActionIntent("crea un alumno llamalo nuevo y ponle la clase a 9€ la hora.")
+
+        assertTrue("Should detect CreateStudent directly without loop", result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.CreateStudent
+        assertEquals("Nuevo", action.name)
+        assertEquals(9.0, action.pricePerHour, 0.001)
+        assertEquals("", action.subjects)
+    }
+
+    @Test
+    fun `detectActionIntent handles multi-turn student creation with 9 euro symbol without looping`() = runTest {
+        agent.resetConversationContext()
+
+        // Turn 1: create student name only
+        val turn1Result = agent.detectActionIntent("crea un alumno llamalo nuevo")
+        assertTrue("Turn 1 should ask for price", turn1Result is SueOperationResult.Prepare.Error)
+        assertEquals("¿Cuál será el precio por hora de Nuevo?", (turn1Result as SueOperationResult.Prepare.Error).details)
+
+        // Turn 2: answer with "9€"
+        coEvery { studentTools.prepareCreateStudent("Nuevo", "", "", 9.0) } returns
+            SueOperationResult.Prepare.Success(
+                SuePendingAction.CreateStudent("Nuevo", "", "", 9.0)
+            )
+
+        val turn2Result = agent.detectActionIntent("9€")
+        assertTrue("Turn 2 should successfully prepare CreateStudent", turn2Result is SueOperationResult.Prepare.Success)
+        val action = (turn2Result as SueOperationResult.Prepare.Success).action as SuePendingAction.CreateStudent
+        assertEquals("Nuevo", action.name)
+        assertEquals(9.0, action.pricePerHour, 0.001)
+        assertEquals("", action.subjects)
+    }
+
+    @Test
+    fun `detectActionIntent handles multi-turn student creation with bare number without looping`() = runTest {
+        agent.resetConversationContext()
+
+        // Turn 1
+        agent.detectActionIntent("crea un alumno llamalo nuevo")
+
+        // Turn 2: bare number "9"
+        coEvery { studentTools.prepareCreateStudent("Nuevo", "", "", 9.0) } returns
+            SueOperationResult.Prepare.Success(
+                SuePendingAction.CreateStudent("Nuevo", "", "", 9.0)
+            )
+
+        val turn2Result = agent.detectActionIntent("9")
+        assertTrue("Turn 2 bare number should prepare CreateStudent", turn2Result is SueOperationResult.Prepare.Success)
+        val action = (turn2Result as SueOperationResult.Prepare.Success).action as SuePendingAction.CreateStudent
+        assertEquals("Nuevo", action.name)
+        assertEquals(9.0, action.pricePerHour, 0.001)
+    }
+
+    @Test
+    fun `detectActionIntent supports multiple subjects joined by comma`() = runTest {
+        coEvery { studentTools.prepareCreateStudent("Marcos", "", "Matemáticas, Física", 15.0) } returns
+            SueOperationResult.Prepare.Success(
+                SuePendingAction.CreateStudent("Marcos", "", "Matemáticas, Física", 15.0)
+            )
+
+        agent.resetConversationContext()
+        val result = agent.detectActionIntent("crea un alumno Marcos para matemáticas y física a 15 la hora")
+
+        assertTrue("Should extract multiple subjects", result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.CreateStudent
+        assertEquals("Marcos", action.name)
+        assertEquals("Matemáticas, Física", action.subjects)
+        assertEquals(15.0, action.pricePerHour, 0.001)
     }
 }

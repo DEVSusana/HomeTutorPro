@@ -18,7 +18,7 @@ import java.util.Locale
  */
 object SueResponseFormatter {
 
-    private val DATE_FORMATTER_ES = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "ES"))
+    private val DATE_FORMATTER_ES = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-ES"))
 
     private val DAY_NAMES_ES = mapOf(
         1 to "lunes", 2 to "martes", 3 to "miércoles",
@@ -235,7 +235,8 @@ object SueResponseFormatter {
                 "Di sí para confirmar o no para cancelar."
         }
         is SuePendingAction.CreateStudent -> {
-            "¿Confirmas crear el alumno ${action.name} de ${action.subjects} a ${action.pricePerHour} euros la hora? " +
+            val subjectPart = if (action.subjects.isNotBlank()) " de ${action.subjects}" else ""
+            "¿Confirmas crear el alumno ${action.name}$subjectPart a ${action.pricePerHour} euros la hora? " +
                 "Di sí para confirmar o no para cancelar."
         }
         is SuePendingAction.DeleteStudent -> {

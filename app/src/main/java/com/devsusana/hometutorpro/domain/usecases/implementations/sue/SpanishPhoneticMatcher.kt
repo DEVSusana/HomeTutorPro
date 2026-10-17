@@ -39,11 +39,20 @@ class SpanishPhoneticMatcher @Inject constructor() {
     }
 
     /**
-     * Normalizes colloquial or abbreviated subject names to their official standard names.
+     * Normalizes a single colloquial or abbreviated subject name to its official standard name.
      */
-    fun normalizeSubject(rawSubject: String): String {
-        val clean = Normalizer.normalize(rawSubject.lowercase(Locale.ROOT).trim(), Normalizer.Form.NFD)
+    fun normalizeSingleSubject(rawSubject: String): String {
+        val trimmed = rawSubject.trim()
+        if (trimmed.isBlank()) return ""
+        val clean = Normalizer.normalize(trimmed.lowercase(Locale.ROOT), Normalizer.Form.NFD)
             .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+
+        // Filter out non-subject conversational filler words
+        val nonSubjectWords = setOf(
+            "clase", "clases", "dar clase", "dar clases", "la clase", "las clases",
+            "general", "ninguna", "nada", "asignatura", "asignaturas"
+        )
+        if (clean in nonSubjectWords) return ""
 
         return when (clean) {
             "mates", "mate", "matematicas" -> "Matemáticas"
@@ -58,9 +67,40 @@ class SpanishPhoneticMatcher @Inject constructor() {
             "historia" -> "Historia"
             "filo", "filosofia" -> "Filosofía"
             "economia" -> "Economía"
-            else -> rawSubject.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            "musica" -> "Música"
+            "plastica", "dibujo" -> "Plástica"
+            "latin" -> "Latín"
+            "griego" -> "Griego"
+            "tecnologia", "tecno" -> "Tecnología"
+            "informatica" -> "Informática"
+            else -> trimmed.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         }
     }
+
+    /**
+     * Normalizes colloquial, abbreviated, or compound subject names (e.g. "mates y física", "lengua, inglés")
+     * to their official standard names joined by comma. Returns an empty string if blank or non-subject filler.
+     */
+    fun normalizeSubjects(rawSubjects: String): String {
+        if (rawSubjects.isBlank()) return ""
+        val splitRegex = Regex("""\s*(?:,|;|/|\s+y\s+|\s+e\s+)\s*""", RegexOption.IGNORE_CASE)
+        val items = rawSubjects.split(splitRegex)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+
+        if (items.isEmpty()) return ""
+
+        val normalized = items.mapNotNull { single ->
+            val res = normalizeSingleSubject(single)
+            if (res.isNotBlank()) res else null
+        }
+        return normalized.distinct().joinToString(", ")
+    }
+
+    /**
+     * Normalizes colloquial or abbreviated subject names to their official standard names.
+     */
+    fun normalizeSubject(rawSubject: String): String = normalizeSubjects(rawSubject)
 
     /**
      * Resolves conversational Spanish temporal idioms to 24-hour HH:mm representations.

@@ -404,6 +404,24 @@ class StudentToolsTest {
         })}
     }
 
+    @Test
+    fun `executeCreateStudent preserves blank subjects without forcing General`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(User(uid = "prof-1", email = "test@example.com", displayName = "Professor"))
+        coEvery { saveStudentUseCase("prof-1", any()) } returns Result.Success("stu-new")
+
+        val action = SuePendingAction.CreateStudent("Nuevo", "", "", 9.0)
+
+        val result = studentTools.executeCreateStudent(action)
+
+        assertTrue(result is SueOperationResult.Execute.Success)
+        coVerify { saveStudentUseCase("prof-1", withArg {
+            assertEquals("Nuevo", it.name)
+            assertEquals("", it.course)
+            assertEquals("", it.subjects)
+            assertEquals(9.0, it.pricePerHour, 0.001)
+        })}
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // prepareDeleteStudent & executeDeleteStudent
     // ──────────────────────────────────────────────────────────────────────────

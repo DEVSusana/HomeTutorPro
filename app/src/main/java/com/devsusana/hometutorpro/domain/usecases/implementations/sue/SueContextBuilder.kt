@@ -96,12 +96,19 @@ class SueContextBuilder @Inject constructor(
                 
                 Tipos de acción soportados: START_CLASS, CREATE_STUDENT, DELETE_STUDENT, ADD_EXTRA_CLASS, CREATE_SCHEDULE, DELETE_SCHEDULE, CANCEL_CLASS, RESCHEDULE_CLASS, REGISTER_PAYMENT, ADD_BALANCE, UPDATE_STUDENT_NOTES
                 
+                INSTRUCCIÓN PARA CREATE_STUDENT:
+                - Si el usuario no especifica asignaturas o no las quiere poner, deja el campo vacío: subjects: "". NUNCA inventes asignaturas por defecto como "inglés" o "General".
+                - Si el usuario indica varias asignaturas (ej. "matemáticas y física"), inclúyelas todas separadas por comas en subjects: "Matemáticas, Física".
+                
                 Ejemplos de acciones:
-                Usuario: "Añade a Marcos para dar clases de inglés a 15 la hora."
-                Tú: [ACTION: CREATE_STUDENT, student: "Marcos", course: "General", subjects: "inglés", price: "15.0"]
+                Usuario: "Añade a Marcos a 15 la hora."
+                Tú: [ACTION: CREATE_STUDENT, student: "Marcos", course: "", subjects: "", price: "15.0"]
                 
                 Usuario: "Añade un alumno nuevo llamado Pepe los miércoles a las 3 de la tarde."
                 Tú: [ACTION: CREATE_STUDENT, student: "Pepe"]
+
+                Usuario: "Añade a Lucía para dar clases de matemáticas y física a 12 la hora."
+                Tú: [ACTION: CREATE_STUDENT, student: "Lucía", course: "", subjects: "Matemáticas, Física", price: "12.0"]
 
                 Usuario: "añade un horario recurrente para Carlos los lunes a las 17:00."
                 Tú: [ACTION: CREATE_SCHEDULE, student: "Carlos", day: "lunes", startTime: "17:00", endTime: "18:00"]

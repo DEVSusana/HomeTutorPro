@@ -73,7 +73,7 @@ class SueActionParser @Inject constructor(
                     if (student != null) studentTools.prepareStartClass(student, params["duration"]?.toIntOrNull() ?: 60) else null
                 }
                 "CREATE_STUDENT" -> {
-                    if (student != null) studentTools.prepareCreateStudent(student, params["course"] ?: "General", params["subjects"] ?: "General", params["price"]?.toDoubleOrNull() ?: 0.0) else null
+                    if (student != null) studentTools.prepareCreateStudent(student, params["course"] ?: "", params["subjects"] ?: "", params["price"]?.toDoubleOrNull() ?: 0.0) else null
                 }
                 "DELETE_STUDENT" -> {
                     if (student != null) studentTools.prepareDeleteStudent(student) else null

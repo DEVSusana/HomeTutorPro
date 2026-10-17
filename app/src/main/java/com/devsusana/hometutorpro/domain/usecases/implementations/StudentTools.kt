@@ -335,8 +335,8 @@ class StudentTools @Inject constructor(
         val student = Student(
             professorId = professorId,
             name = action.name,
-            course = action.course.ifBlank { "Other" },
-            subjects = action.subjects.ifBlank { "General" },
+            course = action.course.trim(),
+            subjects = action.subjects.trim(),
             pricePerHour = action.pricePerHour,
             address = "No address", // Business rule mandatory field
             studentEmail = "${action.name.lowercase().replace(" ", "")}@example.com", // Business rule mandatory field
