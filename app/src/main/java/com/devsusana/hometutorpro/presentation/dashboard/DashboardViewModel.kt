@@ -40,6 +40,7 @@ import javax.inject.Inject
 
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget
 import androidx.compose.runtime.Immutable
@@ -57,7 +58,8 @@ class DashboardViewModel @Inject constructor(
     private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
     private val startActiveSessionUseCase: IStartActiveSessionUseCase,
-    private val application: Application
+    private val application: Application,
+    private val stopActiveSessionUseCase: IStopActiveSessionUseCase? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
@@ -240,15 +242,20 @@ class DashboardViewModel @Inject constructor(
                                 studentName = student.name,
                                 startTimeMillis = System.currentTimeMillis(),
                                 durationMinutes = durationMinutes.toLong(),
-                                isOngoing = true
+                                isOngoing = true,
+                                tutorId = uid
                             )
                         )
                         ClassTimerWidget.updateWidget(application)
 
-                        scheduleClassEndNotificationUseCase(
+                        val scheduled = scheduleClassEndNotificationUseCase(
                             student.name,
                             durationMinutes.toLong()
                         )
+                        if (!scheduled) {
+                            stopActiveSessionUseCase?.invoke()
+                            ClassTimerWidget.updateWidget(application)
+                        }
                         
                         dismissDialog()
                         loadDashboardData()

@@ -466,8 +466,7 @@ class ScheduleTools @Inject constructor(
             }
             val extraOnDay = studentExtraExceptions.firstOrNull { exc ->
                 val excDate = java.time.Instant.ofEpochMilli(exc.date).atZone(ZoneId.systemDefault()).toLocalDate()
-                val excDay = exc.newDayOfWeek?.value ?: excDate.dayOfWeek.value
-                excDay == dayOfWeek && (time == null || exc.newStartTime == time || exc.newStartTime.substringBefore(":") == time.substringBefore(":"))
+                excDate == targetDate && (time == null || exc.newStartTime == time || exc.newStartTime.substringBefore(":") == time.substringBefore(":"))
             }
 
             if (extraOnDay != null && (preferExtra || (time != null && (extraOnDay.newStartTime == time || extraOnDay.newStartTime.substringBefore(":") == time.substringBefore(":"))))) {
@@ -494,19 +493,18 @@ class ScheduleTools @Inject constructor(
                 ?: daySchedules.firstOrNull { it.startTime.substringBefore(":") == time.substringBefore(":") }
                 ?: daySchedules.firstOrNull()
         } else {
-            daySchedules.firstOrNull() ?: if (schedules.size == 1) schedules.first() else null
+            daySchedules.firstOrNull()
         }
 
-        // 3. Fallback to extra class if regular was not found but extra exists
+        // 3. Fallback to extra class if regular was not found but extra exists on requested targetDate
         if (match == null && student != null) {
             val studentExtraExceptions = allExceptions.filter { exc ->
                 exc.studentId == student.studentId && exc.type == ExceptionType.EXTRA
             }
             val fallbackExtra = studentExtraExceptions.firstOrNull { exc ->
                 val excDate = java.time.Instant.ofEpochMilli(exc.date).atZone(ZoneId.systemDefault()).toLocalDate()
-                val excDay = exc.newDayOfWeek?.value ?: excDate.dayOfWeek.value
-                excDay == dayOfWeek
-            } ?: studentExtraExceptions.firstOrNull()
+                excDate == targetDate && (time == null || exc.newStartTime == time || exc.newStartTime.substringBefore(":") == time.substringBefore(":"))
+            }
 
             if (fallbackExtra != null) {
                 val action = SuePendingAction.CancelClass(
@@ -554,7 +552,7 @@ class ScheduleTools @Inject constructor(
                 ?: daySchedules.firstOrNull { it.startTime.substringBefore(":") == fromTime.substringBefore(":") }
                 ?: daySchedules.firstOrNull()
         } else {
-            daySchedules.firstOrNull() ?: if (schedules.size == 1) schedules.first() else null
+            daySchedules.firstOrNull()
         }
 
         if (match == null) {

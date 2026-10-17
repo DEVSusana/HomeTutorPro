@@ -19,7 +19,10 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
 
 import com.devsusana.hometutorpro.domain.usecases.implementations.sue.SpanishPhoneticMatcher
@@ -42,7 +45,9 @@ class StudentTools @Inject constructor(
     private val authRepository: AuthRepository,
     private val getSharedResourcesUseCase: IGetSharedResourcesUseCase,
     private val agentContextRepository: AgentContextRepository,
-    private val phoneticMatcher: SpanishPhoneticMatcher
+    private val phoneticMatcher: SpanishPhoneticMatcher,
+    private val startActiveSessionUseCase: IStartActiveSessionUseCase? = null,
+    private val stopActiveSessionUseCase: IStopActiveSessionUseCase? = null
 ) {
 
     constructor(
@@ -67,7 +72,9 @@ class StudentTools @Inject constructor(
         authRepository = authRepository,
         getSharedResourcesUseCase = getSharedResourcesUseCase,
         agentContextRepository = agentContextRepository,
-        phoneticMatcher = SpanishPhoneticMatcher()
+        phoneticMatcher = SpanishPhoneticMatcher(),
+        startActiveSessionUseCase = null,
+        stopActiveSessionUseCase = null
     )
 
     /**
@@ -268,7 +275,20 @@ class StudentTools @Inject constructor(
 
         return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
             is Result.Success -> {
-                scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
+                startActiveSessionUseCase?.invoke(
+                    ActiveSession(
+                        studentId = student.id,
+                        studentName = student.name,
+                        startTimeMillis = System.currentTimeMillis(),
+                        durationMinutes = action.durationMinutes.toLong(),
+                        isOngoing = true,
+                        tutorId = professorId
+                    )
+                )
+                val scheduled = scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
+                if (!scheduled) {
+                    stopActiveSessionUseCase?.invoke()
+                }
                 SueOperationResult.Execute.Success(action)
             }
             is Result.Error -> SueOperationResult.Execute.Error(result.error)

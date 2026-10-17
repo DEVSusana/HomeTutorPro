@@ -17,8 +17,12 @@ import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
 import com.devsusana.hometutorpro.domain.entities.ScheduleType
+import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.usecases.ICleanupDuplicatesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
+import com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
@@ -51,7 +55,9 @@ class WeeklyScheduleViewModel @Inject constructor(
     private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
     private val cleanupDuplicatesUseCase: ICleanupDuplicatesUseCase,
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
-    private val application: Application
+    private val application: Application,
+    private val startActiveSessionUseCase: IStartActiveSessionUseCase? = null,
+    private val stopActiveSessionUseCase: IStopActiveSessionUseCase? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WeeklyScheduleState())
@@ -212,10 +218,26 @@ class WeeklyScheduleViewModel @Inject constructor(
                 
                 when (addToBalanceUseCase(uid, studentId, priceToAdd)) {
                     is Result.Success<*> -> {
-                        scheduleClassEndNotificationUseCase(
+                        startActiveSessionUseCase?.invoke(
+                            ActiveSession(
+                                studentId = student.id,
+                                studentName = student.name,
+                                startTimeMillis = System.currentTimeMillis(),
+                                durationMinutes = durationMinutes.toLong(),
+                                isOngoing = true,
+                                tutorId = uid
+                            )
+                        )
+                        ClassTimerWidget.updateWidget(application)
+
+                        val scheduled = scheduleClassEndNotificationUseCase(
                             student.name,
                             durationMinutes.toLong()
                         )
+                        if (!scheduled) {
+                            stopActiveSessionUseCase?.invoke()
+                            ClassTimerWidget.updateWidget(application)
+                        }
                         
                         dismissDialog()
                         loadWeeklySchedule() 

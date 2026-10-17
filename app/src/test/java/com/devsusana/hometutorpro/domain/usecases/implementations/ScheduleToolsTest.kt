@@ -377,6 +377,31 @@ class ScheduleToolsTest {
         assertEquals("17:00", action.startTime)
     }
 
+    @Test
+    fun `prepareCancelAction returns Error CLASS_NOT_FOUND when student has class on another day`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(mockUser)
+        coEvery { exceptionRepository.getAllExceptions(any()) } returns emptyList()
+        coEvery { queryStudentsUseCase.searchByName("María") } returns listOf(mariaStudentDetail)
+        val sFriday = AgentScheduleDetail("sched-5", "stu-1", "María", 5, "17:00", "18:00")
+        coEvery { querySchedulesUseCase.getSchedulesByStudentName("María") } returns listOf(sFriday)
+
+        val result = scheduleTools.prepareCancelAction("María", dayOfWeek = 2)
+
+        assertTrue(result is SueOperationResult.Prepare.Error)
+        assertEquals(SueOperationResult.ErrorType.CLASS_NOT_FOUND, (result as SueOperationResult.Prepare.Error).errorType)
+    }
+
+    @Test
+    fun `prepareRescheduleAction returns Error CLASS_NOT_FOUND when student has class on another day`() = runTest {
+        val sFriday = AgentScheduleDetail("sched-5", "stu-1", "María", 5, "17:00", "18:00")
+        coEvery { querySchedulesUseCase.getSchedulesByStudentName("María") } returns listOf(sFriday)
+
+        val result = scheduleTools.prepareRescheduleAction("María", fromDayOfWeek = 2, toDayOfWeek = 3, newStartTime = "18:00")
+
+        assertTrue(result is SueOperationResult.Prepare.Error)
+        assertEquals(SueOperationResult.ErrorType.CLASS_NOT_FOUND, (result as SueOperationResult.Prepare.Error).errorType)
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // executeCancelAction
     // ──────────────────────────────────────────────────────────────────────────

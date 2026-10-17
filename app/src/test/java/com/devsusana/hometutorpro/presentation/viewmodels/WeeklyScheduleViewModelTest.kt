@@ -140,4 +140,45 @@ class WeeklyScheduleViewModelTest {
         assertEquals(schedule.id, regularItem?.schedule?.id)
         assertFalse(viewModel.state.value.isLoading)
     }
+
+    @Test
+    fun `startClass invokes startActiveSessionUseCase and schedules notification`() = runTest {
+        val user = User(uid = "user123", email = "test@test.com", displayName = "Test User")
+        every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
+        every { getStudentsUseCase("user123") } returns flowOf(emptyList())
+        every { getAllSchedulesUseCase("user123") } returns flowOf(emptyList())
+        every { getAllScheduleExceptionsUseCase("user123") } returns flowOf(emptyList())
+
+        val student = Student(id = "student1", name = "Student 1", professorId = "user123", pricePerHour = 20.0, isActive = true)
+        coEvery { getStudentByIdUseCase("user123", "student1") } returns flowOf(student)
+        coEvery { addToBalanceUseCase("user123", "student1", any()) } returns com.devsusana.hometutorpro.domain.core.Result.Success(Unit)
+
+        val scheduleNotification: com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase = mockk(relaxed = true) {
+            every { this@mockk.invoke(any(), any()) } returns true
+        }
+        val startActiveSession: com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase = mockk(relaxed = true)
+
+        viewModel = WeeklyScheduleViewModel(
+            getCurrentUserUseCase,
+            getStudentsUseCase,
+            getAllSchedulesUseCase,
+            getStudentByIdUseCase,
+            getAllScheduleExceptionsUseCase,
+            saveScheduleExceptionUseCase,
+            deleteScheduleExceptionUseCase,
+            addToBalanceUseCase,
+            generateCalendarOccurrencesUseCase,
+            cleanupDuplicatesUseCase,
+            scheduleNotification,
+            application,
+            startActiveSessionUseCase = startActiveSession
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.startClass("student1", 60)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { startActiveSession(match { it.studentId == "student1" && it.tutorId == "user123" && it.durationMinutes == 60L }) }
+        verify(exactly = 1) { scheduleNotification("Student 1", 60L) }
+    }
 }
