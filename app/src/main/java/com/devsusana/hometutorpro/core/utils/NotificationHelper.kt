@@ -118,4 +118,19 @@ object NotificationHelper {
         
         android.util.Log.d("NotificationHelper", "Notification displayed with ID: $NOTIFICATION_ID")
     }
+
+    fun cancelClassEndNotification(context: Context) {
+        android.util.Log.d("NotificationHelper", "Canceling class end notification")
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        val intent = android.content.Intent(context, com.devsusana.hometutorpro.core.receiver.ClassEndReceiver::class.java)
+        val pendingIntent = android.app.PendingIntent.getBroadcast(
+            context,
+            NOTIFICATION_ID,
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+        android.util.Log.d("NotificationHelper", "Notification canceled successfully")
+    }
 }

@@ -43,6 +43,8 @@ class NotifyClassEndUseCaseImplTest {
             showClassEndNotificationCalled = true
             lastStudentName = studentName
         }
+
+        override fun cancelClassEndNotification() {}
     }
 
     @Test

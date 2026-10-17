@@ -1,175 +1,175 @@
-# Guía Exhaustiva de Codificación en Android Studio
+# Comprehensive Android Studio Coding Guide
 
-**Objetivo:** Este documento establece directrices estrictas y explícitas para generar código en proyectos Android, asegurando la adhesión a Kotlin, Jetpack Compose, Arquitectura Limpia y las mejores prácticas de desarrollo profesional.
-
----
-
-## 1. Fundamentos Tecnológicos Obligatorios
-
-* **Lenguaje Principal:** Kotlin (exclusivo para todo el código de aplicación y pruebas).
-* **Framework de UI:** Jetpack Compose (exclusivo para la construcción de interfaces de usuario).
-* **Gestión de Concurrencia:** Kotlin Coroutines (exclusivo para operaciones asíncronas y concurrentes).
-* **Base de Datos Local:** Room Database (preferido para persistencia de datos local).
-* **Base de Datos en la Nube:** Firebase Cloud Firestore (preferido para sincronización de datos y base de datos cloud).
-* **Integración API REST:** Retrofit (preferido para conexiones y consumo de APIs REST externas).
+**Objective:** This document establishes strict and explicit guidelines for generating code in Android projects, ensuring adherence to Kotlin, Jetpack Compose, Clean Architecture, and professional development best practices.
 
 ---
 
-## 2. Arquitectura de Software Obligatoria: Arquitectura Limpia con MVVM
+## 1. Mandatory Technological Foundations
 
-Implementar rigurosamente la **Arquitectura Limpia (Clean Architecture)** con **MVVM (Model-View-ViewModel)** en la capa de presentación. La separación de responsabilidades entre capas debe ser absoluta.
-
-* **Capa de Dominio (`domain`):**
-    * **Propósito:** Contiene la lógica de negocio central de la aplicación. Es completamente independiente de cualquier framework, base de datos o UI.
-    * **Contenido:** Entidades, interfaces de casos de uso (Use Cases), interfaces de repositorios.
-    * **Principio:** Pura lógica de negocio, sin dependencias de Android SDK ni frameworks externos (excepto Kotlin estándar).
-    * **Reglas de Negocio Obligatorias:** Toda la implementación de la lógica y casos de uso en esta capa debe cumplir de manera inflexible con lo especificado en el archivo `BUSINESS_RULES.md` en la raíz del proyecto.
-
-* **Capa de Datos (`data`):**
-    * **Propósito:** Responsable de la obtención, transformación y persistencia de datos. Implementa las interfaces de repositorio definidas en la capa de Dominio.
-    * **Contenido:** Implementaciones concretas de repositorios, Data Sources (locales y remotos), modelos de datos específicos de la capa (`data models`), mappers para convertir entre `data models` y entidades de `domain`.
-    * **Principio:** Abstracta la fuente de datos subyacente de la lógica de negocio.
-
-* **Capa de Presentación (`presentation` / `ui`):**
-    * **Propósito:** Gestiona la interfaz de usuario y la interacción del usuario. Observa estados y envía eventos a la lógica de negocio.
-    * **Contenido:** Composable Screens, Composable Components, ViewModels, lógica de navegación.
-    * **Principio:** La UI solo sabe cómo mostrar datos y reaccionar a la entrada del usuario; no contiene lógica de negocio directamente.
+* **Primary Language:** Kotlin (exclusive for all application and test code).
+* **UI Framework:** Jetpack Compose (exclusive for building user interfaces).
+* **Concurrency Management:** Kotlin Coroutines (exclusive for asynchronous and concurrent operations).
+* **Local Database:** Room Database (preferred for local data persistence).
+* **Cloud Database:** Firebase Cloud Firestore (preferred for data synchronization and cloud database).
+* **REST API Integration:** Retrofit (preferred for external REST API connections and consumption).
 
 ---
 
-## 3. Convenciones de Nomenclatura y Estilo de Código Estrictas
+## 2. Mandatory Software Architecture: Clean Architecture with MVVM
 
-* **Adherencia Inflexible a la Guía de API de Compose:** [https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md)
-* **Nombres Descriptivos y Unívocos:** Todas las entidades de código (funciones, variables, clases, paquetes, módulos) deben tener nombres que reflejen claramente su propósito y responsabilidad. Evitar abreviaturas ambiguas.
+Strictly implement **Clean Architecture** with **MVVM (Model-View-ViewModel)** in the presentation layer. The separation of concerns between layers must be absolute.
+
+* **Domain Layer (`domain`):**
+    * **Purpose:** Contains the core business logic of the application. It is completely independent of any framework, database, or UI.
+    * **Content:** Entities, use case interfaces (Use Cases), repository interfaces.
+    * **Principle:** Pure business logic, with no dependencies on the Android SDK or external frameworks (except standard Kotlin).
+    * **Mandatory Business Rules:** All logic and use case implementations in this layer must inflexibly comply with the specifications in the `BUSINESS_RULES.md` file at the root of the project.
+
+* **Data Layer (`data`):**
+    * **Purpose:** Responsible for data retrieval, transformation, and persistence. Implements the repository interfaces defined in the Domain layer.
+    * **Content:** Concrete repository implementations, Data Sources (local and remote), layer-specific data models (`data models`), mappers to convert between `data models` and `domain` entities.
+    * **Principle:** Abstracts the underlying data source from the business logic.
+
+* **Presentation Layer (`presentation` / `ui`):**
+    * **Purpose:** Manages the user interface and user interaction. Observes states and dispatches events to business logic.
+    * **Content:** Composable Screens, Composable Components, ViewModels, navigation logic.
+    * **Principle:** The UI only knows how to display data and react to user input; it does not contain business logic directly.
+
+---
+
+## 3. Strict Naming Conventions and Code Style
+
+* **Inflexible Adherence to Compose API Guidelines:** [https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md)
+* **Descriptive and Unambiguous Names:** All code entities (functions, variables, classes, packages, modules) must have names that clearly reflect their purpose and responsibility. Avoid ambiguous abbreviations.
 * **Case Convention:**
-    * **`camelCase`:** Para nombres de variables, funciones y parámetros (ej. `myLocalVariable`, `calculateTotalPrice()`).
-    * **`PascalCase`:** Para nombres de clases, interfaces, objetos y archivos Kotlin (ej. `MyAwesomeClass`, `HomeScreen.kt`).
-    * **`SCREAMING_SNAKE_CASE`:** Para constantes (ej. `API_KEY`).
-* **Idioma:** **Todo el código (nombres, comentarios, mensajes, etc.) debe estar en inglés.** Esto incluye nombres de paquetes, clases, funciones y variables.
-* **Código Limpio (Clean Code):**
-    * **Principios SOLID:** La implementación de todos los componentes debe adherirse estrictamente a los principios SOLID (Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion).
-    * **Funciones y Clases Pequeñas:** Cada función debe tener una única responsabilidad. Las clases deben ser cohesivas y tener responsabilidades bien definidas.
-    * **DRY (Don't Repeat Yourself):** Evitar la duplicación de código a toda costa. Refactorizar y reutilizar componentes.
-    * **Legibilidad y Mantenibilidad:** El código debe ser fácilmente comprensible por cualquier desarrollador, incluso sin comentarios excesivos. Priorizar la claridad sobre la concisión.
-    * **Testabilidad:** El código generado debe ser intrínsecamente fácil de testear unitaria e integradamente (ver punto 8). Esto implica un bajo acoplamiento y alta cohesión.
+    * **`camelCase`:** For variable, function, and parameter names (e.g., `myLocalVariable`, `calculateTotalPrice()`).
+    * **`PascalCase`:** For class, interface, object, and Kotlin file names (e.g., `MyAwesomeClass`, `HomeScreen.kt`).
+    * **`SCREAMING_SNAKE_CASE`:** For constants (e.g., `API_KEY`).
+* **Language:** **All code (names, comments, messages, etc.) must be in English.** This includes package names, classes, functions, and variables.
+* **Clean Code:**
+    * **SOLID Principles:** The implementation of all components must strictly adhere to SOLID principles (Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion).
+    * **Small Functions and Classes:** Each function must have a single responsibility. Classes must be cohesive and have well-defined responsibilities.
+    * **DRY (Don't Repeat Yourself):** Avoid code duplication at all costs. Refactor and reuse components.
+    * **Readability and Maintainability:** Code must be easily understandable by any developer, even without excessive comments. Prioritize clarity over brevity.
+    * **Testability:** Generated code must be inherently easy to unit and integration test (see section 8). This implies low coupling and high cohesion.
 
 ---
 
-## 4. Componentes de UI con Jetpack Compose
+## 4. UI Components with Jetpack Compose
 
-* **Librerías Obligatorias:** Utilizar `material3` y los iconos extendidos de Compose.
-* **Previews Obligatorios:** Cada `Composable` que represente una UI visual significativa (especialmente `Screen` y `Content`) debe incluir al menos una función `@Preview`.
-* **Estructura Estricta de Composable para Pantallas:**
-    * **`Screen` Composable (Principal):** Cada pantalla de la aplicación DEBE tener un `Composable` principal con el sufijo `Screen` (ej. `HomeScreen`). Este `Composable` será el punto de entrada de la pantalla, se encargará de:
-        * Instanciar y gestionar el ViewModel asociado (generalmente a través de inyección de dependencias).
-        * Recolectar los estados del ViewModel.
-        * Pasar los estados y los callbacks de eventos al `Content` Composable.
-        * Gestionar componentes de alto nivel como `Scaffold`, `SnackbarHost`, etc.
-    * **`Content` Composable (Presentación Pura):** Para cada `Screen`, DEBE existir un `Composable` separado con el sufijo `Content` (ej. `HomeContent`). Este `Composable` es puramente de presentación:
-        * **NO** interactúa directamente con ViewModels ni lógica de negocio.
-        * Recibe **TODOS** los estados y los callbacks de eventos necesarios como parámetros de función (State Hoisting).
-        * Su única responsabilidad es renderizar la UI basándose en los parámetros recibidos.
-        * Debe ser fácilmente reutilizable y testeable de forma independiente.
-* **Componentes Comunes y Reutilizables:** Crear un paquete `presentation.ui.components` para alojar Composable genéricos y reutilizables en múltiples pantallas (ej. `AppToolbar.kt`, `LoadingIndicator.kt`, `ErrorDialog.kt`).
-* **Stateless Composables:** Priorizar la creación de `Stateless Composables` siempre que sea posible. El estado debe ser "levantado" (hoisted) a los Composable padres o, preferiblemente, a los ViewModels.
-
----
-
-## 5. Diseño de Layout en Compose: Reglas Recomendadas y Claras
-
-* **Uso de `ConstraintLayout`:** Recomendado para pantallas o `Content` complejos con múltiples relaciones, alineaciones cruzadas o dependencias visuales. No es obligatorio si un layout simple se resuelve mejor con `Row`, `Column` o `Box` sin anidamiento excesivo.
-* **Uso de `Row`, `Column`, `Box`:** Válidos y preferibles para layouts simples o jerárquicos que se leen claramente. Evitar anidamiento profundo; si el layout empieza a ser difícil de mantener, considerar `ConstraintLayout`.
-* **Eficiencia de árbol UI:** Priorizar jerarquías planas, `Lazy*` cuando corresponda y evitar contenedores innecesarios.
-* **State hoisting en Compose:** Los `Content` deben ser stateless siempre que sea razonable. El estado UI de pantalla vive en el `Screen` y usa `rememberSaveable` cuando el estado deba sobrevivir a recreaciones.
+* **Mandatory Libraries:** Use `material3` and Compose extended icons.
+* **Mandatory Previews:** Each `Composable` representing significant visual UI (especially `Screen` and `Content`) must include at least one `@Preview` function.
+* **Strict Composable Structure for Screens:**
+    * **`Screen` Composable (Main):** Each application screen MUST have a main `Composable` with the `Screen` suffix (e.g., `HomeScreen`). This `Composable` will be the screen's entry point, responsible for:
+        * Instantiating and managing the associated ViewModel (generally via dependency injection).
+        * Collecting ViewModel states.
+        * Passing states and event callbacks to the `Content` Composable.
+        * Managing top-level components such as `Scaffold`, `SnackbarHost`, etc.
+    * **`Content` Composable (Pure Presentation):** For each `Screen`, there MUST be a separate `Composable` with the `Content` suffix (e.g., `HomeContent`). This `Composable` is purely presentational:
+        * Does **NOT** interact directly with ViewModels or business logic.
+        * Receives **ALL** necessary states and event callbacks as function parameters (State Hoisting).
+        * Its sole responsibility is to render the UI based on received parameters.
+        * Must be easily reusable and independently testable.
+* **Common and Reusable Components:** Create a `presentation.ui.components` package to host generic and reusable Composables across multiple screens (e.g., `AppToolbar.kt`, `LoadingIndicator.kt`, `ErrorDialog.kt`).
+* **Stateless Composables:** Prioritize creating `Stateless Composables` whenever possible. State must be hoisted to parent Composables or, preferably, to ViewModels.
 
 ---
 
-## 6. Organización Estricta de Clases por Capa y Carpeta
+## 5. Layout Design in Compose: Recommended and Clear Rules
 
-Gemini DEBE generar las clases en las siguientes ubicaciones específicas, respetando los paquetes y la estructura de directorios:
+* **Use of `ConstraintLayout`:** Recommended for complex screens or `Content` with multiple relationships, cross-alignments, or visual dependencies. Not mandatory if a simple layout is better resolved with `Row`, `Column`, or `Box` without excessive nesting.
+* **Use of `Row`, `Column`, `Box`:** Valid and preferred for simple or hierarchical layouts that read clearly. Avoid deep nesting; if the layout begins to be difficult to maintain, consider `ConstraintLayout`.
+* **UI Tree Efficiency:** Prioritize flat hierarchies, `Lazy*` where appropriate, and avoid unnecessary containers.
+* **State Hoisting in Compose:** `Content` should be stateless whenever reasonable. Screen UI state lives in the `Screen` and uses `rememberSaveable` when state must survive recreations.
+
+---
+
+## 6. Strict Class Organization by Layer and Folder
+
+Gemini MUST generate classes in the following specific locations, respecting packages and directory structure:
 
 * **`app/src/main/java/com/yourpackage/domain/`**
-    * `entities/`: (Ej. `User.kt`, `Product.kt`) - Clases de datos inmutables (preferiblemente `data class`).
+    * `entities/`: (e.g., `User.kt`, `Product.kt`) - Immutable data classes (preferably `data class`).
     * `usecases/`:
-        * `interfaces/`: (Ej. `GetUserUseCase.kt`, `AddProductUseCase.kt`) - Interfaces para cada caso de uso.
-        * `implementations/`: (Ej. `GetUserUseCaseImpl.kt`) - Implementaciones concretas de las interfaces de casos de uso.
-    * `repositories/`: (Ej. `UserRepository.kt`, `ProductRepository.kt`) - Interfaces que definen los contratos para la interacción con la capa de datos.
-    * **`di/` (Opcional, para módulos de Hilt/Koin que provean dependencias de Dominio):**
-        * (Ej. `DomainModule.kt`) - Contiene la configuración de inyección para casos de uso o cualquier otra dependencia puramente de dominio.
+        * `interfaces/`: (e.g., `GetUserUseCase.kt`, `AddProductUseCase.kt`) - Interfaces for each use case.
+        * `implementations/`: (e.g., `GetUserUseCaseImpl.kt`) - Concrete implementations of use case interfaces.
+    * `repositories/`: (e.g., `UserRepository.kt`, `ProductRepository.kt`) - Interfaces defining contracts for interaction with the data layer.
+    * **`di/` (Optional, for Hilt/Koin modules providing Domain dependencies):**
+        * (e.g., `DomainModule.kt`) - Contains injection configuration for use cases or any pure domain dependency.
 
 * **`app/src/main/java/com/yourpackage/data/`**
-    * `repositories/impl/`: (Ej. `UserRepositoryImpl.kt`) - Implementaciones de las interfaces de repositorio de `domain`.
+    * `repositories/impl/`: (e.g., `UserRepositoryImpl.kt`) - Implementations of `domain` repository interfaces.
     * `datasources/`:
-        * `local/`: (Ej. `UserLocalDataSource.kt`) - Clases para acceder a fuentes de datos locales (Room, SharedPreferences).
-        * `remote/`: (Ej. `UserRemoteDataSource.kt`) - Clases para acceder a APIs remotas (Retrofit, Ktor Client).
-    * `models/`: (Ej. `UserApiModel.kt`, `UserDbModel.kt`) - Clases de datos específicas de la capa `data` (JSON, DB schemas).
-    * `mappers/`: (Ej. `UserMapper.kt`) - Clases o funciones para mapear entre `data models` y `domain entities` y viceversa.
-    * **`di/` (Obligatorio, para módulos de Hilt/Koin que provean dependencias de Datos):**
-        * (Ej. `DataModule.kt`, `NetworkModule.kt`, `DatabaseModule.kt`) - Contiene la configuración de inyección para repositorios, data sources, servicios de red, bases de datos.
+        * `local/`: (e.g., `UserLocalDataSource.kt`) - Classes to access local data sources (Room, SharedPreferences).
+        * `remote/`: (e.g., `UserRemoteDataSource.kt`) - Classes to access remote APIs (Retrofit, Ktor Client).
+    * `models/`: (e.g., `UserApiModel.kt`, `UserDbModel.kt`) - Layer-specific data classes (`data` layer) (JSON, DB schemas).
+    * `mappers/`: (e.g., `UserMapper.kt`) - Classes or functions to map between `data models` and `domain entities` and vice versa.
+    * **`di/` (Mandatory, for Hilt/Koin modules providing Data dependencies):**
+        * (e.g., `DataModule.kt`, `NetworkModule.kt`, `DatabaseModule.kt`) - Contains injection configuration for repositories, data sources, network services, databases.
 
 * **`app/src/main/java/com/yourpackage/presentation/`**
-    * `ui/screens/<feature_name>/`: (Ej. `home/HomeScreen.kt`, `home/HomeContent.kt`) - Un paquete por cada pantalla o feature principal, conteniendo los Composables `Screen` y `Content`.
-    * `ui/components/`: (Ej. `AppToolbar.kt`, `LoadingIndicator.kt`) - Componentes Composable reutilizables y genéricos.
-    * `viewmodels/`: (Ej. `HomeViewModel.kt`) - ViewModels asociados a cada pantalla o sección de UI.
-    * **`navigation/`:** (Ej. `AppNavGraph.kt`, `NavRoutes.kt`) - Lógica de navegación. Al generar rutas de navegación para Jetpack Compose Navigation, Gemini DEBE utilizar el enfoque de "type-safe navigation" o "navigation with arguments" a través de objetos de ruta/sealed classes que encapsulen la ruta y sus argumentos (ej. `object Home : NavRoute`, `data object Detail : NavRoute { val argument: String }`). No se permite la construcción manual de rutas con strings crudas y argumentos directamente en la URL.
-    * **`di/` (Obligatorio, para módulos de Hilt/Koin que provean dependencias de Presentación o a nivel de aplicación):**
-        * (Ej. `AppModule.kt`, `ViewModelModule.kt`) - Contiene la configuración de inyección para ViewModels, utilidades a nivel de UI, o cualquier otra dependencia que necesite ser configurada en la capa de aplicación principal (ej. Context, Application).
+    * `ui/screens/<feature_name>/`: (e.g., `home/HomeScreen.kt`, `home/HomeContent.kt`) - One package per screen or primary feature, containing `Screen` and `Content` Composables.
+    * `ui/components/`: (e.g., `AppToolbar.kt`, `LoadingIndicator.kt`) - Reusable and generic Composable components.
+    * `viewmodels/`: (e.g., `HomeViewModel.kt`) - ViewModels associated with each screen or UI section.
+    * **`navigation/`:** (e.g., `AppNavGraph.kt`, `NavRoutes.kt`) - Navigation logic. When generating navigation routes for Jetpack Compose Navigation, Gemini MUST use the "type-safe navigation" or "navigation with arguments" approach via route objects/sealed classes encapsulating the route and its arguments (e.g., `object Home : NavRoute`, `data object Detail : NavRoute { val argument: String }`). Manual route construction with raw strings and concatenated arguments directly in the URL is NOT permitted.
+    * **`di/` (Mandatory, for Hilt/Koin modules providing Presentation or application-level dependencies):**
+        * (e.g., `AppModule.kt`, `ViewModelModule.kt`) - Contains injection configuration for ViewModels, UI-level utilities, or any dependency configured in the main application layer (e.g., Context, Application).
 
 ---
 
-## 7. Inyección de Dependencias (DI): Hilt o Koin
+## 7. Dependency Injection (DI): Hilt or Koin
 
-* **Inyección de Dependencias Obligatoria:** Todas las dependencias deben ser inyectadas, preferiblemente a través de **inyección de constructor (Constructor Injection)**. Evitar Service Locators o Singletons globales manuales.
-* **Elección de Framework de DI:**
-    * **Hilt (Recomendado por defecto para proyectos Android):**
-        * **Uso:** Prioritario para proyectos grandes, a largo plazo, o cuando se busca la máxima integración con los componentes de Android y la verificación en tiempo de compilación.
-        * **Sintaxis:** Utiliza `@AndroidEntryPoint` para componentes Android, `@HiltViewModel` para ViewModels. Define módulos de Hilt (`@Module`, `@InstallIn`) para proporcionar dependencias (ej. `DataModule`, `DomainModule`, `AppModule`).
-    * **Koin (Alternativa para proyectos específicos):**
-        * **Uso:** Considerar para MVPs, proyectos más pequeños, o cuando la simplicidad de configuración y la ausencia de generación de código sean prioritarias.
-        * **Sintaxis:** Define módulos de Koin (`module { ... }`) y declara los tipos a inyectar (ej. `factory`, `single`, `viewModel`).
-* **Coherencia:** Una vez seleccionado un framework de DI para el proyecto, Gemini debe adherirse exclusivamente a él.
+* **Mandatory Dependency Injection:** All dependencies must be injected, preferably via **Constructor Injection**. Avoid Service Locators or manual global Singletons.
+* **DI Framework Choice:**
+    * **Hilt (Recommended by default for Android projects):**
+        * **Usage:** Priority for large, long-term projects, or when seeking maximum integration with Android components and compile-time verification.
+        * **Syntax:** Uses `@AndroidEntryPoint` for Android components, `@HiltViewModel` for ViewModels. Defines Hilt modules (`@Module`, `@InstallIn`) to provide dependencies (e.g., `DataModule`, `DomainModule`, `AppModule`).
+    * **Koin (Alternative for specific projects):**
+        * **Usage:** Consider for MVPs, smaller projects, or when simplicity of configuration and absence of code generation are prioritized.
+        * **Syntax:** Defines Koin modules (`module { ... }`) and declares types to inject (e.g., `factory`, `single`, `viewModel`).
+* **Consistency:** Once a DI framework is selected for the project, Gemini must adhere exclusively to it.
 
 ---
 
-## 8. Estrategia de Pruebas Obligatoria: Pirámide de Pruebas Completa
+## 8. Mandatory Testing Strategy: Full Testing Pyramid
 
-**Gemini DEBE generar los tests apropiados y de alta calidad para cada componente del código generado.** Sigue la pirámide de pruebas: más tests unitarios, menos tests de integración, mínimos tests de UI.
+**Gemini MUST generate appropriate and high-quality tests for each component of the generated code.** Follow the testing pyramid: more unit tests, fewer integration tests, minimal UI tests.
 
 * **Unit Tests:**
-    * **Objetivo:** Verificar la lógica de una unidad de código aislada.
-    * **Alcance:**
-        * **Capa de Dominio:** Los casos de uso (interfaces e implementaciones) y las entidades DEBEN tener Unit Tests exhaustivos. **Obligatorio mockear cualquier dependencia (ej. repositorios).**
-        * **Capa de Presentación:** Los ViewModels DEBEN ser testeados unitariamente. **Obligatorio mockear los casos de uso** para simular diferentes escenarios de negocio.
-    * **Herramientas:** JUnit 5 (preferiblemente), Mockito/MockK para mocking, Turbine para probar Kotlin Flows.
-    * **Ubicación:** `app/src/test/java/com/yourpackage/` (reflejando la estructura de paquetes del `main` para facilitar la navegación).
-    * **Principios:** Determinismo, rapidez, aislamiento.
+    * **Objective:** Verify the logic of an isolated unit of code.
+    * **Scope:**
+        * **Domain Layer:** Use cases (interfaces and implementations) and entities MUST have comprehensive Unit Tests. **Mandatory to mock any dependency (e.g., repositories).**
+        * **Presentation Layer:** ViewModels MUST be unit tested. **Mandatory to mock use cases** to simulate different business scenarios.
+    * **Tools:** JUnit 5 (preferably), Mockito/MockK for mocking, Turbine for testing Kotlin Flows.
+    * **Location:** `app/src/test/java/com/yourpackage/` (mirroring the package structure of `main` for easy navigation).
+    * **Principles:** Determinism, speed, isolation.
 
 * **Integration Tests:**
-    * **Objetivo:** Verificar la interacción correcta entre dos o más componentes de diferentes capas o subsistemas.
-    * **Alcance:**
-        * Ej. Probar un ViewModel con un caso de uso REAL, pero con el repositorio MOCKEADO.
-        * Ej. Probar la interacción entre un repositorio y un DataSource real (ej. una base de datos Room en memoria para pruebas).
-    * **Herramientas:** JUnit, frameworks de DI para construir el grafo de dependencias de prueba.
-    * **Ubicación:** `app/src/test/java/com/yourpackage/` (para tests que no requieren un emulador) o `app/src/androidTest/java/com/yourpackage/` (para tests que sí lo requieren, como Room).
+    * **Objective:** Verify the correct interaction between two or more components from different layers or subsystems.
+    * **Scope:**
+        * e.g., Testing a ViewModel with a REAL use case, but with a MOCKED repository.
+        * e.g., Testing the interaction between a repository and a real DataSource (e.g., an in-memory Room database for tests).
+    * **Tools:** JUnit, DI frameworks to construct the test dependency graph.
+    * **Location:** `app/src/test/java/com/yourpackage/` (for tests not requiring an emulator) or `app/src/androidTest/java/com/yourpackage/` (for tests that do require an emulator, such as Room).
 
 * **UI Tests (Instrumented Tests):**
-    * **Objetivo:** Verificar la interacción del usuario con la interfaz de usuario, el comportamiento visual y la integración de la capa de presentación con el ViewModel.
-    * **Alcance:** Probar `Composable Screens` y `Composable Content`.
-    * **Herramientas:** JUnit, `androidx.compose.ui.test` (Compose Test Rule, findNodeWithTag, performClick, assertIsDisplayed, etc.).
-    * **Ubicación:** `app/src/androidTest/java/com/yourpackage/` (reflejando la estructura de paquetes del `main`).
-    * **Principios:** Deben ser representativos de los flujos de usuario clave.
+    * **Objective:** Verify user interaction with the UI, visual behavior, and presentation layer integration with the ViewModel.
+    * **Scope:** Test `Composable Screens` and `Composable Content`.
+    * **Tools:** JUnit, `androidx.compose.ui.test` (Compose Test Rule, findNodeWithTag, performClick, assertIsDisplayed, etc.).
+    * **Location:** `app/src/androidTest/java/com/yourpackage/` (mirroring the package structure of `main`).
+    * **Principles:** Must be representative of key user flows.
 
 ---
 
-## 9. Escalabilidad y Mantenibilidad Avanzadas
+## 9. Advanced Scalability and Maintainability
 
-* **Modularización Robusta:**
-    * Fomentar la creación de módulos Gradle separados para cada capa (`:domain`, `:data`, `:presentation`) o por característica/feature (`:feature:home`, `:feature:profile`).
-    * Esta separación mejora significativamente los tiempos de compilación, refuerza la separación de preocupaciones y facilita la asignación de equipos en proyectos grandes.
-* **Manejo de Estados Consistente y UDF:**
-    * Implementar estrictamente el patrón **Unidirectional Data Flow (UDF)** para el manejo de estados en Compose. El estado fluye hacia abajo (del ViewModel a la UI) y los eventos fluyen hacia arriba (de la UI al ViewModel).
-    * Los ViewModels DEBEN exponer el estado de la UI como un único `StateFlow` inmutable del tipo de estado específico de la pantalla (ej. `StateFlow<MyUiState>`), y las acciones de un solo uso (eventos como navegación o Toasts) como `SharedFlow` o `Channel`.
-    * Se debe estandarizar la representación de estados asíncronos y cargas utilizando una interfaz sellada (`sealed interface` o `sealed class`) común para los estados de la UI:
+* **Robust Modularization:**
+    * Encourage the creation of separate Gradle modules for each layer (`:domain`, `:data`, `:presentation`) or by feature (`:feature:home`, `:feature:profile`).
+    * This separation significantly improves build times, reinforces separation of concerns, and facilitates team allocation on large projects.
+* **Consistent State Management and UDF:**
+    * Strictly implement the **Unidirectional Data Flow (UDF)** pattern for state management in Compose. State flows down (from ViewModel to UI) and events flow up (from UI to ViewModel).
+    * ViewModels MUST expose UI state as a single immutable `StateFlow` of the screen's specific state type (e.g., `StateFlow<MyUiState>`), and single-use actions (events like navigation or Toasts) as `SharedFlow` or `Channel`.
+    * Standardize the representation of asynchronous states and loads using a common sealed interface (`sealed interface` or `sealed class`) for UI states:
       ```kotlin
       sealed interface UiState<out T> {
           object Loading : UiState<Nothing>
@@ -177,78 +177,78 @@ Gemini DEBE generar las clases en las siguientes ubicaciones específicas, respe
           data class Error(val errorMessage: String) : UiState<Nothing>
       }
       ```
-      Alternativamente, se puede usar una clase de datos de estado con banderas explícitas (`isLoading`, `error`, `data`) si la pantalla requiere mantener vistas previas o estados mixtos, pero el flujo unidireccional debe respetarse rigurosamente.
-* **Manejo de Errores Global:**
-    * Definir y aplicar una estrategia de manejo de errores uniforme en todas las capas. Los errores deben ser capturados lo más cerca posible de su origen (ej. `data sources`), transformados en errores de dominio y manejados en la capa de presentación para notificar al usuario.
-* **Control de Concurrencia con Coroutines:**
-    * Utilizar exclusivamente **Kotlin Coroutines** para toda la gestión de operaciones asíncronas y concurrentes.
-    * Asegurar el uso correcto de `Dispatchers` para ejecutar el trabajo en el hilo adecuado (ej. `Dispatchers.IO` para operaciones de red/DB, `Dispatchers.Main` para actualizaciones de UI, `Dispatchers.Default` para operaciones intensivas en CPU).
-* **Documentación de Código Esencial (KDoc):**
-    * Agregar comentarios **KDoc** para clases, interfaces, funciones públicas y cualquier componente complejo que requiera una explicación clara de su propósito, parámetros, valores de retorno y posibles excepciones.
-    * Evitar comentarios redundantes que solo describan lo que el código ya dice.
+      Alternatively, a state data class with explicit flags (`isLoading`, `error`, `data`) can be used if the screen requires maintaining previews or mixed states, but unidirectional flow must be strictly respected.
+* **Global Error Handling:**
+    * Define and apply a uniform error handling strategy across all layers. Errors must be caught as close to their source as possible (e.g., `data sources`), transformed into domain errors, and handled in the presentation layer to notify the user.
+* **Concurrency Control with Coroutines:**
+    * Exclusively use **Kotlin Coroutines** for all asynchronous and concurrent operation management.
+    * Ensure the proper use of `Dispatchers` to execute work on the appropriate thread (e.g., `Dispatchers.IO` for network/DB operations, `Dispatchers.Main` for UI updates, `Dispatchers.Default` for CPU-intensive operations).
+* **Essential Code Documentation (KDoc):**
+    * Add **KDoc** comments for classes, interfaces, public functions, and any complex component requiring clear explanation of its purpose, parameters, return values, and potential exceptions.
+    * Avoid redundant comments that merely restate what the code already says.
 
 ---
 
-## 10. Procesos de Desarrollo y Herramientas
+## 10. Development Processes and Tools
 
-* **Verificación de Compilación Obligatoria:** Después de CADA cambio significativo en el código (ej. adición de una función, clase, pantalla, refactorización, integración de una nueva dependencia), **se DEBE realizar una compilación completa del proyecto** para identificar y corregir errores de compilación inmediatamente.
-* **Navegación de Tipos Seguros Obligatoria:** Utilizar siempre el componente de navegación de Jetpack Compose con un enfoque de **tipos seguros**. Esto implica definir rutas y argumentos usando objetos Kotlin (sealed classes o data objects) y pasar datos a través del grafo de navegación de forma segura. **NO se permite la construcción manual de rutas con strings crudas y argumentos concatenados.**
-* **Gestión de Dependencias Centralizada:** Todas las dependencias externas DEBEN ser agregadas y gestionadas utilizando el **catálogo de versiones en el fichero `libs.versions.toml`**.
-* **Sincronización del Proyecto:** Después de cualquier modificación en los archivos `build.gradle` o `libs.versions.toml`, se DEBE realizar una sincronización del proyecto.
+* **Mandatory Build Verification:** After EVERY significant code change (e.g., adding a function, class, screen, refactoring, integrating a new dependency), **a full project build MUST be executed** to identify and fix compilation errors immediately.
+* **Mandatory Type-Safe Navigation:** Always use the Jetpack Compose navigation component with a **type-safe** approach. This implies defining routes and arguments using Kotlin objects (sealed classes or data objects) and passing data through the navigation graph safely. **Manual route construction with raw strings and concatenated arguments is NOT permitted.**
+* **Centralized Dependency Management:** All external dependencies MUST be added and managed using the **version catalog in the `libs.versions.toml` file**.
+* **Project Synchronization:** After any modification in `build.gradle` or `libs.versions.toml` files, a project synchronization MUST be performed.
 
 ---
 
-## 11. Verificación Local mediante Agentes y Habilidades (Skills)
+## 11. Local Verification via Agents and Skills
 
-Dispones de un orquestador de agentes de auditoría local en tu máquina que puedes ejecutar de forma **opcional** para comprobar el código antes de subirlo. Dado que el pipeline de la CI remota en GitHub ejecuta exactamente estas mismas validaciones de forma automatizada al abrir o actualizar un Pull Request, la verificación local es puramente de diagnóstico y no forma parte del flujo obligatorio diario del asistente.
+You have a local audit agent orchestrator on your machine that you can run **optionally** to check code before pushing. Since the remote CI pipeline on GitHub executes these exact same automated validations upon opening or updating a Pull Request, local verification is purely diagnostic and is not part of the assistant's mandatory daily flow.
 
-### Prerrequisitos y Configuración
-Los scripts de agentes y habilidades viven en el directorio `agents_dev/`. Requieren configurar la clave de API de Gemini:
-1. Configura la clave de API de Gemini en tu terminal:
+### Prerequisites and Configuration
+The agent scripts and skills reside in the `agents_dev/` directory. They require setting the Gemini API key:
+1. Configure the Gemini API key in your terminal:
    ```bash
-   export GEMINI_API_KEY="tu-api-key-aquí"
+   export GEMINI_API_KEY="your-api-key-here"
    ```
 
-### Ejecución de Auditoría en la Terminal
-Para ejecutar el análisis local sobre los archivos Kotlin modificados:
-1. **Activa el entorno virtual de Python** del proyecto de agentes:
+### Running Audits in the Terminal
+To run local analysis on modified Kotlin files:
+1. **Activate the Python virtual environment** of the agents project:
    ```bash
    source agents_dev/.venv_agente/bin/activate
    ```
-2. **Ejecuta el orquestador de agentes**:
+2. **Run the agent orchestrator**:
    ```bash
    python agents_dev/skills/agent_orchestrator.py
    ```
-   *Nota:* Por defecto, si no pasas ningún parámetro, el script detectará automáticamente los archivos Kotlin modificados en tu workspace (vía `git status` / `git diff`). También es posible forzar el análisis de un archivo específico pasándolo como argumento:
+   *Note:* By default, if no parameters are passed, the script automatically detects modified Kotlin files in your workspace (via `git status` / `git diff`). You can also force analysis of a specific file by passing it as an argument:
    ```bash
    python agents_dev/skills/agent_orchestrator.py app/src/main/java/com/devsusana/hometutorpro/data/repository/AuthRepositoryImpl.kt
    ```
 
-El orquestador ejecutará secuencialmente los 5 agentes de auditoría (**Arquitectura**, **Seguridad**, **Testing**, **KDocs** y **Refactor**), aplicando pausas de 35 segundos para respetar la cuota gratuita de la API.
+The orchestrator will sequentially run the 5 audit agents (**Architecture**, **Security**, **Testing**, **KDocs**, and **Refactor**), applying 35-second pauses to respect the free API tier rate limits.
 
-### Herramientas de Productividad Local (Skills de Soporte)
-Dispones de tres scripts locales en `agents_dev/skills/` para automatizar tareas repetitivas durante el desarrollo:
+### Local Productivity Tools (Support Skills)
+Three local scripts are available in `agents_dev/skills/` to automate repetitive development tasks:
 
-1. **Generador de Esqueleto de Tests (`test_scaffolder.py`):**
-   Crea el archivo y el esqueleto base para pruebas unitarias (con JUnit, MockK y Coroutines) a partir de una clase Kotlin de producción.
+1. **Test Skeleton Generator (`test_scaffolder.py`):**
+   Creates the file and base skeleton for unit tests (with JUnit, MockK, and Coroutines) from a production Kotlin class.
    ```bash
    python agents_dev/skills/test_scaffolder.py app/src/main/java/com/devsusana/hometutorpro/domain/usecases/implementations/MyNewUseCase.kt
    ```
-   *Nota:* Generará el test en la ruta correspondiente bajo `app/src/test/java/...` lista para rellenar.
+   *Note:* It generates the test in the corresponding path under `app/src/test/java/...` ready to be populated.
 
-2. **Validador de Inyección de Hilt (`hilt_checker.py`):**
-   Comprueba rápidamente que las nuevas interfaces de Casos de Uso o Repositorios estén declaradas en los módulos de DI de Hilt del proyecto.
+2. **Hilt Injection Validator (`hilt_checker.py`):**
+   Quickly checks that new Use Case or Repository interfaces are declared in the project's Hilt DI modules.
    ```bash
    python agents_dev/skills/hilt_checker.py
    ```
-   *Nota:* Si no se especifican argumentos, escaneará automáticamente todos los archivos Kotlin modificados en Git.
+   *Note:* If no arguments are specified, it automatically scans all modified Kotlin files in Git.
 
-3. **Autocompletador de KDocs (`kdoc_autocompleter.py`):**
-   Identifica clases y funciones públicas indocumentadas y les añade comentarios KDoc bien estructurados de forma automática, sobrescribiendo el archivo.
+3. **KDocs Autocompleter (`kdoc_autocompleter.py`):**
+   Identifies undocumented public classes and functions and automatically adds well-structured KDoc comments, overwriting the file.
    ```bash
    python agents_dev/skills/kdoc_autocompleter.py app/src/main/java/com/devsusana/hometutorpro/data/repository/MyRepositoryImpl.kt
    ```
 
 ---
 
-**Nota para Gemini:** El package raíz real de este proyecto es `com.devsusana.hometutorpro`. Cualquier referencia al placeholder `com.yourpackage` en esta guía debe ser sustituida por este package correcto en el código generado.
+**Note for Gemini:** The actual root package of this project is `com.devsusana.hometutorpro`. Any reference to the `com.yourpackage` placeholder in this guide must be replaced with this correct package in generated code.

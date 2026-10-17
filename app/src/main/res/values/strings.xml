@@ -693,4 +693,21 @@
     <string name="sue_compatibility_reason_android">SUE requires Android 9.0 (Pie) or higher to run on-device AI.</string>
     <string name="sue_compatibility_reason_ram">SUE requires at least 4 GB of RAM to run on-device AI.</string>
     <string name="sue_compatibility_reason_generic">This device does not meet the hardware requirements to run on-device AI.</string>
+
+    <!-- Class Timer Widget -->
+    <string name="widget_title">Class Timer</string>
+    <string name="widget_description">Track active class time and view upcoming tutoring sessions directly from your home screen.</string>
+    <string name="widget_no_active_class">No Active Class</string>
+    <string name="widget_no_upcoming_class">No upcoming classes scheduled</string>
+    <string name="widget_next_class_header">UPCOMING CLASS</string>
+    <string name="widget_active_class_header">CLASS IN PROGRESS</string>
+    <string name="widget_next_student">Next: %1$s</string>
+    <string name="widget_start_class">Start Class</string>
+    <string name="widget_stop_class">Finish Class</string>
+    <string name="widget_ongoing_class">Class with %1$s</string>
+    <string name="widget_time_remaining">Remaining</string>
+    <string name="widget_time_completed">Completed</string>
+    <string name="widget_started_at">Started: %1$s • %2$d min</string>
+    <string name="widget_today">Today</string>
+    <string name="widget_tomorrow">Tomorrow</string>
 </resources>
