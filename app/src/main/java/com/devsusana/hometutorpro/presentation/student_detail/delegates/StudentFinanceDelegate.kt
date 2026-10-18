@@ -4,12 +4,17 @@ import android.app.Application
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.IRegisterPaymentUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IUpdateBalanceUseCase
 import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
+import com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -20,7 +25,10 @@ class StudentFinanceDelegate @Inject constructor(
     private val addToBalanceUseCase: IAddToBalanceUseCase,
     private val updateBalanceUseCase: IUpdateBalanceUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
-    private val application: Application
+    private val application: Application,
+    private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase? = null,
+    private val startActiveSessionUseCase: IStartActiveSessionUseCase? = null,
+    private val stopActiveSessionUseCase: IStopActiveSessionUseCase? = null
 ) : IStudentFinanceDelegate {
 
     override fun registerPayment(
@@ -125,6 +133,27 @@ class StudentFinanceDelegate @Inject constructor(
                         pendingBalance = currentStudent.pendingBalance + amountToAdd,
                         lastClassDate = System.currentTimeMillis()
                     )
+                    startActiveSessionUseCase?.invoke(
+                        ActiveSession(
+                            studentId = currentStudent.id,
+                            studentName = currentStudent.name,
+                            startTimeMillis = System.currentTimeMillis(),
+                            durationMinutes = duration.toLong(),
+                            isOngoing = true,
+                            tutorId = professorId
+                        )
+                    )
+                    ClassTimerWidget.updateWidget(application)
+
+                    val scheduled = scheduleClassEndNotificationUseCase?.invoke(
+                        currentStudent.name,
+                        duration.toLong()
+                    ) ?: true
+                    if (!scheduled) {
+                        stopActiveSessionUseCase?.invoke()
+                        ClassTimerWidget.updateWidget(application)
+                    }
+
                     state.value = state.value.copy(
                         student = updatedStudent,
                         isLoading = false,

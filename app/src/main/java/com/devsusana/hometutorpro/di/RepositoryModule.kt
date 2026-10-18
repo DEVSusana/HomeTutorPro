@@ -16,7 +16,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSyncCoordinator(
-        syncCoordinator: com.devsusana.hometutorpro.domain.usecases.implementations.SyncCoordinator
+        syncCoordinator: com.devsusana.hometutorpro.data.sync.SyncCoordinator
     ): com.devsusana.hometutorpro.domain.usecases.ISyncCoordinator
 
     @Binds
@@ -79,5 +79,11 @@ abstract class RepositoryModule {
     abstract fun bindNotificationRepository(
         notificationRepositoryImpl: NotificationRepositoryImpl
     ): NotificationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDataMigrator(
+        localDataMigrator: com.devsusana.hometutorpro.data.migration.LocalDataMigrator
+    ): com.devsusana.hometutorpro.domain.repository.DataMigrator
 }
 

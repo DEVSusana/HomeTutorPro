@@ -229,7 +229,8 @@ fun NavigationHost() {
                             onConfirmAction = { sueViewModel.onConfirmAction() },
                             onCancelAction = { sueViewModel.onCancelAction() },
                             onDownloadModel = { sueViewModel.downloadModel() },
-                            onCancelModelDownload = { sueViewModel.cancelModelDownload() }
+                            onCancelModelDownload = { sueViewModel.cancelModelDownload() },
+                            onSuggestionClick = { suggestion -> sueViewModel.onSuggestionClick(suggestion) }
                         )
                     }
 

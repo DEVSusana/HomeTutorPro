@@ -110,6 +110,35 @@ class ScheduleExceptionRepositoryImplTest {
         assertTrue(result.isEmpty())
     }
 
+    @Test
+    fun `getAllExceptionsFlow returns flow of exceptions`() = runTest {
+        // Given
+        val entities = listOf(testExceptionEntity)
+        every { exceptionDao.getAllExceptions(testUserId) } returns flowOf(entities)
+
+        // When
+        val result = repository.getAllExceptionsFlow(testUserId).first()
+
+        // Then
+        assertEquals(1, result.size)
+        assertEquals(testException.id, result[0].id)
+        assertEquals(testException.type, result[0].type)
+        verify { exceptionDao.getAllExceptions(testUserId) }
+    }
+
+    @Test
+    fun `getAllExceptionsFlow returns empty list when no exceptions`() = runTest {
+        // Given
+        every { exceptionDao.getAllExceptions(testUserId) } returns flowOf(emptyList())
+
+        // When
+        val result = repository.getAllExceptionsFlow(testUserId).first()
+
+        // Then
+        assertTrue(result.isEmpty())
+        verify { exceptionDao.getAllExceptions(testUserId) }
+    }
+
     // ============================================================================
     // Save Exception Tests
     // ============================================================================

@@ -1,7 +1,7 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
-import com.devsusana.hometutorpro.data.migration.LocalDataMigrator
 import com.devsusana.hometutorpro.domain.migration.MigrationProgress
+import com.devsusana.hometutorpro.domain.repository.DataMigrator
 import com.devsusana.hometutorpro.domain.usecases.IMigrateDataFromLocalUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -11,11 +11,8 @@ import javax.inject.Inject
  * Use case to execute the data migration process.
  * Emits progress updates as it proceeds through migration steps.
  */
-/**
- * Use case implementation for migratedatafromlocal operations.
- */
 class MigrateDataFromLocalUseCase @Inject constructor(
-    private val localDataMigrator: LocalDataMigrator,
+    private val dataMigrator: DataMigrator,
     private val rescueOrphanedDataUseCase: RescueOrphanedDataUseCase
 ) : IMigrateDataFromLocalUseCase {
     override operator fun invoke(): Flow<MigrationProgress> = flow {
@@ -28,15 +25,15 @@ class MigrateDataFromLocalUseCase @Inject constructor(
 
             // 1. Migrate students (and their schedules/exceptions)
             emit(MigrationProgress.MigratingStudents)
-            localDataMigrator.migrateStudents()
+            dataMigrator.migrateStudents()
             
             // 2. Migrate resources
             emit(MigrationProgress.MigratingResources)
-            localDataMigrator.migrateResources()
+            dataMigrator.migrateResources()
             
             // 3. Cleanup or final steps
             emit(MigrationProgress.CleaningUp)
-            // localDataMigrator.cleanup() // If needed
+            // dataMigrator.cleanup() // If needed
             
             emit(MigrationProgress.Completed)
         } catch (e: Exception) {

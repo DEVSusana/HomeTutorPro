@@ -32,6 +32,12 @@ class ScheduleExceptionRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getAllExceptionsFlow(professorId: String): Flow<List<ScheduleException>> {
+        return exceptionDao.getAllExceptions(professorId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
     override suspend fun getAllExceptions(professorId: String): List<ScheduleException> =
         withContext(Dispatchers.IO) {
             exceptionDao.getAllExceptionsOnce(professorId).map { it.toDomain() }

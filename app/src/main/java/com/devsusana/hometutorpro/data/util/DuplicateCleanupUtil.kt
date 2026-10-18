@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.data.util
 import com.devsusana.hometutorpro.data.local.dao.StudentDao
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
+import com.devsusana.hometutorpro.domain.usecases.ICleanupDuplicateStudentsUseCase
 import javax.inject.Inject
 
 /**
@@ -12,7 +13,12 @@ import javax.inject.Inject
 class DuplicateCleanupUtil @Inject constructor(
     private val studentDao: StudentDao,
     private val auth: FirebaseAuth
-) {
+) : ICleanupDuplicateStudentsUseCase {
+
+    override suspend operator fun invoke() {
+        removeDuplicateStudents()
+        removeLocalDuplicates()
+    }
     /**
      * Removes duplicate students keeping only the one with the most recent lastModifiedTimestamp.
      * Duplicates are identified by having the same cloudId.

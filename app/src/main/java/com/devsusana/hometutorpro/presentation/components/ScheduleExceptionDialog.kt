@@ -4,25 +4,26 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleItem
 import java.time.DayOfWeek
-import java.time.LocalDate
 import java.time.ZoneId
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Dialog for creating, modifying, or cancelling a class schedule exception.
+ */
 @Composable
 fun ScheduleExceptionDialog(
     item: WeeklyScheduleItem.Regular,
@@ -34,29 +35,22 @@ fun ScheduleExceptionDialog(
     onStartClass: ((String, String) -> Unit)? = null, // studentId, studentName
     onAddExtraClass: ((String) -> Unit)? = null // studentId
 ) {
-    var exceptionType: ExceptionType? by remember { 
-        mutableStateOf(item.exception?.type) 
+    var exceptionType: ExceptionType? by remember {
+        mutableStateOf(item.exception?.type)
     }
     var newDayOfWeek by remember {
         mutableStateOf(item.exception?.newDayOfWeek ?: item.schedule.dayOfWeek)
     }
-    var newStartTime by remember { 
-        mutableStateOf(item.exception?.newStartTime ?: item.schedule.startTime) 
+    var newStartTime by remember {
+        mutableStateOf(item.exception?.newStartTime ?: item.schedule.startTime)
     }
-    var newEndTime by remember { 
-        mutableStateOf(item.exception?.newEndTime ?: item.schedule.endTime) 
+    var newEndTime by remember {
+        mutableStateOf(item.exception?.newEndTime ?: item.schedule.endTime)
     }
     var reason by remember { mutableStateOf(item.exception?.reason ?: "") }
-    
-    // Day selector dropdown state
-    var dayDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Use the actual date of the occurrence from the item
     val dateTimestamp = item.occurrence.date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-    
-    // Build a stable key from all schedule data including exception status.
-    // This ensures hasConflict recomputes whenever any exception status changes,
-    // not only when the list size changes.
+
     val scheduleKey = remember(allRegularSchedules) {
         allRegularSchedules.joinToString("|") { regularItem ->
             val exception = regularItem.exception
@@ -71,32 +65,25 @@ fun ScheduleExceptionDialog(
             "${regularItem.schedule.id}:$day:$start:$end:$status"
         }
     }
-    
-    // Conflict detection: check if any other class occupies the same target day/time.
-    // Uses scheduleKey as dependency to recompute when any exception status changes.
+
     val hasConflict = remember(newDayOfWeek, newStartTime, newEndTime, exceptionType, scheduleKey) {
         if (exceptionType == ExceptionType.RESCHEDULED && newStartTime.isNotEmpty() && newEndTime.isNotEmpty()) {
             allRegularSchedules.any { otherItem ->
-                // Skip checking against itself
                 if (otherItem.schedule.id == item.schedule.id) return@any false
 
                 val otherException = otherItem.exception
-
-                // If the other class is cancelled for this date, it doesn't cause a conflict
                 if (otherException?.type == ExceptionType.CANCELLED) return@any false
 
-                // Determine the effective day of the other class (respecting rescheduled day)
                 val otherEffectiveDay = otherException?.newDayOfWeek ?: otherItem.schedule.dayOfWeek
 
-                // Check if effective days match and times overlap
                 otherEffectiveDay == newDayOfWeek &&
-                timesOverlap(newStartTime, newEndTime, otherItem.startTime, otherItem.endTime)
+                    timesOverlap(newStartTime, newEndTime, otherItem.startTime, otherItem.endTime)
             }
         } else {
             false
         }
     }
-    
+
     val conflictingClass = remember(hasConflict, scheduleKey) {
         if (hasConflict) {
             allRegularSchedules.find { otherItem ->
@@ -108,7 +95,7 @@ fun ScheduleExceptionDialog(
                 val otherEffectiveDay = otherException?.newDayOfWeek ?: otherItem.schedule.dayOfWeek
 
                 otherEffectiveDay == newDayOfWeek &&
-                timesOverlap(newStartTime, newEndTime, otherItem.startTime, otherItem.endTime)
+                    timesOverlap(newStartTime, newEndTime, otherItem.startTime, otherItem.endTime)
             }
         } else null
     }
@@ -123,231 +110,41 @@ fun ScheduleExceptionDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "${item.student.name} - ${com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils.getLocalizedName(item.schedule.dayOfWeek)}",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                
-                Text(
-                    text = stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_original, item.schedule.startTime, item.schedule.endTime),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ScheduleClassHeader(
+                    studentName = item.student.name,
+                    dayOfWeek = item.schedule.dayOfWeek,
+                    startTime = item.schedule.startTime,
+                    endTime = item.schedule.endTime
                 )
 
                 HorizontalDivider()
 
-                // Start Class Button (if callback provided)
-                if (onStartClass != null) {
-                    Button(
-                        onClick = {
-                            onStartClass(item.student.id, item.student.name)
-                            onDismiss()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(com.devsusana.hometutorpro.R.string.student_detail_start_class))
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                ScheduleQuickActions(
+                    studentId = item.student.id,
+                    studentName = item.student.name,
+                    onStartClass = onStartClass,
+                    onAddExtraClass = onAddExtraClass,
+                    onDismiss = onDismiss
+                )
 
-                // Add Extra Class Button
-                if (onAddExtraClass != null) {
-                   Button(
-                        onClick = {
-                            onAddExtraClass(item.student.id)
-                            onDismiss()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarToday,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(com.devsusana.hometutorpro.R.string.student_detail_add_extra_class))
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                ScheduleExceptionTypeSelector(
+                    exceptionType = exceptionType,
+                    onTypeSelected = { exceptionType = it }
+                )
 
-                // Exception Type Selection
-                Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_action), style = MaterialTheme.typography.labelLarge)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val selectedStateDescription = stringResource(com.devsusana.hometutorpro.R.string.cd_state_selected)
-                    val notSelectedStateDescription = stringResource(com.devsusana.hometutorpro.R.string.cd_state_not_selected)
-                    FilterChip(
-                        selected = exceptionType == ExceptionType.CANCELLED,
-                        onClick = { exceptionType = ExceptionType.CANCELLED },
-                        label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_cancel)) },
-                        modifier = Modifier.semantics {
-                            stateDescription = if (exceptionType == ExceptionType.CANCELLED) {
-                                selectedStateDescription
-                            } else {
-                                notSelectedStateDescription
-                            }
-                        }
-                    )
-                    FilterChip(
-                        selected = exceptionType == ExceptionType.RESCHEDULED,
-                        onClick = { exceptionType = ExceptionType.RESCHEDULED },
-                        label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_reschedule)) },
-                        modifier = Modifier.semantics {
-                            stateDescription = if (exceptionType == ExceptionType.RESCHEDULED) {
-                                selectedStateDescription
-                            } else {
-                                notSelectedStateDescription
-                            }
-                        }
-                    )
-                }
-
-                // Reschedule options (only if rescheduling)
                 if (exceptionType == ExceptionType.RESCHEDULED) {
-                    Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_new_schedule), style = MaterialTheme.typography.labelLarge)
-                    
-                    // Day selector
-                    ExposedDropdownMenuBox(
-                        expanded = dayDropdownExpanded,
-                        onExpandedChange = { dayDropdownExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils.getLocalizedName(newDayOfWeek),
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_day_of_week)) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dayDropdownExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = dayDropdownExpanded,
-                            onDismissRequest = { dayDropdownExpanded = false }
-                        ) {
-                            DayOfWeek.values().forEach { day ->
-                                DropdownMenuItem(
-                                    text = { Text(com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils.getLocalizedName(day)) },
-                                    onClick = {
-                                        newDayOfWeek = day
-                                        dayDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Time Selectors ROW
-                    var showNewStartTimePicker by remember { mutableStateOf(false) }
-                    var showNewEndTimePicker by remember { mutableStateOf(false) }
-                    
-                    if (showNewStartTimePicker) {
-                        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
-                            initialTime = newStartTime,
-                            onDismiss = { showNewStartTimePicker = false },
-                            onTimeSelected = { 
-                                newStartTime = it
-                                showNewStartTimePicker = false
-                            }
-                        )
-                    }
-                    
-                    if (showNewEndTimePicker) {
-                        com.devsusana.hometutorpro.presentation.components.TimePickerDialog(
-                            initialTime = newEndTime,
-                            onDismiss = { showNewEndTimePicker = false },
-                            onTimeSelected = { 
-                                newEndTime = it
-                                showNewEndTimePicker = false
-                            }
-                        )
-                    }
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        val newStartTimeContentDescription = stringResource(
-                            com.devsusana.hometutorpro.R.string.cd_select_start_time,
-                            newStartTime
-                        )
-                        val newEndTimeContentDescription = stringResource(
-                            com.devsusana.hometutorpro.R.string.cd_select_end_time,
-                            newEndTime
-                        )
-
-                        // New Start Time
-                        OutlinedButton(
-                            onClick = { showNewStartTimePicker = true },
-                            modifier = Modifier
-                                .weight(1f)
-                                .semantics(mergeDescendants = true) {
-                                    contentDescription = newStartTimeContentDescription
-                                },
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(newStartTime)
-                        }
-                        
-                        // New End Time
-                        OutlinedButton(
-                            onClick = { showNewEndTimePicker = true },
-                            modifier = Modifier
-                                .weight(1f)
-                                .semantics(mergeDescendants = true) {
-                                    contentDescription = newEndTimeContentDescription
-                                },
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(newEndTime)
-                        }
-                    }
-                    
-                    // Conflict warning
-                    if (hasConflict && conflictingClass != null) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_conflict_title),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                                Text(
-                                    text = stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_conflict_message, conflictingClass.student.name, conflictingClass.startTime, conflictingClass.endTime),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
-                    }
+                    RescheduleSection(
+                        newDayOfWeek = newDayOfWeek,
+                        onDayOfWeekChange = { newDayOfWeek = it },
+                        newStartTime = newStartTime,
+                        newEndTime = newEndTime,
+                        onStartTimeChange = { newStartTime = it },
+                        onEndTimeChange = { newEndTime = it },
+                        hasConflict = hasConflict,
+                        conflictingClass = conflictingClass
+                    )
                 }
 
-                // Reason
                 OutlinedTextField(
                     value = reason,
                     onValueChange = { reason = it },
@@ -364,7 +161,7 @@ fun ScheduleExceptionDialog(
                         id = item.exception?.id ?: "",
                         studentId = item.student.id,
                         date = dateTimestamp,
-                        type = exceptionType ?: ExceptionType.CANCELLED, // Fallback, but button is disabled if null
+                        type = exceptionType ?: ExceptionType.CANCELLED,
                         originalScheduleId = item.schedule.id,
                         newStartTime = if (exceptionType == ExceptionType.RESCHEDULED) newStartTime else "",
                         newEndTime = if (exceptionType == ExceptionType.RESCHEDULED) newEndTime else "",
@@ -384,7 +181,6 @@ fun ScheduleExceptionDialog(
         },
         dismissButton = {
             Row {
-                // Delete button if exception exists
                 val existingException = item.exception
                 if (existingException != null && onDelete != null) {
                     TextButton(
@@ -407,6 +203,289 @@ fun ScheduleExceptionDialog(
     )
 }
 
+@Composable
+private fun ScheduleClassHeader(
+    studentName: String,
+    dayOfWeek: DayOfWeek,
+    startTime: String,
+    endTime: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "$studentName - ${com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils.getLocalizedName(dayOfWeek)}",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_original, startTime, endTime),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ScheduleQuickActions(
+    studentId: String,
+    studentName: String,
+    onStartClass: ((String, String) -> Unit)?,
+    onAddExtraClass: ((String) -> Unit)?,
+    onDismiss: () -> Unit
+) {
+    if (onStartClass != null) {
+        Button(
+            onClick = {
+                onStartClass(studentId, studentName)
+                onDismiss()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+        ) {
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(com.devsusana.hometutorpro.R.string.student_detail_start_class))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+
+    if (onAddExtraClass != null) {
+        Button(
+            onClick = {
+                onAddExtraClass(studentId)
+                onDismiss()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CalendarToday,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(com.devsusana.hometutorpro.R.string.student_detail_add_extra_class))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun ScheduleExceptionTypeSelector(
+    exceptionType: ExceptionType?,
+    onTypeSelected: (ExceptionType) -> Unit
+) {
+    Text(
+        stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_action),
+        style = MaterialTheme.typography.labelLarge
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        val selectedStateDescription = stringResource(com.devsusana.hometutorpro.R.string.cd_state_selected)
+        val notSelectedStateDescription = stringResource(com.devsusana.hometutorpro.R.string.cd_state_not_selected)
+        FilterChip(
+            selected = exceptionType == ExceptionType.CANCELLED,
+            onClick = { onTypeSelected(ExceptionType.CANCELLED) },
+            label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_cancel)) },
+            modifier = Modifier.semantics {
+                stateDescription = if (exceptionType == ExceptionType.CANCELLED) {
+                    selectedStateDescription
+                } else {
+                    notSelectedStateDescription
+                }
+            }
+        )
+        FilterChip(
+            selected = exceptionType == ExceptionType.RESCHEDULED,
+            onClick = { onTypeSelected(ExceptionType.RESCHEDULED) },
+            label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_reschedule)) },
+            modifier = Modifier.semantics {
+                stateDescription = if (exceptionType == ExceptionType.RESCHEDULED) {
+                    selectedStateDescription
+                } else {
+                    notSelectedStateDescription
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayOfWeekDropdownSelector(
+    selectedDay: DayOfWeek,
+    onDaySelected: (DayOfWeek) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils.getLocalizedName(selectedDay),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_day_of_week)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DayOfWeek.entries.forEach { day ->
+                DropdownMenuItem(
+                    text = { Text(com.devsusana.hometutorpro.presentation.utils.DayOfWeekUtils.getLocalizedName(day)) },
+                    onClick = {
+                        onDaySelected(day)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RescheduleTimePickers(
+    startTime: String,
+    endTime: String,
+    onStartTimeChange: (String) -> Unit,
+    onEndTimeChange: (String) -> Unit
+) {
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+
+    if (showStartTimePicker) {
+        TimePickerDialog(
+            initialTime = startTime,
+            onDismiss = { showStartTimePicker = false },
+            onTimeSelected = {
+                onStartTimeChange(it)
+                showStartTimePicker = false
+            }
+        )
+    }
+
+    if (showEndTimePicker) {
+        TimePickerDialog(
+            initialTime = endTime,
+            onDismiss = { showEndTimePicker = false },
+            onTimeSelected = {
+                onEndTimeChange(it)
+                showEndTimePicker = false
+            }
+        )
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        val startTimeDesc = stringResource(com.devsusana.hometutorpro.R.string.cd_select_start_time, startTime)
+        val endTimeDesc = stringResource(com.devsusana.hometutorpro.R.string.cd_select_end_time, endTime)
+
+        OutlinedButton(
+            onClick = { showStartTimePicker = true },
+            modifier = Modifier
+                .weight(1f)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = startTimeDesc
+                },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+        ) {
+            Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(startTime)
+        }
+
+        OutlinedButton(
+            onClick = { showEndTimePicker = true },
+            modifier = Modifier
+                .weight(1f)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = endTimeDesc
+                },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+        ) {
+            Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(endTime)
+        }
+    }
+}
+
+@Composable
+private fun ScheduleConflictWarning(conflictingClass: WeeklyScheduleItem.Regular) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_conflict_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.error
+            )
+            Text(
+                text = stringResource(
+                    com.devsusana.hometutorpro.R.string.schedule_exception_conflict_message,
+                    conflictingClass.student.name,
+                    conflictingClass.startTime,
+                    conflictingClass.endTime
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun RescheduleSection(
+    newDayOfWeek: DayOfWeek,
+    onDayOfWeekChange: (DayOfWeek) -> Unit,
+    newStartTime: String,
+    newEndTime: String,
+    onStartTimeChange: (String) -> Unit,
+    onEndTimeChange: (String) -> Unit,
+    hasConflict: Boolean,
+    conflictingClass: WeeklyScheduleItem.Regular?
+) {
+    Text(
+        stringResource(com.devsusana.hometutorpro.R.string.schedule_exception_new_schedule),
+        style = MaterialTheme.typography.labelLarge
+    )
+    DayOfWeekDropdownSelector(
+        selectedDay = newDayOfWeek,
+        onDaySelected = onDayOfWeekChange
+    )
+    RescheduleTimePickers(
+        startTime = newStartTime,
+        endTime = newEndTime,
+        onStartTimeChange = onStartTimeChange,
+        onEndTimeChange = onEndTimeChange
+    )
+    if (hasConflict && conflictingClass != null) {
+        ScheduleConflictWarning(conflictingClass = conflictingClass)
+    }
+}
+
 // Helper function to check if two time ranges overlap
 private fun timesOverlap(start1: String, end1: String, start2: String, end2: String): Boolean {
     return try {
@@ -414,7 +493,7 @@ private fun timesOverlap(start1: String, end1: String, start2: String, end2: Str
         val e1 = timeToMinutes(end1)
         val s2 = timeToMinutes(start2)
         val e2 = timeToMinutes(end2)
-        
+
         // Check if ranges overlap
         s1 < e2 && s2 < e1
     } catch (e: Exception) {

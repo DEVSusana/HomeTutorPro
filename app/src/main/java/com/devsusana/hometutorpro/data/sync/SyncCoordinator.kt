@@ -1,7 +1,6 @@
-package com.devsusana.hometutorpro.domain.usecases.implementations
+package com.devsusana.hometutorpro.data.sync
 
-import com.devsusana.hometutorpro.data.sync.DataSynchronizer
-import com.devsusana.hometutorpro.data.sync.SyncScheduler
+import com.devsusana.hometutorpro.data.local.dao.SyncMetadataDao
 import com.devsusana.hometutorpro.di.ApplicationScope
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.SubscriptionRepository
@@ -14,7 +13,7 @@ import javax.inject.Singleton
 
 /**
  * Coordinates synchronization logic by observing Auth and Subscription states.
- * Refactored to depend on SubscriptionRepository instead of BillingManager.
+ * Lives in the data layer as an infrastructure coordinator implementing [ISyncCoordinator].
  */
 @Singleton
 class SyncCoordinator @Inject constructor(
@@ -22,6 +21,7 @@ class SyncCoordinator @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
     private val dataSynchronizer: DataSynchronizer,
     private val syncScheduler: SyncScheduler,
+    private val syncMetadataDao: SyncMetadataDao,
     @ApplicationScope private val applicationScope: CoroutineScope
 ) : ISyncCoordinator {
 
@@ -42,5 +42,13 @@ class SyncCoordinator @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Clears local sync metadata and cancels scheduled sync jobs.
+     */
+    override suspend fun clearSyncData() {
+        syncMetadataDao.deleteAllMetadata()
+        syncScheduler.cancelAllSync()
     }
 }

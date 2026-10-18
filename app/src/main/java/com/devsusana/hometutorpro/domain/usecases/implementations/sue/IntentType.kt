@@ -1,0 +1,30 @@
+package com.devsusana.hometutorpro.domain.usecases.implementations.sue
+
+/**
+ * Enumeration of internal intent types supported by the Sue AI assistant.
+ */
+enum class IntentType {
+    START_CLASS,
+    CREATE_STUDENT,
+    DELETE_STUDENT,
+    ADD_EXTRA_CLASS,
+    CREATE_SCHEDULE,
+    DELETE_SCHEDULE,
+    CANCEL_CLASS,
+    RESCHEDULE_CLASS,
+    REGISTER_PAYMENT,
+    ADD_BALANCE,
+    UPDATE_STUDENT_NOTES,
+
+    // Read Queries
+    QUERY_STUDENT_WEEKLY_CLASSES,
+    QUERY_TODAY_SUMMARY,
+    QUERY_NEXT_CLASS,
+    QUERY_FREE_SLOTS,
+    QUERY_STUDENTS_WITH_BALANCE,
+    QUERY_STUDENT_BALANCE,
+    QUERY_STUDENT_COUNT,
+    QUERY_STUDENT_DETAILS,
+    QUERY_DAY_SCHEDULE,
+    QUERY_CANCELLED_CLASSES
+}

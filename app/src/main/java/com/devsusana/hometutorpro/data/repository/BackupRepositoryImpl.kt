@@ -90,6 +90,9 @@ class BackupRepositoryImpl @Inject constructor(
                 }
             }
 
+            // Validate data integrity before modifying the database
+            validateBackup(backup)
+
             // Perform atomic transaction
             database.withTransaction {
                 // 1. Students (Parent)
@@ -119,6 +122,25 @@ class BackupRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             SafeLogger.e(TAG, "Error during restoreBackup: ${e.message}", e)
             Result.failure(e)
+        }
+    }
+
+    private fun validateBackup(backup: AppBackup) {
+        if (backup.version < 1) {
+            throw IllegalArgumentException("Versión de copia de seguridad no compatible: ${backup.version}")
+        }
+        for (student in backup.students) {
+            if (student.name.isBlank()) {
+                throw IllegalArgumentException("La copia de seguridad contiene datos no válidos: nombre de alumno vacío.")
+            }
+            if (student.pricePerHour < 0.0) {
+                throw IllegalArgumentException("La copia de seguridad contiene datos no válidos: tarifa por hora negativa.")
+            }
+        }
+        for (schedule in backup.schedules) {
+            if (schedule.startTime.isBlank() || schedule.endTime.isBlank()) {
+                throw IllegalArgumentException("La copia de seguridad contiene horarios con horas vacías.")
+            }
         }
     }
 }

@@ -37,6 +37,7 @@ import com.devsusana.hometutorpro.domain.entities.SpeechState
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.presentation.sue.components.SueListeningOverlay
 import com.devsusana.hometutorpro.presentation.sue.components.SueResponseBubble
+import com.devsusana.hometutorpro.presentation.sue.components.SueSuggestionChips
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Button
@@ -66,6 +67,8 @@ import androidx.compose.foundation.layout.fillMaxSize
  * @param errorMessage Optional error message.
  * @param onCancel Callback to dismiss the overlay.
  * @param isModelLoading Whether the AI LLM model is currently loading into memory.
+ * @param contextualSuggestions Contextual query prompts based on the hour of the day.
+ * @param onSuggestionClick Callback when a suggestion chip is tapped.
  */
 @Composable
 fun SueOverlayContent(
@@ -79,6 +82,8 @@ fun SueOverlayContent(
     pendingAction: SuePendingAction? = null,
     isModelLoading: Boolean = false,
     modelStatus: com.devsusana.hometutorpro.domain.entities.SueModelStatus = com.devsusana.hometutorpro.domain.entities.SueModelStatus.NotDownloaded,
+    contextualSuggestions: List<String> = emptyList(),
+    onSuggestionClick: (String) -> Unit = {},
     onDownloadModel: () -> Unit = {},
     onCancelModelDownload: () -> Unit = {},
     onConfirmAction: () -> Unit = {},
@@ -230,6 +235,18 @@ fun SueOverlayContent(
                 isVisible = speechState == SpeechState.LISTENING && !isModelLoading,
                 onCancel = onCancel
             )
+
+            // Contextual suggestion chips shown when listening or waiting for input
+            if (pendingAction == null && contextualSuggestions.isNotEmpty() &&
+                (speechState == SpeechState.LISTENING || (speechState == SpeechState.IDLE && !isModelLoading))
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SueSuggestionChips(
+                    suggestions = contextualSuggestions,
+                    onSuggestionClick = onSuggestionClick
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // User's final transcription (shown during processing/speaking)
             if (finalTranscription.isNotBlank() && speechState != SpeechState.LISTENING) {

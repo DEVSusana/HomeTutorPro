@@ -7,6 +7,7 @@ import com.devsusana.hometutorpro.data.local.dao.StudentDao
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.devsusana.hometutorpro.domain.repository.DataMigrator
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
@@ -21,9 +22,9 @@ class LocalDataMigrator @Inject constructor(
     private val resourceDao: ResourceDao,
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
-) {
+) : DataMigrator {
 
-    suspend fun migrateStudents() {
+    override suspend fun migrateStudents() {
         val professorId = auth.currentUser?.uid ?: throw IllegalStateException("User not logged in")
         
         // Get all students that haven't been synced (cloudId is null)
@@ -124,7 +125,7 @@ class LocalDataMigrator @Inject constructor(
         }
     }
 
-    suspend fun migrateResources() {
+    override suspend fun migrateResources() {
         val professorId = auth.currentUser?.uid ?: return
         
         val resources = resourceDao.getResourcesBySyncStatus(professorId, SyncStatus.SYNCED)

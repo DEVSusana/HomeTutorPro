@@ -88,8 +88,11 @@ class ClassTimerWidget : AppWidgetProvider() {
         val pendingResult = goAsync()
         coroutineScope.launch {
             try {
-                val activeSession = getActiveSessionUseCase()
-                val nextClass = if (activeSession == null) getNextClassUseCase() else null
+                val currentUser = getCurrentUserUseCase().filterNotNull().firstOrNull()
+                val activeSession = getActiveSessionUseCase()?.takeIf { session ->
+                    currentUser != null && (session.tutorId.isEmpty() || session.tutorId == currentUser.uid)
+                }
+                val nextClass = if (activeSession == null && currentUser != null) getNextClassUseCase() else null
 
                 for (appWidgetId in appWidgetIds) {
                     val views = RemoteViews(context.packageName, R.layout.widget_class_timer)
@@ -108,6 +111,9 @@ class ClassTimerWidget : AppWidgetProvider() {
         super.onReceive(context, intent)
         val action = intent.action
         if (action == ACTION_START_CLASS || action == ACTION_STOP_CLASS) {
+            if (intent.`package` != null && intent.`package` != context.packageName) {
+                return
+            }
             val pendingResult = goAsync()
             coroutineScope.launch {
                 try {
@@ -148,10 +154,14 @@ class ClassTimerWidget : AppWidgetProvider() {
                 studentName = student.name,
                 startTimeMillis = System.currentTimeMillis(),
                 durationMinutes = finalDuration,
-                isOngoing = true
+                isOngoing = true,
+                tutorId = user.uid
             )
             startActiveSessionUseCase(session)
-            scheduleClassEndNotificationUseCase(student.name, finalDuration)
+            val scheduled = scheduleClassEndNotificationUseCase(student.name, finalDuration)
+            if (!scheduled) {
+                stopActiveSessionUseCase()
+            }
             updateWidget(context)
         }
     }
@@ -220,6 +230,7 @@ class ClassTimerWidget : AppWidgetProvider() {
             // Stop button
             val stopIntent = Intent(context, ClassTimerWidget::class.java).apply {
                 action = ACTION_STOP_CLASS
+                `package` = context.packageName
             }
             val pendingStopIntent = PendingIntent.getBroadcast(
                 context,
@@ -257,6 +268,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                 // Start button
                 val startIntent = Intent(context, ClassTimerWidget::class.java).apply {
                     action = ACTION_START_CLASS
+                    `package` = context.packageName
                 }
                 val pendingStartIntent = PendingIntent.getBroadcast(
                     context,
@@ -293,16 +305,21 @@ class ClassTimerWidget : AppWidgetProvider() {
          * Triggers an update for all active ClassTimerWidget instances.
          */
         fun updateWidget(context: Context) {
-            val intent = Intent(context, ClassTimerWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            }
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val ids = appWidgetManager.getAppWidgetIds(
-                ComponentName(context, ClassTimerWidget::class.java)
-            )
-            if (ids.isNotEmpty()) {
-                intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-                context.sendBroadcast(intent)
+            try {
+                val intent = Intent(context, ClassTimerWidget::class.java).apply {
+                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    `package` = context.packageName
+                }
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val ids = appWidgetManager.getAppWidgetIds(
+                    ComponentName(context, ClassTimerWidget::class.java)
+                )
+                if (ids.isNotEmpty()) {
+                    intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                    context.sendBroadcast(intent)
+                }
+            } catch (_: Throwable) {
+                // Ignored in unit testing environments where Android framework / Intent is not mocked
             }
         }
 

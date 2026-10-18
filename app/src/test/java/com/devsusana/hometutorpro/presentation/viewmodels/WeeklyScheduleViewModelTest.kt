@@ -7,7 +7,7 @@ import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetScheduleExceptionsUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetAllScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
@@ -42,7 +42,7 @@ class WeeklyScheduleViewModelTest {
     private lateinit var getStudentsUseCase: IGetStudentsUseCase
     private lateinit var getAllSchedulesUseCase: IGetAllSchedulesUseCase
     private lateinit var getCurrentUserUseCase: IGetCurrentUserUseCase
-    private lateinit var getScheduleExceptionsUseCase: IGetScheduleExceptionsUseCase
+    private lateinit var getAllScheduleExceptionsUseCase: IGetAllScheduleExceptionsUseCase
     private lateinit var saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase
     private lateinit var deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase
     private lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
@@ -61,7 +61,7 @@ class WeeklyScheduleViewModelTest {
         getStudentsUseCase = mockk()
         getAllSchedulesUseCase = mockk()
         getCurrentUserUseCase = mockk()
-        getScheduleExceptionsUseCase = mockk()
+        getAllScheduleExceptionsUseCase = mockk()
         saveScheduleExceptionUseCase = mockk()
         deleteScheduleExceptionUseCase = mockk()
         getStudentByIdUseCase = mockk()
@@ -106,7 +106,7 @@ class WeeklyScheduleViewModelTest {
         every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
         every { getStudentsUseCase(userId) } returns flowOf(listOf(studentSummary))
         every { getAllSchedulesUseCase(userId) } returns flowOf(listOf(schedule))
-        every { getScheduleExceptionsUseCase(userId, student.id) } returns flowOf(emptyList())
+        every { getAllScheduleExceptionsUseCase(userId) } returns flowOf(emptyList())
         coEvery { generateCalendarOccurrencesUseCase(any(), any(), any(), any(), any()) } returns listOf(
             com.devsusana.hometutorpro.domain.entities.CalendarOccurrence(
                 schedule = schedule,
@@ -122,7 +122,7 @@ class WeeklyScheduleViewModelTest {
             getStudentsUseCase,
             getAllSchedulesUseCase,
             getStudentByIdUseCase,
-            getScheduleExceptionsUseCase,
+            getAllScheduleExceptionsUseCase,
             saveScheduleExceptionUseCase,
             deleteScheduleExceptionUseCase,
             addToBalanceUseCase,
@@ -139,5 +139,46 @@ class WeeklyScheduleViewModelTest {
         val regularItem = schedules?.filterIsInstance<WeeklyScheduleItem.Regular>()?.firstOrNull()
         assertEquals(schedule.id, regularItem?.schedule?.id)
         assertFalse(viewModel.state.value.isLoading)
+    }
+
+    @Test
+    fun `startClass invokes startActiveSessionUseCase and schedules notification`() = runTest {
+        val user = User(uid = "user123", email = "test@test.com", displayName = "Test User")
+        every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
+        every { getStudentsUseCase("user123") } returns flowOf(emptyList())
+        every { getAllSchedulesUseCase("user123") } returns flowOf(emptyList())
+        every { getAllScheduleExceptionsUseCase("user123") } returns flowOf(emptyList())
+
+        val student = Student(id = "student1", name = "Student 1", professorId = "user123", pricePerHour = 20.0, isActive = true)
+        coEvery { getStudentByIdUseCase("user123", "student1") } returns flowOf(student)
+        coEvery { addToBalanceUseCase("user123", "student1", any()) } returns com.devsusana.hometutorpro.domain.core.Result.Success(Unit)
+
+        val scheduleNotification: com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase = mockk(relaxed = true) {
+            every { this@mockk.invoke(any(), any()) } returns true
+        }
+        val startActiveSession: com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase = mockk(relaxed = true)
+
+        viewModel = WeeklyScheduleViewModel(
+            getCurrentUserUseCase,
+            getStudentsUseCase,
+            getAllSchedulesUseCase,
+            getStudentByIdUseCase,
+            getAllScheduleExceptionsUseCase,
+            saveScheduleExceptionUseCase,
+            deleteScheduleExceptionUseCase,
+            addToBalanceUseCase,
+            generateCalendarOccurrencesUseCase,
+            cleanupDuplicatesUseCase,
+            scheduleNotification,
+            application,
+            startActiveSessionUseCase = startActiveSession
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.startClass("student1", 60)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { startActiveSession(match { it.studentId == "student1" && it.tutorId == "user123" && it.durationMinutes == 60L }) }
+        verify(exactly = 1) { scheduleNotification("Student 1", 60L) }
     }
 }

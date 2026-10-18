@@ -42,20 +42,13 @@ object NotificationHelper {
     }
 
     // Schedule a notification for when the class ends
-    // Returns true if scheduled successfully, false if permission is needed
+    // Returns true if scheduled successfully, false if scheduling failed
     @SuppressLint("ScheduleExactAlarm")
     fun scheduleClassEndNotification(context: Context, studentName: String, durationMinutes: Long): Boolean {
         android.util.Log.d("NotificationHelper", "Scheduling notification for $studentName in $durationMinutes minutes")
         
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-        
-        // On Android 12+, check if we can schedule exact alarms
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (!alarmManager.canScheduleExactAlarms()) {
-                android.util.Log.w("NotificationHelper", "Exact alarm permission not granted")
-                return false // Permission not granted
-            }
-        }
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+            ?: return false
         
         val intent = android.content.Intent(context, com.devsusana.hometutorpro.core.receiver.ClassEndReceiver::class.java).apply {
             putExtra(com.devsusana.hometutorpro.core.receiver.ClassEndReceiver.EXTRA_STUDENT_NAME, studentName)
@@ -70,17 +63,23 @@ object NotificationHelper {
         val triggerTime = System.currentTimeMillis() + (durationMinutes * 60 * 1000)
         android.util.Log.d("NotificationHelper", "Trigger time: $triggerTime (in ${durationMinutes} minutes)")
         
-        // Use setExactAndAllowWhileIdle to ensure it triggers even in Doze mode
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            android.util.Log.d("NotificationHelper", "Using setExactAndAllowWhileIdle")
-            alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-        } else {
-            android.util.Log.d("NotificationHelper", "Using setExact")
-            alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                android.util.Log.w("NotificationHelper", "Exact alarm permission not granted, using inexact fallback")
+                alarmManager.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                android.util.Log.d("NotificationHelper", "Using setExactAndAllowWhileIdle")
+                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            } else {
+                android.util.Log.d("NotificationHelper", "Using setExact")
+                alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            }
+            android.util.Log.d("NotificationHelper", "Notification scheduled successfully")
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationHelper", "Failed to schedule alarm", e)
+            false
         }
-        
-        android.util.Log.d("NotificationHelper", "Notification scheduled successfully")
-        return true // Successfully scheduled
     }
 
     fun openExactAlarmSettings(context: Context) {

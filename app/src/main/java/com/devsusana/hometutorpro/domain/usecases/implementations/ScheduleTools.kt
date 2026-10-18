@@ -443,12 +443,48 @@ class ScheduleTools @Inject constructor(
     /**
      * Looks up [studentName]'s schedule for [dayOfWeek] and, if found, builds a
      * [SuePendingAction.CancelClass] with all data pre-resolved.
+     * Supports targeting extra class exceptions if requested or present.
      */
     suspend fun prepareCancelAction(
         studentName: String,
         dayOfWeek: Int,
-        time: String? = null
+        time: String? = null,
+        preferExtra: Boolean = false
     ): SueOperationResult.Prepare {
+        val professorId = getProfessorId().takeIf { it.isNotEmpty() }
+        val allExceptions = if (professorId != null) exceptionRepository.getAllExceptions(professorId) else emptyList()
+        val allStudents = queryStudentsUseCase.searchByName(studentName)
+        val student = allStudents.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+
+        val targetDate = nextOccurrenceDate(DayOfWeek.of(dayOfWeek))
+        val dateMillis = targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        // 1. Check for Extra class exceptions first if preferExtra or time specifically matches extra class
+        if (student != null) {
+            val studentExtraExceptions = allExceptions.filter { exc ->
+                exc.studentId == student.studentId && exc.type == ExceptionType.EXTRA
+            }
+            val extraOnDay = studentExtraExceptions.firstOrNull { exc ->
+                val excDate = java.time.Instant.ofEpochMilli(exc.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                excDate == targetDate && (time == null || exc.newStartTime == time || exc.newStartTime.substringBefore(":") == time.substringBefore(":"))
+            }
+
+            if (extraOnDay != null && (preferExtra || (time != null && (extraOnDay.newStartTime == time || extraOnDay.newStartTime.substringBefore(":") == time.substringBefore(":"))))) {
+                val action = SuePendingAction.CancelClass(
+                    studentName = student.name,
+                    studentId = student.studentId,
+                    scheduleId = extraOnDay.originalScheduleId.ifEmpty { "EXTRA" },
+                    date = extraOnDay.date,
+                    startTime = extraOnDay.newStartTime,
+                    endTime = extraOnDay.newEndTime,
+                    isExtraException = true,
+                    exceptionId = extraOnDay.id
+                )
+                return SueOperationResult.Prepare.Success(action)
+            }
+        }
+
+        // 2. Regular schedule lookup
         val schedules = querySchedulesUseCase.getSchedulesByStudentName(studentName)
         val daySchedules = schedules.filter { it.dayOfWeek == dayOfWeek }
 
@@ -460,12 +496,34 @@ class ScheduleTools @Inject constructor(
             daySchedules.firstOrNull()
         }
 
+        // 3. Fallback to extra class if regular was not found but extra exists on requested targetDate
+        if (match == null && student != null) {
+            val studentExtraExceptions = allExceptions.filter { exc ->
+                exc.studentId == student.studentId && exc.type == ExceptionType.EXTRA
+            }
+            val fallbackExtra = studentExtraExceptions.firstOrNull { exc ->
+                val excDate = java.time.Instant.ofEpochMilli(exc.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                excDate == targetDate && (time == null || exc.newStartTime == time || exc.newStartTime.substringBefore(":") == time.substringBefore(":"))
+            }
+
+            if (fallbackExtra != null) {
+                val action = SuePendingAction.CancelClass(
+                    studentName = student.name,
+                    studentId = student.studentId,
+                    scheduleId = fallbackExtra.originalScheduleId.ifEmpty { "EXTRA" },
+                    date = fallbackExtra.date,
+                    startTime = fallbackExtra.newStartTime,
+                    endTime = fallbackExtra.newEndTime,
+                    isExtraException = true,
+                    exceptionId = fallbackExtra.id
+                )
+                return SueOperationResult.Prepare.Success(action)
+            }
+        }
+
         if (match == null) {
             return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.CLASS_NOT_FOUND)
         }
-
-        val targetDate = nextOccurrenceDate(DayOfWeek.of(dayOfWeek))
-        val dateMillis = targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         val action = SuePendingAction.CancelClass(
             studentName = match.studentName,
@@ -473,7 +531,9 @@ class ScheduleTools @Inject constructor(
             scheduleId = match.scheduleId,
             date = dateMillis,
             startTime = match.startTime,
-            endTime = match.endTime
+            endTime = match.endTime,
+            isExtraException = false,
+            exceptionId = ""
         )
         return SueOperationResult.Prepare.Success(action)
     }
@@ -535,10 +595,18 @@ class ScheduleTools @Inject constructor(
 
     /**
      * Executes a confirmed [SuePendingAction.CancelClass].
+     * If the class was an extra class exception, it removes the exception from persistence.
      */
     suspend fun executeCancelAction(action: SuePendingAction.CancelClass): SueOperationResult.Execute {
         val professorId = getProfessorId().takeIf { it.isNotEmpty() }
             ?: return SueOperationResult.Execute.AuthError
+
+        if (action.isExtraException && action.exceptionId.isNotEmpty()) {
+            return when (val delResult = exceptionRepository.deleteException(professorId, action.studentId, action.exceptionId)) {
+                is Result.Success -> SueOperationResult.Execute.Success(action)
+                is Result.Error -> SueOperationResult.Execute.Error(delResult.error)
+            }
+        }
 
         return when (val result = manageScheduleUseCase.cancelClass(
             professorId = professorId,

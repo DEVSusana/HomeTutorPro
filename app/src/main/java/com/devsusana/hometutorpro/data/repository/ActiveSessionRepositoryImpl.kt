@@ -22,13 +22,15 @@ class ActiveSessionRepositoryImpl @Inject constructor(
         val studentName = prefs.getString(KEY_STUDENT_NAME, "") ?: ""
         val startTimeMillis = prefs.getLong(KEY_START_TIME_MILLIS, 0)
         val durationMinutes = prefs.getLong(KEY_DURATION_MINUTES, 0)
+        val tutorId = prefs.getString(KEY_TUTOR_ID, "") ?: ""
 
         return ActiveSession(
             studentId = studentId,
             studentName = studentName,
             startTimeMillis = startTimeMillis,
             durationMinutes = durationMinutes,
-            isOngoing = true
+            isOngoing = true,
+            tutorId = tutorId
         )
     }
 
@@ -39,6 +41,7 @@ class ActiveSessionRepositoryImpl @Inject constructor(
             putString(KEY_STUDENT_NAME, session.studentName)
             putLong(KEY_START_TIME_MILLIS, session.startTimeMillis)
             putLong(KEY_DURATION_MINUTES, session.durationMinutes)
+            putString(KEY_TUTOR_ID, session.tutorId)
             apply()
         }
     }
@@ -54,5 +57,6 @@ class ActiveSessionRepositoryImpl @Inject constructor(
         private const val KEY_STUDENT_NAME = "student_name"
         private const val KEY_START_TIME_MILLIS = "start_time_millis"
         private const val KEY_DURATION_MINUTES = "duration_minutes"
+        private const val KEY_TUTOR_ID = "tutor_id"
     }
 }

@@ -15,7 +15,7 @@ fun ScheduleScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    ScheduleListContent(
+    ScheduleContent(
         state = state,
         onAddScheduleClick = onAddScheduleClick,
         onDeleteSchedule = viewModel::deleteSchedule,
