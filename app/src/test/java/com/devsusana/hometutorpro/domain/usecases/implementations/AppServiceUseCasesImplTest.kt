@@ -16,6 +16,7 @@ class AppServiceUseCasesImplTest {
         val product: PremiumProduct?
     ) : PremiumBillingService {
         override suspend fun getPremiumProduct(): PremiumProduct? = product
+        override fun launchPurchaseFlow(activity: android.app.Activity) {}
     }
 
     private class FakeNotificationRepository : NotificationRepository {
@@ -36,6 +37,8 @@ class AppServiceUseCasesImplTest {
         }
 
         override fun showClassEndNotification(studentName: String) {}
+
+        override fun cancelClassEndNotification() {}
     }
 
     @Test

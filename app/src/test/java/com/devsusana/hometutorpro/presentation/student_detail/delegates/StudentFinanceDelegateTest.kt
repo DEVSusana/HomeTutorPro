@@ -251,6 +251,31 @@ class StudentFinanceDelegateTest {
         assertNotNull(state.value.errorMessage)
     }
 
+    @Test
+    fun `startClass invokes startActiveSessionUseCase and scheduleNotification when provided`() = testScope.runTest {
+        val startActiveSession: com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase = mockk(relaxed = true)
+        val scheduleNotification: com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase = mockk(relaxed = true) {
+            every { this@mockk.invoke(any(), any()) } returns true
+        }
+        val customDelegate = StudentFinanceDelegate(
+            registerPaymentUseCase,
+            addToBalanceUseCase,
+            updateBalanceUseCase,
+            saveStudentUseCase,
+            application,
+            scheduleClassEndNotificationUseCase = scheduleNotification,
+            startActiveSessionUseCase = startActiveSession
+        )
+        val state = MutableStateFlow(StudentDetailState(student = testStudent.copy(pendingBalance = 0.0)))
+        coEvery { addToBalanceUseCase("prof1", "1", 7.0) } returns Result.Success(Unit)
+
+        customDelegate.startClass("prof1", "1", 60, state, this)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { startActiveSession(match { it.studentId == "1" && it.tutorId == "prof1" && it.durationMinutes == 60L }) }
+        verify(exactly = 1) { scheduleNotification("Test Student", 60L) }
+    }
+
     // ============================================================================
     // updateBalance Tests
     // ============================================================================

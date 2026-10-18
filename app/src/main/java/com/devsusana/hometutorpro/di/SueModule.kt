@@ -97,4 +97,19 @@ abstract class SueModule {
     abstract fun bindDeleteSueModelUseCase(
         impl: com.devsusana.hometutorpro.domain.usecases.implementations.DeleteSueModelUseCaseImpl
     ): com.devsusana.hometutorpro.domain.usecases.IDeleteSueModelUseCase
+
+    @Binds
+    abstract fun bindGenerateSueResponseUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.GenerateSueResponseUseCase
+    ): com.devsusana.hometutorpro.domain.usecases.IGenerateSueResponseUseCase
+
+    @Binds
+    abstract fun bindManageSueInferenceUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.ManageSueInferenceUseCase
+    ): com.devsusana.hometutorpro.domain.usecases.IManageSueInferenceUseCase
+
+    @Binds
+    abstract fun bindExecuteSuePendingActionUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.ExecuteSuePendingActionUseCase
+    ): com.devsusana.hometutorpro.domain.usecases.IExecuteSuePendingActionUseCase
 }

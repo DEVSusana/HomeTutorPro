@@ -1,5 +1,6 @@
 package com.devsusana.hometutorpro.core.billing
 
+import android.app.Activity
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -27,4 +28,9 @@ interface PremiumBillingService {
      *         or `null` if the product could not be fetched or does not exist.
      */
     suspend fun getPremiumProduct(): PremiumProduct?
+
+    /**
+     * Launches the Play Store purchase flow using the provided host [activity].
+     */
+    fun launchPurchaseFlow(activity: Activity)
 }

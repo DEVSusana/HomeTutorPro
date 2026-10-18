@@ -12,7 +12,7 @@ import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetScheduleExceptionsUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetAllScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
@@ -39,23 +39,27 @@ import java.time.ZoneId
 import javax.inject.Inject
 
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.entities.ActiveSession
+import com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget
 import androidx.compose.runtime.Immutable
-
-
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val getCurrentUserUseCase: IGetCurrentUserUseCase,
     private val getStudentsUseCase: IGetStudentsUseCase,
     private val getAllSchedulesUseCase: IGetAllSchedulesUseCase,
-    private val getScheduleExceptionsUseCase: IGetScheduleExceptionsUseCase,
+    private val getAllScheduleExceptionsUseCase: IGetAllScheduleExceptionsUseCase,
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase,
     private val getStudentByIdUseCase: IGetStudentByIdUseCase,
     private val saveStudentUseCase: ISaveStudentUseCase,
     private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
-    private val application: Application
+    private val startActiveSessionUseCase: IStartActiveSessionUseCase,
+    private val application: Application,
+    private val stopActiveSessionUseCase: IStopActiveSessionUseCase? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
@@ -74,20 +78,10 @@ class DashboardViewModel @Inject constructor(
                 _state.update { it.copy(userName = user.displayName ?: application.getString(R.string.dashboard_default_user_name)) }
                 combine(
                     getStudentsUseCase(user.uid),
-                    getAllSchedulesUseCase(user.uid)
-                ) { students, schedules ->
-                    Pair(students, schedules)
-                }.flatMapLatest { (students, schedules) ->
-                    if (students.isEmpty()) {
-                        flowOf(Triple(students, schedules, emptyList()))
-                    } else {
-                        val flows = students.map { student ->
-                            getScheduleExceptionsUseCase(user.uid, student.id)
-                        }
-                        combine(flows) { exceptionsArray ->
-                            Triple(students, schedules, exceptionsArray.flatMap { it })
-                        }
-                    }
+                    getAllSchedulesUseCase(user.uid),
+                    getAllScheduleExceptionsUseCase(user.uid)
+                ) { students, schedules, allExceptions ->
+                    Triple(students, schedules, allExceptions)
                 }
             }.collect { (students, schedules, allExceptions) ->
                 val today = LocalDate.now()
@@ -143,8 +137,17 @@ class DashboardViewModel @Inject constructor(
         val today = now.toLocalDate()
         val timeNow = now.toLocalTime()
 
-        val validOccurrences = occurrences.filter { 
-            it.exception?.type != ExceptionType.CANCELLED 
+        val validOccurrences = occurrences.filter { item ->
+            val exc = item.exception ?: return@filter true
+            if (exc.type == ExceptionType.CANCELLED) return@filter false
+            if (exc.type == ExceptionType.RESCHEDULED) {
+                val isSourceSlotRescheduledToOtherDay = exc.newDayOfWeek != null && exc.newDayOfWeek != item.date.dayOfWeek
+                val hasNoStartTime = exc.newStartTime.isBlank()
+                if (isSourceSlotRescheduledToOtherDay || hasNoStartTime) {
+                    return@filter false
+                }
+            }
+            true
         }
         
         val sorted = validOccurrences.sortedWith(
@@ -242,10 +245,26 @@ class DashboardViewModel @Inject constructor(
                 
                 when (saveStudentUseCase(uid, updatedStudent)) {
                     is Result.Success<*> -> {
-                        scheduleClassEndNotificationUseCase(
+                        startActiveSessionUseCase(
+                            ActiveSession(
+                                studentId = student.id,
+                                studentName = student.name,
+                                startTimeMillis = System.currentTimeMillis(),
+                                durationMinutes = durationMinutes.toLong(),
+                                isOngoing = true,
+                                tutorId = uid
+                            )
+                        )
+                        ClassTimerWidget.updateWidget(application)
+
+                        val scheduled = scheduleClassEndNotificationUseCase(
                             student.name,
                             durationMinutes.toLong()
                         )
+                        if (!scheduled) {
+                            stopActiveSessionUseCase?.invoke()
+                            ClassTimerWidget.updateWidget(application)
+                        }
                         
                         dismissDialog()
                         loadDashboardData()

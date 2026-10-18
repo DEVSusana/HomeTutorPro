@@ -28,7 +28,9 @@ sealed class SuePendingAction {
         val scheduleId: String,
         val date: Long,
         val startTime: String,
-        val endTime: String
+        val endTime: String,
+        val isExtraException: Boolean = false,
+        val exceptionId: String = ""
     ) : SuePendingAction()
 
     /**

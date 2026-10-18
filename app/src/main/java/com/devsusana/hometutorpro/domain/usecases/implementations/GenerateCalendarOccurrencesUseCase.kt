@@ -68,26 +68,32 @@ class GenerateCalendarOccurrencesUseCase @Inject constructor() : IGenerateCalend
             }
         }
 
-        // 2. Add extra classes and rescheduled classes (standalone exceptions)
-        // Standalone exceptions are EXTRA classes or RESCHEDULED classes that 
-        // weren't already attached to an original schedule slot on the same day.
+        // 2. Add extra classes and rescheduled classes (standalone exceptions or moved to another day)
         exceptions.filter { 
             it.type == ExceptionType.EXTRA || 
-            (it.type == ExceptionType.RESCHEDULED && !consumedExceptionIds.contains(it.id))
+            (it.type == ExceptionType.RESCHEDULED && 
+             it.newStartTime.isNotBlank() && 
+             (!consumedExceptionIds.contains(it.id) || (it.newDayOfWeek != null && it.newDayOfWeek != schedules.find { s -> s.id == it.originalScheduleId }?.dayOfWeek)))
         }.forEach { exception ->
             val student = students.find { it.id == exception.studentId }
             if (student != null && student.isActive) {
-                val excDate = Instant.ofEpochMilli(exception.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                val origDate = Instant.ofEpochMilli(exception.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                val targetDate = if (exception.newDayOfWeek != null && exception.newDayOfWeek != origDate.dayOfWeek) {
+                    val diff = (exception.newDayOfWeek.value - origDate.dayOfWeek.value).toLong()
+                    origDate.plusDays(diff)
+                } else {
+                    origDate
+                }
                 
-                if (!excDate.isBefore(startDate) && !excDate.isAfter(endDate)) {
+                if (!targetDate.isBefore(startDate) && !targetDate.isAfter(endDate)) {
                     val dummySchedule = Schedule(
                         id = if (exception.type == ExceptionType.EXTRA) "${ScheduleType.EXTRA_ID}_${exception.id}" else "RESCHEDULED_${exception.id}",
                         studentId = student.id,
-                        dayOfWeek = exception.newDayOfWeek ?: excDate.dayOfWeek,
+                        dayOfWeek = exception.newDayOfWeek ?: targetDate.dayOfWeek,
                         startTime = exception.newStartTime,
                         endTime = exception.newEndTime
                     )
-                    allOccurrences.add(CalendarOccurrence(dummySchedule, student, exception, excDate))
+                    allOccurrences.add(CalendarOccurrence(dummySchedule, student, exception, targetDate))
                 }
             }
         }

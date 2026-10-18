@@ -109,15 +109,22 @@ class StudentDetailViewModel @Inject constructor(
     }
 
     private fun onPriceChange(input: String) {
+        val normalized = input.replace(',', '.')
         val regex = Regex("^\\d*\\.?\\d*$")
-        if (!regex.matches(input) && input.isNotEmpty()) return
+        if (!regex.matches(normalized) && normalized.isNotEmpty()) return
 
         val student = _state.value.student ?: return
-        val price = input.toDoubleOrNull() ?: 0.0
+        val price = normalized.toDoubleOrNull()
 
         _state.value = _state.value.copy(
-            priceInput = input,
-            student = student.copy(pricePerHour = price)
+            priceInput = normalized,
+            student = if (price != null) {
+                student.copy(pricePerHour = price)
+            } else if (normalized.isEmpty()) {
+                student.copy(pricePerHour = 0.0)
+            } else {
+                student
+            }
         )
     }
 
@@ -132,7 +139,7 @@ class StudentDetailViewModel @Inject constructor(
 
     private fun saveBalance() {
         val student = _state.value.student ?: return
-        val newBalance = _state.value.balanceInput.toDoubleOrNull()
+        val newBalance = _state.value.balanceInput.replace(',', '.').toDoubleOrNull()
         if (newBalance == null) {
             _state.value = _state.value.copy(errorMessage = application.getString(R.string.student_detail_error_invalid_balance))
             return
@@ -151,8 +158,19 @@ class StudentDetailViewModel @Inject constructor(
             val state = _state.value
             var student = state.student ?: return@launch
 
+            if (state.priceInput.isNotEmpty()) {
+                val parsedPrice = state.priceInput.replace(',', '.').toDoubleOrNull()
+                if (parsedPrice == null) {
+                    _state.value = _state.value.copy(
+                        errorMessage = application.getString(R.string.student_detail_error_invalid_price)
+                    )
+                    return@launch
+                }
+                student = student.copy(pricePerHour = parsedPrice)
+            }
+
             if (state.isBalanceEditable) {
-                val newBalance = state.balanceInput.toDoubleOrNull()
+                val newBalance = state.balanceInput.replace(',', '.').toDoubleOrNull()
                 if (newBalance == null) {
                     _state.value = _state.value.copy(errorMessage = application.getString(R.string.student_detail_error_invalid_balance))
                     return@launch

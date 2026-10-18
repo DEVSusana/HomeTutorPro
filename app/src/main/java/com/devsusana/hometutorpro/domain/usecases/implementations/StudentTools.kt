@@ -19,8 +19,13 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
+
+import com.devsusana.hometutorpro.domain.usecases.implementations.sue.SpanishPhoneticMatcher
 
 /**
  * Tool definitions for student-related queries and finance operations.
@@ -39,8 +44,38 @@ class StudentTools @Inject constructor(
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
     private val authRepository: AuthRepository,
     private val getSharedResourcesUseCase: IGetSharedResourcesUseCase,
-    private val agentContextRepository: AgentContextRepository
+    private val agentContextRepository: AgentContextRepository,
+    private val phoneticMatcher: SpanishPhoneticMatcher,
+    private val startActiveSessionUseCase: IStartActiveSessionUseCase? = null,
+    private val stopActiveSessionUseCase: IStopActiveSessionUseCase? = null
 ) {
+
+    constructor(
+        queryStudentsUseCase: IQueryStudentsForAgentUseCase,
+        registerPaymentUseCase: IRegisterPaymentUseCase,
+        addToBalanceUseCase: IAddToBalanceUseCase,
+        saveStudentUseCase: ISaveStudentUseCase,
+        deleteStudentUseCase: IDeleteStudentUseCase,
+        getStudentByIdUseCase: IGetStudentByIdUseCase,
+        scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
+        authRepository: AuthRepository,
+        getSharedResourcesUseCase: IGetSharedResourcesUseCase,
+        agentContextRepository: AgentContextRepository
+    ) : this(
+        queryStudentsUseCase = queryStudentsUseCase,
+        registerPaymentUseCase = registerPaymentUseCase,
+        addToBalanceUseCase = addToBalanceUseCase,
+        saveStudentUseCase = saveStudentUseCase,
+        deleteStudentUseCase = deleteStudentUseCase,
+        getStudentByIdUseCase = getStudentByIdUseCase,
+        scheduleClassEndNotificationUseCase = scheduleClassEndNotificationUseCase,
+        authRepository = authRepository,
+        getSharedResourcesUseCase = getSharedResourcesUseCase,
+        agentContextRepository = agentContextRepository,
+        phoneticMatcher = SpanishPhoneticMatcher(),
+        startActiveSessionUseCase = null,
+        stopActiveSessionUseCase = null
+    )
 
     /**
      * Returns a summary of all students.
@@ -75,25 +110,9 @@ class StudentTools @Inject constructor(
      * 1. Exact first-name word-boundary match.
      * 2. Partial match fallback (min 4 chars).
      */
-    private fun normalizeName(name: String): String {
-        val temp = java.text.Normalizer.normalize(name.lowercase(), java.text.Normalizer.Form.NFD)
-        val cleaned = temp.replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
-        return cleaned
-            .replace("christian", "cristian")
-            .replace("ph", "f")
-            .replace("th", "t")
-            .replace("ch", "c")
-            .replace("k", "c")
-            .replace("y", "i")
-            .replace("v", "b")
-            .replace("z", "s")
-            .trim()
-    }
+    private fun normalizeName(name: String): String = phoneticMatcher.normalizeName(name)
 
-    private fun normalizeConsonants(name: String): String {
-        val norm = normalizeName(name)
-        return norm.replace(Regex("[aeiou]"), "")
-    }
+    private fun normalizeConsonants(name: String): String = phoneticMatcher.normalizeConsonants(name)
 
     suspend fun extractRelevantStudent(query: String): AgentStudentDetail? {
         val students = queryStudentsUseCase.getAllStudents()
@@ -256,7 +275,20 @@ class StudentTools @Inject constructor(
 
         return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
             is Result.Success -> {
-                scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
+                startActiveSessionUseCase?.invoke(
+                    ActiveSession(
+                        studentId = student.id,
+                        studentName = student.name,
+                        startTimeMillis = System.currentTimeMillis(),
+                        durationMinutes = action.durationMinutes.toLong(),
+                        isOngoing = true,
+                        tutorId = professorId
+                    )
+                )
+                val scheduled = scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
+                if (!scheduled) {
+                    stopActiveSessionUseCase?.invoke()
+                }
                 SueOperationResult.Execute.Success(action)
             }
             is Result.Error -> SueOperationResult.Execute.Error(result.error)
@@ -303,8 +335,8 @@ class StudentTools @Inject constructor(
         val student = Student(
             professorId = professorId,
             name = action.name,
-            course = action.course.ifBlank { "Other" },
-            subjects = action.subjects.ifBlank { "General" },
+            course = action.course.trim(),
+            subjects = action.subjects.trim(),
             pricePerHour = action.pricePerHour,
             address = "No address", // Business rule mandatory field
             studentEmail = "${action.name.lowercase().replace(" ", "")}@example.com", // Business rule mandatory field

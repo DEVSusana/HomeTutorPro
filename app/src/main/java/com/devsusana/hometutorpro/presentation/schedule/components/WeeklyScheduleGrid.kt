@@ -36,12 +36,48 @@ fun WeeklyScheduleGrid(
         DayOfWeek.SUNDAY
     )
 
-    BoxWithConstraints(modifier = modifier.padding(8.dp)) {
-        val screenWidth = maxWidth
-        val columnWidth = screenWidth / 7
-        
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(8.dp)
+    ) {
+        // Pinned header row: Day of week labels stay visible while scrolling
         Row(
             modifier = Modifier.fillMaxWidth()
+        ) {
+            daysInOrder.forEach { day ->
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 2.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        text = DayOfWeekUtils.getShortLocalizedName(day),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .fillMaxWidth()
+                            .semantics { heading() },
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Unified scrollable grid body: all days scroll vertically together
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 16.dp)
         ) {
             daysInOrder.forEach { day ->
                 val schedulesForDay = (schedulesByDay[day] ?: emptyList())
@@ -50,32 +86,9 @@ fun WeeklyScheduleGrid(
 
                 Column(
                     modifier = Modifier
-                        .width(columnWidth)
+                        .weight(1f)
                         .padding(horizontal = 2.dp)
                 ) {
-                    // Day header
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Text(
-                            text = DayOfWeekUtils.getShortLocalizedName(day),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier
-                                .padding(4.dp)
-                                .fillMaxWidth()
-                                .semantics { heading() },
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Classes for this day
                     if (schedulesForDay.isEmpty()) {
                         Text(
                             text = stringResource(id = R.string.weekly_schedule_no_classes_grid),
@@ -85,16 +98,12 @@ fun WeeklyScheduleGrid(
                             fontSize = 10.sp
                         )
                     } else {
-                        Column(
-                            modifier = Modifier.verticalScroll(rememberScrollState())
-                        ) {
-                            schedulesForDay.forEach { regularItem ->
-                                CompactScheduleCard(
-                                    item = regularItem,
-                                    onClick = { onScheduleClick(regularItem) }
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                            }
+                        schedulesForDay.forEach { regularItem ->
+                            CompactScheduleCard(
+                                item = regularItem,
+                                onClick = { onScheduleClick(regularItem) }
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
                 }

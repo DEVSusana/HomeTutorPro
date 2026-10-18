@@ -663,6 +663,86 @@ class StudentDetailViewModelTest {
         viewModel.onEvent(StudentDetailEvent.PriceChange("25.5.5"))
         // Should remain 25.5
         assertEquals("25.5", viewModel.state.value.priceInput)
+
+        // When - comma as decimal separator (e.g. Spanish keyboard)
+        viewModel.onEvent(StudentDetailEvent.PriceChange("30,5"))
+        assertEquals("30.5", viewModel.state.value.priceInput)
+        assertEquals(30.5, viewModel.state.value.student?.pricePerHour)
+    }
+
+    @Test
+    fun `saveStudent should report invalid price error when priceInput is incomplete or unparseable`() = runTest {
+        // Given
+        val userId = "user123"
+        val studentId = "new"
+        val user = User(uid = userId, email = "test@test.com", displayName = "Test User")
+        val student = Student(id = "new", name = "Test Student", professorId = userId, pricePerHour = 20.0)
+
+        every { savedStateHandle.get<String>("studentId") } returns studentId
+        every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
+
+        viewModel = StudentDetailViewModel(
+            savedStateHandle,
+            getStudentByIdUseCase,
+            saveStudentUseCase,
+            deleteStudentUseCase,
+            getCurrentUserUseCase,
+            validateStudentUseCase,
+            saveScheduleUseCase,
+            financeDelegate,
+            scheduleDelegate,
+            resourceDelegate,
+            application
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onEvent(StudentDetailEvent.StudentChange(student))
+        // User inputs just a dot without numbers
+        viewModel.onEvent(StudentDetailEvent.PriceChange("."))
+
+        // When
+        viewModel.onEvent(StudentDetailEvent.SaveStudent)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then
+        assertEquals(com.devsusana.hometutorpro.R.string.student_detail_error_invalid_price.toString(), viewModel.state.value.errorMessage)
+        assertFalse(viewModel.state.value.isStudentSaved)
+        coVerify(exactly = 0) { saveStudentUseCase(any(), any()) }
+    }
+
+    @Test
+    fun `onPriceChange with empty string should reset student pricePerHour to 0`() = runTest {
+        // Given
+        val userId = "user123"
+        val studentId = "new"
+        val user = User(uid = userId, email = "test@test.com", displayName = "Test User")
+
+        every { savedStateHandle.get<String>("studentId") } returns studentId
+        every { getCurrentUserUseCase() } returns MutableStateFlow<User?>(user)
+
+        viewModel = StudentDetailViewModel(
+            savedStateHandle,
+            getStudentByIdUseCase,
+            saveStudentUseCase,
+            deleteStudentUseCase,
+            getCurrentUserUseCase,
+            validateStudentUseCase,
+            saveScheduleUseCase,
+            financeDelegate,
+            scheduleDelegate,
+            resourceDelegate,
+            application
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // When
+        viewModel.onEvent(StudentDetailEvent.PriceChange("20.0"))
+        assertEquals(20.0, viewModel.state.value.student?.pricePerHour)
+        viewModel.onEvent(StudentDetailEvent.PriceChange(""))
+
+        // Then
+        assertEquals("", viewModel.state.value.priceInput)
+        assertEquals(0.0, viewModel.state.value.student?.pricePerHour)
     }
 
     @Test

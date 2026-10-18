@@ -40,7 +40,7 @@ class BillingManager @Inject constructor(
      *
      * @param activity The host activity required by the Google Play Billing Library.
      */
-    fun launchPurchaseFlow(activity: android.app.Activity) {
+    override fun launchPurchaseFlow(activity: android.app.Activity) {
         val details = lastProductDetails ?: return
         launchPurchaseFlow(activity, details)
     }

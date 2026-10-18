@@ -9,6 +9,7 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.GetCurrentUser
 import com.devsusana.hometutorpro.domain.usecases.implementations.GenerateCalendarOccurrencesUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetResourcesUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetScheduleExceptionsUseCase
+import com.devsusana.hometutorpro.domain.usecases.implementations.GetAllScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetAllSchedulesUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.ToggleScheduleCompletionUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetSchedulesUseCase
@@ -61,6 +62,9 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindGetScheduleExceptionsUseCase(impl: GetScheduleExceptionsUseCase): IGetScheduleExceptionsUseCase
+
+    @Binds
+    abstract fun bindGetAllScheduleExceptionsUseCase(impl: GetAllScheduleExceptionsUseCase): IGetAllScheduleExceptionsUseCase
 
     @Binds
     abstract fun bindGetSchedulesUseCase(impl: GetSchedulesUseCase): IGetSchedulesUseCase
@@ -223,5 +227,25 @@ abstract class UseCaseModule {
 
     @Binds
     abstract fun bindRestoreSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.RestoreSessionUseCase): IRestoreSessionUseCase
+
+    @Binds
+    abstract fun bindCleanupDuplicateStudentsUseCase(
+        impl: com.devsusana.hometutorpro.data.util.DuplicateCleanupUtil
+    ): ICleanupDuplicateStudentsUseCase
+
+    @Binds
+    abstract fun bindGetActiveSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetActiveSessionUseCase): IGetActiveSessionUseCase
+
+    @Binds
+    abstract fun bindStartActiveSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.StartActiveSessionUseCase): IStartActiveSessionUseCase
+
+    @Binds
+    abstract fun bindStopActiveSessionUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.StopActiveSessionUseCase): IStopActiveSessionUseCase
+
+    @Binds
+    abstract fun bindGetNextClassUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetNextClassUseCase): IGetNextClassUseCase
+
+    @Binds
+    abstract fun bindCancelClassEndNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CancelClassEndNotificationUseCase): ICancelClassEndNotificationUseCase
 }
 
