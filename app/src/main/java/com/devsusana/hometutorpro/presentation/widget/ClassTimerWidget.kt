@@ -57,25 +57,7 @@ class ClassTimerWidget : AppWidgetProvider() {
     lateinit var getNextClassUseCase: IGetNextClassUseCase
 
     @Inject
-    lateinit var startActiveSessionUseCase: IStartActiveSessionUseCase
-
-    @Inject
-    lateinit var stopActiveSessionUseCase: IStopActiveSessionUseCase
-
-    @Inject
     lateinit var getCurrentUserUseCase: IGetCurrentUserUseCase
-
-    @Inject
-    lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
-
-    @Inject
-    lateinit var saveStudentUseCase: ISaveStudentUseCase
-
-    @Inject
-    lateinit var scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase
-
-    @Inject
-    lateinit var cancelClassEndNotificationUseCase: ICancelClassEndNotificationUseCase
 
     private val job = SupervisorJob()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + job)
@@ -109,67 +91,6 @@ class ClassTimerWidget : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        val action = intent.action
-        if (action == ACTION_START_CLASS || action == ACTION_STOP_CLASS) {
-            if (intent.`package` != null && intent.`package` != context.packageName) {
-                return
-            }
-            val pendingResult = goAsync()
-            coroutineScope.launch {
-                try {
-                    if (action == ACTION_START_CLASS) {
-                        handleStartClass(context)
-                    } else {
-                        handleStopClass(context)
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error handling widget action: $action", e)
-                } finally {
-                    pendingResult.finish()
-                }
-            }
-        }
-    }
-
-    private suspend fun handleStartClass(context: Context) {
-        val user = getCurrentUserUseCase().filterNotNull().firstOrNull() ?: return
-        val nextOccurrence = getNextClassUseCase() ?: return
-        val studentId = nextOccurrence.student.id
-        val student = getStudentByIdUseCase(user.uid, studentId).firstOrNull() ?: return
-
-        // Calculate class duration safely
-        val start = parseTimeSafely(nextOccurrence.startTime) ?: LocalTime.of(9, 0)
-        val end = parseTimeSafely(nextOccurrence.endTime) ?: start.plusHours(1)
-        val durationMinutes = Duration.between(start, end).toMinutes()
-        val finalDuration = if (durationMinutes > 0) durationMinutes else 60L
-
-        // Update student balance
-        val priceToAdd = (finalDuration / 60.0) * student.pricePerHour
-        val updatedStudent = student.copy(pendingBalance = student.pendingBalance + priceToAdd)
-
-        val saveResult = saveStudentUseCase(user.uid, updatedStudent)
-        if (saveResult is Result.Success<*>) {
-            val session = ActiveSession(
-                studentId = student.id,
-                studentName = student.name,
-                startTimeMillis = System.currentTimeMillis(),
-                durationMinutes = finalDuration,
-                isOngoing = true,
-                tutorId = user.uid
-            )
-            startActiveSessionUseCase(session)
-            val scheduled = scheduleClassEndNotificationUseCase(student.name, finalDuration)
-            if (!scheduled) {
-                stopActiveSessionUseCase()
-            }
-            updateWidget(context)
-        }
-    }
-
-    private fun handleStopClass(context: Context) {
-        cancelClassEndNotificationUseCase()
-        stopActiveSessionUseCase()
-        updateWidget(context)
     }
 
     private fun setupWidgetUi(
@@ -228,7 +149,7 @@ class ClassTimerWidget : AppWidgetProvider() {
             }
 
             // Stop button
-            val stopIntent = Intent(context, ClassTimerWidget::class.java).apply {
+            val stopIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
                 action = ACTION_STOP_CLASS
                 `package` = context.packageName
             }
@@ -266,7 +187,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.btn_start_class, View.VISIBLE)
 
                 // Start button
-                val startIntent = Intent(context, ClassTimerWidget::class.java).apply {
+                val startIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
                     action = ACTION_START_CLASS
                     `package` = context.packageName
                 }

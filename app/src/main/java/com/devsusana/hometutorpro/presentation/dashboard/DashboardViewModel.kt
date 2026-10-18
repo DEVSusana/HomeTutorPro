@@ -137,8 +137,17 @@ class DashboardViewModel @Inject constructor(
         val today = now.toLocalDate()
         val timeNow = now.toLocalTime()
 
-        val validOccurrences = occurrences.filter { 
-            it.exception?.type != ExceptionType.CANCELLED 
+        val validOccurrences = occurrences.filter { item ->
+            val exc = item.exception ?: return@filter true
+            if (exc.type == ExceptionType.CANCELLED) return@filter false
+            if (exc.type == ExceptionType.RESCHEDULED) {
+                val isSourceSlotRescheduledToOtherDay = exc.newDayOfWeek != null && exc.newDayOfWeek != item.date.dayOfWeek
+                val hasNoStartTime = exc.newStartTime.isBlank()
+                if (isSourceSlotRescheduledToOtherDay || hasNoStartTime) {
+                    return@filter false
+                }
+            }
+            true
         }
         
         val sorted = validOccurrences.sortedWith(

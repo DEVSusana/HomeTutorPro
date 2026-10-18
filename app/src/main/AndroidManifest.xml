@@ -37,6 +37,11 @@
             android:exported="false" />
 
         <receiver
+            android:name=".presentation.widget.ClassTimerActionReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
             android:name=".presentation.widget.ClassTimerWidget"
             android:enabled="true"
             android:exported="true"

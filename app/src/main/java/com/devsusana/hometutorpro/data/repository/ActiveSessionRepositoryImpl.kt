@@ -9,7 +9,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ActiveSessionRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : IActiveSessionRepository {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -24,6 +24,25 @@ class ActiveSessionRepositoryImpl @Inject constructor(
         val durationMinutes = prefs.getLong(KEY_DURATION_MINUTES, 0)
         val tutorId = prefs.getString(KEY_TUTOR_ID, "") ?: ""
 
+        // Validate that session belongs to the currently authenticated tutor
+        val currentTutorId = try {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        } catch (_: Exception) {
+            null
+        }
+        if (currentTutorId != null && tutorId.isNotBlank() && tutorId != currentTutorId) {
+            return null
+        }
+
+        // Check if the session has expired past its scheduled duration
+        if (startTimeMillis > 0 && durationMinutes > 0) {
+            val endTimeMillis = startTimeMillis + (durationMinutes * 60 * 1000L)
+            if (System.currentTimeMillis() >= endTimeMillis) {
+                stopSession()
+                return null
+            }
+        }
+
         return ActiveSession(
             studentId = studentId,
             studentName = studentName,
@@ -35,13 +54,20 @@ class ActiveSessionRepositoryImpl @Inject constructor(
     }
 
     override fun startSession(session: ActiveSession) {
+        val effectiveTutorId = session.tutorId.ifBlank {
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            } catch (_: Exception) {
+                ""
+            }
+        }
         prefs.edit().apply {
             putBoolean(KEY_IS_ONGOING, true)
             putString(KEY_STUDENT_ID, session.studentId)
             putString(KEY_STUDENT_NAME, session.studentName)
             putLong(KEY_START_TIME_MILLIS, session.startTimeMillis)
             putLong(KEY_DURATION_MINUTES, session.durationMinutes)
-            putString(KEY_TUTOR_ID, session.tutorId)
+            putString(KEY_TUTOR_ID, effectiveTutorId)
             apply()
         }
     }
