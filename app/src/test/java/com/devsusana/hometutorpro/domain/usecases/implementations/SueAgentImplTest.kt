@@ -6,6 +6,7 @@ import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.entities.User
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
+import com.devsusana.hometutorpro.domain.usecases.implementations.sue.SueResponseFormatter
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -592,5 +594,233 @@ class SueAgentImplTest {
         assertEquals("Marcos", action.name)
         assertEquals("Matemáticas, Física", action.subjects)
         assertEquals(15.0, action.pricePerHour, 0.001)
+    }
+
+    @Test
+    fun `detectActionIntent prepares update address in single turn`() = runTest {
+        val student = AgentStudentDetail(
+            studentId = "stu-carlos",
+            name = "Carlos",
+            subjects = "Matemáticas",
+            course = "2º Bachillerato",
+            pricePerHour = 15.0,
+            address = "Calle Antigua 1"
+        )
+        coEvery { studentTools.extractRelevantStudent("cambia la direccion de carlos a calle mayor 12, portero 4") } returns student
+        val pendingAction = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-carlos",
+            studentName = "Carlos",
+            address = "Calle Mayor 12, portero 4"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Carlos", any()) } returns
+            SueOperationResult.Prepare.Success(pendingAction)
+
+        agent.resetConversationContext()
+        val result = agent.detectActionIntent("cambia la dirección de Carlos a Calle Mayor 12, portero 4")
+
+        assertTrue("Should prepare UpdateStudentAddress", result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentAddress
+        assertEquals("Carlos", action.studentName)
+        assertEquals("Calle Mayor 12, portero 4", action.address)
+    }
+
+    @Test
+    fun `detectActionIntent handles update address in 2 turns slot filling`() = runTest {
+        val student = AgentStudentDetail(
+            studentId = "stu-carlos",
+            name = "Carlos",
+            subjects = "Matemáticas",
+            course = "2º Bachillerato",
+            pricePerHour = 15.0,
+            address = "Calle Antigua 1"
+        )
+        coEvery { studentTools.extractRelevantStudent("cambia la direccion de carlos") } returns student
+        agent.resetConversationContext()
+
+        // Turn 1: Ask to change address without specifying it
+        val turn1 = agent.detectActionIntent("cambia la dirección de Carlos")
+        assertTrue("Turn 1 should ask for address", turn1 is SueOperationResult.Prepare.Error)
+        assertEquals("¿Cuál es la nueva dirección para Carlos?", (turn1 as SueOperationResult.Prepare.Error).details)
+
+        // Turn 2: User provides address
+        val pendingAction = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-carlos",
+            studentName = "Carlos",
+            address = "Calle Mayor 12, portero 4B"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Carlos", "Calle Mayor 12, portero 4B") } returns
+            SueOperationResult.Prepare.Success(pendingAction)
+
+        val turn2 = agent.detectActionIntent("Calle Mayor 12, portero 4B")
+        assertTrue("Turn 2 should successfully prepare UpdateStudentAddress", turn2 is SueOperationResult.Prepare.Success)
+        val action = (turn2 as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentAddress
+        assertEquals("Carlos", action.studentName)
+        assertEquals("Calle Mayor 12, portero 4B", action.address)
+    }
+
+    @Test
+    fun `parseLlmActionResponse parses UPDATE_STUDENT_ADDRESS tag`() = runTest {
+        val pendingAction = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-carlos",
+            studentName = "Carlos",
+            address = "Avenida Constitución 10, portero 2"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Carlos", "Avenida Constitución 10, portero 2") } returns
+            SueOperationResult.Prepare.Success(pendingAction)
+
+        val llmOutput = """
+            [ACTION: UPDATE_STUDENT_ADDRESS, student: "Carlos", address: "Avenida Constitución 10, portero 2"]
+            He preparado la actualización de la dirección de Carlos.
+        """.trimIndent()
+
+        val result = agent.parseLlmActionResponse(llmOutput)
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentAddress
+        assertEquals("Carlos", action.studentName)
+        assertEquals("Avenida Constitución 10, portero 2", action.address)
+    }
+
+    @Test
+    fun `query student details with only name and price outputs only available fields`() = runTest {
+        val student = AgentStudentDetail(
+            studentId = "stu-pepe",
+            name = "Pepe",
+            subjects = "",
+            course = "",
+            pricePerHour = 12.0,
+            address = "",
+            studentPhone = "",
+            parentPhones = "",
+            pendingBalance = 0.0,
+            lastPaymentDate = null,
+            notes = ""
+        )
+        val detailsResult = SueOperationResult.StudentDetails("Pepe", listOf(student))
+        val formatted = SueResponseFormatter.format(detailsResult)
+
+        assertTrue(formatted.contains("Pepe"))
+        assertTrue(formatted.contains("Precio/hora: 12.0 €/h"))
+        assertFalse(formatted.contains("Dirección"))
+        assertFalse(formatted.contains("Sin dirección registrada"))
+        assertFalse(formatted.contains("Último pago"))
+        assertFalse(formatted.contains("Saldo pendiente"))
+        assertFalse(formatted.contains("Asignaturas"))
+    }
+
+    @Test
+    fun `query address for student without address returns polite no address message`() = runTest {
+        val student = AgentStudentDetail(
+            studentId = "stu-pepe",
+            name = "Pepe",
+            subjects = "",
+            course = "",
+            pricePerHour = 12.0,
+            address = ""
+        )
+        coEvery { studentTools.searchStudent("Pepe") } returns SueOperationResult.StudentDetails("Pepe", listOf(student))
+        agent.resetConversationContext()
+
+        val result = agent.detectActionIntent("¿Dónde vive Pepe?")
+        assertTrue(result is SueOperationResult.ReadSuccess)
+        assertEquals("Pepe no tiene ninguna dirección registrada.", (result as SueOperationResult.ReadSuccess).message)
+    }
+
+    @Test
+    fun `query address for student with address returns registered address`() = runTest {
+        val student = AgentStudentDetail(
+            studentId = "stu-pepe",
+            name = "Pepe",
+            subjects = "",
+            course = "",
+            pricePerHour = 12.0,
+            address = "Calle Gran Vía 12, Portero 4"
+        )
+        coEvery { studentTools.searchStudent("Pepe") } returns SueOperationResult.StudentDetails("Pepe", listOf(student))
+        agent.resetConversationContext()
+
+        val result = agent.detectActionIntent("¿Cuál es la dirección de Pepe?")
+        assertTrue(result is SueOperationResult.ReadSuccess)
+        assertEquals("La dirección de Pepe es: Calle Gran Vía 12, Portero 4.", (result as SueOperationResult.ReadSuccess).message)
+    }
+
+    @Test
+    fun `add door code to student address in single turn`() = runTest {
+        val pendingAction = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-hugo",
+            studentName = "Hugo Morales",
+            address = "Calle Mayor 1, Portero: 387"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Hugo Morales", "Portero: 387") } returns
+            SueOperationResult.Prepare.Success(pendingAction)
+        agent.resetConversationContext()
+
+        val result = agent.detectActionIntent("añade a hugo morales en su direccion el codigo de porte 387")
+        assertTrue("Should detect UpdateStudentAddress", result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentAddress
+        assertEquals("Hugo Morales", action.studentName)
+        assertEquals("Calle Mayor 1, Portero: 387", action.address)
+    }
+
+    @Test
+    fun `ponle and cambia address variations are detected in single turn`() = runTest {
+        val pendingAction1 = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-hugo",
+            studentName = "Hugo",
+            address = "Portero: 14B"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Hugo", "Portero: 14B") } returns
+            SueOperationResult.Prepare.Success(pendingAction1)
+        agent.resetConversationContext()
+
+        val result1 = agent.detectActionIntent("ponle a Hugo en su direccion el portero 14B")
+        assertTrue(result1 is SueOperationResult.Prepare.Success)
+
+        val pendingAction2 = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-hugo",
+            studentName = "Hugo",
+            address = "Portero: 387"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Hugo", "Portero: 387") } returns
+            SueOperationResult.Prepare.Success(pendingAction2)
+        agent.resetConversationContext()
+
+        val result2 = agent.detectActionIntent("cambia el portero de Hugo a 387")
+        assertTrue(result2 is SueOperationResult.Prepare.Success)
+
+        val pendingAction3 = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-hugo",
+            studentName = "Hugo",
+            address = "Calle Luna 5"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Hugo", "Calle Luna 5") } returns
+            SueOperationResult.Prepare.Success(pendingAction3)
+        agent.resetConversationContext()
+
+        val result3 = agent.detectActionIntent("edita la direccion de Hugo a Calle Luna 5")
+        assertTrue(result3 is SueOperationResult.Prepare.Success)
+
+        val pendingAction4 = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-hugo",
+            studentName = "Hugo",
+            address = "Portero: 4B"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Hugo", "Portero: 4B") } returns
+            SueOperationResult.Prepare.Success(pendingAction4)
+        agent.resetConversationContext()
+
+        val result4 = agent.detectActionIntent("edítale el portero a Hugo a 4B")
+        assertTrue(result4 is SueOperationResult.Prepare.Success)
+
+        val pendingAction5 = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-hugo",
+            studentName = "Hugo",
+            address = "Portero: 387"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Hugo", "Portero: 387") } returns
+            SueOperationResult.Prepare.Success(pendingAction5)
+        agent.resetConversationContext()
+
+        val result5 = agent.detectActionIntent("añade a Hugo el portero 387")
+        assertTrue(result5 is SueOperationResult.Prepare.Success)
     }
 }

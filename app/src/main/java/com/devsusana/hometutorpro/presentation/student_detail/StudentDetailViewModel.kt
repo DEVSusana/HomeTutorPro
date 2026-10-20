@@ -14,6 +14,7 @@ import com.devsusana.hometutorpro.presentation.student_detail.components.BulkSch
 import com.devsusana.hometutorpro.presentation.student_detail.delegates.IStudentFinanceDelegate
 import com.devsusana.hometutorpro.presentation.student_detail.delegates.IStudentResourceDelegate
 import com.devsusana.hometutorpro.presentation.student_detail.delegates.IStudentScheduleDelegate
+import com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -235,6 +236,7 @@ class StudentDetailViewModel @Inject constructor(
             errorMessage = if (hasConflicts) application.getString(R.string.student_detail_error_save_schedules_failed) else null,
             pendingSchedules = failedSchedules
         )
+        ClassTimerWidget.updateWidget(application)
     }
 
     private fun deleteStudent() {

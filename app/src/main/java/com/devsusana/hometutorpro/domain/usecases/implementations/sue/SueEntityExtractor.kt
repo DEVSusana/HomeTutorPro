@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.domain.usecases.implementations.sue
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
+import com.devsusana.hometutorpro.domain.utils.DoorCodeExtractor
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
@@ -160,6 +161,8 @@ class SueEntityExtractor @Inject constructor(
 
         val trailingWordsToStrip = Regex("""\s+(?:hoy|esta\s+tarde|esta\s+mañana|esta\s+manana|esta\s+noche|mañana|manana|ayer|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo|que\s+es|que\s+tiene|que\s+esta|que\s+está|y\s+ponle|y\s+pon|y\s+la\s+clase|y\s+el\s+precio|y\s+cobrale|y\s+cóbrale|con\s+precio|con\s+tarifa|a\s+\d).*$""", RegexOption.IGNORE_CASE)
         clean = clean.replace(trailingWordsToStrip, "").trim()
+        clean = clean.replace(Regex("""\s+(?:en|su|de|con|por|para)$""", RegexOption.IGNORE_CASE), "").trim()
+        clean = clean.trim('¿', '¡', '?', '!', '.', ',', ';', ':', '"', '\'').trim()
         if (clean.isBlank()) return null
 
         val dayKeywords = setOf(
@@ -179,9 +182,9 @@ class SueEntityExtractor @Inject constructor(
      */
     fun extractStudentName(query: String): String? {
         // 1. Inverted patterns where student is between verb and target:
-        // e.g. "quita a Marcos la clase", "quítale a Marcos la clase", "pon a Marcos una clase", "mueve a Marcos la clase"
+        // e.g. "quita a Marcos la clase", "quítale a Marcos la clase", "pon a Marcos una clase", "edita a Marcos la dirección"
         val invertedRegex = Regex(
-            """\b(?:pon|ponle|pónle|ponme|pónme|quita|quitale|quítale|quítala|quitala|mueve|muevele|muévele|adelanta|adelantale|adelántale|cancela|cancelale|cancélale|anula|anulale|anúlale|cambia|cambiale|cámbiale|pasa|pasale|pásale)\s+a\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ]+)\s+(?:la\s+clase|una\s+clase|clase|el\s+horario|su\s+clase)\b""",
+            """\b(?:pon|ponle|pónle|ponme|pónme|edita|editale|edítale|añade|anade|añadele|añádele|anadele|agrega|agregale|quita|quitale|quítale|quítala|quitala|mueve|muevele|muévele|adelanta|adelantale|adelántale|cancela|cancelale|cancélale|anula|anulale|anúlale|cambia|cambiale|cámbiale|pasa|pasale|pásale)\s+a\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ]+(?:\s+[a-zA-ZáéíóúÁÉÍÓÚñÑ]+)?)\s+(?:la\s+clase|una\s+clase|clase|el\s+horario|su\s+clase|en\s+su\s+direcci[oó]n|en\s+la\s+direcci[oó]n|la\s+direcci[oó]n|su\s+direcci[oó]n|de\s+direcci[oó]n|el\s+portero|de\s+portero|el\s+telefonillo|de\s+telefonillo|el\s+timbre|el\s+portal|el\s+intercom|el\s+c[oó]digo)\b""",
             RegexOption.IGNORE_CASE
         )
         invertedRegex.find(query)?.let { match ->
@@ -244,8 +247,11 @@ class SueEntityExtractor @Inject constructor(
             "añade una clase para ", "añade una clase a ", "añade una clase con ", "añade una clase de ",
             "añade clase para ", "añade clase a ", "añade clase con ", "añade clase de ",
             "añádele una clase a ", "añadele una clase a ",
+            "añade a ", "añádele a ", "añadele a ",
             "anade una clase para ", "anade una clase a ",
+            "anade a ", "anadele a ",
             "agrega una clase para ", "agrega una clase a ",
+            "agrega a ", "agregar a ",
             "añade un horario para ", "añadir un horario para ", "crea un horario para ", "crear un horario para ",
             "horario para ", "horario de ",
             
@@ -254,6 +260,29 @@ class SueEntityExtractor @Inject constructor(
             "quitar el horario de ", "quita el horario de ",
             "elimina al alumno ", "eliminar al alumno ", "borra al alumno ", "borrar al alumno ",
             "elimina a ", "eliminar a ", "borra a ", "borrar a ",
+
+            // Address & Student details connectors
+            "cambiale la direccion a ", "cambiale la dirección a ", "cámbiale la direccion a ", "cámbiale la dirección a ",
+            "actualizale la direccion a ", "actualizale la dirección a ", "actualízale la direccion a ", "actualízale la dirección a ",
+            "ponle la direccion a ", "ponle la dirección a ", "pónle la direccion a ", "pónle la dirección a ",
+            "editale la direccion a ", "editale la dirección a ", "edítale la direccion a ", "edítale la dirección a ",
+            "añadele la direccion a ", "añadele la dirección a ", "añádele la direccion a ", "añádele la dirección a ",
+            "cambia la direccion de ", "cambia la dirección de ", "cambiar la direccion de ", "cambiar la dirección de ",
+            "actualiza la direccion de ", "actualiza la dirección de ", "actualizar la direccion de ", "actualizar la dirección de ",
+            "modifica la direccion de ", "modifica la dirección de ", "modificar la direccion de ", "modificar la dirección de ",
+            "edita la direccion de ", "edita la dirección de ", "editar la direccion de ", "editar la dirección de ",
+            "añade la direccion de ", "añade la dirección de ", "anade la direccion de ", "anade la dirección de ",
+            "pon la direccion de ", "pon la dirección de ", "guarda la direccion de ", "guarda la dirección de ",
+            "la direccion de ", "la dirección de ", "direccion de ", "dirección de ",
+            "cambia el portero de ", "actualiza el portero de ", "pon el portero de ", "edita el portero de ", "añade el portero de ", "anade el portero de ",
+            "cambiale el portero a ", "cámbiale el portero a ", "ponle el portero a ", "edítale el portero a ", "editale el portero a ", "añádele el portero a ", "añadele el portero a ", "anadele el portero a ",
+            "cambiale de portero a ", "cámbiale de portero a ", "ponle de portero a ", "edítale de portero a ", "editale de portero a ", "añádele de portero a ", "añadele de portero a ",
+            "cambiale de direccion a ", "cámbiale de dirección a ", "ponle de direccion a ", "ponle de dirección a ", "edítale de direccion a ", "edítale de dirección a ",
+            "el portero de ", "portero de ",
+            "cambia el telefonillo de ", "actualiza el telefonillo de ", "pon el telefonillo de ", "edita el telefonillo de ", "añade el telefonillo de ", "anade el telefonillo de ",
+            "cambiale el telefonillo a ", "cámbiale el telefonillo a ", "ponle el telefonillo a ", "edítale el telefonillo a ", "editale el telefonillo a ", "añádele el telefonillo a ", "añadele el telefonillo a ", "anadele el telefonillo a ",
+            "el telefonillo de ", "telefonillo de ",
+            "datos de ", "informacion de ", "información de ", "ficha de ", "detalles de ", "dónde vive ", "donde vive ",
             
             // English equivalents
             "cancel the extra class of ", "cancel the extra class for ", "cancel extra class for ", "cancel extra class with ",
@@ -777,6 +806,75 @@ class SueEntityExtractor @Inject constructor(
                 if (text.isNotBlank()) return text
             }
         }
+        return null
+    }
+
+    /**
+     * Extracts a postal address or intercom / portero specification from a query.
+     */
+    fun extractAddressText(query: String, studentName: String? = null): String? {
+        val lower = stripAccents(query.lowercase().trim())
+        val original = query.trim()
+
+        val streetPrefixes = listOf("calle ", "c/ ", "c/", "avenida ", "avda ", "av. ", "av ", "plaza ", "pza ", "paseo ", "pº ", "carretera ", "ctra ")
+        val hasStreet = streetPrefixes.any { lower.contains(it) }
+
+        // 1. Direct door / intercom code if no street is present (e.g. "el codigo de porte 387", "el portero de Hugo es 14B")
+        if (!hasStreet) {
+            val doorCode = DoorCodeExtractor.extractDoorCode(original)
+            if (doorCode != null) {
+                return doorCode
+            }
+        }
+
+        // 2. Markers after "direccion"
+        val dirIdx = listOf(lower.indexOf("direccion"), lower.indexOf("dirección")).filter { it >= 0 }.minOrNull()
+        if (dirIdx != null) {
+            val afterDir = lower.substring(dirIdx + 9)
+            val afterDirOriginal = original.substring(Math.min(original.length, dirIdx + 9))
+
+            // Check transitions like " a ", " por ", " es ", ": "
+            val transitionMarkers = listOf(" a ", " por ", " es ", ": ")
+            for (m in transitionMarkers) {
+                val tIdx = afterDir.indexOf(m)
+                if (tIdx >= 0) {
+                    val candidate = afterDirOriginal.substring(tIdx + m.length).trim()
+                    if (candidate.isNotBlank()) {
+                        val doorCode = DoorCodeExtractor.extractDoorCode(candidate)
+                        return if (doorCode != null && !streetPrefixes.any { candidate.lowercase().contains(it) }) doorCode else candidate
+                    }
+                }
+            }
+
+            // Trailing target check: "ponle la direccion Calle Mayor 12 a Marcos"
+            if (studentName != null) {
+                val studentLower = stripAccents(studentName.lowercase().trim())
+                val toStudent = " a $studentLower"
+                if (afterDir.endsWith(toStudent)) {
+                    val candidate = afterDirOriginal.substring(0, afterDir.length - toStudent.length).trim()
+                    if (candidate.isNotBlank()) {
+                        val doorCode = DoorCodeExtractor.extractDoorCode(candidate)
+                        return if (doorCode != null && !streetPrefixes.any { candidate.lowercase().contains(it) }) doorCode else candidate
+                    }
+                }
+            }
+
+            // Direct candidate after "direccion"
+            val candidate = afterDirOriginal.trim().removePrefix(":").trim()
+            if (studentName != null && candidate.equals("de $studentName", ignoreCase = true)) {
+                return null
+            }
+            if (candidate.isNotBlank() && !candidate.startsWith("de ")) {
+                val doorCode = DoorCodeExtractor.extractDoorCode(candidate)
+                return if (doorCode != null && !streetPrefixes.any { candidate.lowercase().contains(it) }) doorCode else candidate
+            }
+        }
+
+        // 3. Street prefixes in direct input
+        if (streetPrefixes.any { lower.startsWith(it) }) {
+            return original
+        }
+
         return null
     }
 

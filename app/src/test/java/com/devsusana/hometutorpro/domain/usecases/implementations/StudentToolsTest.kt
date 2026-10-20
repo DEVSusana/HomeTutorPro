@@ -470,5 +470,53 @@ class StudentToolsTest {
 
         assertEquals(resources, result)
     }
+
+    @Test
+    fun `prepareUpdateAddressAction returns Success when student exists and address is valid`() = runTest {
+        coEvery { queryStudentsUseCase.searchByName("María") } returns listOf(mariaDetail)
+
+        val result = studentTools.prepareUpdateAddressAction("María", "Calle Mayor 12, Portero 4")
+
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentAddress
+        assertEquals("María García", action.studentName)
+        assertEquals("stu-1", action.studentId)
+        assertEquals("Calle Mayor 12, Portero 4", action.address)
+    }
+
+    @Test
+    fun `prepareUpdateAddressAction appends door code when student already has address`() = runTest {
+        val studentWithAddress = mariaDetail.copy(address = "Calle Luna 5")
+        coEvery { queryStudentsUseCase.searchByName("María") } returns listOf(studentWithAddress)
+
+        val result = studentTools.prepareUpdateAddressAction("María", "Portero: 387")
+
+        assertTrue(result is SueOperationResult.Prepare.Success)
+        val action = (result as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentAddress
+        assertEquals("Calle Luna 5, Portero: 387", action.address)
+    }
+
+    @Test
+    fun `prepareUpdateAddressAction returns Error when student not found`() = runTest {
+        coEvery { queryStudentsUseCase.searchByName("Desconocido") } returns emptyList()
+
+        val result = studentTools.prepareUpdateAddressAction("Desconocido", "Calle Mayor 12")
+
+        assertTrue(result is SueOperationResult.Prepare.Error)
+        assertEquals(SueOperationResult.ErrorType.STUDENT_NOT_FOUND, (result as SueOperationResult.Prepare.Error).errorType)
+    }
+
+    @Test
+    fun `executeUpdateAddressAction updates student address and saves`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(User(uid = "prof-1", email = "test@example.com", displayName = "Professor"))
+        coEvery { getStudentByIdUseCase("prof-1", "stu-1") } returns flowOf(fullStudent)
+        coEvery { saveStudentUseCase("prof-1", any()) } returns Result.Success("stu-1")
+
+        val action = SuePendingAction.UpdateStudentAddress("stu-1", "María García", "Calle Mayor 12, Portero 4")
+        val result = studentTools.executeUpdateAddressAction(action)
+
+        assertTrue(result is SueOperationResult.Execute.Success)
+        coVerify { saveStudentUseCase("prof-1", match { it.address == "Calle Mayor 12, Portero 4" }) }
+    }
 }
 

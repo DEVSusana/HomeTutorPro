@@ -15,6 +15,7 @@ enum class IntentType {
     REGISTER_PAYMENT,
     ADD_BALANCE,
     UPDATE_STUDENT_NOTES,
+    UPDATE_STUDENT_ADDRESS,
 
     // Read Queries
     QUERY_STUDENT_WEEKLY_CLASSES,

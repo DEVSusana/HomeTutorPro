@@ -418,6 +418,63 @@ class StudentTools @Inject constructor(
     }
 
     /**
+     * Prepares an action to update a student's address (including portero / intercom number).
+     */
+    suspend fun prepareUpdateAddressAction(studentName: String, address: String): SueOperationResult.Prepare {
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+
+        if (match == null) {
+            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+        }
+
+        if (address.isBlank()) {
+            return SueOperationResult.Prepare.Error(
+                SueOperationResult.ErrorType.UNKNOWN,
+                "La dirección no puede estar vacía."
+            )
+        }
+
+        val finalAddress = if (match.address.isNotBlank() &&
+            (address.startsWith("Portero:", ignoreCase = true) ||
+             address.startsWith("Código:", ignoreCase = true) ||
+             address.startsWith("Telefonillo:", ignoreCase = true) ||
+             address.startsWith("Intercom:", ignoreCase = true) ||
+             address.startsWith("Timbre:", ignoreCase = true)) &&
+            !match.address.contains(address, ignoreCase = true)
+        ) {
+            "${match.address.trim().trimEnd(',')}, $address"
+        } else {
+            address
+        }
+
+        val action = SuePendingAction.UpdateStudentAddress(
+            studentId = match.studentId,
+            studentName = match.name,
+            address = finalAddress
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes the update student address action.
+     */
+    suspend fun executeUpdateAddressAction(action: SuePendingAction.UpdateStudentAddress): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val studentFlow = getStudentByIdUseCase(professorId, action.studentId)
+        val student = studentFlow.first()
+            ?: return SueOperationResult.Execute.Error(DomainError.StudentNotFound)
+
+        val updatedStudent = student.copy(address = action.address)
+        return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
      * Returns the list of resources shared with a student.
      */
     suspend fun getSharedResources(studentName: String): List<com.devsusana.hometutorpro.domain.entities.SharedResource> {

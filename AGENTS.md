@@ -198,56 +198,52 @@ Gemini MUST generate classes in the following specific locations, respecting pac
 
 ---
 
-## 11. Local Verification via Agents and Skills
+## 11. Local Verification & Autonomous Development via Agentic Loop
 
-You have a local audit agent orchestrator on your machine that you can run **optionally** to check code before pushing. Since the remote CI pipeline on GitHub executes these exact same automated validations upon opening or updating a Pull Request, local verification is purely diagnostic and is not part of the assistant's mandatory daily flow.
+HomeTutorPro includes an integrated **Universal Agentic Loop** located in `agents_dev/`. It provides autonomous development capabilities with tool use, compiler self-healing via Gradle, and human-in-the-loop verification, powered by **Claude 3.5 Sonnet** or **Gemini 2.5 Flash**.
+
+For in-depth architecture and project extrapolation guides, see [agents_dev/README.md](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/agents_dev/README.md).
 
 ### Prerequisites and Configuration
-The agent scripts and skills reside in the `agents_dev/` directory. They require setting the Gemini API key:
-1. Configure the Gemini API key in your terminal:
-   ```bash
-   export GEMINI_API_KEY="your-api-key-here"
-   ```
+Configure your preferred provider API key in your terminal:
+```bash
+# Recommended for autonomous coding (Anthropic Claude 3.5 Sonnet):
+export ANTHROPIC_API_KEY="your-anthropic-key"
 
-### Running Audits in the Terminal
-To run local analysis on modified Kotlin files:
-1. **Activate the Python virtual environment** of the agents project:
-   ```bash
-   source agents_dev/.venv_agente/bin/activate
-   ```
-2. **Run the agent orchestrator**:
-   ```bash
-   python agents_dev/skills/agent_orchestrator.py
-   ```
-   *Note:* By default, if no parameters are passed, the script automatically detects modified Kotlin files in your workspace (via `git status` / `git diff`). You can also force analysis of a specific file by passing it as an argument:
-   ```bash
-   python agents_dev/skills/agent_orchestrator.py app/src/main/java/com/devsusana/hometutorpro/data/repository/AuthRepositoryImpl.kt
-   ```
+# Alternative (Google Gemini 2.5 Flash):
+export GEMINI_API_KEY="your-gemini-key"
+```
 
-The orchestrator will sequentially run the 5 audit agents (**Architecture**, **Security**, **Testing**, **KDocs**, and **Refactor**), applying 35-second pauses to respect the free API tier rate limits.
+### Daily Workflow from Android Studio Terminal
 
-### Local Productivity Tools (Support Skills)
-Three local scripts are available in `agents_dev/skills/` to automate repetitive development tasks:
+#### Phase 1: Interactive Spec Interview (`plan`)
+Before coding, interview the agent to define, clarify, and lock requirements against `AGENTS.md` and `BUSINESS_RULES.md`:
+```bash
+python -m agents_dev plan "Your feature idea or change description"
+```
+* The agent conducts an interactive interview in the terminal, asking about edge cases, architectural boundaries, and persistence.
+* **Strict Confirmation Gate:** The interview will NOT finish until you explicitly type `OK` or `APROBADO`. It then saves the validated spec to `specs/<feature_name>.md`.
 
-1. **Test Skeleton Generator (`test_scaffolder.py`):**
-   Creates the file and base skeleton for unit tests (with JUnit, MockK, and Coroutines) from a production Kotlin class.
-   ```bash
-   python agents_dev/skills/test_scaffolder.py app/src/main/java/com/devsusana/hometutorpro/domain/usecases/implementations/MyNewUseCase.kt
-   ```
-   *Note:* It generates the test in the corresponding path under `app/src/test/java/...` ready to be populated.
+#### Phase 2: Autonomous Execution Loop (`run`)
+Once the spec is approved, launch the autonomous loop:
+```bash
+# Build from an approved spec:
+python -m agents_dev run --spec specs/your_feature.md
 
-2. **Hilt Injection Validator (`hilt_checker.py`):**
-   Quickly checks that new Use Case or Repository interfaces are declared in the project's Hilt DI modules.
-   ```bash
-   python agents_dev/skills/hilt_checker.py
-   ```
-   *Note:* If no arguments are specified, it automatically scans all modified Kotlin files in Git.
+# Quick refactor or targeted task:
+python -m agents_dev run "Refactor StudentRepository to enforce Clean Architecture boundaries"
 
-3. **KDocs Autocompleter (`kdoc_autocompleter.py`):**
-   Identifies undocumented public classes and functions and automatically adds well-structured KDoc comments, overwriting the file.
-   ```bash
-   python agents_dev/skills/kdoc_autocompleter.py app/src/main/java/com/devsusana/hometutorpro/data/repository/MyRepositoryImpl.kt
-   ```
+# Explicit provider selection:
+python -m agents_dev --provider=claude run --spec specs/your_feature.md
+```
+During execution, the agent autonomously:
+1. Inspects files with `read_file` and lists directories with `list_files`.
+2. Applies **precision surgical patches (`patch_file`)** — never regenerating whole classes unnecessarily (Minimal Blast Radius).
+3. Verifies Hilt bindings with `check_hilt_bindings` and scaffolds tests with `scaffold_test`.
+4. Runs `./gradlew compileDebugKotlin` and `./gradlew test` in a closed self-healing loop until all checks are green.
+5. Pauses to ask questions via `ask_human` if any runtime ambiguity arises.
+6. Displays the final `git diff` and asks for your interactive `(y/n)` approval before keeping changes.
+
 
 ---
 
