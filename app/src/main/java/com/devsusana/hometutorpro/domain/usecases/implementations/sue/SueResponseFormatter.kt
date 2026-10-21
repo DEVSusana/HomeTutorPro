@@ -285,6 +285,18 @@ object SueResponseFormatter {
             "¿Confirmas actualizar la dirección de ${action.studentName} a: '${action.address}'? " +
                 "Di sí para confirmar o no para cancelar."
         }
+        is SuePendingAction.UpdateStudentPrice -> {
+            "¿Confirmas actualizar el precio por hora de ${action.studentName} a ${action.pricePerHour} euros la hora? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.UpdateStudentPhone -> {
+            "¿Confirmas actualizar el teléfono de ${action.studentName} a: '${action.phone}'? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.UpdateStudentCourse -> {
+            "¿Confirmas actualizar el curso de ${action.studentName} a: '${action.course}'? " +
+                "Di sí para confirmar o no para cancelar."
+        }
     }
 
     private fun formatPreparationError(result: SueOperationResult.Prepare.Error): String {
@@ -343,6 +355,15 @@ object SueResponseFormatter {
         }
         is SuePendingAction.UpdateStudentAddress -> {
             "Hecho. Se ha actualizado la dirección de ${action.studentName} a: ${action.address}."
+        }
+        is SuePendingAction.UpdateStudentPrice -> {
+            "Hecho. Se ha actualizado el precio por hora de ${action.studentName} a ${action.pricePerHour} euros la hora."
+        }
+        is SuePendingAction.UpdateStudentPhone -> {
+            "Hecho. Se ha actualizado el teléfono de ${action.studentName} a: ${action.phone}."
+        }
+        is SuePendingAction.UpdateStudentCourse -> {
+            "Hecho. Se ha actualizado el curso de ${action.studentName} a: ${action.course}."
         }
     }
 

@@ -475,6 +475,131 @@ class StudentTools @Inject constructor(
     }
 
     /**
+     * Prepares an action to update a student's hourly rate / price per hour.
+     */
+    suspend fun prepareUpdatePriceAction(studentName: String, pricePerHour: Double): SueOperationResult.Prepare {
+        if (pricePerHour <= 0.0 || pricePerHour > 500.0) {
+            return SueOperationResult.Prepare.Error(
+                SueOperationResult.ErrorType.UNKNOWN,
+                "El precio por hora debe ser un valor válido mayor que cero."
+            )
+        }
+
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+            ?: return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+
+        val action = SuePendingAction.UpdateStudentPrice(
+            studentId = match.studentId,
+            studentName = match.name,
+            pricePerHour = pricePerHour
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes the update student price action.
+     */
+    suspend fun executeUpdatePriceAction(action: SuePendingAction.UpdateStudentPrice): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val studentFlow = getStudentByIdUseCase(professorId, action.studentId)
+        val student = studentFlow.first()
+            ?: return SueOperationResult.Execute.Error(DomainError.StudentNotFound)
+
+        val updatedStudent = student.copy(pricePerHour = action.pricePerHour)
+        return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
+     * Prepares an action to update a student's phone number.
+     */
+    suspend fun prepareUpdatePhoneAction(studentName: String, phone: String): SueOperationResult.Prepare {
+        val cleanPhone = phone.trim()
+        if (cleanPhone.isBlank()) {
+            return SueOperationResult.Prepare.Error(
+                SueOperationResult.ErrorType.UNKNOWN,
+                "El teléfono no puede estar vacío."
+            )
+        }
+
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+            ?: return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+
+        val action = SuePendingAction.UpdateStudentPhone(
+            studentId = match.studentId,
+            studentName = match.name,
+            phone = cleanPhone
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes the update student phone action.
+     */
+    suspend fun executeUpdatePhoneAction(action: SuePendingAction.UpdateStudentPhone): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val studentFlow = getStudentByIdUseCase(professorId, action.studentId)
+        val student = studentFlow.first()
+            ?: return SueOperationResult.Execute.Error(DomainError.StudentNotFound)
+
+        val updatedStudent = student.copy(studentPhone = action.phone)
+        return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
+     * Prepares an action to update a student's course.
+     */
+    suspend fun prepareUpdateCourseAction(studentName: String, course: String): SueOperationResult.Prepare {
+        val cleanCourse = course.trim()
+        if (cleanCourse.isBlank()) {
+            return SueOperationResult.Prepare.Error(
+                SueOperationResult.ErrorType.UNKNOWN,
+                "El curso no puede estar vacío."
+            )
+        }
+
+        val results = queryStudentsUseCase.searchByName(studentName)
+        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+            ?: return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
+
+        val action = SuePendingAction.UpdateStudentCourse(
+            studentId = match.studentId,
+            studentName = match.name,
+            course = cleanCourse
+        )
+        return SueOperationResult.Prepare.Success(action)
+    }
+
+    /**
+     * Executes the update student course action.
+     */
+    suspend fun executeUpdateCourseAction(action: SuePendingAction.UpdateStudentCourse): SueOperationResult.Execute {
+        val professorId = authRepository.currentUser.value?.uid
+            ?: return SueOperationResult.Execute.AuthError
+
+        val studentFlow = getStudentByIdUseCase(professorId, action.studentId)
+        val student = studentFlow.first()
+            ?: return SueOperationResult.Execute.Error(DomainError.StudentNotFound)
+
+        val updatedStudent = student.copy(course = action.course)
+        return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
+            is Result.Success -> SueOperationResult.Execute.Success(action)
+            is Result.Error -> SueOperationResult.Execute.Error(result.error)
+        }
+    }
+
+    /**
      * Returns the list of resources shared with a student.
      */
     suspend fun getSharedResources(studentName: String): List<com.devsusana.hometutorpro.domain.entities.SharedResource> {

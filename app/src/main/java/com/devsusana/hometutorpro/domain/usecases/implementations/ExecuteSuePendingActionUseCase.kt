@@ -30,6 +30,9 @@ class ExecuteSuePendingActionUseCase @Inject constructor(
             is SuePendingAction.AddExtraClass -> scheduleTools.executeAddExtraClass(action)
             is SuePendingAction.UpdateStudentNotes -> studentTools.executeUpdateNotesAction(action)
             is SuePendingAction.UpdateStudentAddress -> studentTools.executeUpdateAddressAction(action)
+            is SuePendingAction.UpdateStudentPrice -> studentTools.executeUpdatePriceAction(action)
+            is SuePendingAction.UpdateStudentPhone -> studentTools.executeUpdatePhoneAction(action)
+            is SuePendingAction.UpdateStudentCourse -> studentTools.executeUpdateCourseAction(action)
         }
     }
 

@@ -119,6 +119,16 @@ class SueActionParser @Inject constructor(
                 "UPDATE_STUDENT_ADDRESS" -> {
                     if (student != null) studentTools.prepareUpdateAddressAction(student, params["address"] ?: "") else null
                 }
+                "UPDATE_STUDENT_PRICE" -> {
+                    val priceVal = params["price"]?.toDoubleOrNull() ?: params["amount"]?.toDoubleOrNull() ?: 0.0
+                    if (student != null && priceVal > 0.0) studentTools.prepareUpdatePriceAction(student, priceVal) else null
+                }
+                "UPDATE_STUDENT_PHONE" -> {
+                    if (student != null) studentTools.prepareUpdatePhoneAction(student, params["phone"] ?: "") else null
+                }
+                "UPDATE_STUDENT_COURSE" -> {
+                    if (student != null) studentTools.prepareUpdateCourseAction(student, params["course"] ?: "") else null
+                }
                 else -> null
             }
 

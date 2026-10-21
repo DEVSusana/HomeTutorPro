@@ -823,4 +823,121 @@ class SueAgentImplTest {
         val result5 = agent.detectActionIntent("añade a Hugo el portero 387")
         assertTrue(result5 is SueOperationResult.Prepare.Success)
     }
+
+    @Test
+    fun `relocation phrases are detected and prepare update address action`() = runTest {
+        val pendingAction1 = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-pepe",
+            studentName = "Pepe",
+            address = "Calle Mayor 12"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Pepe", "Calle Mayor 12") } returns
+            SueOperationResult.Prepare.Success(pendingAction1)
+        agent.resetConversationContext()
+
+        val result1 = agent.detectActionIntent("Pepe se ha mudado a Calle Mayor 12")
+        assertTrue("Should detect relocation for Pepe", result1 is SueOperationResult.Prepare.Success)
+        val action1 = (result1 as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentAddress
+        assertEquals("Pepe", action1.studentName)
+        assertEquals("Calle Mayor 12", action1.address)
+
+        val pendingAction2 = SuePendingAction.UpdateStudentAddress(
+            studentId = "stu-carlos",
+            studentName = "Carlos",
+            address = "Avenida de la Paz 8"
+        )
+        coEvery { studentTools.prepareUpdateAddressAction("Carlos", "Avenida de la Paz 8") } returns
+            SueOperationResult.Prepare.Success(pendingAction2)
+        agent.resetConversationContext()
+
+        val result2 = agent.detectActionIntent("Carlos ahora vive en Avenida de la Paz 8")
+        assertTrue("Should detect relocation for Carlos", result2 is SueOperationResult.Prepare.Success)
+        val action2 = (result2 as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentAddress
+        assertEquals("Carlos", action2.studentName)
+        assertEquals("Avenida de la Paz 8", action2.address)
+    }
+
+    @Test
+    fun `update price is detected in single turn and multi-turn`() = runTest {
+        val pendingAction = SuePendingAction.UpdateStudentPrice(
+            studentId = "stu-carlos",
+            studentName = "Carlos",
+            pricePerHour = 18.0
+        )
+        coEvery { studentTools.prepareUpdatePriceAction("Carlos", 18.0) } returns
+            SueOperationResult.Prepare.Success(pendingAction)
+        agent.resetConversationContext()
+
+        // Single turn
+        val singleTurnResult = agent.detectActionIntent("cambia el precio de Carlos a 18 la hora")
+        assertTrue("Single turn should detect UpdateStudentPrice", singleTurnResult is SueOperationResult.Prepare.Success)
+        val action = (singleTurnResult as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentPrice
+        assertEquals("Carlos", action.studentName)
+        assertEquals(18.0, action.pricePerHour, 0.001)
+
+        // Multi-turn: Turn 1 asks for price
+        agent.resetConversationContext()
+        val turn1 = agent.detectActionIntent("cambia el precio de Carlos")
+        assertTrue("Turn 1 should ask for price", turn1 is SueOperationResult.Prepare.Error)
+
+        // Turn 2: User gives price
+        val turn2 = agent.detectActionIntent("a 18 euros")
+        assertTrue("Turn 2 should successfully prepare action", turn2 is SueOperationResult.Prepare.Success)
+    }
+
+    @Test
+    fun `update phone is detected in single turn and multi-turn`() = runTest {
+        val pendingAction = SuePendingAction.UpdateStudentPhone(
+            studentId = "stu-carlos",
+            studentName = "Carlos",
+            phone = "612345678"
+        )
+        coEvery { studentTools.prepareUpdatePhoneAction("Carlos", "612345678") } returns
+            SueOperationResult.Prepare.Success(pendingAction)
+        agent.resetConversationContext()
+
+        // Single turn
+        val singleTurnResult = agent.detectActionIntent("el nuevo teléfono de Carlos es 612345678")
+        assertTrue("Single turn should detect UpdateStudentPhone", singleTurnResult is SueOperationResult.Prepare.Success)
+        val action = (singleTurnResult as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentPhone
+        assertEquals("Carlos", action.studentName)
+        assertEquals("612345678", action.phone)
+
+        // Multi-turn: Turn 1 asks for phone
+        agent.resetConversationContext()
+        val turn1 = agent.detectActionIntent("cambia el teléfono de Carlos")
+        assertTrue("Turn 1 should ask for phone", turn1 is SueOperationResult.Prepare.Error)
+
+        // Turn 2: User gives phone
+        val turn2 = agent.detectActionIntent("612345678")
+        assertTrue("Turn 2 should successfully prepare action", turn2 is SueOperationResult.Prepare.Success)
+    }
+
+    @Test
+    fun `update course is detected in single turn and multi-turn`() = runTest {
+        val pendingAction = SuePendingAction.UpdateStudentCourse(
+            studentId = "stu-carlos",
+            studentName = "Carlos",
+            course = "2º de Bachillerato"
+        )
+        coEvery { studentTools.prepareUpdateCourseAction("Carlos", "2º de Bachillerato") } returns
+            SueOperationResult.Prepare.Success(pendingAction)
+        agent.resetConversationContext()
+
+        // Single turn
+        val singleTurnResult = agent.detectActionIntent("cambia el curso de Carlos a 2º de Bachillerato")
+        assertTrue("Single turn should detect UpdateStudentCourse", singleTurnResult is SueOperationResult.Prepare.Success)
+        val action = (singleTurnResult as SueOperationResult.Prepare.Success).action as SuePendingAction.UpdateStudentCourse
+        assertEquals("Carlos", action.studentName)
+        assertEquals("2º de Bachillerato", action.course)
+
+        // Multi-turn: Turn 1 asks for course
+        agent.resetConversationContext()
+        val turn1 = agent.detectActionIntent("cambia el curso de Carlos")
+        assertTrue("Turn 1 should ask for course", turn1 is SueOperationResult.Prepare.Error)
+
+        // Turn 2: User gives course
+        val turn2 = agent.detectActionIntent("2º de Bachillerato")
+        assertTrue("Turn 2 should successfully prepare action", turn2 is SueOperationResult.Prepare.Success)
+    }
 }

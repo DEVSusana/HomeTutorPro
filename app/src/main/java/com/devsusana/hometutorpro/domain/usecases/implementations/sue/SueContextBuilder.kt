@@ -83,7 +83,8 @@ class SueContextBuilder @Inject constructor(
                 - Configurar o eliminar horarios recurrentes permanentes de clases.
                 - Programar clases extra y registrar el inicio de clases en directo.
                 - Guardar, añadir o actualizar notas y observaciones sobre los alumnos.
-                - Actualizar o añadir la dirección y datos de acceso (como el portero automático o timbre) de los alumnos.
+                - Actualizar o añadir la dirección y datos de acceso (como el portero automático o timbre) de los alumnos, así como mudanzas.
+                - Modificar el precio por hora, teléfono o curso de los alumnos.
 
                 Limitaciones:
                 - Solo conoces los datos del profesor que está usando la app.
@@ -93,10 +94,10 @@ class SueContextBuilder @Inject constructor(
                 Para horas sin especificar (ej. "a las 3", "a las 4", "a las 5", "a las 6"), interpreta SIEMPRE que se refiere a la tarde en formato 24h (15:00, 16:00, 17:00, 18:00) y NUNCA a horas de madrugada (03:00, 04:00, etc.), ya que las clases particulares no se imparten de madrugada. Solo interpreta mañana para horas entre 8 y 12 (08:00 - 12:00) o si se especifica "de la mañana" / "am".
 
                 INSTRUCCIÓN MUY IMPORTANTE (EXTRACCIÓN DE INTENCIONES):
-                Si la frase del usuario requiere ejecutar una acción en la app (crear, modificar o borrar clases, estudiantes o pagos, o actualizar sus notas o dirección), debes devolver UNA ÚNICA LÍNEA AL PRINCIPIO de tu respuesta con el siguiente formato exacto:
+                Si la frase del usuario requiere ejecutar una acción en la app (crear, modificar o borrar clases, estudiantes o pagos, o actualizar sus notas, dirección, precio, teléfono o curso), debes devolver UNA ÚNICA LÍNEA AL PRINCIPIO de tu respuesta con el siguiente formato exacto:
                 [ACTION: TIPO_DE_ACCION, parametro1: valor, parametro2: valor]
                 
-                Tipos de acción soportados: START_CLASS, CREATE_STUDENT, DELETE_STUDENT, ADD_EXTRA_CLASS, CREATE_SCHEDULE, DELETE_SCHEDULE, CANCEL_CLASS, RESCHEDULE_CLASS, REGISTER_PAYMENT, ADD_BALANCE, UPDATE_STUDENT_NOTES, UPDATE_STUDENT_ADDRESS
+                Tipos de acción soportados: START_CLASS, CREATE_STUDENT, DELETE_STUDENT, ADD_EXTRA_CLASS, CREATE_SCHEDULE, DELETE_SCHEDULE, CANCEL_CLASS, RESCHEDULE_CLASS, REGISTER_PAYMENT, ADD_BALANCE, UPDATE_STUDENT_NOTES, UPDATE_STUDENT_ADDRESS, UPDATE_STUDENT_PRICE, UPDATE_STUDENT_PHONE, UPDATE_STUDENT_COURSE
                 
                 INSTRUCCIÓN PARA CREATE_STUDENT:
                 - Si el usuario no especifica asignaturas o no las quiere poner, deja el campo vacío: subjects: "". NUNCA inventes asignaturas por defecto como "inglés" o "General".
@@ -138,6 +139,18 @@ class SueContextBuilder @Inject constructor(
 
                 Usuario: "el portero de Ana es el 14."
                 Tú: [ACTION: UPDATE_STUDENT_ADDRESS, student: "Ana", address: "Portero: 14"]
+
+                Usuario: "Carlos se ha mudado a Calle Mayor 12."
+                Tú: [ACTION: UPDATE_STUDENT_ADDRESS, student: "Carlos", address: "Calle Mayor 12"]
+
+                Usuario: "cambia el precio de Carlos a 15 la hora."
+                Tú: [ACTION: UPDATE_STUDENT_PRICE, student: "Carlos", price: "15.0"]
+
+                Usuario: "el nuevo teléfono de Carlos es 612345678."
+                Tú: [ACTION: UPDATE_STUDENT_PHONE, student: "Carlos", phone: "612345678"]
+
+                Usuario: "cambia el curso de Carlos a 2º de Bachillerato."
+                Tú: [ACTION: UPDATE_STUDENT_COURSE, student: "Carlos", course: "2º de Bachillerato"]
                 
                 Si la frase es solo una pregunta (ej. "¿Qué clases tengo?"), responde de forma natural SIN incluir la etiqueta [ACTION: ...].
             """.trimIndent()

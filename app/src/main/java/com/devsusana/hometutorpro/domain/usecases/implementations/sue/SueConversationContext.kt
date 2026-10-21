@@ -19,7 +19,8 @@ enum class SlotType {
     SUBJECTS,
     COURSE,
     NOTES,
-    ADDRESS
+    ADDRESS,
+    PHONE
 }
 
 /**
@@ -46,6 +47,7 @@ class SueConversationContext @Inject constructor() {
     var lastMentionedSubjects: String? = null
     var lastMentionedCourse: String? = null
     var lastMentionedAddress: String? = null
+    var lastMentionedPhone: String? = null
     var lastActiveIntentType: IntentType? = null
     var activeIncompleteIntent: IncompleteIntent? = null
 
@@ -64,6 +66,7 @@ class SueConversationContext @Inject constructor() {
         lastMentionedSubjects?.let { currentFilled[SlotType.SUBJECTS] = it }
         lastMentionedCourse?.let { currentFilled[SlotType.COURSE] = it }
         lastMentionedAddress?.let { currentFilled[SlotType.ADDRESS] = it }
+        lastMentionedPhone?.let { currentFilled[SlotType.PHONE] = it }
         activeIncompleteIntent = IncompleteIntent(type, missingSlot, currentFilled)
     }
 
@@ -80,6 +83,7 @@ class SueConversationContext @Inject constructor() {
         lastMentionedSubjects = null
         lastMentionedCourse = null
         lastMentionedAddress = null
+        lastMentionedPhone = null
         lastActiveIntentType = null
         activeIncompleteIntent = null
     }

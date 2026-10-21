@@ -99,11 +99,16 @@ class SueRuleIntentDetector @Inject constructor(
 
         // 2. Extract and update context memory variables
         val isCreateStudent = containsCreateStudentKeywords(lower)
-        val matchedStudent = if (isCreateStudent) null else studentTools.extractRelevantStudent(lower)
+        val isAwaitingNonStudentSlot = conversationContext.activeIncompleteIntent != null &&
+                conversationContext.activeIncompleteIntent?.missingSlot != SlotType.STUDENT_NAME
+        val isFinance = containsRegisterPaymentKeywords(lower) || containsAddBalanceKeywords(lower) ||
+                containsStudentBalanceKeywords(lower) || containsStudentsWithBalanceKeywords(lower)
+
+        val matchedStudent = if (isCreateStudent || isAwaitingNonStudentSlot) null else studentTools.extractRelevantStudent(lower)
         val matchedName = matchedStudent?.name?.takeIf { it.isNotBlank() }
-            ?: if (isCreateStudent) null else (
+            ?: if (isCreateStudent || isAwaitingNonStudentSlot) null else (
                 entityExtractor.extractStudentName(lower)?.takeIf { it.isNotBlank() }
-                    ?: entityExtractor.extractStudentNameForFinance(lower)?.takeIf { it.isNotBlank() }
+                    ?: (if (isFinance) entityExtractor.extractStudentNameForFinance(lower)?.takeIf { it.isNotBlank() } else null)
                     ?: entityExtractor.extractNameAfter(lower, listOf(
                         "inicia una clase para ", "inicia clase para ", "empieza clase para ",
                         "inicia una clase con ", "inicia clase con ", "empieza clase con ",
@@ -148,6 +153,9 @@ class SueRuleIntentDetector @Inject constructor(
             containsCreateStudentKeywords(lower) -> IntentType.CREATE_STUDENT
             containsDeleteStudentKeywords(lower) -> IntentType.DELETE_STUDENT
             containsUpdateAddressKeywords(lower) -> IntentType.UPDATE_STUDENT_ADDRESS
+            containsUpdatePriceKeywords(lower) -> IntentType.UPDATE_STUDENT_PRICE
+            containsUpdatePhoneKeywords(lower) -> IntentType.UPDATE_STUDENT_PHONE
+            containsUpdateCourseKeywords(lower) -> IntentType.UPDATE_STUDENT_COURSE
             containsUpdateNotesKeywords(lower) -> IntentType.UPDATE_STUDENT_NOTES
             containsAddExtraClassKeywords(lower) -> IntentType.ADD_EXTRA_CLASS
             containsCreateScheduleKeywords(lower) -> IntentType.CREATE_SCHEDULE
@@ -751,6 +759,84 @@ class SueRuleIntentDetector @Inject constructor(
                 }
             }
 
+            IntentType.UPDATE_STUDENT_PRICE -> {
+                val studentName = conversationContext.lastMentionedStudentName
+                if (studentName == null) {
+                    conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_PRICE, SlotType.STUDENT_NAME)
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres actualizar el precio por hora?"
+                    )
+                } else {
+                    val priceVal = conversationContext.lastMentionedPrice
+                        ?: (entityExtractor.extractPrice(lower) ?: entityExtractor.extractAmount(lower))
+                    if (priceVal == null) {
+                        conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_PRICE, SlotType.PRICE)
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿Cuál será el nuevo precio por hora para $studentName?"
+                        )
+                    } else {
+                        conversationContext.lastMentionedPrice = null
+                        studentTools.prepareUpdatePriceAction(studentName, priceVal)
+                    }
+                }
+            }
+
+            IntentType.UPDATE_STUDENT_PHONE -> {
+                val studentName = conversationContext.lastMentionedStudentName
+                if (studentName == null) {
+                    conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_PHONE, SlotType.STUDENT_NAME)
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres actualizar el teléfono?"
+                    )
+                } else {
+                    val phoneText = if (conversationContext.activeIncompleteIntent?.missingSlot == SlotType.PHONE && !entityExtractor.isQuestionOrQuery(lower)) {
+                        query.trim()
+                    } else {
+                        conversationContext.lastMentionedPhone ?: entityExtractor.extractPhoneNumber(query)
+                    }
+                    if (phoneText.isNullOrBlank()) {
+                        conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_PHONE, SlotType.PHONE)
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿Cuál es el nuevo teléfono para $studentName?"
+                        )
+                    } else {
+                        conversationContext.lastMentionedPhone = null
+                        studentTools.prepareUpdatePhoneAction(studentName, phoneText)
+                    }
+                }
+            }
+
+            IntentType.UPDATE_STUDENT_COURSE -> {
+                val studentName = conversationContext.lastMentionedStudentName
+                if (studentName == null) {
+                    conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_COURSE, SlotType.STUDENT_NAME)
+                    SueOperationResult.Prepare.Error(
+                        SueOperationResult.ErrorType.STUDENT_NOT_FOUND,
+                        "¿De qué alumno quieres actualizar el curso?"
+                    )
+                } else {
+                    val courseText = if (conversationContext.activeIncompleteIntent?.missingSlot == SlotType.COURSE && !entityExtractor.isQuestionOrQuery(lower)) {
+                        query.trim()
+                    } else {
+                        conversationContext.lastMentionedCourse ?: entityExtractor.extractCourseText(query)
+                    }
+                    if (courseText.isNullOrBlank()) {
+                        conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_COURSE, SlotType.COURSE)
+                        SueOperationResult.Prepare.Error(
+                            SueOperationResult.ErrorType.UNKNOWN,
+                            "¿Cuál es el nuevo curso para $studentName?"
+                        )
+                    } else {
+                        conversationContext.lastMentionedCourse = null
+                        studentTools.prepareUpdateCourseAction(studentName, courseText)
+                    }
+                }
+            }
+
             // READ QUERIES IMPLEMENTATION
             IntentType.QUERY_NEXT_CLASS -> {
                 val nextClassResult = scheduleTools.getNextClass(conversationContext.lastMentionedStudentName)
@@ -1209,7 +1295,85 @@ class SueRuleIntentDetector @Inject constructor(
 
         val isAddressUpdatePhrase = hasWriteVerb && hasAddressTarget
 
-        return hasDirectAction || hasPorteroAction || hasAddressStatement || isAddressUpdatePhrase
+        val hasRelocationWord = listOf(
+            "se ha mudado", "se muda", "se mudó", "se mudo",
+            "ha cambiado de casa", "cambia de casa", "cambió de casa", "cambio de casa",
+            "la nueva casa de", "nueva casa de", "su nueva casa es",
+            "ahora vive en", "ha pasado a vivir en", "vive ahora en"
+        ).any { it in query }
+
+        return hasDirectAction || hasPorteroAction || hasAddressStatement || isAddressUpdatePhrase || hasRelocationWord
+    }
+
+    private fun containsUpdatePriceKeywords(query: String): Boolean {
+        if (containsCreateStudentKeywords(query) || containsRegisterPaymentKeywords(query) || containsAddBalanceKeywords(query)) {
+            return false
+        }
+        val hasPriceWord = listOf(
+            "precio", "tarifa", "por hora", "/hora", "/h", "euros la hora", "euros hora", "la hora"
+        ).any { it in query }
+
+        val hasChangeVerb = listOf(
+            "cambia", "cambiar", "cámbiale", "cambiale",
+            "actualiza", "actualizar", "actualízale", "actualizale",
+            "modifica", "modificar", "modifícale", "modificale",
+            "pon", "pone", "poner", "ponle", "pónle",
+            "edita", "editar", "edítale", "editale",
+            "sube", "subir", "súbele", "subele",
+            "baja", "bajar", "bájale", "bajale",
+            "ajusta", "ajustar", "ajústale", "ajustale"
+        ).any { it in query }
+
+        val isPriceStatement = (query.startsWith("el precio de ") || query.startsWith("la tarifa de ")) &&
+                listOf(" es ", " seria ", " será ", " pasa a ser ").any { it in query }
+
+        return (hasPriceWord && hasChangeVerb) || isPriceStatement
+    }
+
+    private fun containsUpdatePhoneKeywords(query: String): Boolean {
+        val hasPhoneWord = listOf(
+            "telefono", "teléfono", "movil", "móvil", "tlf", "celular", "numero", "número"
+        ).any { it in query }
+
+        val hasChangeVerb = listOf(
+            "cambia", "cambiar", "cámbiale", "cambiale",
+            "actualiza", "actualizar", "actualízale", "actualizale",
+            "modifica", "modificar", "modifícale", "modificale",
+            "pon", "pone", "poner", "ponle", "pónle",
+            "guarda", "guardar", "guárdale", "guardale",
+            "edita", "editar", "edítale", "editale"
+        ).any { it in query }
+
+        val isPhoneStatement = listOf(
+            "el telefono de ", "el teléfono de ", "el movil de ", "el móvil de ",
+            "el nuevo telefono de ", "el nuevo teléfono de ", "el nuevo movil de ", "el nuevo móvil de ",
+            "el numero de ", "el número de ", "el nuevo numero de ", "el nuevo número de ",
+            "el celular de ", "el nuevo celular de "
+        ).any { query.startsWith(it) } && listOf(" es ", " seria ", " será ", " es: ", ": ").any { it in query }
+
+        return (hasPhoneWord && hasChangeVerb) || isPhoneStatement
+    }
+
+    private fun containsUpdateCourseKeywords(query: String): Boolean {
+        if (containsCreateStudentKeywords(query)) return false
+        val hasCourseWord = listOf(
+            "curso", "nivel", "grado"
+        ).any { it in query }
+
+        val hasChangeVerb = listOf(
+            "cambia", "cambiar", "cámbiale", "cambiale",
+            "actualiza", "actualizar", "actualízale", "actualizale",
+            "modifica", "modificar", "modifícale", "modificale",
+            "pon", "pone", "poner", "ponle", "pónle",
+            "edita", "editar", "edítale", "editale"
+        ).any { it in query }
+
+        val isCourseStatement = listOf(
+            "el curso de ", "el nivel de ", "el grado de ",
+            "el nuevo curso de ", "el nuevo nivel de ", "el nuevo grado de "
+        ).any { query.startsWith(it) } && listOf(" es ", " seria ", " será ", " es: ", ": ").any { it in query }
+
+        return (hasCourseWord && hasChangeVerb) || isCourseStatement
     }
 
     private fun containsStartClassKeywords(query: String) =
