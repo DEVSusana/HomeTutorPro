@@ -119,8 +119,11 @@ You are running directly inside the user's project workspace.
         print(f"🎯 Objetivo: {goal}")
         print("═" * 72)
 
-        for iteration in range(self.max_iterations):
-            print(f"\n🧠 [Iteración {iteration + 1}/{self.max_iterations}] Pensando...")
+        iteration = 0
+        current_limit = self.max_iterations
+
+        while iteration < current_limit:
+            print(f"\n🧠 [Iteración {iteration + 1}/{current_limit}] Pensando...")
             try:
                 response = self.provider.chat(
                     messages=messages,
@@ -175,5 +178,23 @@ You are running directly inside the user's project workspace.
                 "tools": tool_responses
             })
 
-        print(f"\n⚠️ Se alcanzó el límite máximo de iteraciones ({self.max_iterations}).")
+            iteration += 1
+
+            # Si alcanzamos el límite pero el agente sigue solicitando herramientas, ofrecer prórroga interactiva
+            if iteration >= current_limit:
+                print("\n" + "⚠️" + "═" * 70)
+                print(f"⚠️ Se ha alcanzado el límite de {current_limit} iteraciones, pero el agente sigue trabajando activamente.")
+                print("═" * 72)
+                try:
+                    user_input = input("👉 ¿Deseas concederle 10 pasos adicionales para que termine la tarea? (y/n) [y]: ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    user_input = "n"
+
+                if user_input in ("", "y", "yes", "s", "si", "sí"):
+                    current_limit += 10
+                    print(f"⏩ Prórroga concedida (+10 pasos). Nuevo límite: {current_limit} iteraciones.")
+                else:
+                    break
+
+        print(f"\n⚠️ Bucle agéntico finalizado tras {iteration} iteraciones.")
         return show_diff_and_confirm()

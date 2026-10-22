@@ -87,6 +87,17 @@ sequenceDiagram
     Agent-->>Dev: Muestra git diff interactivo y solicita confirmación (y/n)
 ```
 
+### 2.1. Prórroga Interactiva de Turnos (+10 Pasos)
+Si una tarea compleja requiere más pasos de los previstos (por ejemplo, diseñar varios tests, verificar con Hilt y compilar) y se alcanza el límite (25 pasos por defecto), **el agente no se detiene abruptamente ni descarta el trabajo**.
+
+En su lugar, te pregunta de forma interactiva en la terminal:
+```text
+⚠️ Se ha alcanzado el límite de 25 iteraciones, pero el agente sigue trabajando activamente.
+👉 ¿Deseas concederle 10 pasos adicionales para que termine la tarea? (y/n) [y]:
+```
+* **Pulsar Enter o `y`**: Concede una prórroga de +10 pasos. El agente continúa trabajando exactamente por donde iba, sin perder contexto ni memoria.
+* **Escribir `n`**: Finaliza el bucle y te muestra el `git diff` acumulado para que decidas si conservar o revertir lo que ha hecho hasta ese momento.
+
 ---
 
 ## 3. 🚦 La Cadena de Arranque Interna de Python
