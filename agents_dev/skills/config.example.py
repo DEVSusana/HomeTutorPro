@@ -20,7 +20,8 @@ import os
 from google import genai
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
-MODEL_ID = "gemini-3.1-flash-lite"
+MODEL_ID = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
+
 
 
 def get_client():

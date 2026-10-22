@@ -89,23 +89,18 @@ Strictly implement **Clean Architecture** with **MVVM (Model-View-ViewModel)** i
 Gemini MUST generate classes in the following specific locations, respecting packages and directory structure:
 
 * **`app/src/main/java/com/yourpackage/domain/`**
-    * `entities/`: (e.g., `User.kt`, `Product.kt`) - Immutable data classes (preferably `data class`).
+    * `entities/`: (e.g., `User.kt`, `Student.kt`) - Immutable data classes (preferably `data class`).
     * `usecases/`:
-        * `interfaces/`: (e.g., `GetUserUseCase.kt`, `AddProductUseCase.kt`) - Interfaces for each use case.
-        * `implementations/`: (e.g., `GetUserUseCaseImpl.kt`) - Concrete implementations of use case interfaces.
-    * `repositories/`: (e.g., `UserRepository.kt`, `ProductRepository.kt`) - Interfaces defining contracts for interaction with the data layer.
-    * **`di/` (Optional, for Hilt/Koin modules providing Domain dependencies):**
-        * (e.g., `DomainModule.kt`) - Contains injection configuration for use cases or any pure domain dependency.
+        * Interfaces directly in `usecases/` (e.g., `ISaveStudentUseCase.kt`, `IGetCurrentUserUseCase.kt`).
+        * `implementations/`: Concrete implementations of use cases (e.g., `SaveStudentUseCase.kt`).
+    * `repository/`: (e.g., `StudentRepository.kt`, `UserRepository.kt`) - Interfaces defining contracts for interaction with the data layer.
 
 * **`app/src/main/java/com/yourpackage/data/`**
-    * `repositories/impl/`: (e.g., `UserRepositoryImpl.kt`) - Implementations of `domain` repository interfaces.
-    * `datasources/`:
-        * `local/`: (e.g., `UserLocalDataSource.kt`) - Classes to access local data sources (Room, SharedPreferences).
-        * `remote/`: (e.g., `UserRemoteDataSource.kt`) - Classes to access remote APIs (Retrofit, Ktor Client).
-    * `models/`: (e.g., `UserApiModel.kt`, `UserDbModel.kt`) - Layer-specific data classes (`data` layer) (JSON, DB schemas).
-    * `mappers/`: (e.g., `UserMapper.kt`) - Classes or functions to map between `data models` and `domain entities` and vice versa.
-    * **`di/` (Mandatory, for Hilt/Koin modules providing Data dependencies):**
-        * (e.g., `DataModule.kt`, `NetworkModule.kt`, `DatabaseModule.kt`) - Contains injection configuration for repositories, data sources, network services, databases.
+    * `repository/`: (e.g., `StudentRepositoryImpl.kt`, `UserRepositoryImpl.kt`) - Implementations of `domain` repository interfaces.
+    * `local/`: Room database, DAOs (`dao/`), entities (`entities/`), migrations (`migrations/`).
+    * `remote/`: Classes to access remote data sources (Firestore, APIs).
+    * `models/`: Layer-specific data classes (`data` layer) (JSON, DB schemas).
+    * `mappers/`: (e.g., `StudentMapper.kt`, `UserMapper.kt`) - Functions to map between `data models` and `domain entities`.
 
 * **`app/src/main/java/com/yourpackage/presentation/`**
     * `ui/screens/<feature_name>/`: (e.g., `home/HomeScreen.kt`, `home/HomeContent.kt`) - One package per screen or primary feature, containing `Screen` and `Content` Composables.
@@ -200,18 +195,39 @@ Gemini MUST generate classes in the following specific locations, respecting pac
 
 ## 11. Local Verification & Autonomous Development via Agentic Loop
 
-HomeTutorPro includes an integrated **Universal Agentic Loop** located in `agents_dev/`. It provides autonomous development capabilities with tool use, compiler self-healing via Gradle, and human-in-the-loop verification, powered by **Claude 3.5 Sonnet** or **Gemini 2.5 Flash**.
+HomeTutorPro includes an integrated **Universal Agentic Loop** located in `agents_dev/`. It provides autonomous development capabilities with tool use, compiler self-healing via Gradle, and human-in-the-loop verification, powered by **Claude 3.5 / 3.7 Sonnet** or **Gemini 2.5 Flash / Pro**.
 
-For in-depth architecture and project extrapolation guides, see [agents_dev/README.md](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/agents_dev/README.md).
+For in-depth architecture, troubleshooting, and project extrapolation guides, see [agents_dev/README.md](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/agents_dev/README.md).
 
 ### Prerequisites and Configuration
-Configure your preferred provider API key in your terminal:
+
+1. **Activate Virtual Environment & Install Dependencies:**
 ```bash
-# Recommended for autonomous coding (Anthropic Claude 3.5 Sonnet):
+# Recommended: activate project's Python 3.11 environment
+source agents_dev/.venv_agente/bin/activate
+
+# Install dependencies:
+pip install -r agents_dev/requirements.txt
+# or directly:
+pip install google-genai anthropic
+```
+
+2. **Configure Provider API Keys in your terminal or `~/.zshrc`:**
+```bash
+# Recommended for Google Gemini:
+export GEMINI_API_KEY="your-gemini-key"
+
+# Alternative (Anthropic Claude):
 export ANTHROPIC_API_KEY="your-anthropic-key"
 
-# Alternative (Google Gemini 2.5 Flash):
-export GEMINI_API_KEY="your-gemini-key"
+# Optional: Default model overrides
+export GEMINI_MODEL="gemini-3.1-flash-lite"        # or "gemini-2.5-pro"
+export ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"
+```
+
+3. **Verify Installation:**
+```bash
+python3 -m unittest discover agents_dev/tests
 ```
 
 ### Daily Workflow from Android Studio Terminal
@@ -219,7 +235,10 @@ export GEMINI_API_KEY="your-gemini-key"
 #### Phase 1: Interactive Spec Interview (`plan`)
 Before coding, interview the agent to define, clarify, and lock requirements against `AGENTS.md` and `BUSINESS_RULES.md`:
 ```bash
-python -m agents_dev plan "Your feature idea or change description"
+python3 -m agents_dev plan "Your feature idea or change description"
+
+# With specific model (e.g. Gemini 2.5 Pro for complex architecture design):
+python3 -m agents_dev --provider=gemini --model=gemini-2.5-pro plan "Your feature idea"
 ```
 * The agent conducts an interactive interview in the terminal, asking about edge cases, architectural boundaries, and persistence.
 * **Strict Confirmation Gate:** The interview will NOT finish until you explicitly type `OK` or `APROBADO`. It then saves the validated spec to `specs/<feature_name>.md`.
@@ -228,21 +247,24 @@ python -m agents_dev plan "Your feature idea or change description"
 Once the spec is approved, launch the autonomous loop:
 ```bash
 # Build from an approved spec:
-python -m agents_dev run --spec specs/your_feature.md
+python3 -m agents_dev run --spec specs/your_feature.md
 
 # Quick refactor or targeted task:
-python -m agents_dev run "Refactor StudentRepository to enforce Clean Architecture boundaries"
+python3 -m agents_dev run "Refactor StudentRepository to enforce Clean Architecture boundaries"
 
-# Explicit provider selection:
-python -m agents_dev --provider=claude run --spec specs/your_feature.md
+# Explicit provider and model selection:
+python3 -m agents_dev --provider=gemini --model=gemini-2.5-pro run --spec specs/your_feature.md
+python3 -m agents_dev --provider=claude run --spec specs/your_feature.md
 ```
 During execution, the agent autonomously:
-1. Inspects files with `read_file` and lists directories with `list_files`.
-2. Applies **precision surgical patches (`patch_file`)** — never regenerating whole classes unnecessarily (Minimal Blast Radius).
-3. Verifies Hilt bindings with `check_hilt_bindings` and scaffolds tests with `scaffold_test`.
-4. Runs `./gradlew compileDebugKotlin` and `./gradlew test` in a closed self-healing loop until all checks are green.
-5. Pauses to ask questions via `ask_human` if any runtime ambiguity arises.
-6. Displays the final `git diff` and asks for your interactive `(y/n)` approval before keeping changes.
+1. Displays the active provider and model in console: `🤖 Proveedor activo: GeminiProvider | Modelo: gemini-3.1-flash-lite`.
+2. Inspects files with `read_file` and lists directories with `list_files`.
+3. Applies **precision surgical patches (`patch_file`)** — never regenerating whole classes unnecessarily (Minimal Blast Radius).
+4. Verifies Hilt bindings with `check_hilt_bindings` and scaffolds tests with `scaffold_test`.
+5. Runs `./gradlew compileDebugKotlin` and `./gradlew test` in a closed self-healing loop until all checks are green.
+6. Pauses to ask questions via `ask_human` if any runtime ambiguity arises.
+7. Displays the final `git diff` and asks for your interactive `(y/n)` approval before keeping changes.
+
 
 
 ---

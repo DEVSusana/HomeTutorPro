@@ -14,6 +14,7 @@ class ToolCall:
 class LLMResponse:
     content: str = ""
     tool_calls: List[ToolCall] = field(default_factory=list)
+    raw: Any = None
 
     @property
     def has_tool_calls(self) -> bool:

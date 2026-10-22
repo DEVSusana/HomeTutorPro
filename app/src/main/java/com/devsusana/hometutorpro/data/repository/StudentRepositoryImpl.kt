@@ -4,6 +4,8 @@ import com.devsusana.hometutorpro.data.local.dao.StudentDao
 import com.devsusana.hometutorpro.data.local.dao.ScheduleDao
 import com.devsusana.hometutorpro.data.local.dao.ScheduleExceptionDao
 import com.devsusana.hometutorpro.data.local.dao.SharedResourceDao
+import com.devsusana.hometutorpro.data.local.dao.ClassLogDao
+import com.devsusana.hometutorpro.data.local.dao.TransactionLogDao
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import com.devsusana.hometutorpro.data.mappers.toDomain
 import com.devsusana.hometutorpro.data.mappers.toEntity
@@ -18,20 +20,15 @@ import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.repository.StudentRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
-
 import java.text.Collator
 import java.util.Locale
-
-import com.devsusana.hometutorpro.data.local.dao.ClassLogDao
-import com.devsusana.hometutorpro.data.local.dao.TransactionLogDao
 
 /**
  * Hybrid implementation of StudentRepository for Premium flavor.
@@ -51,8 +48,15 @@ class StudentRepositoryImpl @Inject constructor(
     private val syncScheduler: SyncScheduler
 ) : StudentRepository {
 
+    // Define constant for Transaction types
+    private companion object {
+        const val TRANSACTION_TYPE_PAYMENT = "PAYMENT"
+        const val TRANSACTION_TYPE_BALANCE_ADD = "BALANCE_ADD"
+        const val TRANSACTION_TYPE_BALANCE_SUBTRACT = "BALANCE_SUBTRACT"
+    }
+
     override fun getStudents(professorId: String): Flow<List<StudentSummary>> {
-        val collator = Collator.getInstance(Locale("es", "ES")).apply {
+        val collator = Collator.getInstance(Locale.getDefault()).apply {
             strength = Collator.PRIMARY // Ignore accents and case
         }
         return studentDao.getStudentSummaries(professorId).map { entities ->
@@ -85,6 +89,7 @@ class StudentRepositoryImpl @Inject constructor(
 
                 Result.Success(finalId.toString())
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
@@ -101,11 +106,11 @@ class StudentRepositoryImpl @Inject constructor(
                 if (amountPaid <= 0) return@withContext Result.Error(DomainError.InvalidAmount)
                 val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
                 
-                // Check if student exists (to return appropriate error)
+                // Fetch student once
                 val student = studentDao.getStudentById(id, professorId).firstOrNull()
                     ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
-                // Atomic subtraction — no TOCTOU race condition
+                // Atomic subtraction
                 studentDao.subtractFromBalance(
                     studentId = id,
                     professorId = professorId,
@@ -119,7 +124,7 @@ class StudentRepositoryImpl @Inject constructor(
                     com.devsusana.hometutorpro.data.local.entities.TransactionLogEntity(
                         professorId = professorId,
                         studentId = id,
-                        type = "PAYMENT",
+                        type = TRANSACTION_TYPE_PAYMENT,
                         amount = amountPaid,
                         paymentType = paymentType.name,
                         timestamp = System.currentTimeMillis()
@@ -130,6 +135,7 @@ class StudentRepositoryImpl @Inject constructor(
                 
                 Result.Success(Unit)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
@@ -145,8 +151,7 @@ class StudentRepositoryImpl @Inject constructor(
                 if (amount <= 0) return@withContext Result.Error(DomainError.InvalidAmount)
                 val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
-                // Pre-check student existence to correctly return StudentNotFound for stale/deleted IDs
-                val student = studentDao.getStudentById(id, professorId).firstOrNull()
+                val student = studentDao.getStudentByIdSuspend(id, professorId)
                     ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
                 studentDao.addToBalance(
@@ -162,6 +167,7 @@ class StudentRepositoryImpl @Inject constructor(
 
                 Result.Success(Unit)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
@@ -176,8 +182,7 @@ class StudentRepositoryImpl @Inject constructor(
             try {
                 val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
-                // Pre-check student existence
-                val student = studentDao.getStudentById(id, professorId).firstOrNull()
+                val student = studentDao.getStudentByIdSuspend(id, professorId)
                     ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
                 val diff = newBalance - student.pendingBalance
@@ -186,7 +191,7 @@ class StudentRepositoryImpl @Inject constructor(
                         com.devsusana.hometutorpro.data.local.entities.TransactionLogEntity(
                             professorId = professorId,
                             studentId = id,
-                            type = if (diff > 0) "BALANCE_ADD" else "BALANCE_SUBTRACT",
+                            type = if (diff > 0) TRANSACTION_TYPE_BALANCE_ADD else TRANSACTION_TYPE_BALANCE_SUBTRACT,
                             amount = kotlin.math.abs(diff),
                             paymentType = null,
                             timestamp = System.currentTimeMillis()
@@ -206,10 +211,12 @@ class StudentRepositoryImpl @Inject constructor(
 
                 Result.Success(Unit)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
     }
+
 
     override fun getSchedules(professorId: String, studentId: String): Flow<List<Schedule>> {
         val id = studentId.toRoomId() ?: return kotlinx.coroutines.flow.flowOf(emptyList())

@@ -43,7 +43,7 @@ def main():
         "--model",
         type=str,
         default=None,
-        help="Modelo específico a usar (ej: gemini-2.5-flash, gemini-2.5-pro, claude-3-5-sonnet-20241022)."
+        help="Modelo específico a usar (ej: gemini-3.1-flash-lite, gemini-2.5-pro, claude-3-5-sonnet-20241022)."
     )
 
     subparsers = parser.add_subparsers(dest="subcommand", help="Modo de operación")

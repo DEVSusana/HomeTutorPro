@@ -23,7 +23,10 @@ class AnthropicProvider(BaseLLMProvider):
         except ImportError:
             raise ImportError(
                 "La biblioteca 'anthropic' no está instalada. "
-                "Para usar Claude, instala la dependencia ejecutando: pip install anthropic"
+                "Para instalarla ejecuta:\n"
+                "  pip3 install --break-system-packages anthropic\n"
+                "o en tu entorno virtual:\n"
+                "  pip install -r agents_dev/requirements.txt"
             )
 
         if not self.api_key:
@@ -46,6 +49,53 @@ class AnthropicProvider(BaseLLMProvider):
             })
         return anthropic_tools
 
+    def _convert_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Convierte los mensajes universales al formato estructurado de bloques de Anthropic."""
+        anthropic_messages = []
+        for msg in messages:
+            role = msg.get("role")
+            if role == "assistant":
+                content_blocks = []
+                if msg.get("content"):
+                    content_blocks.append({"type": "text", "text": str(msg["content"])})
+                if msg.get("tool_calls"):
+                    for tc in msg["tool_calls"]:
+                        content_blocks.append({
+                            "type": "tool_use",
+                            "id": tc["id"],
+                            "name": tc["name"],
+                            "input": tc.get("args", {})
+                        })
+                if content_blocks:
+                    anthropic_messages.append({"role": "assistant", "content": content_blocks})
+
+            elif role == "tool_results":
+                content_blocks = []
+                for tr in msg.get("tools", []):
+                    content_blocks.append({
+                        "type": "tool_result",
+                        "tool_use_id": tr["tool_call_id"],
+                        "content": str(tr["content"])
+                    })
+                if content_blocks:
+                    anthropic_messages.append({"role": "user", "content": content_blocks})
+
+            elif role == "tool":
+                anthropic_messages.append({
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "tool_use_id": msg.get("tool_call_id", "unknown_call"),
+                        "content": str(msg.get("content", ""))
+                    }]
+                })
+            else:
+                anthropic_messages.append({
+                    "role": "user",
+                    "content": str(msg.get("content", ""))
+                })
+        return anthropic_messages
+
     def chat(
         self,
         messages: List[Dict[str, Any]],
@@ -54,12 +104,13 @@ class AnthropicProvider(BaseLLMProvider):
     ) -> LLMResponse:
         client = self._get_client()
         anthropic_tools = self._convert_tools(tools) if tools else []
+        anthropic_messages = self._convert_messages(messages)
 
         # Preparar llamadas a Anthropic Messages API
         kwargs = {
             "model": self.model,
             "max_tokens": 4096,
-            "messages": messages
+            "messages": anthropic_messages
         }
         if system_prompt:
             kwargs["system"] = system_prompt

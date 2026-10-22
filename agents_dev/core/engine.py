@@ -62,16 +62,19 @@ You are running directly inside the user's project workspace.
 3. **HONESTY & NO GUESSWORK:**
    - If a business requirement or architectural decision is ambiguous, immediately call `ask_human` to consult the developer. Never guess or assume requirements.
 
-4. **AUTONOMOUS VERIFICATION & SELF-HEALING LOOP:**
-   - After editing code, run `./gradlew compileDebugKotlin` using `run_command`.
-   - If the build fails, analyze the compiler output, locate the faulty lines, apply a surgical patch, and re-compile.
-   - After successful compilation, run `./gradlew test` (or the relevant unit test) using `run_command`.
-   - Verify Hilt injection bindings for new UseCases or Repositories using `check_hilt_bindings`.
-   - Ensure clean architecture boundaries with `audit_architecture`.
+4. **MANDATORY VERIFICATION & QUALITY GATES:**
+   - **SECURITY AUDIT (NON-NEGOTIABLE):** After modifying or adding any Kotlin file, you MUST invoke `audit_security` on it. Ensure zero hardcoded secrets/API keys, zero unconfined coroutine scopes (e.g. no GlobalScope), and strict English naming. If security issues are found, fix them immediately.
+   - **ARCHITECTURE AUDIT:** Run `audit_architecture` on modified files to verify compliance with Clean Architecture and BUSINESS_RULES.md.
+   - **COMPILATION & SELF-HEALING:** Run `./gradlew compileDebugKotlin` using `run_command`. If it fails, locate the compiler error and patch it surgically.
+   - **UNIT TESTS:** Run `./gradlew test` (or the specific test file) using `run_command`. If you created new production logic, invoke `scaffold_test` or `design_tests` to scaffold test coverage.
+   - **REFACTORING & CODE SMELLS:** Run `audit_refactoring` on modified complex classes to verify maintainability.
+   - **HILT BINDINGS:** Verify any new UseCase or Repository interface with `check_hilt_bindings`.
 
-5. **TERMINATION:**
-   - Do NOT stop until the code compiles cleanly, tests pass, and all acceptance criteria are met.
-   - When everything is green, output your final summary message to the user explaining what was implemented and verified.
+5. **TERMINATION CRITERIA (CRITICAL):**
+   - When you have inspected the code, verified architecture, security, and tests, and applied any needed fixes:
+   - STOP calling tools immediately.
+   - Do NOT repeatedly call audit tools if you already obtained their output.
+   - Output your comprehensive final evaluation report in plain text to the user explaining what was audited, the findings, and the verified status.
 """
         if spec_content:
             base_prompt += f"\n\n### ACTIVE FEATURE SPECIFICATION:\n{spec_content}"
@@ -137,17 +140,22 @@ You are running directly inside the user's project workspace.
                 # Fase final Human-in-the-Loop
                 return show_diff_and_confirm()
 
-            # Añadimos la respuesta del asistente con sus tool calls al historial
+            # Añadimos la respuesta del asistente con sus tool calls y raw content al historial
             messages.append({
                 "role": "assistant",
-                "content": response.content
+                "content": response.content,
+                "tool_calls": [
+                    {"id": tc.id, "name": tc.name, "args": tc.args} for tc in response.tool_calls
+                ],
+                "raw": response.raw
             })
 
             # Si el LLM emitió texto explicativo además de tools, lo mostramos
             if response.content:
                 print(f"💬 {response.content}")
 
-            # Ejecutamos cada tool call
+            # Ejecutamos cada tool call y agrupamos las respuestas para el proveedor
+            tool_responses = []
             for tool_call in response.tool_calls:
                 print(f"🛠️  Ejecutando: {tool_call.name}({tool_call.args})")
                 tool_output = self._dispatch_tool(tool_call.name, tool_call.args)
@@ -156,12 +164,16 @@ You are running directly inside the user's project workspace.
                 first_line = tool_output.strip().split("\n")[0] if tool_output else "Empty output"
                 print(f"    ↳ Resultado: {first_line[:90]}")
 
-                # Devolvemos el resultado al historial del LLM
-                messages.append({
-                    "role": "tool",
+                tool_responses.append({
+                    "tool_call_id": tool_call.id,
                     "tool_name": tool_call.name,
                     "content": tool_output
                 })
+
+            messages.append({
+                "role": "tool_results",
+                "tools": tool_responses
+            })
 
         print(f"\n⚠️ Se alcanzó el límite máximo de iteraciones ({self.max_iterations}).")
         return show_diff_and_confirm()

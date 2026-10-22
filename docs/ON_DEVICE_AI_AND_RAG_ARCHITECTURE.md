@@ -96,7 +96,7 @@ Profesor habla -> SpeechRecognizer -> Transcripción de texto
        ▼
 SueViewModel -> sueAgent.detectActionIntent(query)
        ├── [CASO A: Capa 1 - Fast-Path / SQL Directo en Room]
-       │     ├── Acciones transaccionales: Crear alumno, reprogramar, cancelar, registrar pago, clase extra.
+       │     ├── Acciones transaccionales: Crear alumno, edición integral de perfil (dirección, mudanzas, portero, tarifas, teléfonos, curso), notas, reprogramar, cancelar, registrar pago, clase extra.
        │     │     └── Validación estricta de colisiones en DB -> SuePendingAction (Tarjeta interactiva con confirmación por voz)
        │     └── Consultas estructuradas: Saldo de alumno, conteo, agenda directa, clases canceladas.
        │           └── Consulta SQL directa -> ReadSuccess en 0 ms -> TTS inmediato (0 alucinaciones)
@@ -188,7 +188,7 @@ Un fallo común al crear apps con IA es **enviar absolutamente todo al LLM**. En
 En HomeTutorPro implementamos una **Capa Híbrida de Dos Niveles**:
 
 ### 1. Nivel 1: Capa Determinista (Fast-Path en Kotlin / SQL Room)
-- **Casos de uso:** Consultas de saldo pendiente, listado de clases canceladas, conteo de alumnos, horas libres, altas de estudiantes, pagos y reprogramaciones.
+- **Casos de uso:** Consultas de saldo pendiente, listado de clases canceladas, conteo de alumnos, horas libres, altas y edición integral de estudiantes (mudanzas, tarifas, teléfonos, cursos, código de portero), notas pedagógicas, pagos y reprogramaciones.
 - **Latencia:** **< 5 ms** (inmediata).
 - **Consumo:** 0% de GPU/NPU, 0% de impacto en batería.
 - **Motor de Lenguaje Natural en Español:**
@@ -196,7 +196,8 @@ En HomeTutorPro implementamos una **Capa Híbrida de Dos Niveles**:
   - Soporte de fracciones temporales (`y media`, `y cuarto`, `menos cuarto`, `y veinte`).
   - Modificadores contextuales (`de la tarde`, `de la mañana`, `de la noche`, `pm`, `am`).
   - **Inferencia Inteligente de Franja Horaria:** Si el usuario no especifica la franja (*"pon una clase a las 5"* o *"a las 6"*), el motor infiere automáticamente la tarde (`17:00` o `18:00`), adaptándose a la realidad habitual de las clases particulares extraescolares.
-  - Máquina de estados conversacional multi-turno (ej. pedir hora tras solicitar clase extra) con reinicio automático de variables temporales al confirmar la acción.
+  - **Edición Integral de Alumnos por Voz:** Reconoce traslados (*"Pepe se ha mudado a..."*), aislamiento de telefonillo/códigos de portero (`DoorCodeExtractor`), cambios de tarifas (*"cambia el precio de Carlos a 18 la hora"*), teléfonos y curso.
+  - Máquina de estados conversacional multi-turno formal (`IncompleteIntent` con `SlotType`: `STUDENT_NAME`, `DAY_OF_WEEK`, `TIME`, `DURATION`, `AMOUNT`, `NOTES`, `ADDRESS`, `PRICE`, `PHONE`, `COURSE`) con reinicio automático de variables temporales al confirmar la acción.
 - **Prevención Estricta de Colisiones y Reconciliación de Excepciones:**
   - Al reprogramar o añadir clases extras, `SaveScheduleExceptionUseCase` valida solapamientos contra horarios regulares, clases extras y reprogramaciones existentes.
   - Reconcilia en tiempo real las cancelaciones, de modo que un hueco cancelado queda inmediatamente disponible para nuevas clases.
@@ -235,6 +236,7 @@ En Android 15 y versiones superiores (especialmente Android 17), Google introduc
 3. **Minimización de Datos:** En el MVP, el modelo de datos de `Student` excluye campos sensibles (como diagnósticos médicos o problemas de aprendizaje) para cumplir con el principio de minimización de datos del RGPD.
 4. **Confirmación en Dos Pasos para Escrituras:** Toda modificación destructiva en la base de datos (cancelar clase, borrar alumno, registrar pago) pasa por un estado `Prepare` donde Sue pide confirmación verbal explícita (*"¿Confirmas cancelar la clase de Pepe? Di sí o no"*), evitando acciones accidentales por malas interpretaciones de audio.
 5. **Crashlytics Seguro:** Habilitado de forma controlada en `AppInitializerImpl` protegiendo los datos confidenciales locales del profesor.
+6. **Frontera de Privacidad de UI en Widgets (*Privacy Boundary*):** En el widget de la pantalla de inicio (`ClassTimerWidget`), la aplicación nunca proyecta la dirección física completa del alumno para evitar que miradas indiscretas en transporte público o lugares concurridos expongan domicilios de menores. En su lugar, el componente determinista `DoorCodeExtractor` extrae y muestra exclusivamente el código del telefonillo/portero (`🔔 Portero: 1402`), manteniendo la utilidad práctica para el docente sin comprometer la privacidad.
 
 ---
 
