@@ -154,5 +154,41 @@ sealed class SuePendingAction {
         val studentName: String,
         val notes: String
     ) : SuePendingAction()
+
+    /**
+     * The user wants to update a student's address (including intercom/portero details).
+     */
+    data class UpdateStudentAddress(
+        val studentId: String,
+        val studentName: String,
+        val address: String
+    ) : SuePendingAction()
+
+    /**
+     * The user wants to update a student's hourly rate / price per hour.
+     */
+    data class UpdateStudentPrice(
+        val studentId: String,
+        val studentName: String,
+        val pricePerHour: Double
+    ) : SuePendingAction()
+
+    /**
+     * The user wants to update a student's phone number.
+     */
+    data class UpdateStudentPhone(
+        val studentId: String,
+        val studentName: String,
+        val phone: String
+    ) : SuePendingAction()
+
+    /**
+     * The user wants to update a student's course / level.
+     */
+    data class UpdateStudentCourse(
+        val studentId: String,
+        val studentName: String,
+        val course: String
+    ) : SuePendingAction()
 }
 

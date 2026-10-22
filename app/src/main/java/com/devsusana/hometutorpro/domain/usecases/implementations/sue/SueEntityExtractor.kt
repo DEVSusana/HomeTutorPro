@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.domain.usecases.implementations.sue
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
+import com.devsusana.hometutorpro.domain.utils.DoorCodeExtractor
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
@@ -160,6 +161,8 @@ class SueEntityExtractor @Inject constructor(
 
         val trailingWordsToStrip = Regex("""\s+(?:hoy|esta\s+tarde|esta\s+mañana|esta\s+manana|esta\s+noche|mañana|manana|ayer|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo|que\s+es|que\s+tiene|que\s+esta|que\s+está|y\s+ponle|y\s+pon|y\s+la\s+clase|y\s+el\s+precio|y\s+cobrale|y\s+cóbrale|con\s+precio|con\s+tarifa|a\s+\d).*$""", RegexOption.IGNORE_CASE)
         clean = clean.replace(trailingWordsToStrip, "").trim()
+        clean = clean.replace(Regex("""\s+(?:en|su|de|con|por|para)$""", RegexOption.IGNORE_CASE), "").trim()
+        clean = clean.trim('¿', '¡', '?', '!', '.', ',', ';', ':', '"', '\'').trim()
         if (clean.isBlank()) return null
 
         val dayKeywords = setOf(
@@ -179,12 +182,23 @@ class SueEntityExtractor @Inject constructor(
      */
     fun extractStudentName(query: String): String? {
         // 1. Inverted patterns where student is between verb and target:
-        // e.g. "quita a Marcos la clase", "quítale a Marcos la clase", "pon a Marcos una clase", "mueve a Marcos la clase"
+        // e.g. "quita a Marcos la clase", "quítale a Marcos la clase", "pon a Marcos una clase", "edita a Marcos la dirección"
         val invertedRegex = Regex(
-            """\b(?:pon|ponle|pónle|ponme|pónme|quita|quitale|quítale|quítala|quitala|mueve|muevele|muévele|adelanta|adelantale|adelántale|cancela|cancelale|cancélale|anula|anulale|anúlale|cambia|cambiale|cámbiale|pasa|pasale|pásale)\s+a\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ]+)\s+(?:la\s+clase|una\s+clase|clase|el\s+horario|su\s+clase)\b""",
+            """\b(?:pon|ponle|pónle|ponme|pónme|edita|editale|edítale|añade|anade|añadele|añádele|anadele|agrega|agregale|quita|quitale|quítale|quítala|quitala|mueve|muevele|muévele|adelanta|adelantale|adelántale|cancela|cancelale|cancélale|anula|anulale|anúlale|cambia|cambiale|cámbiale|pasa|pasale|pásale|actualiza|actualizale|actualízale)\s+a\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ]+(?:\s+[a-zA-ZáéíóúÁÉÍÓÚñÑ]+)?)\s+(?:la\s+clase|una\s+clase|clase|el\s+horario|su\s+clase|en\s+su\s+direcci[oó]n|en\s+la\s+direcci[oó]n|la\s+direcci[oó]n|su\s+direcci[oó]n|de\s+direcci[oó]n|el\s+portero|de\s+portero|el\s+telefonillo|de\s+telefonillo|el\s+timbre|el\s+portal|el\s+intercom|el\s+c[oó]digo|el\s+precio|la\s+tarifa|de\s+precio|de\s+tarifa|el\s+tel[eé]fono|el\s+m[oó]vil|de\s+tel[eé]fono|de\s+m[oó]vil|el\s+curso|de\s+curso)\b""",
             RegexOption.IGNORE_CASE
         )
         invertedRegex.find(query)?.let { match ->
+            val name = cleanExtractedName(match.groupValues[1])
+            if (name != null) return name
+        }
+
+        // 1b. Preceding student patterns for relocation/movement:
+        // e.g. "Pepe se ha mudado a Calle Mayor 12", "Carlos ahora vive en Calle Luna 5"
+        val relocationRegex = Regex(
+            """^\s*([a-zA-ZáéíóúÁÉÍÓÚñÑ]+(?:\s+[a-zA-ZáéíóúÁÉÍÓÚñÑ]+)?)\s+(?:se\s+ha\s+mudado|se\s+muda|se\s+mud[oó]|ha\s+cambiado\s+de\s+casa|ahora\s+vive|vive\s+ahora)\b""",
+            RegexOption.IGNORE_CASE
+        )
+        relocationRegex.find(query)?.let { match ->
             val name = cleanExtractedName(match.groupValues[1])
             if (name != null) return name
         }
@@ -244,8 +258,11 @@ class SueEntityExtractor @Inject constructor(
             "añade una clase para ", "añade una clase a ", "añade una clase con ", "añade una clase de ",
             "añade clase para ", "añade clase a ", "añade clase con ", "añade clase de ",
             "añádele una clase a ", "añadele una clase a ",
+            "añade a ", "añádele a ", "añadele a ",
             "anade una clase para ", "anade una clase a ",
+            "anade a ", "anadele a ",
             "agrega una clase para ", "agrega una clase a ",
+            "agrega a ", "agregar a ",
             "añade un horario para ", "añadir un horario para ", "crea un horario para ", "crear un horario para ",
             "horario para ", "horario de ",
             
@@ -254,6 +271,54 @@ class SueEntityExtractor @Inject constructor(
             "quitar el horario de ", "quita el horario de ",
             "elimina al alumno ", "eliminar al alumno ", "borra al alumno ", "borrar al alumno ",
             "elimina a ", "eliminar a ", "borra a ", "borrar a ",
+
+            // Address & Student details connectors
+            "cambiale la direccion a ", "cambiale la dirección a ", "cámbiale la direccion a ", "cámbiale la dirección a ",
+            "actualizale la direccion a ", "actualizale la dirección a ", "actualízale la direccion a ", "actualízale la dirección a ",
+            "ponle la direccion a ", "ponle la dirección a ", "pónle la direccion a ", "pónle la dirección a ",
+            "editale la direccion a ", "editale la dirección a ", "edítale la direccion a ", "edítale la dirección a ",
+            "añadele la direccion a ", "añadele la dirección a ", "añádele la direccion a ", "añádele la dirección a ",
+            "cambia la direccion de ", "cambia la dirección de ", "cambiar la direccion de ", "cambiar la dirección de ",
+            "actualiza la direccion de ", "actualiza la dirección de ", "actualizar la direccion de ", "actualizar la dirección de ",
+            "modifica la direccion de ", "modifica la dirección de ", "modificar la direccion de ", "modificar la dirección de ",
+            "edita la direccion de ", "edita la dirección de ", "editar la direccion de ", "editar la dirección de ",
+            "añade la direccion de ", "añade la dirección de ", "anade la direccion de ", "anade la dirección de ",
+            "pon la direccion de ", "pon la dirección de ", "guarda la direccion de ", "guarda la dirección de ",
+            "la direccion de ", "la dirección de ", "direccion de ", "dirección de ",
+            "cambia el portero de ", "actualiza el portero de ", "pon el portero de ", "edita el portero de ", "añade el portero de ", "anade el portero de ",
+            "cambiale el portero a ", "cámbiale el portero a ", "ponle el portero a ", "edítale el portero a ", "editale el portero a ", "añádele el portero a ", "añadele el portero a ", "anadele el portero a ",
+            "cambiale de portero a ", "cámbiale de portero a ", "ponle de portero a ", "edítale de portero a ", "editale de portero a ", "añádele de portero a ", "añadele de portero a ",
+            "cambiale de direccion a ", "cámbiale de dirección a ", "ponle de direccion a ", "ponle de dirección a ", "edítale de direccion a ", "edítale de dirección a ",
+            "el portero de ", "portero de ",
+            "cambia el telefonillo de ", "actualiza el telefonillo de ", "pon el telefonillo de ", "edita el telefonillo de ", "añade el telefonillo de ", "anade el telefonillo de ",
+            "cambiale el telefonillo a ", "cámbiale el telefonillo a ", "ponle el telefonillo a ", "edítale el telefonillo a ", "editale el telefonillo a ", "añádele el telefonillo a ", "añadele el telefonillo a ", "anadele el telefonillo a ",
+            "el telefonillo de ", "telefonillo de ",
+            "datos de ", "informacion de ", "información de ", "ficha de ", "detalles de ", "dónde vive ", "donde vive ",
+            "la nueva casa de ", "nueva casa de ", "la nueva direccion de ", "la nueva dirección de ",
+
+            // Price / Rate connectors
+            "el precio por hora de ", "el precio por hora a ", "la tarifa por hora de ", "la tarifa por hora a ",
+            "cambia el precio de ", "cambia la tarifa de ", "cámbiale el precio a ", "cambiale el precio a ", "cámbiale la tarifa a ", "cambiale la tarifa a ",
+            "actualiza el precio de ", "actualiza la tarifa de ", "actualízale el precio a ", "actualizale el precio a ", "actualízale la tarifa a ",
+            "pon el precio de ", "pon la tarifa de ", "ponle el precio a ", "ponle la tarifa a ",
+            "edita el precio de ", "edita la tarifa de ", "edítale el precio a ", "editale el precio a ",
+            "el precio de ", "el precio a ", "la tarifa de ", "la tarifa a ",
+
+            // Phone connectors
+            "cambia el telefono de ", "cambia el teléfono de ", "cambia el movil de ", "cambia el móvil de ",
+            "cámbiale el telefono a ", "cambiale el telefono a ", "cámbiale el teléfono a ", "cambiale el teléfono a ",
+            "actualiza el telefono de ", "actualiza el teléfono de ", "actualízale el telefono a ", "actualizale el telefono a ", "actualízale el teléfono a ",
+            "pon el telefono de ", "pon el teléfono de ", "ponle el telefono a ", "ponle el teléfono a ",
+            "edita el telefono de ", "edita el teléfono de ", "edítale el telefono a ", "editale el telefono a ", "edítale el teléfono a ",
+            "el nuevo telefono de ", "el nuevo teléfono de ", "el nuevo movil de ", "el nuevo móvil de ",
+            "el telefono de ", "el teléfono de ", "el movil de ", "el móvil de ",
+
+            // Course / Level connectors
+            "cambia el curso de ", "cámbiale el curso a ", "cambiale el curso a ",
+            "actualiza el curso de ", "actualízale el curso a ", "actualizale el curso a ",
+            "pon el curso de ", "ponle el curso a ",
+            "edita el curso de ", "edítale el curso a ", "editale el curso a ",
+            "el nuevo curso de ", "el curso de ", "el nivel de ",
             
             // English equivalents
             "cancel the extra class of ", "cancel the extra class for ", "cancel extra class for ", "cancel extra class with ",
@@ -269,7 +334,8 @@ class SueEntityExtractor @Inject constructor(
                 val rest = query.substring(idx + connector.length).trim()
                 val stopWords = listOf(
                     " una clase", " la clase", " clase ", " su clase", " el horario",
-                    " que ", " que es", " hoy", " esta tarde", " esta mañana", " esta manana", " esta noche", " mañana", " manana", " ayer",
+                    " es ", " es: ", ": ", " sea ", " sería ", " seria ", " que ", " que es",
+                    " hoy", " esta tarde", " esta mañana", " esta manana", " esta noche", " mañana", " manana", " ayer",
                     " del ", " de ", " el ", " al ", " a ", " en ", " los ", " las ", " con ", " para ",
                     " from ", " of ", " the ", " to ", " at ", " in ", " on "
                 )
@@ -777,6 +843,148 @@ class SueEntityExtractor @Inject constructor(
                 if (text.isNotBlank()) return text
             }
         }
+        return null
+    }
+
+    /**
+     * Extracts a postal address or intercom / portero specification from a query.
+     */
+    fun extractAddressText(query: String, studentName: String? = null): String? {
+        val lower = stripAccents(query.lowercase().trim())
+        val original = query.trim()
+
+        val streetPrefixes = listOf("calle ", "c/ ", "c/", "avenida ", "avda ", "av. ", "av ", "plaza ", "pza ", "paseo ", "pº ", "carretera ", "ctra ")
+        val hasStreet = streetPrefixes.any { lower.contains(it) }
+
+        // 1. Direct door / intercom code if no street is present (e.g. "el codigo de porte 387", "el portero de Hugo es 14B")
+        if (!hasStreet) {
+            val doorCode = DoorCodeExtractor.extractDoorCode(original)
+            if (doorCode != null) {
+                return doorCode
+            }
+        }
+
+        // 1b. Relocation markers (e.g. "Pepe se ha mudado a Calle Mayor 12", "ahora vive en Calle Sol 4")
+        val relocationMarkers = listOf(
+            "se ha mudado a ", "se muda a ", "se mudó a ", "se mudo a ",
+            "ha cambiado de casa a ", "cambia de casa a ",
+            "ahora vive en ", "ha pasado a vivir en ", "vive ahora en ",
+            "la nueva casa de ", "nueva casa de ", "su nueva casa es "
+        )
+        for (m in relocationMarkers) {
+            val idx = lower.indexOf(m)
+            if (idx >= 0) {
+                var candidate = original.substring(idx + m.length).trim()
+                if (studentName != null && candidate.startsWith("$studentName es ", ignoreCase = true)) {
+                    candidate = candidate.substring("$studentName es ".length).trim()
+                } else if (studentName != null && candidate.startsWith("$studentName ", ignoreCase = true)) {
+                    candidate = candidate.substring("$studentName ".length).trim()
+                }
+                if (candidate.isNotBlank()) {
+                    return candidate
+                }
+            }
+        }
+
+        // 2. Markers after "direccion"
+        val dirIdx = listOf(lower.indexOf("direccion"), lower.indexOf("dirección")).filter { it >= 0 }.minOrNull()
+        if (dirIdx != null) {
+            val afterDir = lower.substring(dirIdx + 9)
+            val afterDirOriginal = original.substring(Math.min(original.length, dirIdx + 9))
+
+            // Check transitions like " a ", " por ", " es ", ": "
+            val transitionMarkers = listOf(" a ", " por ", " es ", ": ")
+            for (m in transitionMarkers) {
+                val tIdx = afterDir.indexOf(m)
+                if (tIdx >= 0) {
+                    val candidate = afterDirOriginal.substring(tIdx + m.length).trim()
+                    if (candidate.isNotBlank()) {
+                        val doorCode = DoorCodeExtractor.extractDoorCode(candidate)
+                        return if (doorCode != null && !streetPrefixes.any { candidate.lowercase().contains(it) }) doorCode else candidate
+                    }
+                }
+            }
+
+            // Trailing target check: "ponle la direccion Calle Mayor 12 a Marcos"
+            if (studentName != null) {
+                val studentLower = stripAccents(studentName.lowercase().trim())
+                val toStudent = " a $studentLower"
+                if (afterDir.endsWith(toStudent)) {
+                    val candidate = afterDirOriginal.substring(0, afterDir.length - toStudent.length).trim()
+                    if (candidate.isNotBlank()) {
+                        val doorCode = DoorCodeExtractor.extractDoorCode(candidate)
+                        return if (doorCode != null && !streetPrefixes.any { candidate.lowercase().contains(it) }) doorCode else candidate
+                    }
+                }
+            }
+
+            // Direct candidate after "direccion"
+            val candidate = afterDirOriginal.trim().removePrefix(":").trim()
+            if (studentName != null && candidate.equals("de $studentName", ignoreCase = true)) {
+                return null
+            }
+            if (candidate.isNotBlank() && !candidate.startsWith("de ")) {
+                val doorCode = DoorCodeExtractor.extractDoorCode(candidate)
+                return if (doorCode != null && !streetPrefixes.any { candidate.lowercase().contains(it) }) doorCode else candidate
+            }
+        }
+
+        // 3. Street prefixes in direct input
+        if (streetPrefixes.any { lower.startsWith(it) }) {
+            return original
+        }
+
+        return null
+    }
+
+    /**
+     * Extracts a phone number from the query.
+     */
+    fun extractPhoneNumber(query: String): String? {
+        val phoneRegex = Regex("""(?:\+?\d{1,3}[\s\-]?)?(?:[6789]\d{2}[\s\-]?\d{3}[\s\-]?\d{3}|[6789]\d{8}|\b\d{9}\b)""")
+        val match = phoneRegex.find(query) ?: return null
+        return match.value.replace(Regex("""[\s\-]"""), "").trim()
+    }
+
+    /**
+     * Extracts a course or education level from the query.
+     */
+    fun extractCourseText(query: String): String? {
+        val lower = query.lowercase().trim()
+        val original = query.trim()
+
+        val courseIdx = listOf(lower.indexOf("curso"), lower.indexOf("nivel"), lower.indexOf("grado")).filter { it >= 0 }.minOrNull()
+        if (courseIdx != null) {
+            val afterCourse = lower.substring(courseIdx + 5)
+            val afterCourseOriginal = original.substring(Math.min(original.length, courseIdx + 5))
+            val transitionMarkers = listOf(" a ", " por ", " es ", ": ", " sea ")
+            for (m in transitionMarkers) {
+                val tIdx = afterCourse.indexOf(m)
+                if (tIdx >= 0) {
+                    val candidate = afterCourseOriginal.substring(tIdx + m.length).trim()
+                    if (candidate.isNotBlank()) return candidate
+                }
+            }
+            val candidate = afterCourseOriginal.trim().removePrefix(":").trim()
+            if (candidate.isNotBlank() && !candidate.startsWith("de ")) {
+                return candidate
+            }
+        }
+
+        val directKeywords = listOf("bachillerato", "bach", "eso", "primaria", "secundaria", "infantil", "universidad")
+        for (kw in directKeywords) {
+            val idx = lower.indexOf(kw)
+            if (idx >= 0) {
+                val prefix = original.substring(0, idx).trimEnd()
+                val gradePrefixMatch = Regex("""\b(\d+[ºªo°]?\s*(?:de\s+)?(?:la\s+)?)$""", RegexOption.IGNORE_CASE).find(prefix)
+                return if (gradePrefixMatch != null) {
+                    original.substring(gradePrefixMatch.range.first).trim()
+                } else {
+                    original.substring(idx).trim()
+                }
+            }
+        }
+
         return null
     }
 

@@ -350,7 +350,8 @@ fun StudentDetailContent(
                                 isEditMode = isEditMode,
                                 isNewStudent = isNewStudent,
                                 context = context,
-                                onEvent = onEvent
+                                onEvent = onEvent,
+                                onToggleEditMode = onToggleEditMode
                             )
                             1 -> SchedulesTab(
                                 student = student,

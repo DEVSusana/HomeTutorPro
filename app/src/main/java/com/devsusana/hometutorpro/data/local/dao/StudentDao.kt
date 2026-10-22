@@ -148,7 +148,7 @@ interface StudentDao {
      */
     @Query(
         """
-        SELECT s.id AS studentId, s.name, s.subjects, s.course, s.pendingBalance, s.lastPaymentDate, s.notes
+        SELECT s.id AS studentId, s.name, s.subjects, s.course, s.pricePerHour, s.address, s.studentPhone, s.parentPhones, s.studentEmail, s.pendingBalance, s.lastPaymentDate, s.notes
         FROM students s 
         WHERE s.professorId = :professorId 
         AND LOWER(s.name) LIKE '%' || LOWER(:query) || '%' 

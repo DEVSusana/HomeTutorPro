@@ -45,7 +45,8 @@ fun PersonalInfoTab(
     isNewStudent: Boolean,
     context: Context,
     onEvent: (StudentDetailEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onToggleEditMode: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -54,6 +55,23 @@ fun PersonalInfoTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        if (!isEditMode && !isNewStudent) {
+            OutlinedButton(
+                onClick = onToggleEditMode,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("edit_info_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.student_detail_edit_student_info))
+            }
+        }
+
         // Personal Info Section
         SectionCard(
             title = stringResource(R.string.student_detail_student_name),
@@ -140,6 +158,7 @@ fun PersonalInfoTab(
                 value = student.address,
                 onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(address = it))) },
                 label = { Text(stringResource(id = R.string.student_detail_address)) },
+                placeholder = { Text(stringResource(id = R.string.student_detail_address_hint)) },
                 enabled = isEditMode,
                 modifier = Modifier.fillMaxWidth().testTag("address_field"),
                 leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = stringResource(R.string.cd_location_icon)) },

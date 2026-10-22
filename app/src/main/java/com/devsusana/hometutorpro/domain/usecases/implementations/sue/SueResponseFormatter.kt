@@ -176,15 +176,34 @@ object SueResponseFormatter {
             appendLine()
             result.students.forEach { student ->
                 appendLine("• ${student.name}")
-                appendLine("  Asignaturas: ${student.subjects}")
-                appendLine("  Curso: ${student.course}")
-                appendLine("  Saldo pendiente: ${student.pendingBalance} euros")
+                if (student.pricePerHour > 0.0) {
+                    appendLine("  Precio/hora: ${student.pricePerHour} €/h")
+                }
+                if (student.subjects.isNotBlank()) {
+                    appendLine("  Asignaturas: ${student.subjects}")
+                }
+                if (student.course.isNotBlank()) {
+                    appendLine("  Curso: ${student.course}")
+                }
+                if (student.address.isNotBlank()) {
+                    appendLine("  Dirección: ${student.address}")
+                }
+                if (student.studentPhone.isNotBlank()) {
+                    appendLine("  Teléfono: ${student.studentPhone}")
+                }
+                if (student.parentPhones.isNotBlank()) {
+                    appendLine("  Teléfono padres: ${student.parentPhones}")
+                }
+                if (!student.studentEmail.isNullOrBlank()) {
+                    appendLine("  Email: ${student.studentEmail}")
+                }
+                if (student.pendingBalance != 0.0) {
+                    appendLine("  Saldo pendiente: ${student.pendingBalance} euros")
+                }
                 if (student.lastPaymentDate != null) {
                     val date = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
                         .format(java.util.Date(student.lastPaymentDate))
                     appendLine("  Último pago: $date")
-                } else {
-                    appendLine("  Último pago: Nunca")
                 }
                 if (student.notes.isNotBlank()) {
                     appendLine("  Notas/Observaciones: ${student.notes}")
@@ -262,6 +281,22 @@ object SueResponseFormatter {
             "¿Confirmas actualizar las notas de ${action.studentName} a: '${action.notes}'? " +
                 "Di sí para confirmar o no para cancelar."
         }
+        is SuePendingAction.UpdateStudentAddress -> {
+            "¿Confirmas actualizar la dirección de ${action.studentName} a: '${action.address}'? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.UpdateStudentPrice -> {
+            "¿Confirmas actualizar el precio por hora de ${action.studentName} a ${action.pricePerHour} euros la hora? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.UpdateStudentPhone -> {
+            "¿Confirmas actualizar el teléfono de ${action.studentName} a: '${action.phone}'? " +
+                "Di sí para confirmar o no para cancelar."
+        }
+        is SuePendingAction.UpdateStudentCourse -> {
+            "¿Confirmas actualizar el curso de ${action.studentName} a: '${action.course}'? " +
+                "Di sí para confirmar o no para cancelar."
+        }
     }
 
     private fun formatPreparationError(result: SueOperationResult.Prepare.Error): String {
@@ -317,6 +352,18 @@ object SueResponseFormatter {
         }
         is SuePendingAction.UpdateStudentNotes -> {
             "Hecho. Se han actualizado las notas de ${action.studentName}."
+        }
+        is SuePendingAction.UpdateStudentAddress -> {
+            "Hecho. Se ha actualizado la dirección de ${action.studentName} a: ${action.address}."
+        }
+        is SuePendingAction.UpdateStudentPrice -> {
+            "Hecho. Se ha actualizado el precio por hora de ${action.studentName} a ${action.pricePerHour} euros la hora."
+        }
+        is SuePendingAction.UpdateStudentPhone -> {
+            "Hecho. Se ha actualizado el teléfono de ${action.studentName} a: ${action.phone}."
+        }
+        is SuePendingAction.UpdateStudentCourse -> {
+            "Hecho. Se ha actualizado el curso de ${action.studentName} a: ${action.course}."
         }
     }
 

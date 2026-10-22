@@ -41,7 +41,12 @@ data class AgentStudentDetail(
     val name: String,
     val subjects: String,
     val course: String,
-    val pendingBalance: Double,
+    val pricePerHour: Double = 0.0,
+    val address: String = "",
+    val studentPhone: String = "",
+    val parentPhones: String = "",
+    val studentEmail: String? = null,
+    val pendingBalance: Double = 0.0,
     val lastPaymentDate: Long? = null,
     val notes: String = ""
 )

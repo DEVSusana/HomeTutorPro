@@ -93,6 +93,8 @@
     <string name="student_detail_subjects">Asignaturas</string>
     <string name="student_detail_parent_phone">Teléfono del Padre/Tutor</string>
     <string name="student_detail_address">Dirección</string>
+    <string name="student_detail_address_hint">Ej: Calle Mayor 12, 3ºB, Portero: 1402</string>
+    <string name="student_detail_edit_student_info">Editar información</string>
     <string name="student_detail_price_per_hour">Precio por Hora (€)</string>
     <string name="student_detail_special_needs">Atención Educativa</string>
     <string name="student_detail_student_phone">Teléfono del Estudiante</string>
@@ -707,4 +709,5 @@
     <string name="widget_started_at">Inició: %1$s • %2$d min</string>
     <string name="widget_today">Hoy</string>
     <string name="widget_tomorrow">Mañana</string>
+    <string name="widget_door_code">🔔 %1$s</string>
 </resources>
