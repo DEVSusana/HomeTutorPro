@@ -23,6 +23,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -151,7 +152,7 @@ class StudentRepositoryImpl @Inject constructor(
                 if (amount <= 0) return@withContext Result.Error(DomainError.InvalidAmount)
                 val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
-                val student = studentDao.getStudentByIdSuspend(id, professorId)
+                val student = studentDao.getStudentById(id, professorId).firstOrNull()
                     ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
                 studentDao.addToBalance(
@@ -182,7 +183,7 @@ class StudentRepositoryImpl @Inject constructor(
             try {
                 val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
-                val student = studentDao.getStudentByIdSuspend(id, professorId)
+                val student = studentDao.getStudentById(id, professorId).firstOrNull()
                     ?: return@withContext Result.Error(DomainError.StudentNotFound)
 
                 val diff = newBalance - student.pendingBalance

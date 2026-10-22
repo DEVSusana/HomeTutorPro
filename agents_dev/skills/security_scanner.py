@@ -77,6 +77,7 @@ def run_security_scan(file_path: str, output_format: str = "text") -> str:
               "line": <line_number_or_0>,
               "title": "<Concise issue title>",
               "message": "<Detailed technical vulnerability description>",
+              "suggestion": "<Concrete Kotlin code fix or recommendation>",
               "remediation": "<Concrete Kotlin code fix or recommendation>"
             }}
           ]

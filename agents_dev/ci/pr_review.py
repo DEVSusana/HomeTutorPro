@@ -166,8 +166,8 @@ def run_pr_review_and_guardrails():
                 emoji = emoji_map.get(sev, "🟢")
                 cat = f.get("category", "-").capitalize()
                 line = f"L{f.get('line')}" if f.get("line") else ""
-                msg = str(f.get("message", "-")).replace("|", "-")
-                sug = str(f.get("suggestion", "-")).replace("|", "-")
+                msg = str(f.get("message") or f.get("title") or "-").replace("|", "-")
+                sug = str(f.get("suggestion") or f.get("remediation") or "-").replace("|", "-")
                 body += f"| {emoji} | **{cat}** {line} | {msg} | {sug} |\n"
             body += "\n"
 
