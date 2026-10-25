@@ -63,11 +63,15 @@ def generate_content_with_retry(client, contents, config_args=None, max_retries=
                 )
         except Exception as e:
             err_str = str(e)
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+            is_transient = any(code in err_str for code in [
+                "429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE", "500", "INTERNAL", "high traffic"
+            ])
+            if is_transient:
                 if attempt < max_retries:
                     jitter = random.uniform(1.0, 5.0)
-                    sleep_time = delay + jitter
-                    print(f"\n⚠️ API Rate Limit (429) hit. Retrying in {sleep_time:.1f}s ({delay}s backoff + {jitter:.1f}s jitter) (Attempt {attempt + 1}/{max_retries})...")
+                    retry_base = 5.0 if ("503" in err_str or "UNAVAILABLE" in err_str or "high traffic" in err_str) else delay
+                    sleep_time = retry_base + jitter
+                    print(f"\n⚠️ Transient API Error ({err_str[:60]}...). Retrying in {sleep_time:.1f}s (Attempt {attempt + 1}/{max_retries})...")
                     time.sleep(sleep_time)
                     delay *= 2
                     continue

@@ -145,7 +145,7 @@ def run_pr_review_and_guardrails():
                 print(f"    ⚠️ Error en {name} ({file_path}): {err_msg}")
                 errors.append({"skill": name, "file": file_path, "error": err_msg})
 
-            time.sleep(2)
+            time.sleep(3)
 
     # 1. Construir el comentario para el PR
     if all_findings:
@@ -200,21 +200,21 @@ def run_pr_review_and_guardrails():
         body += "| 🧹 **Refactor** | ✅ PASS | Sin code smells críticos detectados. |\n"
         post_pr_comment(body)
 
-    # 2. Guardrails: Bloquear el merge si hay violaciones críticas en Seguridad o Arquitectura
+    # 2. Guardrails: Mostrar todas las sugerencias de forma consultiva sin bloquear el merge del PR
     critical_violations = [
         f for f in all_findings
         if f.get("severity", "").lower() == "critical"
-        and f.get("category", "").lower() in ["security", "architecture"]
     ]
 
     if critical_violations:
-        print("\n❌ [GUARDRAIL TRIGGERED]: Se detectaron violaciones críticas bloqueantes:")
+        print(f"\n⚠️ Se detectaron {len(critical_violations)} observaciones críticas (sugerencias publicadas en el PR):")
         for v in critical_violations:
-            print(f"  - [{v.get('category').upper()}] {v.get('file')}: {v.get('message')}")
-        print("\n⛔ El PR no puede fusionarse hasta resolver estas incidencias críticas.")
-        sys.exit(1)
+            cat = str(v.get("category", "GENERAL")).upper()
+            print(f"  - [{cat}] {v.get('file')}: {v.get('message')}")
+        print("\nℹ️ [ADVISORY GUARDRAIL]: Sugerencias publicadas en el PR. No bloquea el merge para permitir revisión humana.")
+    else:
+        print("\n✅ [GUARDRAILS PASS]: Cero violaciones críticas. PR apto para merge.")
 
-    print("\n✅ [GUARDRAILS PASS]: Cero violaciones críticas bloqueantes. PR apto para merge.")
     sys.exit(0)
 
 

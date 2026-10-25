@@ -17,7 +17,6 @@ import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
-import javax.inject.Singleton
 
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
@@ -33,7 +32,6 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.sue.SpanishPho
  * All functions are `suspend` to comply with AGENTS.md Rule 1 (Coroutines),
  * executing database I/O on background threads.
  */
-@Singleton
 class StudentTools @Inject constructor(
     private val queryStudentsUseCase: IQueryStudentsForAgentUseCase,
     private val registerPaymentUseCase: IRegisterPaymentUseCase,
@@ -338,8 +336,8 @@ class StudentTools @Inject constructor(
             course = action.course.trim(),
             subjects = action.subjects.trim(),
             pricePerHour = action.pricePerHour,
-            address = "No address", // Business rule mandatory field
-            studentEmail = "${action.name.lowercase().replace(" ", "")}@example.com", // Business rule mandatory field
+            address = "No address", // Default placeholder for quick voice creation
+            studentEmail = "${action.name.lowercase().replace(" ", "")}@example.com", // Default email placeholder for quick voice creation
             isActive = true
         )
 
