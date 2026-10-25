@@ -3,12 +3,10 @@ package com.devsusana.hometutorpro.data.remote
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Remote data source backed by Firestore.
  */
-@Singleton
 class FirestoreRemoteDataSource @Inject constructor(
     private val firestore: FirebaseFirestore
 ) : RemoteDataSource {
@@ -20,23 +18,19 @@ class FirestoreRemoteDataSource @Inject constructor(
         idempotencyField: String
     ): String {
         val collectionRef = firestore.collection(path)
-        
-        return firestore.runTransaction { transaction ->
-            val docRef = if (idempotencyKey != null) {
-                // Atomic check for idempotency
-                val existing = collectionRef.whereEqualTo(idempotencyField, idempotencyKey).limit(1).get().result
-                if (existing != null && !existing.isEmpty) {
-                    existing.documents.first().reference
-                } else {
-                    collectionRef.document()
-                }
+        val docRef = if (idempotencyKey != null) {
+            val existing = collectionRef.whereEqualTo(idempotencyField, idempotencyKey).limit(1).get().await()
+            if (!existing.isEmpty) {
+                existing.documents.first().reference
             } else {
                 collectionRef.document()
             }
-            
-            transaction.set(docRef, data)
-            docRef.id
-        }.await()
+        } else {
+            collectionRef.document()
+        }
+
+        docRef.set(data).await()
+        return docRef.id
     }
 
     override suspend fun deleteDocument(path: String) {

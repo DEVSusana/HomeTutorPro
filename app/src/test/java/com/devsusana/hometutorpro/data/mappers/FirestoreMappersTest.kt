@@ -3,7 +3,6 @@ package com.devsusana.hometutorpro.data.mappers
 import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.data.local.entities.*
 import com.devsusana.hometutorpro.data.remote.RemoteDocument
-import com.google.firebase.firestore.DocumentSnapshot
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
@@ -101,19 +100,22 @@ class FirestoreMappersTest {
     }
 
     @Test
-    fun `DocumentSnapshot toScheduleEntity should map firebase fields`() {
+    fun `RemoteDocument toScheduleEntity should map firebase fields`() {
         // Given
-        val snapshot: DocumentSnapshot = mockk()
-        every { snapshot.id } returns "cloud_sched"
-        every { snapshot.getString("dayOfWeek") } returns "WEDNESDAY"
-        every { snapshot.getString("startTime") } returns "14:00"
-        every { snapshot.getString("endTime") } returns "15:00"
-        every { snapshot.getBoolean("isCompleted") } returns true
-        every { snapshot.getLong("lastModified") } returns 123456789L
-        every { snapshot.getLong("completedDate") } returns 987654321L
+        val remoteDoc = RemoteDocument(
+            id = "cloud_sched",
+            data = mapOf(
+                "dayOfWeek" to "WEDNESDAY",
+                "startTime" to "14:00",
+                "endTime" to "15:00",
+                "isCompleted" to true,
+                "lastModified" to 123456789L,
+                "completedDate" to 987654321L
+            )
+        )
 
         // When
-        val entity = snapshot.toScheduleEntity(10L, "prof123")
+        val entity = remoteDoc.toScheduleEntity(10L, "prof123")
 
         // Then
         assertEquals(DayOfWeek.WEDNESDAY, entity.dayOfWeek)
@@ -153,21 +155,24 @@ class FirestoreMappersTest {
     }
 
     @Test
-    fun `DocumentSnapshot toScheduleExceptionEntity should map firebase fields`() {
+    fun `RemoteDocument toScheduleExceptionEntity should map firebase fields`() {
         // Given
-        val snapshot: DocumentSnapshot = mockk()
-        every { snapshot.id } returns "cloud_exc"
-        every { snapshot.getString("originalScheduleId") } returns "sched_rem"
-        every { snapshot.getLong("exceptionDate") } returns 1696204800000L
-        every { snapshot.getString("reason") } returns "Sick"
-        every { snapshot.getString("type") } returns "RESCHEDULED"
-        every { snapshot.getString("newStartTime") } returns "10:30"
-        every { snapshot.getString("newEndTime") } returns "11:30"
-        every { snapshot.getString("newDayOfWeek") } returns "FRIDAY"
-        every { snapshot.getLong("lastModified") } returns 123456789L
+        val remoteDoc = RemoteDocument(
+            id = "cloud_exc",
+            data = mapOf(
+                "originalScheduleId" to "sched_rem",
+                "exceptionDate" to 1696204800000L,
+                "reason" to "Sick",
+                "type" to "RESCHEDULED",
+                "newStartTime" to "10:30",
+                "newEndTime" to "11:30",
+                "newDayOfWeek" to "FRIDAY",
+                "lastModified" to 123456789L
+            )
+        )
 
         // When
-        val entity = snapshot.toScheduleExceptionEntity(20L, "prof456")
+        val entity = remoteDoc.toScheduleExceptionEntity(20L, "prof456")
 
         // Then
         assertEquals("cloud_exc", entity.cloudId)

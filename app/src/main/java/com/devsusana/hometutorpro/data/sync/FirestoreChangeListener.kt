@@ -4,6 +4,7 @@ import com.devsusana.hometutorpro.data.local.dao.StudentDao
 import com.devsusana.hometutorpro.data.local.entities.StudentEntity
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import com.devsusana.hometutorpro.data.mappers.toStudentEntity
+import com.devsusana.hometutorpro.data.remote.RemoteDocument
 import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentChange
@@ -44,7 +45,8 @@ class FirestoreChangeListener @Inject constructor(
                     when (change.type) {
                         DocumentChange.Type.ADDED,
                         DocumentChange.Type.MODIFIED -> {
-                            val student = change.document.toStudentEntity(secureAuthManager, professorId)
+                            val remoteDoc = RemoteDocument(change.document.id, change.document.data ?: emptyMap())
+                            val student = remoteDoc.toStudentEntity(secureAuthManager, professorId)
                             scope.launch {
                                 // Check if we have a local version
                                 val localStudent = studentDao.getStudentByCloudId(change.document.id, professorId)

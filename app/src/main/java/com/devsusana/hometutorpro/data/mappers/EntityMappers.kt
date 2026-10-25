@@ -1,6 +1,7 @@
 package com.devsusana.hometutorpro.data.mappers
 
 import com.devsusana.hometutorpro.data.local.entities.*
+import com.devsusana.hometutorpro.data.local.models.*
 import com.devsusana.hometutorpro.domain.entities.*
 import java.time.DayOfWeek
 
@@ -273,7 +274,7 @@ fun TransactionLogEntity.toAgentDomain(): AgentTransactionLog {
 }
 
 // Projection to Domain Mappers
-fun com.devsusana.hometutorpro.data.local.models.StudentSummaryProjection.toDomain(): AgentStudentSummary =
+fun StudentSummaryProjection.toDomain(): AgentStudentSummary =
     AgentStudentSummary(
         name = name,
         subjects = subjects,
@@ -284,13 +285,13 @@ fun com.devsusana.hometutorpro.data.local.models.StudentSummaryProjection.toDoma
         lastPaymentDate = lastPaymentDate
     )
 
-fun com.devsusana.hometutorpro.data.local.models.BalanceSummaryProjection.toDomain(): AgentBalanceSummary =
+fun BalanceSummaryProjection.toDomain(): AgentBalanceSummary =
     AgentBalanceSummary(
         name = name,
         pendingBalance = pendingBalance
     )
 
-fun com.devsusana.hometutorpro.data.local.models.StudentDetailProjection.toDomain(): AgentStudentDetail =
+fun StudentDetailProjection.toDomain(): AgentStudentDetail =
     AgentStudentDetail(
         studentId = studentId,
         name = name,
@@ -306,7 +307,7 @@ fun com.devsusana.hometutorpro.data.local.models.StudentDetailProjection.toDomai
         address = address
     )
 
-fun com.devsusana.hometutorpro.data.local.models.ScheduleSummaryProjection.toDomain(): AgentScheduleSummary =
+fun ScheduleSummaryProjection.toDomain(): AgentScheduleSummary =
     AgentScheduleSummary(
         studentName = studentName,
         dayOfWeek = dayOfWeek,
@@ -314,7 +315,7 @@ fun com.devsusana.hometutorpro.data.local.models.ScheduleSummaryProjection.toDom
         endTime = endTime
     )
 
-fun com.devsusana.hometutorpro.data.local.models.ScheduleDetailProjection.toDomain(): AgentScheduleDetail =
+fun ScheduleDetailProjection.toDomain(): AgentScheduleDetail =
     AgentScheduleDetail(
         scheduleId = scheduleId.toString(),
         studentId = studentId.toString(),

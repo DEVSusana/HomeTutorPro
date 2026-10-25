@@ -64,6 +64,9 @@ interface StudentDao {
     @Delete
     suspend fun deleteStudent(student: StudentEntity)
 
+    /**
+     * Updates student balance and last payment date.
+     */
     @Query("UPDATE students SET pendingBalance = :newBalance, lastPaymentDate = :paymentDate, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE id = :studentId AND professorId = :professorId")
     suspend fun updatePendingBalance(
         studentId: Long,
@@ -74,6 +77,9 @@ interface StudentDao {
         timestamp: Long
     )
 
+    /**
+     * Updates only the student balance without altering payment timestamp.
+     */
     @Query("UPDATE students SET pendingBalance = :newBalance, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE id = :studentId AND professorId = :professorId")
     suspend fun updateBalanceOnly(
         studentId: Long,

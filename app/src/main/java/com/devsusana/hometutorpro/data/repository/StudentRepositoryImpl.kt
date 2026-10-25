@@ -17,6 +17,7 @@ import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.domain.entities.Student
+import com.devsusana.hometutorpro.data.local.dao.ResourceDao
 import com.devsusana.hometutorpro.domain.entities.StudentSummary
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
@@ -41,7 +42,7 @@ class StudentRepositoryImpl @Inject constructor(
     private val studentDao: StudentDao,
     private val scheduleDao: ScheduleDao,
     private val scheduleExceptionDao: ScheduleExceptionDao,
-    private val resourceDao: com.devsusana.hometutorpro.data.local.dao.ResourceDao,
+    private val resourceDao: ResourceDao,
     private val sharedResourceDao: SharedResourceDao,
     private val classLogDao: ClassLogDao,
     private val transactionLogDao: TransactionLogDao,
@@ -57,6 +58,9 @@ class StudentRepositoryImpl @Inject constructor(
         const val TRANSACTION_TYPE_BALANCE_SUBTRACT = "BALANCE_SUBTRACT"
     }
 
+    /**
+     * Retrieves observable student summaries ordered alphabetically by name.
+     */
     override fun getStudents(professorId: String): Flow<List<StudentSummary>> {
         val collator = Collator.getInstance(Locale.getDefault()).apply {
             strength = Collator.PRIMARY // Ignore accents and case
@@ -67,11 +71,17 @@ class StudentRepositoryImpl @Inject constructor(
         }.flowOn(Dispatchers.Default)
     }
 
+    /**
+     * Retrieves an observable student domain model by ID.
+     */
     override fun getStudentById(professorId: String, studentId: String): Flow<Student?> {
         val id = studentId.toRoomId() ?: return kotlinx.coroutines.flow.flowOf(null)
         return studentDao.getStudentById(id, professorId).map { it?.toDomain() }.flowOn(Dispatchers.Default)
     }
 
+    /**
+     * Persists or updates a student in local database and triggers background synchronization.
+     */
     override suspend fun saveStudent(professorId: String, student: Student): Result<String, DomainError> {
         return withContext(Dispatchers.IO) {
             try {
@@ -97,6 +107,9 @@ class StudentRepositoryImpl @Inject constructor(
         }
     }
 
+    /**
+     * Atomically records a student payment and creates a transaction log entry.
+     */
     override suspend fun registerPayment(
         professorId: String,
         studentId: String,
@@ -368,8 +381,7 @@ class StudentRepositoryImpl @Inject constructor(
     }
 
     private suspend fun deleteTodayLogForSchedule(studentId: Long, professorId: String, scheduleId: String) {
-        val now = dateTimeProvider.getNow()
-        val todayStart = now.toLocalDate().atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        val todayStart = dateTimeProvider.getStartOfDayMillis()
         val todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1
         val logs = classLogDao.getLogsByStudent(studentId, professorId)
         val matchingLog = logs.firstOrNull { it.scheduleId == scheduleId && it.date in todayStart..todayEnd }

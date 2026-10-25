@@ -67,6 +67,9 @@ interface ScheduleDao {
     """)
     suspend fun hasConflict(dayOfWeek: Int, startTime: String, endTime: String, professorId: String, id: Long? = null): Boolean
 
+    /**
+     * Finds any schedule overlapping the given day and time range.
+     */
     @Query("""
         SELECT s.* 
         FROM schedules s
@@ -79,12 +82,21 @@ interface ScheduleDao {
     """)
     suspend fun getConflictingSchedule(dayOfWeek: Int, startTime: String, endTime: String, professorId: String, id: Long? = null): ScheduleEntity?
 
+    /**
+     * Retrieves all active schedules for the professor as an observable Flow.
+     */
     @Query("SELECT * FROM schedules WHERE professorId = :professorId AND pendingDelete = 0 ORDER BY dayOfWeek, startTime")
     fun getAllSchedules(professorId: String): Flow<List<ScheduleEntity>>
 
+    /**
+     * Retrieves all active schedules for the professor as a one-shot query.
+     */
     @Query("SELECT * FROM schedules WHERE professorId = :professorId ORDER BY id ASC")
     suspend fun getAllSchedulesOnce(professorId: String): List<ScheduleEntity>
 
+    /**
+     * Retrieves a schedule entity by its local id.
+     */
     @Query("SELECT * FROM schedules WHERE id = :scheduleId AND professorId = :professorId AND pendingDelete = 0")
     suspend fun getScheduleById(scheduleId: Long, professorId: String): ScheduleEntity?
 

@@ -26,4 +26,9 @@ interface DateTimeProvider {
      * to facilitate unit testing with mocked time.
      */
     fun currentTimeMillis(): Long
+
+    /**
+     * Returns the epoch millisecond timestamp representing the start of the current day in system timezone.
+     */
+    fun getStartOfDayMillis(): Long
 }
