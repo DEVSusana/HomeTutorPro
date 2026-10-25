@@ -276,10 +276,7 @@ class StudentTools @Inject constructor(
 
         return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
             is Result.Success -> {
-                val sessionStartTime = dateTimeProvider?.getNow()
-                    ?.atZone(java.time.ZoneId.systemDefault())
-                    ?.toInstant()
-                    ?.toEpochMilli() ?: System.currentTimeMillis()
+                val sessionStartTime = dateTimeProvider?.currentTimeMillis() ?: System.currentTimeMillis()
 
                 startActiveSessionUseCase?.invoke(
                     ActiveSession(

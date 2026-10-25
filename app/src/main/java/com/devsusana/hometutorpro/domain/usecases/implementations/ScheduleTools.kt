@@ -6,6 +6,7 @@ import com.devsusana.hometutorpro.domain.entities.Schedule
 import com.devsusana.hometutorpro.domain.entities.ScheduleException
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.repository.AuthRepository
 import com.devsusana.hometutorpro.domain.usecases.IManageScheduleForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IQuerySchedulesForAgentUseCase

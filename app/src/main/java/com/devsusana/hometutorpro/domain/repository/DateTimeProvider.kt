@@ -13,4 +13,7 @@ interface DateTimeProvider {
 
     /** Returns the default system locale. */
     fun getLocale(): Locale
+
+    /** Returns the current system epoch time in milliseconds. */
+    fun currentTimeMillis(): Long = System.currentTimeMillis()
 }

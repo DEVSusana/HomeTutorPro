@@ -13,4 +13,5 @@ import javax.inject.Singleton
 class DateTimeProviderImpl @Inject constructor() : DateTimeProvider {
     override fun getNow(): LocalDateTime = LocalDateTime.now()
     override fun getLocale(): Locale = Locale.getDefault()
+    override fun currentTimeMillis(): Long = System.currentTimeMillis()
 }
