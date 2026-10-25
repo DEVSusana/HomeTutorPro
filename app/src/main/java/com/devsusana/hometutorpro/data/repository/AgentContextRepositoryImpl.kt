@@ -11,6 +11,7 @@ import com.devsusana.hometutorpro.data.local.dao.ClassLogDao
 import com.devsusana.hometutorpro.data.local.dao.TransactionLogDao
 import com.devsusana.hometutorpro.data.util.toRoomId
 import com.devsusana.hometutorpro.data.mappers.toAgentDomain
+import com.devsusana.hometutorpro.data.mappers.toDomain
 import com.devsusana.hometutorpro.domain.entities.AgentClassLog
 import com.devsusana.hometutorpro.domain.entities.AgentTransactionLog
 import com.devsusana.hometutorpro.domain.entities.AgentStudentSummary
@@ -36,10 +37,10 @@ class AgentContextRepositoryImpl @Inject constructor(
             ?: throw IllegalStateException("No authenticated user found. Cannot query agent context.")
 
     override suspend fun getAllStudentSummaries(): List<AgentStudentSummary> =
-        studentDao.getAllStudentSummariesForAgent(professorId).map { it.toDomain() }
+        studentDao.getAllStudentSummaries(professorId).map { it.toDomain() }
 
     override suspend fun getAllSchedules(): List<AgentScheduleSummary> =
-        scheduleDao.getAllSchedulesForAgent(professorId).map { it.toDomain() }
+        scheduleDao.getAllScheduleSummaries(professorId).map { it.toDomain() }
 
     override suspend fun getStudentsWithBalance(): List<AgentBalanceSummary> =
         studentDao.getStudentsWithBalance(professorId).map { it.toDomain() }
@@ -51,7 +52,7 @@ class AgentContextRepositoryImpl @Inject constructor(
         studentDao.getActiveStudentCount(professorId)
 
     override suspend fun getScheduleDetails(): List<AgentScheduleDetail> =
-        scheduleDao.getAllScheduleDetailsForAgent(professorId).map { it.toDomain() }
+        scheduleDao.getAllScheduleDetails(professorId).map { it.toDomain() }
 
     override suspend fun getSchedulesByStudentName(studentName: String): List<AgentScheduleDetail> =
         scheduleDao.getSchedulesByStudentName(professorId, studentName).map { it.toDomain() }
@@ -70,13 +71,5 @@ class AgentContextRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getAllTransactions(): List<AgentTransactionLog> =
-        transactionLogDao.getAllTransactions(professorId).map {
-            AgentTransactionLog(
-                studentId = it.studentId.toString(),
-                type = it.type,
-                amount = it.amount,
-                paymentType = it.paymentType,
-                timestamp = it.timestamp
-            )
-        }
+        transactionLogDao.getAllTransactions(professorId).map { it.toAgentDomain() }
 }

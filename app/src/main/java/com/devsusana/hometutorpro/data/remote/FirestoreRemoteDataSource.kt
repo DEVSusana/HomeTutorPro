@@ -1,7 +1,5 @@
 package com.devsusana.hometutorpro.data.remote
 
-import com.devsusana.hometutorpro.domain.repository.RemoteDataSource
-import com.devsusana.hometutorpro.domain.repository.RemoteDocument
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -17,7 +15,7 @@ class FirestoreRemoteDataSource @Inject constructor(
 
     override suspend fun uploadDocument(
         path: String,
-        data: com.devsusana.hometutorpro.domain.repository.CloudData,
+        data: CloudData,
         idempotencyKey: String?,
         idempotencyField: String
     ): String {

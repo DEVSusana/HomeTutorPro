@@ -5,7 +5,7 @@ import com.devsusana.hometutorpro.data.local.entities.ScheduleExceptionEntity
 import com.devsusana.hometutorpro.data.local.entities.StudentEntity
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import com.devsusana.hometutorpro.data.security.SecureAuthManager
-import com.devsusana.hometutorpro.domain.repository.RemoteDocument
+import com.devsusana.hometutorpro.data.remote.RemoteDocument
 import com.google.firebase.firestore.DocumentSnapshot
 import java.time.DayOfWeek
 

@@ -2,7 +2,7 @@ package com.devsusana.hometutorpro.data.mappers
 
 import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.data.local.entities.*
-import com.devsusana.hometutorpro.domain.repository.RemoteDocument
+import com.devsusana.hometutorpro.data.remote.RemoteDocument
 import com.google.firebase.firestore.DocumentSnapshot
 import io.mockk.every
 import io.mockk.mockk

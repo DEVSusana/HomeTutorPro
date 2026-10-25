@@ -4,9 +4,9 @@ import androidx.room.*
 import com.devsusana.hometutorpro.data.local.entities.StudentEntity
 import com.devsusana.hometutorpro.data.local.entities.StudentSummaryEntity
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
-import com.devsusana.hometutorpro.data.local.models.AgentBalanceSummaryDto
-import com.devsusana.hometutorpro.data.local.models.AgentStudentDetailDto
-import com.devsusana.hometutorpro.data.local.models.AgentStudentSummaryDto
+import com.devsusana.hometutorpro.data.local.models.BalanceSummaryProjection
+import com.devsusana.hometutorpro.data.local.models.StudentDetailProjection
+import com.devsusana.hometutorpro.data.local.models.StudentSummaryProjection
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -16,27 +16,51 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface StudentDao {
 
+    /**
+     * Retrieves observable student summaries for a specific professor.
+     */
     @Query("SELECT id, name, subjects, color, pendingBalance, pricePerHour, isActive, lastClassDate FROM students WHERE professorId = :professorId AND pendingDelete = 0 ORDER BY name ASC")
     fun getStudentSummaries(professorId: String): Flow<List<StudentSummaryEntity>>
 
+    /**
+     * Retrieves observable full student entities for a specific professor.
+     */
     @Query("SELECT * FROM students WHERE professorId = :professorId AND pendingDelete = 0 ORDER BY name ASC")
     fun getAllStudents(professorId: String): Flow<List<StudentEntity>>
 
+    /**
+     * Retrieves a one-shot list of all students for a specific professor.
+     */
     @Query("SELECT * FROM students WHERE professorId = :professorId ORDER BY id ASC")
     suspend fun getAllStudentsOnce(professorId: String): List<StudentEntity>
 
+    /**
+     * Retrieves an observable student entity by its local id.
+     */
     @Query("SELECT * FROM students WHERE id = :studentId AND professorId = :professorId AND pendingDelete = 0")
     fun getStudentById(studentId: Long, professorId: String): Flow<StudentEntity?>
 
+    /**
+     * Retrieves a student by their remote cloud identifier.
+     */
     @Query("SELECT * FROM students WHERE cloudId = :cloudId AND professorId = :professorId AND pendingDelete = 0")
     suspend fun getStudentByCloudId(cloudId: String, professorId: String): StudentEntity?
 
+    /**
+     * Inserts or replaces a student entity in local storage.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertStudent(student: StudentEntity): Long
 
+    /**
+     * Updates an existing student entity.
+     */
     @Update
     suspend fun updateStudent(student: StudentEntity)
 
+    /**
+     * Deletes a student entity permanently from local storage.
+     */
     @Delete
     suspend fun deleteStudent(student: StudentEntity)
 
@@ -112,7 +136,7 @@ interface StudentDao {
      * Returns a summary of all active, non-deleted students for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [AgentStudentSummaryDto] representing the student records.
+     * @return A list of [StudentSummaryProjection] representing the student records.
      */
     @Query(
         """
@@ -122,13 +146,13 @@ interface StudentDao {
         ORDER BY s.name ASC
         """
     )
-    suspend fun getAllStudentSummariesForAgent(professorId: String): List<AgentStudentSummaryDto>
+    suspend fun getAllStudentSummaries(professorId: String): List<StudentSummaryProjection>
 
     /**
      * Returns students with non-zero pending balance for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [AgentBalanceSummaryDto] for students with outstanding balances.
+     * @return A list of [BalanceSummaryProjection] for students with outstanding balances.
      */
     @Query(
         """
@@ -140,18 +164,18 @@ interface StudentDao {
         ORDER BY s.pendingBalance DESC
         """
     )
-    suspend fun getStudentsWithBalance(professorId: String): List<AgentBalanceSummaryDto>
+    suspend fun getStudentsWithBalance(professorId: String): List<BalanceSummaryProjection>
 
     /**
      * Searches for students whose name matches the given query (case-insensitive).
      *
      * @param professorId The ID of the professor.
      * @param query The search term to match against student names.
-     * @return A list of [AgentStudentDetailDto] matching the search.
+     * @return A list of [StudentDetailProjection] matching the search.
      */
     @Query(
         """
-        SELECT s.id AS studentId, s.name, s.subjects, s.course, s.pricePerHour, s.address, s.studentPhone, s.parentPhones, s.studentEmail, s.pendingBalance, s.lastPaymentDate, s.notes
+        SELECT s.id AS studentId, s.name, s.subjects, s.course, s.pricePerHour, s.address, s.studentPhone, s.parentPhones, s.studentEmail, s.pendingBalance, s.lastPaymentDate, s.notes, s.educationalAttention
         FROM students s 
         WHERE s.professorId = :professorId 
         AND LOWER(s.name) LIKE '%' || LOWER(:query) || '%' 
@@ -159,7 +183,7 @@ interface StudentDao {
         ORDER BY s.name ASC
         """
     )
-    suspend fun searchStudentByName(professorId: String, query: String): List<AgentStudentDetailDto>
+    suspend fun searchStudentByName(professorId: String, query: String): List<StudentDetailProjection>
 
     /**
      * Returns the total count of active, non-deleted students for the given professor.

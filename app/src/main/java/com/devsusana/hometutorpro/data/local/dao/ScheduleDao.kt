@@ -4,8 +4,8 @@ import androidx.room.*
 import com.devsusana.hometutorpro.data.local.entities.ScheduleEntity
 import com.devsusana.hometutorpro.data.local.entities.ScheduleWithStudent
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
-import com.devsusana.hometutorpro.data.local.models.AgentScheduleDetailDto
-import com.devsusana.hometutorpro.data.local.models.AgentScheduleSummaryDto
+import com.devsusana.hometutorpro.data.local.models.ScheduleDetailProjection
+import com.devsusana.hometutorpro.data.local.models.ScheduleSummaryProjection
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -15,6 +15,13 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ScheduleDao {
 
+    /**
+     * Retrieves all active schedules joined with student information for a specific professor.
+     * Only returns records not marked for deletion.
+     *
+     * @param professorId Non-empty ID of the professor owner.
+     * @return A [Flow] emitting lists of [ScheduleWithStudent] models ordered by day and time.
+     */
     @Query("""
         SELECT s.*, st.name as studentName, st.subjects as studentSubjects, 
                st.color as studentColor, st.isActive as studentIsActive,
@@ -28,9 +35,26 @@ interface ScheduleDao {
     """)
     fun getAllSchedulesWithStudent(professorId: String): Flow<List<ScheduleWithStudent>>
 
+    /**
+     * Retrieves all active schedules associated with a specific student and professor.
+     *
+     * @param studentId The unique identifier of the student.
+     * @param professorId The unique identifier of the professor.
+     * @return A [Flow] emitting a list of [ScheduleEntity] ordered by day and time.
+     */
     @Query("SELECT * FROM schedules WHERE studentId = :studentId AND professorId = :professorId AND pendingDelete = 0 ORDER BY dayOfWeek, startTime")
     fun getSchedulesByStudentId(studentId: Long, professorId: String): Flow<List<ScheduleEntity>>
 
+    /**
+     * Checks if a time conflict exists for the specified day and time range.
+     *
+     * @param dayOfWeek The target day.
+     * @param startTime Start time string (ISO 8601).
+     * @param endTime End time string (ISO 8601).
+     * @param professorId Owner of the schedule.
+     * @param id Optional current schedule ID to exclude from conflict check (for updates).
+     * @return True if an overlapping schedule exists.
+     */
     @Query("""
         SELECT EXISTS(
             SELECT 1 FROM schedules 
@@ -121,7 +145,7 @@ interface ScheduleDao {
      * Returns all schedules joined with student names for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [AgentScheduleSummaryDto] representing the schedule overviews.
+     * @return A list of [ScheduleSummaryProjection] representing the schedule overviews.
      */
     @Query(
         """
@@ -134,13 +158,13 @@ interface ScheduleDao {
         ORDER BY sch.dayOfWeek, sch.startTime
         """
     )
-    suspend fun getAllSchedulesForAgent(professorId: String): List<AgentScheduleSummaryDto>
+    suspend fun getAllScheduleSummaries(professorId: String): List<ScheduleSummaryProjection>
 
     /**
      * Returns all schedule entries with full detail for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [AgentScheduleDetailDto] containing full schedule information.
+     * @return A list of [ScheduleDetailProjection] containing full schedule information.
      */
     @Query(
         """
@@ -154,14 +178,14 @@ interface ScheduleDao {
         ORDER BY sch.dayOfWeek, sch.startTime
         """
     )
-    suspend fun getAllScheduleDetailsForAgent(professorId: String): List<AgentScheduleDetailDto>
+    suspend fun getAllScheduleDetails(professorId: String): List<ScheduleDetailProjection>
 
     /**
      * Returns schedule entries for students whose name matches [studentName].
      *
      * @param professorId The ID of the professor.
      * @param studentName The name query to filter schedules.
-     * @return A list of [AgentScheduleDetailDto] linked to the student search.
+     * @return A list of [ScheduleDetailProjection] linked to the student search.
      */
     @Query(
         """
@@ -179,6 +203,6 @@ interface ScheduleDao {
     suspend fun getSchedulesByStudentName(
         professorId: String,
         studentName: String
-    ): List<AgentScheduleDetailDto>
+    ): List<ScheduleDetailProjection>
 }
 
