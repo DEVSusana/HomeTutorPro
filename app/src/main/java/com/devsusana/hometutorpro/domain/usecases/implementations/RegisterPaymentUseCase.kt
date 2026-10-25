@@ -18,5 +18,8 @@ class RegisterPaymentUseCase @Inject constructor(private val repository: Student
         studentId: String,
         amountPaid: Double,
         paymentType: PaymentType
-    ): Result<Unit, DomainError> = repository.registerPayment(professorId, studentId, amountPaid, paymentType)
+    ): Result<Unit, DomainError> {
+        if (amountPaid <= 0) return Result.Error(DomainError.InvalidAmount)
+        return repository.registerPayment(professorId, studentId, amountPaid, paymentType)
+    }
 }

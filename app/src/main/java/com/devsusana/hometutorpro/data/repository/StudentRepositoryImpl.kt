@@ -34,9 +34,9 @@ import java.text.Collator
 import java.util.Locale
 
 /**
- * Hybrid implementation of StudentRepository for Premium flavor.
- * Uses Room as the single source of truth for the UI (offline-first).
- * Schedules WorkManager syncs for cloud persistence.
+ * Repository implementation for managing student data and schedules.
+ * Uses Room as the single source of truth for offline-first local persistence.
+ * Notifies SyncScheduler to orchestrate background synchronization when active.
  */
 class StudentRepositoryImpl @Inject constructor(
     private val studentDao: StudentDao,
@@ -80,162 +80,186 @@ class StudentRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Persists or updates a student in local database and triggers background synchronization.
+     * Executes a suspending database block within [Dispatchers.IO], re-throwing [CancellationException]
+     * and encapsulating unexpected failures into [Result.Error(DomainError.Unknown)].
      */
-    override suspend fun saveStudent(professorId: String, student: Student): Result<String, DomainError> {
+    private suspend inline fun <T> safeIoCall(crossinline block: suspend () -> Result<T, DomainError>): Result<T, DomainError> {
         return withContext(Dispatchers.IO) {
             try {
-                val existingId = if (student.id.isNotEmpty()) student.id.toRoomId() ?: 0L else 0L
-                val entity = student.copy(professorId = professorId).toEntity(
-                    existingId = existingId,
-                    syncStatus = SyncStatus.PENDING_UPLOAD
-                )
-                
-                val finalId = if (existingId > 0) {
-                    studentDao.updateStudent(entity)
-                    existingId
-                } else {
-                    studentDao.insertStudent(entity)
-                }
-                syncScheduler.scheduleSyncNow()
-
-                Result.Success(finalId.toString())
+                block()
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
     }
 
     /**
+     * Persists or updates a student in local database and triggers background synchronization.
+     *
+     * @param professorId Owner professor identifier.
+     * @param student Domain student model to save or update.
+     * @return [Result.Success] with the persisted student ID string, or [Result.Error].
+     */
+    override suspend fun saveStudent(professorId: String, student: Student): Result<String, DomainError> = safeIoCall {
+        val existingId = if (student.id.isNotEmpty()) {
+            student.id.toRoomId() ?: return@safeIoCall Result.Error(DomainError.StudentNotFound)
+        } else 0L
+        val entity = student.copy(professorId = professorId).toEntity(
+            existingId = existingId,
+            syncStatus = SyncStatus.PENDING_UPLOAD
+        )
+        
+        val finalId = if (existingId > 0) {
+            studentDao.updateStudent(entity)
+            existingId
+        } else {
+            studentDao.insertStudent(entity)
+        }
+        syncScheduler.scheduleSyncNow()
+
+        Result.Success(finalId.toString())
+    }
+
+    /**
+     * Finds a student entity by ID and verifies ownership.
+     *
+     * @param professorId Owner professor identifier.
+     * @param studentId Domain student identifier.
+     * @return [Result.Success] with Room ID and entity, or [Result.Error] if not found or invalid.
+     */
+    private suspend fun findStudent(professorId: String, studentId: String): Result<Pair<Long, com.devsusana.hometutorpro.data.local.entities.StudentEntity>, DomainError> {
+        val id = studentId.toRoomId() ?: return Result.Error(DomainError.StudentNotFound)
+        val student = studentDao.getStudentById(id, professorId).firstOrNull()
+            ?: return Result.Error(DomainError.StudentNotFound)
+        return Result.Success(id to student)
+    }
+
+    /**
      * Atomically records a student payment and creates a transaction log entry.
+     *
+     * @param professorId Owner professor identifier.
+     * @param studentId Target student identifier.
+     * @param amountPaid Monetary payment amount.
+     * @param paymentType Type of payment executed.
+     * @return [Result.Success] when recorded, or [Result.Error] on validation/persistence failure.
      */
     override suspend fun registerPayment(
         professorId: String,
         studentId: String,
         amountPaid: Double,
         paymentType: PaymentType
-    ): Result<Unit, DomainError> {
-        return withContext(Dispatchers.IO) {
-            try {
-                if (amountPaid <= 0) return@withContext Result.Error(DomainError.InvalidAmount)
-                val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
-                
-                // Fetch student once
-                val student = studentDao.getStudentById(id, professorId).firstOrNull()
-                    ?: return@withContext Result.Error(DomainError.StudentNotFound)
-
-                // Atomic subtraction
-                studentDao.subtractFromBalance(
-                    studentId = id,
-                    professorId = professorId,
-                    amount = amountPaid,
-                    paymentDate = System.currentTimeMillis(),
-                    syncStatus = SyncStatus.PENDING_UPLOAD,
-                    timestamp = System.currentTimeMillis()
-                )
-
-                transactionLogDao.insertTransaction(
-                    TransactionLogEntity(
-                        professorId = professorId,
-                        studentId = id,
-                        type = TRANSACTION_TYPE_PAYMENT,
-                        amount = amountPaid,
-                        paymentType = paymentType.name,
-                        timestamp = System.currentTimeMillis()
-                    )
-                )
-                
-                syncScheduler.scheduleSyncNow()
-                
-                Result.Success(Unit)
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                Result.Error(DomainError.Unknown)
-            }
+    ): Result<Unit, DomainError> = safeIoCall {
+        if (amountPaid <= 0) return@safeIoCall Result.Error(DomainError.InvalidAmount)
+        val (id, _) = when (val res = findStudent(professorId, studentId)) {
+            is Result.Success -> res.data
+            is Result.Error -> return@safeIoCall Result.Error(res.error)
         }
+
+        val now = dateTimeProvider.currentTimeMillis()
+
+        // Atomic subtraction
+        studentDao.subtractFromBalance(
+            studentId = id,
+            professorId = professorId,
+            amount = amountPaid,
+            paymentDate = now,
+            syncStatus = SyncStatus.PENDING_UPLOAD,
+            timestamp = now
+        )
+
+        transactionLogDao.insertTransaction(
+            TransactionLogEntity(
+                professorId = professorId,
+                studentId = id,
+                type = TRANSACTION_TYPE_PAYMENT,
+                amount = amountPaid,
+                paymentType = paymentType.name,
+                timestamp = now
+            )
+        )
+        
+        syncScheduler.scheduleSyncNow()
+        
+        Result.Success(Unit)
     }
 
     /**
      * Adds an amount to a student's pending balance.
+     *
+     * @param professorId Owner professor identifier.
+     * @param studentId Target student identifier.
+     * @param amount Monetary amount to add.
+     * @return [Result.Success] on success, or [Result.Error] on failure.
      */
     override suspend fun addToBalance(
         professorId: String,
         studentId: String,
         amount: Double
-    ): Result<Unit, DomainError> {
-        return withContext(Dispatchers.IO) {
-            try {
-                if (amount <= 0) return@withContext Result.Error(DomainError.InvalidAmount)
-                val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
-
-                val student = studentDao.getStudentById(id, professorId).firstOrNull()
-                    ?: return@withContext Result.Error(DomainError.StudentNotFound)
-
-                studentDao.addToBalance(
-                    studentId = id,
-                    professorId = professorId,
-                    amount = amount,
-                    classDate = dateTimeProvider.currentTimeMillis(),
-                    syncStatus = SyncStatus.PENDING_UPLOAD,
-                    timestamp = dateTimeProvider.currentTimeMillis()
-                )
-
-                syncScheduler.scheduleSyncNow()
-
-                Result.Success(Unit)
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                Result.Error(DomainError.Unknown)
-            }
+    ): Result<Unit, DomainError> = safeIoCall {
+        if (amount <= 0) return@safeIoCall Result.Error(DomainError.InvalidAmount)
+        val (id, _) = when (val res = findStudent(professorId, studentId)) {
+            is Result.Success -> res.data
+            is Result.Error -> return@safeIoCall Result.Error(res.error)
         }
+
+        studentDao.addToBalance(
+            studentId = id,
+            professorId = professorId,
+            amount = amount,
+            classDate = dateTimeProvider.currentTimeMillis(),
+            syncStatus = SyncStatus.PENDING_UPLOAD,
+            timestamp = dateTimeProvider.currentTimeMillis()
+        )
+
+        syncScheduler.scheduleSyncNow()
+
+        Result.Success(Unit)
     }
 
     /**
      * Updates a student's pending balance to a specific value and records an adjustment transaction.
+     *
+     * @param professorId Owner professor identifier.
+     * @param studentId Target student identifier.
+     * @param newBalance New target pending balance.
+     * @return [Result.Success] on success, or [Result.Error] on failure.
      */
     override suspend fun updateBalance(
         professorId: String,
         studentId: String,
         newBalance: Double
-    ): Result<Unit, DomainError> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
+    ): Result<Unit, DomainError> = safeIoCall {
+        val (id, student) = when (val res = findStudent(professorId, studentId)) {
+            is Result.Success -> res.data
+            is Result.Error -> return@safeIoCall Result.Error(res.error)
+        }
 
-                val student = studentDao.getStudentById(id, professorId).firstOrNull()
-                    ?: return@withContext Result.Error(DomainError.StudentNotFound)
-
-                val diff = newBalance - student.pendingBalance
-                if (diff != 0.0) {
-                    transactionLogDao.insertTransaction(
-                        TransactionLogEntity(
-                            professorId = professorId,
-                            studentId = id,
-                            type = if (diff > 0) TRANSACTION_TYPE_BALANCE_ADD else TRANSACTION_TYPE_BALANCE_SUBTRACT,
-                            amount = kotlin.math.abs(diff),
-                            paymentType = null,
-                            timestamp = dateTimeProvider.currentTimeMillis()
-                        )
-                    )
-                }
-
-                studentDao.updateBalanceOnly(
-                    studentId = id,
+        val diff = newBalance - student.pendingBalance
+        if (diff != 0.0) {
+            transactionLogDao.insertTransaction(
+                TransactionLogEntity(
                     professorId = professorId,
-                    newBalance = newBalance,
-                    syncStatus = SyncStatus.PENDING_UPLOAD,
+                    studentId = id,
+                    type = if (diff > 0) TRANSACTION_TYPE_BALANCE_ADD else TRANSACTION_TYPE_BALANCE_SUBTRACT,
+                    amount = kotlin.math.abs(diff),
+                    paymentType = null,
                     timestamp = dateTimeProvider.currentTimeMillis()
                 )
-
-                syncScheduler.scheduleSyncNow()
-
-                Result.Success(Unit)
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                Result.Error(DomainError.Unknown)
-            }
+            )
         }
+
+        studentDao.updateBalanceOnly(
+            studentId = id,
+            professorId = professorId,
+            newBalance = newBalance,
+            syncStatus = SyncStatus.PENDING_UPLOAD,
+            timestamp = dateTimeProvider.currentTimeMillis()
+        )
+
+        syncScheduler.scheduleSyncNow()
+
+        Result.Success(Unit)
     }
 
     /**
@@ -259,37 +283,43 @@ class StudentRepositoryImpl @Inject constructor(
 
     /**
      * Persists or updates a schedule for a student.
+     *
+     * @param professorId Owner professor identifier.
+     * @param studentId Domain student identifier.
+     * @param schedule Schedule entity to save.
+     * @return [Result.Success] on success, or [Result.Error] on failure.
      */
     override suspend fun saveSchedule(
         professorId: String,
         studentId: String,
         schedule: Schedule
-    ): Result<Unit, DomainError> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val sId = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
-                val existingId = if (schedule.id.isNotEmpty()) schedule.id.toRoomId() ?: 0L else 0L
-                
-                val entity = schedule.toEntity(
-                    studentId = sId,
-                    professorId = professorId,
-                    existingId = existingId,
-                    syncStatus = SyncStatus.PENDING_UPLOAD
-                )
-                
-                scheduleDao.insertSchedule(entity)
-                syncScheduler.scheduleSyncNow()
-                
-                Result.Success(Unit)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Result.Error(DomainError.Unknown)
-            }
-        }
+    ): Result<Unit, DomainError> = safeIoCall {
+        val sId = studentId.toRoomId() ?: return@safeIoCall Result.Error(DomainError.StudentNotFound)
+        val existingId = if (schedule.id.isNotEmpty()) {
+            schedule.id.toRoomId() ?: return@safeIoCall Result.Error(DomainError.Unknown)
+        } else 0L
+        
+        val entity = schedule.toEntity(
+            studentId = sId,
+            professorId = professorId,
+            existingId = existingId,
+            syncStatus = SyncStatus.PENDING_UPLOAD
+        )
+        
+        scheduleDao.insertSchedule(entity)
+        syncScheduler.scheduleSyncNow()
+        
+        Result.Success(Unit)
     }
 
     /**
      * Checks if a schedule conflicts with an existing schedule for the professor.
+     *
+     * @param dayOfWeek Day index (1 = Monday, 7 = Sunday).
+     * @param startTime Start time string HH:mm.
+     * @param endTime End time string HH:mm.
+     * @param scheduleId Optional schedule ID to exclude from conflict check (for edits).
+     * @return Conflicting [Schedule] if collision exists, or null otherwise.
      */
     override suspend fun getConflictingSchedule(
         dayOfWeek: Int,
@@ -305,78 +335,91 @@ class StudentRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Deletes a schedule by marking it for deletion in local storage.
+     * Deletes a schedule by marking it for deletion in local storage (soft-delete).
+     *
+     * @param professorId Owner professor identifier.
+     * @param studentId Domain student identifier.
+     * @param scheduleId Domain schedule identifier.
+     * @return [Result.Success] on success, or [Result.Error] on failure.
      */
     override suspend fun deleteSchedule(
         professorId: String,
         studentId: String,
         scheduleId: String
-    ): Result<Unit, DomainError> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val id = scheduleId.toRoomId() ?: return@withContext Result.Error(DomainError.Unknown)
-                
-                scheduleDao.markForDeletion(id, professorId)
-                syncScheduler.scheduleSyncNow()
-                
-                Result.Success(Unit)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Result.Error(DomainError.Unknown)
-            }
-        }
+    ): Result<Unit, DomainError> = safeIoCall {
+        val id = scheduleId.toRoomId() ?: return@safeIoCall Result.Error(DomainError.Unknown)
+        
+        scheduleDao.markForDeletion(id, professorId)
+        syncScheduler.scheduleSyncNow()
+        
+        Result.Success(Unit)
     }
 
     /**
      * Toggles completion status of a schedule and manages corresponding class logs.
+     *
+     * @param professorId Owner professor identifier.
+     * @param scheduleId Domain schedule identifier.
+     * @return [Result.Success] on success, or [Result.Error] on failure.
      */
     override suspend fun toggleScheduleCompletion(
         professorId: String,
         scheduleId: String
-    ): Result<Unit, DomainError> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val id = scheduleId.toRoomId() ?: return@withContext Result.Error(DomainError.Unknown)
-                
-                // Direct lookup instead of loading all schedules (O(1) vs O(n))
-                val currentSchedule = scheduleDao.getScheduleById(id, professorId)
-                    ?: return@withContext Result.Error(DomainError.Unknown)
-                
-                val newCompletionStatus = !currentSchedule.isCompleted
-                val completedDate = if (newCompletionStatus) dateTimeProvider.currentTimeMillis() else null
-                
-                if (newCompletionStatus) {
-                    classLogDao.insertLog(
-                        com.devsusana.hometutorpro.data.local.entities.ClassLogEntity(
-                            professorId = professorId,
-                            studentId = currentSchedule.studentId,
-                            scheduleId = scheduleId,
-                            date = dateTimeProvider.currentTimeMillis(),
-                            startTime = currentSchedule.startTime,
-                            endTime = currentSchedule.endTime,
-                            isExtra = false
-                        )
-                    )
-                } else {
-                    deleteTodayLogForSchedule(currentSchedule.studentId, professorId, scheduleId)
-                }
+    ): Result<Unit, DomainError> = safeIoCall {
+        val id = scheduleId.toRoomId() ?: return@safeIoCall Result.Error(DomainError.Unknown)
+        
+        // Direct lookup instead of loading all schedules (O(1) vs O(n))
+        val currentSchedule = scheduleDao.getScheduleById(id, professorId)
+            ?: return@safeIoCall Result.Error(DomainError.Unknown)
+        
+        val newCompletionStatus = !currentSchedule.isCompleted
+        val completedDate = if (newCompletionStatus) dateTimeProvider.currentTimeMillis() else null
+        
+        handleClassLog(
+            professorId = professorId,
+            studentId = currentSchedule.studentId,
+            scheduleId = scheduleId,
+            startTime = currentSchedule.startTime,
+            endTime = currentSchedule.endTime,
+            isCompleted = newCompletionStatus
+        )
 
-                scheduleDao.updateCompletionStatus(
-                    id = id,
+        scheduleDao.updateCompletionStatus(
+            id = id,
+            professorId = professorId,
+            isCompleted = newCompletionStatus,
+            completedDate = completedDate,
+            syncStatus = SyncStatus.PENDING_UPLOAD,
+            timestamp = dateTimeProvider.currentTimeMillis()
+        )
+        
+        syncScheduler.scheduleSyncNow()
+        
+        Result.Success(Unit)
+    }
+
+    private suspend fun handleClassLog(
+        professorId: String,
+        studentId: Long,
+        scheduleId: String,
+        startTime: String,
+        endTime: String,
+        isCompleted: Boolean
+    ) {
+        if (isCompleted) {
+            classLogDao.insertLog(
+                com.devsusana.hometutorpro.data.local.entities.ClassLogEntity(
                     professorId = professorId,
-                    isCompleted = newCompletionStatus,
-                    completedDate = completedDate,
-                    syncStatus = SyncStatus.PENDING_UPLOAD,
-                    timestamp = dateTimeProvider.currentTimeMillis()
+                    studentId = studentId,
+                    scheduleId = scheduleId,
+                    date = dateTimeProvider.currentTimeMillis(),
+                    startTime = startTime,
+                    endTime = endTime,
+                    isExtra = false
                 )
-                
-                syncScheduler.scheduleSyncNow()
-                
-                Result.Success(Unit)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Result.Error(DomainError.Unknown)
-            }
+            )
+        } else {
+            deleteTodayLogForSchedule(studentId, professorId, scheduleId)
         }
     }
 
@@ -390,43 +433,42 @@ class StudentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteStudent(professorId: String, studentId: String): Result<Unit, DomainError> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val id = studentId.toRoomId() ?: return@withContext Result.Error(DomainError.StudentNotFound)
-                
-                // 1. Mark all associated data for deletion
-                scheduleDao.markSchedulesForDeletionByStudentId(id, professorId)
-                scheduleExceptionDao.markExceptionsForDeletionByStudentId(id, professorId)
-                sharedResourceDao.markSharedResourcesForDeletionByStudent(id, professorId)
-                
-                // 2. Mark student for deletion
-                studentDao.markForDeletion(id, professorId)
-                
-                syncScheduler.scheduleSyncNow()
-                
-                Result.Success(Unit)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Result.Error(DomainError.Unknown)
-            }
-        }
+    /**
+     * Soft-deletes a student and all their associated schedules, exceptions, and resources.
+     *
+     * @param professorId Owner professor identifier.
+     * @param studentId Domain student identifier.
+     * @return [Result.Success] on success, or [Result.Error] on failure.
+     */
+    override suspend fun deleteStudent(professorId: String, studentId: String): Result<Unit, DomainError> = safeIoCall {
+        val id = studentId.toRoomId() ?: return@safeIoCall Result.Error(DomainError.StudentNotFound)
+        
+        // 1. Mark all associated data for deletion
+        scheduleDao.markSchedulesForDeletionByStudentId(id, professorId)
+        scheduleExceptionDao.markExceptionsForDeletionByStudentId(id, professorId)
+        sharedResourceDao.markSharedResourcesForDeletionByStudent(id, professorId)
+        
+        // 2. Mark student for deletion
+        studentDao.markForDeletion(id, professorId)
+        
+        syncScheduler.scheduleSyncNow()
+        
+        Result.Success(Unit)
     }
 
-    override suspend fun rescueOrphanedData(professorId: String): Result<Unit, DomainError> {
-        return withContext(Dispatchers.IO) {
-            try {
-                studentDao.assignOrphanedDataToProfessor(professorId)
-                scheduleDao.assignOrphanedDataToProfessor(professorId)
-                scheduleExceptionDao.assignOrphanedDataToProfessor(professorId)
-                resourceDao.assignOrphanedDataToProfessor(professorId)
-                sharedResourceDao.assignOrphanedDataToProfessor(professorId)
-                
-                Result.Success(Unit)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Result.Error(DomainError.Unknown)
-            }
-        }
+    /**
+     * Rescues orphaned local data without an owner and assigns it to the current professor.
+     *
+     * @param professorId Target professor identifier.
+     * @return [Result.Success] on success, or [Result.Error] on failure.
+     */
+    override suspend fun rescueOrphanedData(professorId: String): Result<Unit, DomainError> = safeIoCall {
+        studentDao.assignOrphanedDataToProfessor(professorId)
+        scheduleDao.assignOrphanedDataToProfessor(professorId)
+        scheduleExceptionDao.assignOrphanedDataToProfessor(professorId)
+        resourceDao.assignOrphanedDataToProfessor(professorId)
+        sharedResourceDao.assignOrphanedDataToProfessor(professorId)
+        
+        Result.Success(Unit)
     }
 }

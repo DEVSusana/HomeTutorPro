@@ -58,11 +58,21 @@ def main():
     run_parser.add_argument("--spec", type=str, help="Ruta al archivo de especificación .md aprobado.")
     run_parser.add_argument("--iterations", type=int, default=25, help="Límite máximo de iteraciones ReAct (default: 25).")
 
+    # 3. Modo Revisión de Skills (CI Local)
+    review_parser = subparsers.add_parser("review", help="Ejecutar las 5 skills de revisión (Arquitectura, Seguridad, Tests, KDoc, Refactor) localmente.")
+    review_parser.add_argument("files", nargs="*", default=[], help="Archivos Kotlin específicos a auditar (opcional).")
+
     args = parser.parse_args()
 
     if not args.subcommand:
         parser.print_help()
         sys.exit(1)
+
+    if args.subcommand == "review":
+        from ci.pr_review import run_pr_review_and_guardrails
+        target_files = args.files if args.files else None
+        run_pr_review_and_guardrails(target_files)
+        return
 
     provider = get_default_provider(args.provider, model=args.model)
     print(f"🤖 Proveedor activo: {provider.__class__.__name__} | Modelo: {provider.model}")
