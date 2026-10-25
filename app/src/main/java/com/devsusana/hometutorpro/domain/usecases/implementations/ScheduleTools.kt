@@ -37,12 +37,40 @@ class ScheduleTools @Inject constructor(
     private val saveScheduleUseCase: ISaveScheduleUseCase,
     private val deleteScheduleUseCase: IDeleteScheduleUseCase,
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
-    private val exceptionRepository: com.devsusana.hometutorpro.domain.repository.ScheduleExceptionRepository,
     private val authRepository: AuthRepository,
     private val dateTimeProvider: DateTimeProvider,
-    private val getAllScheduleExceptionsUseCase: IGetAllScheduleExceptionsUseCase? = null,
-    private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase? = null
+    private val getAllScheduleExceptionsUseCase: IGetAllScheduleExceptionsUseCase,
+    private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase
 ) {
+
+    constructor(
+        querySchedulesUseCase: IQuerySchedulesForAgentUseCase,
+        manageScheduleUseCase: IManageScheduleForAgentUseCase,
+        queryStudentsUseCase: IQueryStudentsForAgentUseCase,
+        saveScheduleUseCase: ISaveScheduleUseCase,
+        deleteScheduleUseCase: IDeleteScheduleUseCase,
+        saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
+        exceptionRepository: com.devsusana.hometutorpro.domain.repository.ScheduleExceptionRepository,
+        authRepository: AuthRepository,
+        dateTimeProvider: DateTimeProvider
+    ) : this(
+        querySchedulesUseCase = querySchedulesUseCase,
+        manageScheduleUseCase = manageScheduleUseCase,
+        queryStudentsUseCase = queryStudentsUseCase,
+        saveScheduleUseCase = saveScheduleUseCase,
+        deleteScheduleUseCase = deleteScheduleUseCase,
+        saveScheduleExceptionUseCase = saveScheduleExceptionUseCase,
+        authRepository = authRepository,
+        dateTimeProvider = dateTimeProvider,
+        getAllScheduleExceptionsUseCase = object : IGetAllScheduleExceptionsUseCase {
+            override fun invoke(professorId: String): kotlinx.coroutines.flow.Flow<List<ScheduleException>> =
+                kotlinx.coroutines.flow.flow { emit(exceptionRepository.getAllExceptions(professorId)) }
+        },
+        deleteScheduleExceptionUseCase = object : IDeleteScheduleExceptionUseCase {
+            override suspend fun invoke(professorId: String, studentId: String, exceptionId: String): Result<Unit, DomainError> =
+                exceptionRepository.deleteException(professorId, studentId, exceptionId)
+        }
+    )
 
     companion object {
         private val TIME_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
@@ -87,8 +115,7 @@ class ScheduleTools @Inject constructor(
     }
 
     private suspend fun fetchExceptions(professorId: String): List<ScheduleException> {
-        return getAllScheduleExceptionsUseCase?.invoke(professorId)?.first()
-            ?: exceptionRepository.getAllExceptions(professorId)
+        return runCatching { getAllScheduleExceptionsUseCase(professorId).first() }.getOrDefault(emptyList())
     }
 
     /**
@@ -597,9 +624,7 @@ class ScheduleTools @Inject constructor(
     }
 
     private fun getProfessorId(): String =
-        authRepository.currentUser.value?.uid
-            ?: runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid }.getOrNull()
-            ?: ""
+        authRepository.currentUser.value?.uid ?: ""
 
     /**
      * Executes a confirmed [SuePendingAction.CancelClass].
@@ -610,8 +635,7 @@ class ScheduleTools @Inject constructor(
             ?: return SueOperationResult.Execute.AuthError
 
         if (action.isExtraException && action.exceptionId.isNotEmpty()) {
-            val delResult = deleteScheduleExceptionUseCase?.invoke(professorId, action.studentId, action.exceptionId)
-                ?: exceptionRepository.deleteException(professorId, action.studentId, action.exceptionId)
+            val delResult = deleteScheduleExceptionUseCase(professorId, action.studentId, action.exceptionId)
             return when (delResult) {
                 is Result.Success -> SueOperationResult.Execute.Success(action)
                 is Result.Error -> SueOperationResult.Execute.Error(delResult.error)

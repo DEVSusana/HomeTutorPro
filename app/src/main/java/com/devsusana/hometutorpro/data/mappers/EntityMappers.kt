@@ -223,3 +223,25 @@ fun SharedResource.toEntity(existingId: Long = 0L, studentId: Long, professorId:
         pendingDelete = false
     )
 }
+
+// Agent Domain Mappers
+fun ClassLogEntity.toAgentDomain(): AgentClassLog {
+    return AgentClassLog(
+        studentId = studentId.toString(),
+        scheduleId = scheduleId,
+        date = date,
+        startTime = startTime,
+        endTime = endTime,
+        isExtra = isExtra
+    )
+}
+
+fun TransactionLogEntity.toAgentDomain(): AgentTransactionLog {
+    return AgentTransactionLog(
+        studentId = studentId.toString(),
+        type = type,
+        amount = amount,
+        paymentType = paymentType,
+        timestamp = timestamp
+    )
+}

@@ -10,6 +10,7 @@ import com.devsusana.hometutorpro.domain.entities.AgentStudentDetail
 import com.devsusana.hometutorpro.data.local.dao.ClassLogDao
 import com.devsusana.hometutorpro.data.local.dao.TransactionLogDao
 import com.devsusana.hometutorpro.data.util.toRoomId
+import com.devsusana.hometutorpro.data.mappers.toAgentDomain
 import com.devsusana.hometutorpro.domain.entities.AgentClassLog
 import com.devsusana.hometutorpro.domain.entities.AgentTransactionLog
 import com.devsusana.hometutorpro.domain.entities.AgentStudentSummary
@@ -57,41 +58,15 @@ class AgentContextRepositoryImpl @Inject constructor(
 
     override suspend fun getClassLogsForStudent(studentId: String): List<AgentClassLog> {
         val sId = studentId.toRoomId() ?: return emptyList()
-        return classLogDao.getLogsByStudent(sId, professorId).map {
-            AgentClassLog(
-                studentId = it.studentId.toString(),
-                scheduleId = it.scheduleId,
-                date = it.date,
-                startTime = it.startTime,
-                endTime = it.endTime,
-                isExtra = it.isExtra
-            )
-        }
+        return classLogDao.getLogsByStudent(sId, professorId).map { it.toAgentDomain() }
     }
 
     override suspend fun getAllClassLogs(): List<AgentClassLog> =
-        classLogDao.getAllLogs(professorId).map {
-            AgentClassLog(
-                studentId = it.studentId.toString(),
-                scheduleId = it.scheduleId,
-                date = it.date,
-                startTime = it.startTime,
-                endTime = it.endTime,
-                isExtra = it.isExtra
-            )
-        }
+        classLogDao.getAllLogs(professorId).map { it.toAgentDomain() }
 
     override suspend fun getTransactionsForStudent(studentId: String): List<AgentTransactionLog> {
         val sId = studentId.toRoomId() ?: return emptyList()
-        return transactionLogDao.getTransactionsByStudent(sId, professorId).map {
-            AgentTransactionLog(
-                studentId = it.studentId.toString(),
-                type = it.type,
-                amount = it.amount,
-                paymentType = it.paymentType,
-                timestamp = it.timestamp
-            )
-        }
+        return transactionLogDao.getTransactionsByStudent(sId, professorId).map { it.toAgentDomain() }
     }
 
     override suspend fun getAllTransactions(): List<AgentTransactionLog> =

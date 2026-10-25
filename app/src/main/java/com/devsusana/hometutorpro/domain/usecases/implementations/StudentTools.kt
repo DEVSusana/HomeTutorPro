@@ -44,7 +44,7 @@ class StudentTools @Inject constructor(
     private val authRepository: AuthRepository,
     private val getSharedResourcesUseCase: IGetSharedResourcesUseCase,
     private val agentContextRepository: AgentContextRepository,
-    private val phoneticMatcher: ISpanishPhoneticMatcher = SpanishPhoneticMatcher(),
+    private val phoneticMatcher: ISpanishPhoneticMatcher,
     private val dateTimeProvider: DateTimeProvider? = null,
     private val startActiveSessionUseCase: IStartActiveSessionUseCase? = null,
     private val stopActiveSessionUseCase: IStopActiveSessionUseCase? = null
