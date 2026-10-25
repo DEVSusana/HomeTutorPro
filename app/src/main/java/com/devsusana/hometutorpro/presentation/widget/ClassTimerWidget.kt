@@ -8,11 +8,11 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import android.text.format.DateFormat
-import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import com.devsusana.hometutorpro.MainActivity
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.entities.CalendarOccurrence
@@ -90,11 +90,16 @@ class ClassTimerWidget : AppWidgetProvider() {
                     appWidgetManager.updateAppWidget(appWidgetId, views)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating widget: ", e)
+                SafeLogger.e(TAG, "Error updating widget", e)
             } finally {
                 pendingResult.finish()
             }
         }
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        job.cancel()
     }
 
     override fun onReceive(context: Context, intent: Intent) {

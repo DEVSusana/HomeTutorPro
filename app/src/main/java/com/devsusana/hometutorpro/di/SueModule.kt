@@ -14,6 +14,7 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.QuerySchedules
 import com.devsusana.hometutorpro.domain.usecases.implementations.QueryStudentsForAgentUseCase
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -109,6 +110,7 @@ abstract class SueModule {
     ): com.devsusana.hometutorpro.domain.usecases.IManageSueInferenceUseCase
 
     @Binds
+    @Singleton
     abstract fun bindExecuteSuePendingActionUseCase(
         impl: com.devsusana.hometutorpro.domain.usecases.implementations.ExecuteSuePendingActionUseCase
     ): com.devsusana.hometutorpro.domain.usecases.IExecuteSuePendingActionUseCase
@@ -118,4 +120,11 @@ abstract class SueModule {
     abstract fun bindSpanishPhoneticMatcher(
         impl: com.devsusana.hometutorpro.domain.usecases.implementations.sue.SpanishPhoneticMatcher
     ): com.devsusana.hometutorpro.domain.usecases.implementations.sue.ISpanishPhoneticMatcher
+
+    companion object {
+        @Provides
+        @Singleton
+        fun provideSueConversationContext(): com.devsusana.hometutorpro.domain.usecases.implementations.sue.SueConversationContext =
+            com.devsusana.hometutorpro.domain.usecases.implementations.sue.SueConversationContext()
+    }
 }

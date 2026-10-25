@@ -6,8 +6,7 @@ package com.devsusana.hometutorpro.domain.repository
 typealias CloudData = Map<String, Any?>
 
 /**
- * Interface to decouple sync logic from specific cloud providers (Firestore, Supabase, etc).
- * Resolves "Evolution Debt" finding.
+ * Interface to decouple data synchronization logic from specific remote cloud storage providers.
  */
 interface RemoteDataSource {
     suspend fun uploadDocument(

@@ -1,6 +1,5 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations.sue
 
-import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
@@ -15,12 +14,10 @@ import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Builds localized LLM system prompts and gathers RAG context from domain tools.
  */
-@Singleton
 class SueContextBuilder @Inject constructor(
     private val studentTools: StudentTools,
     private val scheduleTools: ScheduleTools,
@@ -175,13 +172,6 @@ class SueContextBuilder @Inject constructor(
         val workingEnd = professor?.workingEndTime?.takeIf { it.isNotBlank() } ?: "23:00"
 
         val toolContext = gatherRelevantContext(userQuery, workingStart, workingEnd)
-
-        SafeLogger.d("SueAgentImpl", "--- SUE DEBUG LOG ---")
-        SafeLogger.d("SueAgentImpl", "User Query: $userQuery")
-        SafeLogger.d("SueAgentImpl", "AuthRepository UID: ${professor?.uid}")
-        SafeLogger.d("SueAgentImpl", "Working hours: $workingStart – $workingEnd")
-        SafeLogger.d("SueAgentImpl", "RAG Context:\n$toolContext")
-        SafeLogger.d("SueAgentImpl", "----------------------")
 
         return buildString {
             append("<start_of_turn>user\n")

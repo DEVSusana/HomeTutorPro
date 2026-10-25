@@ -8,16 +8,14 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Dedicated parser and extractor for entities in natural language queries (dates, times, names, amounts).
  */
-@Singleton
 class SueEntityExtractor @Inject constructor(
     private val dateTimeProvider: DateTimeProvider,
     private val authRepository: AuthRepository,
-    private val phoneticMatcher: SpanishPhoneticMatcher
+    private val phoneticMatcher: ISpanishPhoneticMatcher
 ) {
 
     constructor(
@@ -25,7 +23,7 @@ class SueEntityExtractor @Inject constructor(
         authRepository: AuthRepository
     ) : this(dateTimeProvider, authRepository, SpanishPhoneticMatcher())
 
-    fun getPhoneticMatcher(): SpanishPhoneticMatcher = phoneticMatcher
+    fun getPhoneticMatcher(): ISpanishPhoneticMatcher = phoneticMatcher
 
     fun stripAccents(str: String): String {
         val normalized = java.text.Normalizer.normalize(str, java.text.Normalizer.Form.NFD)

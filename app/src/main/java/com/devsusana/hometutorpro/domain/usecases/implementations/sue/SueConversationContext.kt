@@ -4,7 +4,6 @@ import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Enumeration of conversational slots that can be gathered across multi-turn interactions.
@@ -35,7 +34,6 @@ data class IncompleteIntent(
 /**
  * Manages volatile conversation state across multi-turn interactions for the Sue AI agent.
  */
-@Singleton
 class SueConversationContext @Inject constructor() {
 
     var lastMentionedStudentName: String? = null
