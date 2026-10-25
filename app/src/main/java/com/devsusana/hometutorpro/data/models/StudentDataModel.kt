@@ -20,6 +20,7 @@ data class StudentDataModel(
     val educationalAttention: String = "",
     val lastPaymentDate: Long? = null,
     val color: Int? = null,
+    val notes: String = "",
     val isActive: Boolean = true,
     val lastClassDate: Long? = null
 )

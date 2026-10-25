@@ -27,23 +27,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r agents_dev/requirements.txt
 
-      - name: Phase 1 - Agent Review
+      - name: Agent Code Review & Quality Guardrails
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           cp agents_dev/skills/config.example.py agents_dev/skills/config.py
-          PYTHONPATH=$PYTHONPATH:$(pwd)/agents_dev/ci:$(pwd)/agents_dev/skills python agents_dev/ci/pr_reviewer.py
-
-      - name: Phase 2 - Guardrails
-        run: |
-          python agents_dev/ci/pr_guardrails.py
-
-      - name: Phase 3 - Fix Suggester (comment-only, no auto-apply)
-        if: always()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          cp agents_dev/skills/config.example.py agents_dev/skills/config.py
-          PYTHONPATH=$PYTHONPATH:$(pwd)/agents_dev/ci:$(pwd)/agents_dev/skills python agents_dev/ci/pr_fixer.py
+          PYTHONPATH=$PYTHONPATH:$(pwd)/agents_dev/skills python agents_dev/ci/pr_review.py

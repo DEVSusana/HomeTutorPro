@@ -25,6 +25,7 @@ import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.utils.DoorCodeExtractor
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +60,9 @@ class ClassTimerWidget : AppWidgetProvider() {
     @Inject
     lateinit var getCurrentUserUseCase: IGetCurrentUserUseCase
 
+    @Inject
+    lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
+
     private val job = SupervisorJob()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + job)
 
@@ -75,10 +79,14 @@ class ClassTimerWidget : AppWidgetProvider() {
                     currentUser != null && (session.tutorId.isEmpty() || session.tutorId == currentUser.uid)
                 }
                 val nextClass = if (activeSession == null && currentUser != null) getNextClassUseCase() else null
+                val doorCode = if (currentUser != null && nextClass != null) {
+                    val student = getStudentByIdUseCase(currentUser.uid, nextClass.student.id).firstOrNull()
+                    DoorCodeExtractor.extractDoorCode(student?.address, student?.notes)
+                } else null
 
                 for (appWidgetId in appWidgetIds) {
                     val views = RemoteViews(context.packageName, R.layout.widget_class_timer)
-                    setupWidgetUi(context, views, activeSession, nextClass)
+                    setupWidgetUi(context, views, activeSession, nextClass, doorCode)
                     appWidgetManager.updateAppWidget(appWidgetId, views)
                 }
             } catch (e: Exception) {
@@ -97,7 +105,8 @@ class ClassTimerWidget : AppWidgetProvider() {
         context: Context,
         views: RemoteViews,
         activeSession: ActiveSession?,
-        nextClass: CalendarOccurrence?
+        nextClass: CalendarOccurrence?,
+        doorCode: String? = null
     ) {
         // Tap on widget header/background opens the main app
         val mainIntent = Intent(context, MainActivity::class.java).apply {
@@ -184,6 +193,16 @@ class ClassTimerWidget : AppWidgetProvider() {
                     "$dateLabel • $cleanStartTime - $cleanEndTime"
                 )
 
+                if (!doorCode.isNullOrBlank()) {
+                    views.setViewVisibility(R.id.widget_door_code_text, View.VISIBLE)
+                    views.setTextViewText(
+                        R.id.widget_door_code_text,
+                        context.getString(R.string.widget_door_code, doorCode)
+                    )
+                } else {
+                    views.setViewVisibility(R.id.widget_door_code_text, View.GONE)
+                }
+
                 views.setViewVisibility(R.id.btn_start_class, View.VISIBLE)
 
                 // Start button
@@ -207,6 +226,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                     R.id.widget_no_active_subtitle,
                     context.getString(R.string.widget_no_upcoming_class)
                 )
+                views.setViewVisibility(R.id.widget_door_code_text, View.GONE)
                 views.setViewVisibility(R.id.btn_start_class, View.GONE)
             }
         }

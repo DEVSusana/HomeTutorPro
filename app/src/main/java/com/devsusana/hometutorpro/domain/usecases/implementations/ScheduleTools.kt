@@ -20,7 +20,6 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Tool definitions for schedule-related queries and management actions.
@@ -28,7 +27,6 @@ import javax.inject.Singleton
  * All functions are `suspend` to comply with AGENTS.md Rule 1 (Coroutines),
  * ensuring database I/O does not block the main thread.
  */
-@Singleton
 class ScheduleTools @Inject constructor(
     private val querySchedulesUseCase: IQuerySchedulesForAgentUseCase,
     private val manageScheduleUseCase: IManageScheduleForAgentUseCase,

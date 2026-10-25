@@ -177,12 +177,12 @@ Uno de los errores más graves en arquitecturas de IA móvil es **enviar absolut
    (Palabras clave específicas,                     ("¿Cómo va el progreso de Juan?",
    consultas de saldo, conteos,                     "¿Qué hueco me recomiendas para
    cancelaciones, altas, bajas,                      una clase extra el viernes?",
-   clases extras, reprogramaciones)                 "¿Qué clases tengo y qué huecos libres?",
-               │                                    "¿Qué material le he enviado a Carlos?")
-               ▼                                                 │
-     NIVEL 1: FAST-PATH                                          ▼
-  • Ejecuta consulta Room SQL                          NIVEL 2: RAG + LLM
-  • Devuelve ReadSuccess / PrepareAction           • SueContextBuilder recupera contexto Room
+   edición de perfil: mudanzas,                     "¿Qué clases tengo y qué huecos libres?",
+   tarifas, teléfonos, curso,                        "¿Qué material le he enviado a Carlos?")
+   clases extras, reprogramaciones)                              │
+               │                                                 ▼
+               ▼                                        NIVEL 2: RAG + LLM
+     NIVEL 1: FAST-PATH                             • SueContextBuilder recupera contexto Room
   • Latencia: < 5 ms                               • Consultas compuestas (agenda + huecos libres)
   • 100% Precisión Matemática                      • RAG inteligente de recursos (agrupado si > 15)
   • 0 Alucinaciones                                • Ventana ampliada a 2048 tokens (Gemma 3 INT4)
@@ -228,16 +228,24 @@ Para que el Fast-Path no falle ante la variabilidad del lenguaje coloquial en es
      data class IncompleteIntent(
          val type: IntentType,
          val filledSlots: Map<String, Any>,
-         val missingSlot: SlotType // STUDENT_NAME, DAY_OF_WEEK, TIME, DURATION, AMOUNT, NOTES
+         val missingSlot: SlotType // STUDENT_NAME, DAY_OF_WEEK, TIME, DURATION, AMOUNT, NOTES, ADDRESS, PRICE, PHONE, COURSE
      )
      ```
-   * Si el profesor da una orden incompleta (*"Inicia una clase"* o *"Añade clase extra el viernes"*), SUE solicita exactamente el slot faltante (*"¿Para qué alumno quieres iniciar la clase?"*), preserva la intención en `SueConversationContext` y, cuando el usuario responde escuetamente (*"Con Lucía"*), completa la orden de forma fluida.
+   * Si el profesor da una orden incompleta (*"Inicia una clase"* o *"Cambia el precio de Carlos"*), SUE solicita exactamente el slot faltante (*"¿Cuál será el nuevo precio por hora para Carlos?"*), preserva la intención en `SueConversationContext` y, cuando el usuario responde escuetamente (*"a 18 euros"*), completa la orden de forma fluida.
 
 7. **Chips de Sugerencia Contextuales por Franja Horaria (`SueSuggestionProvider`):**
    * Para eliminar el problema de la "pantalla en blanco" o la duda del usuario sobre qué puede pedir por voz, el overlay de SUE presenta chips dinámicos en Jetpack Compose que varían según la hora del día:
      * **Mañana (06:00–13:59):** *«¿Qué clases tengo hoy?»*, *«¿Quién me debe dinero?»*, *«¿Tengo huecos libres hoy?»*.
      * **Tarde (14:00–19:59):** *«¿Cuál es mi próxima clase?»*, *«Registrar un pago»*, *«Huecos libres esta tarde»*.
      * **Noche (20:00–05:59):** *«¿Qué clases tengo mañana?»*, *«Resumen del día»*, *«Alumnos con saldo pendiente»*.
+
+8. **Edición Integral de Alumnos por Voz (*Universal Student Profile Editing*):**
+   * SUE va más allá de la gestión de agenda, operando como un CRM pedagógico completo por voz con mutaciones transaccionales en Room:
+     * **Mudanzas y Direcciones:** Detección de expresiones naturales donde el sujeto antecede a la acción (*«Pepe se ha mudado a Calle Mayor 12»*, *«Carlos ahora vive en Avenida de la Paz 8»*).
+     * **Extracción de Telefonillo y Códigos de Acceso (`DoorCodeExtractor`):** Reconoce e incorpora códigos de acceso al perfil del alumno sin sobrescribir la calle existente (*«Añade a Hugo en su dirección el código de portero 387»*, *«El portero de Ana es el 14B»*).
+     * **Tarifas y Precios por Hora:** Mutaciones atómicas de honorarios por hora (*«cambia el precio de Carlos a 18 la hora»*, *«ponle la tarifa a 15 euros»*).
+     * **Teléfono y Curso Académico:** Actualización de contactos y grado escolar (*«el nuevo teléfono de Carlos es 612345678»*, *«cambia el curso de Pepe a 2º de Bachillerato»*).
+     * **Garantía Transaccional:** Cada edición construye una acción pendiente (`UpdateStudentAddress`, `UpdateStudentPrice`, `UpdateStudentPhone`, `UpdateStudentCourse`) requiriendo confirmación verbal en dos pasos antes de persistir en Room DB.
 
 ### Validación Transaccional de Conflictos y Reconciliación de Agenda
 Toda operación de modificación de agenda (`rescheduleClass`, `addExtraClass`, `createSchedule`) pasa por los Casos de Uso del Dominio (`SaveScheduleExceptionUseCase`, `SaveScheduleUseCase`):
@@ -414,6 +422,7 @@ En Android 15 y versiones superiores (especialmente Android 17), el sistema oper
 | **Saneamiento de Trazas y Telemetría (`SafeLogger`)** | Todos los registros locales y excepciones capturadas anonimizan y redactan automáticamente datos de identificación personal (PII, nombres, UIDs, tokens) antes de emitirse en logcat o enviarse a Crashlytics. |
 | **Derecho de Supresión / Borrado (Art. 17 RGPD)** | Al eliminar un alumno o una clase en la app, la información desaparece instantáneamente de Room DB. La siguiente inferencia de Sue ya no tendrá acceso a esos datos. |
 | **Prevención de Acciones no Deseadas** | El flujo de confirmación en dos pasos exige validación explícita para cualquier borrado o modificación de datos. |
+| **Frontera de Privacidad de UI en Widgets (*Privacy Boundary*)** | En la pantalla de inicio del dispositivo (`ClassTimerWidget`), la aplicación nunca proyecta la dirección postal física completa del alumno para evitar que miradas de terceros en transporte público o espacios compartidos expongan domicilios de menores. En su lugar, aísla de forma determinista mediante `DoorCodeExtractor` solo el código de acceso o telefonillo (`🔔 Portero: 1402`), manteniendo la máxima utilidad práctica para el docente sin exponer datos sensibles. |
 | **Crashlytics Seguro** | Habilitado de forma explícita en `AppInitializerImpl` sin capturar datos sensibles ni bases de datos personales. |
 
 ---
@@ -666,6 +675,11 @@ Prepárate para responder a estas preguntas habituales de arquitectos senior e i
 
 ### 8. *"¿Cómo evitáis que la clase del agente se convierta en una God Class inmanejable de miles de líneas?"*
 > **Respuesta:** "Es la trampa más común al construir asistentes de IA. Refactorizamos el monolito `SueAgentImpl` aplicando Clean Architecture estricta en 6 componentes de responsabilidad única: `SueContextBuilder` (prompts y RAG), `SueEntityExtractor` (fechas y números), `SpanishPhoneticMatcher` (NLP en español), `SueRuleIntentDetector` (enrutamiento Fast-Path), `SueActionParser` (deserialización) y `SueConversationContext` con una máquina de estados formal `IncompleteIntent` para *Slot Filling* interactivo."
+
+### 9. *"¿Por qué tenéis tanta lógica determinista (Fast-Path) si ya tenéis un LLM en el dispositivo? ¿Cuándo recurrís a uno u otro?"*
+> **Respuesta:** "Esa es una de las mayores lecciones de arquitectura en Edge AI: **la mejor IA en un smartphone es la que sabe cuándo NO ejecutarse**. 
+> Si el profesor te dice *'Pepe se ha mudado a Calle Mayor 12'*, *'cambia el precio de Carlos a 18 la hora'* o *'cancela la clase de Juan'*, no tiene sentido despertar la GPU durante 3 segundos, consumir 150 mAh de batería y arriesgarte a que un LLM cuantizado alucine un dato o se equivoque de fecha. La capa determinista en Kotlin ejecuta la extracción de entidades, valida colisiones y muta Room en **< 5 ms con 100% de precisión matemática y cero alucinaciones**.
+> **¿Cuándo recurrimos al LLM (Gemma 3 INT4)?** Exclusivamente para aquello que las reglas no pueden resolver: razonamiento pedagógico, síntesis conversacional, preguntas abiertas (*'¿cómo va el rendimiento de Carlos este mes y qué huecos libres me sugieres?'*), o cuando el usuario combina peticiones de agenda con dudas pedagógicas. Este reparto estricto de responsabilidades es lo que convierte a SUE en un asistente viable y profesional en producción."
 
 ---
 
