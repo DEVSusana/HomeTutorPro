@@ -97,6 +97,8 @@
     <string name="student_detail_subjects">Subjects</string>
     <string name="student_detail_parent_phone">Parent/Guardian Phone</string>
     <string name="student_detail_address">Address</string>
+    <string name="student_detail_address_hint">e.g. 123 Main St, Apt 4B, Intercom: 1402</string>
+    <string name="student_detail_edit_student_info">Edit Information</string>
     <string name="student_detail_price_per_hour">Price per Hour (€)</string>
     <string name="student_detail_special_needs">Educational Attention</string>
     <string name="student_detail_student_phone">Student Phone</string>
@@ -710,4 +712,5 @@
     <string name="widget_started_at">Started: %1$s • %2$d min</string>
     <string name="widget_today">Today</string>
     <string name="widget_tomorrow">Tomorrow</string>
+    <string name="widget_door_code">🔔 %1$s</string>
 </resources>

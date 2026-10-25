@@ -23,6 +23,7 @@ fun StudentDataModel.toDomain(): Student {
         pendingBalance = pendingBalance,
         educationalAttention = educationalAttention,
         lastPaymentDate = lastPaymentDate,
+        notes = notes,
         color = color,
         isActive = isActive,
         lastClassDate = lastClassDate
@@ -45,6 +46,7 @@ fun Student.toData(): StudentDataModel {
         pendingBalance = pendingBalance,
         educationalAttention = educationalAttention,
         lastPaymentDate = lastPaymentDate,
+        notes = notes,
         color = color,
         isActive = isActive,
         lastClassDate = lastClassDate

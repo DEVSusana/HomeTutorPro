@@ -56,6 +56,31 @@ fun SueHelpDialog(
                     )
                 )
                 HelpExampleItem(
+                    intent = "Editar Alumno (Dirección, Portero y Mudanzas)",
+                    examples = listOf(
+                        "\"Pepe se ha mudado a Calle Mayor 12\"",
+                        "\"Añade a Hugo en su dirección el código de portero 387\"",
+                        "\"El portero de Ana es el 14B\"",
+                        "\"Cambia la dirección de Carlos a Avenida de la Paz 8\""
+                    )
+                )
+                HelpExampleItem(
+                    intent = "Editar Alumno (Tarifas, Teléfono y Curso)",
+                    examples = listOf(
+                        "\"Cambia el precio de Carlos a 18 la hora\"",
+                        "\"Ponle la tarifa a Ana a 15 euros\"",
+                        "\"El nuevo teléfono de Carlos es 612345678\"",
+                        "\"Cambia el curso de Pepe a 2º de Bachillerato\""
+                    )
+                )
+                HelpExampleItem(
+                    intent = "Notas Pedagógicas del Alumno",
+                    examples = listOf(
+                        "\"Pon una nota en Carlos que diga repasar formulación\"",
+                        "\"Añade una nota a Ana: examen el jueves\""
+                    )
+                )
+                HelpExampleItem(
                     intent = "Añadir Clases y Refuerzos (Pon, Añade)",
                     examples = listOf(
                         "\"Pon una clase a Pepe el viernes a las 5\"",
@@ -114,6 +139,13 @@ fun SueHelpDialog(
                     intent = "Iniciar Clases",
                     examples = listOf(
                         "\"Inicia una clase con Pepe de 60 minutos\""
+                    )
+                )
+                HelpExampleItem(
+                    intent = "Materiales y Recursos Compartidos",
+                    examples = listOf(
+                        "\"¿Qué material le he enviado a Carlos?\"",
+                        "\"¿Qué recursos he compartido recientemente?\""
                     )
                 )
             }
