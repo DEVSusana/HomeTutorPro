@@ -7,6 +7,7 @@ import com.devsusana.hometutorpro.data.local.dao.SharedResourceDao
 import com.devsusana.hometutorpro.data.local.dao.ClassLogDao
 import com.devsusana.hometutorpro.data.local.dao.TransactionLogDao
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
+import com.devsusana.hometutorpro.data.local.entities.TransactionLogEntity
 import com.devsusana.hometutorpro.data.mappers.toDomain
 import com.devsusana.hometutorpro.data.mappers.toEntity
 import com.devsusana.hometutorpro.data.sync.SyncScheduler
@@ -122,7 +123,7 @@ class StudentRepositoryImpl @Inject constructor(
                 )
 
                 transactionLogDao.insertTransaction(
-                    com.devsusana.hometutorpro.data.local.entities.TransactionLogEntity(
+                    TransactionLogEntity(
                         professorId = professorId,
                         studentId = id,
                         type = TRANSACTION_TYPE_PAYMENT,
@@ -189,7 +190,7 @@ class StudentRepositoryImpl @Inject constructor(
                 val diff = newBalance - student.pendingBalance
                 if (diff != 0.0) {
                     transactionLogDao.insertTransaction(
-                        com.devsusana.hometutorpro.data.local.entities.TransactionLogEntity(
+                        TransactionLogEntity(
                             professorId = professorId,
                             studentId = id,
                             type = if (diff > 0) TRANSACTION_TYPE_BALANCE_ADD else TRANSACTION_TYPE_BALANCE_SUBTRACT,
@@ -254,6 +255,7 @@ class StudentRepositoryImpl @Inject constructor(
                 
                 Result.Success(Unit)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
@@ -286,6 +288,7 @@ class StudentRepositoryImpl @Inject constructor(
                 
                 Result.Success(Unit)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
@@ -342,6 +345,7 @@ class StudentRepositoryImpl @Inject constructor(
                 
                 Result.Success(Unit)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
@@ -364,6 +368,7 @@ class StudentRepositoryImpl @Inject constructor(
                 
                 Result.Success(Unit)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }
@@ -380,6 +385,7 @@ class StudentRepositoryImpl @Inject constructor(
                 
                 Result.Success(Unit)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.Error(DomainError.Unknown)
             }
         }

@@ -13,7 +13,10 @@ import com.devsusana.hometutorpro.domain.usecases.IQueryStudentsForAgentUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleUseCase
 import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveScheduleExceptionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetAllScheduleExceptionsUseCase
+import com.devsusana.hometutorpro.domain.usecases.IDeleteScheduleExceptionUseCase
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
+import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -36,7 +39,9 @@ class ScheduleTools @Inject constructor(
     private val saveScheduleExceptionUseCase: ISaveScheduleExceptionUseCase,
     private val exceptionRepository: com.devsusana.hometutorpro.domain.repository.ScheduleExceptionRepository,
     private val authRepository: AuthRepository,
-    private val dateTimeProvider: DateTimeProvider
+    private val dateTimeProvider: DateTimeProvider,
+    private val getAllScheduleExceptionsUseCase: IGetAllScheduleExceptionsUseCase? = null,
+    private val deleteScheduleExceptionUseCase: IDeleteScheduleExceptionUseCase? = null
 ) {
 
     companion object {
@@ -81,6 +86,11 @@ class ScheduleTools @Inject constructor(
         return SueOperationResult.WeeklySchedule(weekSchedules)
     }
 
+    private suspend fun fetchExceptions(professorId: String): List<ScheduleException> {
+        return getAllScheduleExceptionsUseCase?.invoke(professorId)?.first()
+            ?: exceptionRepository.getAllExceptions(professorId)
+    }
+
     /**
      * Returns the schedule for a specific day of the week, combining recurring schedules with
      * active exceptions (extra classes and rescheduled classes) and filtering out cancelled classes.
@@ -91,7 +101,7 @@ class ScheduleTools @Inject constructor(
     suspend fun getScheduleForDay(dayOfWeek: Int, timeFilter: String? = null): SueOperationResult {
         val allScheduleDetails = querySchedulesUseCase.getScheduleDetails()
         val professorId = getProfessorId().takeIf { it.isNotEmpty() }
-        val allExceptions = if (professorId != null) exceptionRepository.getAllExceptions(professorId) else emptyList()
+        val allExceptions = if (professorId != null) fetchExceptions(professorId) else emptyList()
         val allStudents = queryStudentsUseCase.searchByName("")
 
         val targetDate = nextOccurrenceDate(DayOfWeek.of(dayOfWeek))
@@ -303,7 +313,7 @@ class ScheduleTools @Inject constructor(
     ): SueOperationResult {
         val allScheduleDetails = querySchedulesUseCase.getScheduleDetails()
         val professorId = getProfessorId().takeIf { it.isNotEmpty() }
-        val allExceptions = if (professorId != null) exceptionRepository.getAllExceptions(professorId) else emptyList()
+        val allExceptions = if (professorId != null) fetchExceptions(professorId) else emptyList()
 
         val daysToCheck = if (dayOfWeek != null) listOf(dayOfWeek) else (1..5).toList()
 
@@ -450,7 +460,7 @@ class ScheduleTools @Inject constructor(
         preferExtra: Boolean = false
     ): SueOperationResult.Prepare {
         val professorId = getProfessorId().takeIf { it.isNotEmpty() }
-        val allExceptions = if (professorId != null) exceptionRepository.getAllExceptions(professorId) else emptyList()
+        val allExceptions = if (professorId != null) fetchExceptions(professorId) else emptyList()
         val allStudents = queryStudentsUseCase.searchByName(studentName)
         val student = allStudents.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
 
@@ -600,7 +610,9 @@ class ScheduleTools @Inject constructor(
             ?: return SueOperationResult.Execute.AuthError
 
         if (action.isExtraException && action.exceptionId.isNotEmpty()) {
-            return when (val delResult = exceptionRepository.deleteException(professorId, action.studentId, action.exceptionId)) {
+            val delResult = deleteScheduleExceptionUseCase?.invoke(professorId, action.studentId, action.exceptionId)
+                ?: exceptionRepository.deleteException(professorId, action.studentId, action.exceptionId)
+            return when (delResult) {
                 is Result.Success -> SueOperationResult.Execute.Success(action)
                 is Result.Error -> SueOperationResult.Execute.Error(delResult.error)
             }
@@ -831,7 +843,7 @@ class ScheduleTools @Inject constructor(
         exceptionTypeFilter: ExceptionType? = null
     ): String {
         val professorId = getProfessorId().takeIf { it.isNotEmpty() } ?: return ""
-        val allExceptions = exceptionRepository.getAllExceptions(professorId)
+        val allExceptions = fetchExceptions(professorId)
         if (allExceptions.isEmpty()) return ""
 
         val students = queryStudentsUseCase.searchByName("")

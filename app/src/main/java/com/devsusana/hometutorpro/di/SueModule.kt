@@ -112,4 +112,10 @@ abstract class SueModule {
     abstract fun bindExecuteSuePendingActionUseCase(
         impl: com.devsusana.hometutorpro.domain.usecases.implementations.ExecuteSuePendingActionUseCase
     ): com.devsusana.hometutorpro.domain.usecases.IExecuteSuePendingActionUseCase
+
+    @Binds
+    @Singleton
+    abstract fun bindSpanishPhoneticMatcher(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.sue.SpanishPhoneticMatcher
+    ): com.devsusana.hometutorpro.domain.usecases.implementations.sue.ISpanishPhoneticMatcher
 }

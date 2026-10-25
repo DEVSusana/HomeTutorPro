@@ -35,25 +35,25 @@ class AgentContextRepositoryImpl @Inject constructor(
             ?: throw IllegalStateException("No authenticated user found. Cannot query agent context.")
 
     override suspend fun getAllStudentSummaries(): List<AgentStudentSummary> =
-        studentDao.getAllStudentSummariesForAgent(professorId)
+        studentDao.getAllStudentSummariesForAgent(professorId).map { it.toDomain() }
 
     override suspend fun getAllSchedules(): List<AgentScheduleSummary> =
-        scheduleDao.getAllSchedulesForAgent(professorId)
+        scheduleDao.getAllSchedulesForAgent(professorId).map { it.toDomain() }
 
     override suspend fun getStudentsWithBalance(): List<AgentBalanceSummary> =
-        studentDao.getStudentsWithBalance(professorId)
+        studentDao.getStudentsWithBalance(professorId).map { it.toDomain() }
 
     override suspend fun searchStudentByName(query: String): List<AgentStudentDetail> =
-        studentDao.searchStudentByName(professorId, query)
+        studentDao.searchStudentByName(professorId, query).map { it.toDomain() }
 
     override suspend fun getActiveStudentCount(): Int =
         studentDao.getActiveStudentCount(professorId)
 
     override suspend fun getScheduleDetails(): List<AgentScheduleDetail> =
-        scheduleDao.getAllScheduleDetailsForAgent(professorId)
+        scheduleDao.getAllScheduleDetailsForAgent(professorId).map { it.toDomain() }
 
     override suspend fun getSchedulesByStudentName(studentName: String): List<AgentScheduleDetail> =
-        scheduleDao.getSchedulesByStudentName(professorId, studentName)
+        scheduleDao.getSchedulesByStudentName(professorId, studentName).map { it.toDomain() }
 
     override suspend fun getClassLogsForStudent(studentId: String): List<AgentClassLog> {
         val sId = studentId.toRoomId() ?: return emptyList()

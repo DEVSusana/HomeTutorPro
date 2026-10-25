@@ -2,6 +2,9 @@ package com.devsusana.hometutorpro.domain.usecases.implementations.sue
 
 /**
  * Enumeration of internal intent types supported by the Sue AI assistant.
+ *
+ * Categorizes natural language user requests into concrete commands (write operations)
+ * and query actions (read operations) handled by [SueActionParser] and executed via domain tools.
  */
 enum class IntentType {
     START_CLASS,

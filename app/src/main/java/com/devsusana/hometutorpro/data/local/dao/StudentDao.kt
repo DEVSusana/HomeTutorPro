@@ -4,6 +4,9 @@ import androidx.room.*
 import com.devsusana.hometutorpro.data.local.entities.StudentEntity
 import com.devsusana.hometutorpro.data.local.entities.StudentSummaryEntity
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
+import com.devsusana.hometutorpro.data.local.models.AgentBalanceSummaryDto
+import com.devsusana.hometutorpro.data.local.models.AgentStudentDetailDto
+import com.devsusana.hometutorpro.data.local.models.AgentStudentSummaryDto
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -109,7 +112,7 @@ interface StudentDao {
      * Returns a summary of all active, non-deleted students for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentStudentSummary] representing the student records.
+     * @return A list of [AgentStudentSummaryDto] representing the student records.
      */
     @Query(
         """
@@ -119,13 +122,13 @@ interface StudentDao {
         ORDER BY s.name ASC
         """
     )
-    suspend fun getAllStudentSummariesForAgent(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentStudentSummary>
+    suspend fun getAllStudentSummariesForAgent(professorId: String): List<AgentStudentSummaryDto>
 
     /**
      * Returns students with non-zero pending balance for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary] for students with outstanding balances.
+     * @return A list of [AgentBalanceSummaryDto] for students with outstanding balances.
      */
     @Query(
         """
@@ -137,14 +140,14 @@ interface StudentDao {
         ORDER BY s.pendingBalance DESC
         """
     )
-    suspend fun getStudentsWithBalance(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentBalanceSummary>
+    suspend fun getStudentsWithBalance(professorId: String): List<AgentBalanceSummaryDto>
 
     /**
      * Searches for students whose name matches the given query (case-insensitive).
      *
      * @param professorId The ID of the professor.
      * @param query The search term to match against student names.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentStudentDetail] matching the search.
+     * @return A list of [AgentStudentDetailDto] matching the search.
      */
     @Query(
         """
@@ -156,7 +159,7 @@ interface StudentDao {
         ORDER BY s.name ASC
         """
     )
-    suspend fun searchStudentByName(professorId: String, query: String): List<com.devsusana.hometutorpro.domain.entities.AgentStudentDetail>
+    suspend fun searchStudentByName(professorId: String, query: String): List<AgentStudentDetailDto>
 
     /**
      * Returns the total count of active, non-deleted students for the given professor.

@@ -4,6 +4,8 @@ import androidx.room.*
 import com.devsusana.hometutorpro.data.local.entities.ScheduleEntity
 import com.devsusana.hometutorpro.data.local.entities.ScheduleWithStudent
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
+import com.devsusana.hometutorpro.data.local.models.AgentScheduleDetailDto
+import com.devsusana.hometutorpro.data.local.models.AgentScheduleSummaryDto
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -119,7 +121,7 @@ interface ScheduleDao {
      * Returns all schedules joined with student names for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary] representing the schedule overviews.
+     * @return A list of [AgentScheduleSummaryDto] representing the schedule overviews.
      */
     @Query(
         """
@@ -132,13 +134,13 @@ interface ScheduleDao {
         ORDER BY sch.dayOfWeek, sch.startTime
         """
     )
-    suspend fun getAllSchedulesForAgent(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary>
+    suspend fun getAllSchedulesForAgent(professorId: String): List<AgentScheduleSummaryDto>
 
     /**
      * Returns all schedule entries with full detail for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail] containing full schedule information.
+     * @return A list of [AgentScheduleDetailDto] containing full schedule information.
      */
     @Query(
         """
@@ -152,14 +154,14 @@ interface ScheduleDao {
         ORDER BY sch.dayOfWeek, sch.startTime
         """
     )
-    suspend fun getAllScheduleDetailsForAgent(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail>
+    suspend fun getAllScheduleDetailsForAgent(professorId: String): List<AgentScheduleDetailDto>
 
     /**
      * Returns schedule entries for students whose name matches [studentName].
      *
      * @param professorId The ID of the professor.
      * @param studentName The name query to filter schedules.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail] linked to the student search.
+     * @return A list of [AgentScheduleDetailDto] linked to the student search.
      */
     @Query(
         """
@@ -177,6 +179,6 @@ interface ScheduleDao {
     suspend fun getSchedulesByStudentName(
         professorId: String,
         studentName: String
-    ): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail>
+    ): List<AgentScheduleDetailDto>
 }
 

@@ -176,6 +176,10 @@ def run_pr_review_and_guardrails():
             for err in errors:
                 body += f"- **{err['skill']}** en `{err['file']}`: `{err['error'][:80]}`\n"
 
+            has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
+            if has_auth_error:
+                body += "\n> 💡 *Aviso de credenciales: Asegúrate de que el Secret `GEMINI_API_KEY` esté configurado en los Secrets de GitHub Actions.*\n"
+
         post_pr_comment(body)
 
     elif errors:
@@ -183,7 +187,12 @@ def run_pr_review_and_guardrails():
         body += "No se pudieron ejecutar algunas skills automáticas:\n\n"
         for err in errors:
             body += f"- **{err['skill']}** en `{err['file']}`: `{err['error'][:90]}`\n"
-        body += "\n> 💡 *Asegúrate de que el Secret `GEMINI_API_KEY` esté configurado en los Secrets de GitHub Actions.*"
+
+        has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
+        if has_auth_error:
+            body += "\n> 💡 *Asegúrate de que el Secret `GEMINI_API_KEY` esté configurado en los Secrets de GitHub Actions.*"
+        else:
+            body += "\n> ℹ️ *Incidencia temporal de red o sobrecarga en los servidores de la API.*"
         post_pr_comment(body)
 
     else:
