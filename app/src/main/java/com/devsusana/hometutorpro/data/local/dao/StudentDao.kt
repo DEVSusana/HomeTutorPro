@@ -10,8 +10,8 @@ import com.devsusana.hometutorpro.data.local.models.StudentSummaryProjection
 import kotlinx.coroutines.flow.Flow
 
 /**
- * DAO for Student operations in premium flavor.
- * Includes sync-specific queries for offline-first architecture.
+ * DAO for Student operations in local database.
+ * Includes queries for offline-first architecture and sync-ready tracking.
  */
 @Dao
 interface StudentDao {
@@ -116,25 +116,70 @@ interface StudentDao {
         timestamp: Long
     )
 
-    // Sync-specific queries
+    /**
+     * Retrieves students matching a specific synchronization status.
+     *
+     * @param professorId Owner professor identifier.
+     * @param status Synchronization status filter.
+     * @return List of matching [StudentEntity] records.
+     */
     @Query("SELECT * FROM students WHERE professorId = :professorId AND syncStatus = :status")
     suspend fun getStudentsBySyncStatus(professorId: String, status: SyncStatus): List<StudentEntity>
 
+    /**
+     * Retrieves students modified after a given epoch timestamp.
+     *
+     * @param professorId Owner professor identifier.
+     * @param timestamp Epoch timestamp filter in milliseconds.
+     * @return List of modified [StudentEntity] records.
+     */
     @Query("SELECT * FROM students WHERE professorId = :professorId AND lastModifiedTimestamp > :timestamp")
     suspend fun getStudentsModifiedSince(professorId: String, timestamp: Long): List<StudentEntity>
 
+    /**
+     * Updates the synchronization status and modification timestamp of a student.
+     *
+     * @param id Target student ID.
+     * @param professorId Owner professor identifier.
+     * @param status New [SyncStatus] value.
+     * @param timestamp Modification timestamp in milliseconds.
+     */
     @Query("UPDATE students SET syncStatus = :status, lastModifiedTimestamp = :timestamp WHERE id = :id AND professorId = :professorId")
     suspend fun updateSyncStatus(id: Long, professorId: String, status: SyncStatus, timestamp: Long = System.currentTimeMillis())
 
+    /**
+     * Marks a student for soft deletion.
+     *
+     * @param id Target student ID.
+     * @param professorId Owner professor identifier.
+     * @param syncStatus Synchronization status flag.
+     * @param timestamp Modification timestamp in milliseconds.
+     */
     @Query("UPDATE students SET pendingDelete = 1, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE id = :id AND professorId = :professorId")
     suspend fun markForDeletion(id: Long, professorId: String, syncStatus: SyncStatus = SyncStatus.PENDING_DELETE, timestamp: Long = System.currentTimeMillis())
 
+    /**
+     * Permanently deletes students marked for deletion whose deletion has synced.
+     *
+     * @param professorId Owner professor identifier.
+     * @param syncStatus Target sync status confirmation.
+     */
     @Query("DELETE FROM students WHERE pendingDelete = 1 AND syncStatus = :syncStatus AND professorId = :professorId")
     suspend fun deleteSyncedPendingDeletes(professorId: String, syncStatus: SyncStatus = SyncStatus.SYNCED)
 
+    /**
+     * Permanently deletes all students belonging to a professor.
+     *
+     * @param professorId Owner professor identifier.
+     */
     @Query("DELETE FROM students WHERE professorId = :professorId")
     suspend fun deleteAllStudents(professorId: String)
 
+    /**
+     * Assigns orphaned student records without an owner to a professor.
+     *
+     * @param professorId Target professor identifier.
+     */
     @Query("UPDATE students SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
     suspend fun assignOrphanedDataToProfessor(professorId: String)
 

@@ -123,8 +123,24 @@ def post_pr_comment(comment_body: str):
         g = Github(github_token)
         repo = g.get_repo(repo_name)
         pr = repo.get_pull(pr_number)
+
+        # Buscar y limpiar comentarios anteriores del bot para mantener la PR limpia
+        try:
+            bot_markers = [
+                "## 🤖 Agent Code Review",
+                "## ⚠️ Agent Code Review"
+            ]
+            for comment in pr.get_issue_comments():
+                if any(marker in (comment.body or "") for marker in bot_markers):
+                    try:
+                        comment.delete()
+                    except Exception as err:
+                        print(f"⚠️ No se pudo eliminar comentario previo {comment.id}: {err}")
+        except Exception as e:
+            print(f"⚠️ Error limpiando comentarios previos: {e}")
+
         pr.create_issue_comment(comment_body)
-        print("✅ Comentario publicado en el PR.")
+        print("✅ Comentario publicado en el PR (comentarios antiguos limpiados).")
     except Exception as e:
         print(f"⚠️ No se pudo publicar el comentario en el PR: {e}")
         print(comment_body)
