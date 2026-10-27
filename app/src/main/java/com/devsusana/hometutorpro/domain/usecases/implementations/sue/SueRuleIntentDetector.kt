@@ -13,12 +13,10 @@ import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Handles rule-based and keyword-driven intent detection and multi-turn slot filling.
  */
-@Singleton
 class SueRuleIntentDetector @Inject constructor(
     private val studentTools: StudentTools,
     private val scheduleTools: ScheduleTools,

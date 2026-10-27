@@ -7,8 +7,8 @@ import com.devsusana.hometutorpro.data.local.dao.SyncMetadataDao
 import com.devsusana.hometutorpro.data.local.entities.StudentEntity
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import com.devsusana.hometutorpro.data.security.SecureAuthManager
-import com.devsusana.hometutorpro.domain.repository.RemoteDataSource
-import com.devsusana.hometutorpro.domain.repository.RemoteDocument
+import com.devsusana.hometutorpro.data.remote.RemoteDataSource
+import com.devsusana.hometutorpro.data.remote.RemoteDocument
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import io.mockk.*

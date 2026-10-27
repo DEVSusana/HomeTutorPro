@@ -1,6 +1,7 @@
 package com.devsusana.hometutorpro.data.mappers
 
 import com.devsusana.hometutorpro.data.local.entities.*
+import com.devsusana.hometutorpro.data.local.models.*
 import com.devsusana.hometutorpro.domain.entities.*
 import java.time.DayOfWeek
 
@@ -45,7 +46,11 @@ fun StudentSummaryEntity.toDomain(): StudentSummary {
     )
 }
 
-fun Student.toEntity(existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): StudentEntity {
+fun Student.toEntity(
+    existingId: Long = 0L,
+    syncStatus: SyncStatus = SyncStatus.SYNCED,
+    timestamp: Long = System.currentTimeMillis()
+): StudentEntity {
     return StudentEntity(
         id = existingId,
         professorId = professorId,
@@ -67,7 +72,7 @@ fun Student.toEntity(existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.
         isActive = isActive,
         lastClassDate = lastClassDate,
         syncStatus = syncStatus,
-        lastModifiedTimestamp = System.currentTimeMillis(),
+        lastModifiedTimestamp = timestamp,
         pendingDelete = false
     )
 }
@@ -106,7 +111,13 @@ fun ScheduleWithStudent.toDomain(): Schedule {
     )
 }
 
-fun Schedule.toEntity(studentId: Long, professorId: String, existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): ScheduleEntity {
+fun Schedule.toEntity(
+    studentId: Long,
+    professorId: String,
+    existingId: Long = 0L,
+    syncStatus: SyncStatus = SyncStatus.SYNCED,
+    timestamp: Long = System.currentTimeMillis()
+): ScheduleEntity {
     return ScheduleEntity(
         id = existingId,
         studentId = studentId,
@@ -118,7 +129,7 @@ fun Schedule.toEntity(studentId: Long, professorId: String, existingId: Long = 0
         isCompleted = isCompleted,
         completedDate = completedDate,
         syncStatus = syncStatus,
-        lastModifiedTimestamp = System.currentTimeMillis(),
+        lastModifiedTimestamp = timestamp,
         pendingDelete = false
     )
 }
@@ -140,7 +151,13 @@ fun ScheduleExceptionEntity.toDomain(): ScheduleException {
     )
 }
 
-fun ScheduleException.toEntity(studentId: Long, professorId: String, existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): ScheduleExceptionEntity {
+fun ScheduleException.toEntity(
+    studentId: Long,
+    professorId: String,
+    existingId: Long = 0L,
+    syncStatus: SyncStatus = SyncStatus.SYNCED,
+    timestamp: Long = System.currentTimeMillis()
+): ScheduleExceptionEntity {
     return ScheduleExceptionEntity(
         id = existingId,
         studentId = studentId,
@@ -154,7 +171,7 @@ fun ScheduleException.toEntity(studentId: Long, professorId: String, existingId:
         newEndTime = newEndTime.takeIf { it.isNotEmpty() },
         newDayOfWeek = newDayOfWeek,
         syncStatus = syncStatus,
-        lastModifiedTimestamp = System.currentTimeMillis(),
+        lastModifiedTimestamp = timestamp,
         pendingDelete = false
     )
 }
@@ -171,7 +188,11 @@ fun ResourceEntity.toDomain(): Resource {
     )
 }
 
-fun Resource.toEntity(existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus.SYNCED): ResourceEntity {
+fun Resource.toEntity(
+    existingId: Long = 0L,
+    syncStatus: SyncStatus = SyncStatus.SYNCED,
+    timestamp: Long = System.currentTimeMillis()
+): ResourceEntity {
     return ResourceEntity(
         id = existingId,
         professorId = professorId,
@@ -182,7 +203,7 @@ fun Resource.toEntity(existingId: Long = 0L, syncStatus: SyncStatus = SyncStatus
         fileType = type,
         uploadDate = uploadDate.time,
         syncStatus = syncStatus,
-        lastModifiedTimestamp = System.currentTimeMillis(),
+        lastModifiedTimestamp = timestamp,
         pendingDelete = false
     )
 }
@@ -206,7 +227,13 @@ fun SharedResourceEntity.toDomain(): SharedResource {
     )
 }
 
-fun SharedResource.toEntity(existingId: Long = 0L, studentId: Long, professorId: String, syncStatus: SyncStatus = SyncStatus.SYNCED): SharedResourceEntity {
+fun SharedResource.toEntity(
+    existingId: Long = 0L,
+    studentId: Long,
+    professorId: String,
+    syncStatus: SyncStatus = SyncStatus.SYNCED,
+    timestamp: Long = System.currentTimeMillis()
+): SharedResourceEntity {
     return SharedResourceEntity(
         id = existingId,
         studentId = studentId,
@@ -219,7 +246,81 @@ fun SharedResource.toEntity(existingId: Long = 0L, studentId: Long, professorId:
         sharedAt = sharedAt,
         notes = notes,
         syncStatus = syncStatus,
-        lastModifiedTimestamp = System.currentTimeMillis(),
+        lastModifiedTimestamp = timestamp,
         pendingDelete = false
     )
 }
+
+// Agent Domain Mappers
+fun ClassLogEntity.toAgentDomain(): AgentClassLog {
+    return AgentClassLog(
+        studentId = studentId.toString(),
+        scheduleId = scheduleId,
+        date = date,
+        startTime = startTime,
+        endTime = endTime,
+        isExtra = isExtra
+    )
+}
+
+fun TransactionLogEntity.toAgentDomain(): AgentTransactionLog {
+    return AgentTransactionLog(
+        studentId = studentId.toString(),
+        type = type,
+        amount = amount,
+        paymentType = paymentType,
+        timestamp = timestamp
+    )
+}
+
+// Projection to Domain Mappers
+fun StudentSummaryProjection.toDomain(): AgentStudentSummary =
+    AgentStudentSummary(
+        name = name,
+        subjects = subjects,
+        course = course,
+        pricePerHour = pricePerHour,
+        pendingBalance = pendingBalance,
+        isActive = isActive,
+        lastPaymentDate = lastPaymentDate
+    )
+
+fun BalanceSummaryProjection.toDomain(): AgentBalanceSummary =
+    AgentBalanceSummary(
+        name = name,
+        pendingBalance = pendingBalance
+    )
+
+fun StudentDetailProjection.toDomain(): AgentStudentDetail =
+    AgentStudentDetail(
+        studentId = studentId,
+        name = name,
+        subjects = subjects,
+        course = course,
+        pricePerHour = pricePerHour,
+        pendingBalance = pendingBalance,
+        notes = notes,
+        lastPaymentDate = lastPaymentDate,
+        parentPhones = parentPhones,
+        studentPhone = studentPhone,
+        studentEmail = studentEmail,
+        address = address
+    )
+
+fun ScheduleSummaryProjection.toDomain(): AgentScheduleSummary =
+    AgentScheduleSummary(
+        studentName = studentName,
+        dayOfWeek = dayOfWeek,
+        startTime = startTime,
+        endTime = endTime
+    )
+
+fun ScheduleDetailProjection.toDomain(): AgentScheduleDetail =
+    AgentScheduleDetail(
+        scheduleId = scheduleId.toString(),
+        studentId = studentId.toString(),
+        studentName = studentName,
+        dayOfWeek = dayOfWeek,
+        startTime = startTime,
+        endTime = endTime
+    )

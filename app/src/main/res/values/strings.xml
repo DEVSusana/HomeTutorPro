@@ -713,4 +713,5 @@
     <string name="widget_today">Today</string>
     <string name="widget_tomorrow">Tomorrow</string>
     <string name="widget_door_code">🔔 %1$s</string>
+    <string name="widget_upcoming_preview">Next: %1$s • %2$s</string>
 </resources>

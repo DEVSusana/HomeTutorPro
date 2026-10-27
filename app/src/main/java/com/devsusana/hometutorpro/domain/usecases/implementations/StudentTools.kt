@@ -23,7 +23,8 @@ import com.devsusana.hometutorpro.domain.usecases.IGetSharedResourcesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.repository.AgentContextRepository
-
+import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
+import com.devsusana.hometutorpro.domain.usecases.implementations.sue.ISpanishPhoneticMatcher
 import com.devsusana.hometutorpro.domain.usecases.implementations.sue.SpanishPhoneticMatcher
 
 /**
@@ -43,7 +44,8 @@ class StudentTools @Inject constructor(
     private val authRepository: AuthRepository,
     private val getSharedResourcesUseCase: IGetSharedResourcesUseCase,
     private val agentContextRepository: AgentContextRepository,
-    private val phoneticMatcher: SpanishPhoneticMatcher,
+    private val phoneticMatcher: ISpanishPhoneticMatcher,
+    private val dateTimeProvider: DateTimeProvider? = null,
     private val startActiveSessionUseCase: IStartActiveSessionUseCase? = null,
     private val stopActiveSessionUseCase: IStopActiveSessionUseCase? = null
 ) {
@@ -71,6 +73,7 @@ class StudentTools @Inject constructor(
         getSharedResourcesUseCase = getSharedResourcesUseCase,
         agentContextRepository = agentContextRepository,
         phoneticMatcher = SpanishPhoneticMatcher(),
+        dateTimeProvider = null,
         startActiveSessionUseCase = null,
         stopActiveSessionUseCase = null
     )
@@ -273,11 +276,13 @@ class StudentTools @Inject constructor(
 
         return when (val result = saveStudentUseCase(professorId, updatedStudent)) {
             is Result.Success -> {
+                val sessionStartTime = dateTimeProvider?.currentTimeMillis() ?: System.currentTimeMillis()
+
                 startActiveSessionUseCase?.invoke(
                     ActiveSession(
                         studentId = student.id,
                         studentName = student.name,
-                        startTimeMillis = System.currentTimeMillis(),
+                        startTimeMillis = sessionStartTime,
                         durationMinutes = action.durationMinutes.toLong(),
                         isOngoing = true,
                         tutorId = professorId
@@ -419,12 +424,8 @@ class StudentTools @Inject constructor(
      * Prepares an action to update a student's address (including portero / intercom number).
      */
     suspend fun prepareUpdateAddressAction(studentName: String, address: String): SueOperationResult.Prepare {
-        val results = queryStudentsUseCase.searchByName(studentName)
-        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
-
-        if (match == null) {
-            return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
-        }
+        val match = findStudentByName(studentName)
+            ?: return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
 
         if (address.isBlank()) {
             return SueOperationResult.Prepare.Error(
@@ -483,8 +484,7 @@ class StudentTools @Inject constructor(
             )
         }
 
-        val results = queryStudentsUseCase.searchByName(studentName)
-        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+        val match = findStudentByName(studentName)
             ?: return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
 
         val action = SuePendingAction.UpdateStudentPrice(
@@ -525,8 +525,7 @@ class StudentTools @Inject constructor(
             )
         }
 
-        val results = queryStudentsUseCase.searchByName(studentName)
-        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+        val match = findStudentByName(studentName)
             ?: return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
 
         val action = SuePendingAction.UpdateStudentPhone(
@@ -567,8 +566,7 @@ class StudentTools @Inject constructor(
             )
         }
 
-        val results = queryStudentsUseCase.searchByName(studentName)
-        val match = results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
+        val match = findStudentByName(studentName)
             ?: return SueOperationResult.Prepare.Error(SueOperationResult.ErrorType.STUDENT_NOT_FOUND)
 
         val action = SuePendingAction.UpdateStudentCourse(
@@ -577,6 +575,11 @@ class StudentTools @Inject constructor(
             course = cleanCourse
         )
         return SueOperationResult.Prepare.Success(action)
+    }
+
+    private suspend fun findStudentByName(studentName: String): AgentStudentDetail? {
+        val results = queryStudentsUseCase.searchByName(studentName)
+        return results.firstOrNull { it.name.lowercase().contains(studentName.lowercase()) }
     }
 
     /**

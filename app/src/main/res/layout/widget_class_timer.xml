@@ -135,14 +135,14 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="6dp">
 
             <Chronometer
                 android:id="@+id/widget_chronometer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="#10B981"
-                android:textSize="24sp"
+                android:textSize="22sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -154,6 +154,18 @@
                 android:textColor="#64748B"
                 android:textSize="11sp" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_active_next_class_preview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#818CF8"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="6dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/btn_stop_class"

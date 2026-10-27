@@ -4,13 +4,11 @@ import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.entities.SuePendingAction
 import com.devsusana.hometutorpro.domain.usecases.IExecuteSuePendingActionUseCase
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Concrete implementation of [IExecuteSuePendingActionUseCase], delegating to
  * domain tools [ScheduleTools] and [StudentTools].
  */
-@Singleton
 class ExecuteSuePendingActionUseCase @Inject constructor(
     private val scheduleTools: ScheduleTools,
     private val studentTools: StudentTools

@@ -2,6 +2,50 @@ import os
 import json
 import config
 
+def get_related_project_context(file_path: str) -> str:
+    """
+    Scans the codebase surrounding the target file to provide architectural context
+    and avoid false positives due to Single Responsibility Principle (SRP) separation.
+    """
+    context_lines = []
+    abs_path = os.path.abspath(file_path)
+    file_dir = os.path.dirname(abs_path)
+    filename = os.path.basename(file_path)
+
+    # 1. Sibling classes in the same directory
+    if os.path.exists(file_dir):
+        siblings = [f for f in sorted(os.listdir(file_dir)) if f.endswith(".kt") and f != filename]
+        if siblings:
+            context_lines.append(f"Sibling classes in same directory ({os.path.basename(file_dir)}):")
+            for s in siblings:
+                context_lines.append(f"  - {s}")
+
+    # 2. Check for related directories in Clean Architecture layers
+    root_pkg = "app/src/main/java/com/devsusana/hometutorpro"
+    if "data/local/dao" in file_path:
+        entities_dir = os.path.join(root_pkg, "data/local/entities")
+        if os.path.exists(entities_dir):
+            entities = [f for f in sorted(os.listdir(entities_dir)) if f.endswith(".kt")]
+            context_lines.append(f"\nRelated local Room entities (data/local/entities):")
+            for e in entities:
+                context_lines.append(f"  - {e}")
+    elif "data/repository" in file_path:
+        repo_interfaces_dir = os.path.join(root_pkg, "domain/repository")
+        if os.path.exists(repo_interfaces_dir):
+            repos = [f for f in sorted(os.listdir(repo_interfaces_dir)) if f.endswith(".kt")]
+            context_lines.append(f"\nRelated domain repository contracts (domain/repository):")
+            for r in repos:
+                context_lines.append(f"  - {r}")
+    elif "domain/usecases" in file_path:
+        domain_entities_dir = os.path.join(root_pkg, "domain/entities")
+        if os.path.exists(domain_entities_dir):
+            entities = [f for f in sorted(os.listdir(domain_entities_dir)) if f.endswith(".kt")]
+            context_lines.append(f"\nRelated domain entities (domain/entities):")
+            for e in entities:
+                context_lines.append(f"  - {e}")
+
+    return "\n".join(context_lines) if context_lines else "No related files identified."
+
 def run_architecture_audit(file_path: str, output_format: str = "text") -> str:
     """
     Executes a strict Clean Architecture audit on a Kotlin file.
@@ -26,6 +70,8 @@ def run_architecture_audit(file_path: str, output_format: str = "text") -> str:
 
     with open(file_path, "r", encoding="utf-8") as f:
         code = f.read()
+
+    project_context = get_related_project_context(file_path)
 
     architecture_checklist = """
     Android Clean Architecture & Design Verification Checklist:
@@ -54,8 +100,10 @@ def run_architecture_audit(file_path: str, output_format: str = "text") -> str:
     6. Language & Naming Conventions:
        - Strict English naming for classes, functions, properties, and comments (no Spanish code tokens).
        
-    7. Business Rules Compliance:
+    7. Business Rules Compliance & Context Awareness:
        - Inflexible compliance with domain logic specified in BUSINESS_RULES.md.
+       - Single-file audit scope: DO NOT report that entities, DAOs, or methods mentioned in BUSINESS_RULES.md are missing from this specific file if they belong to other dedicated classes (e.g. ScheduleDao handles recurring weekly schedules, whereas ScheduleExceptionDao handles date-specific exceptions and cancellations; do not flag ScheduleDao for not defining exceptions).
+       - Always inspect the provided "PROJECT CONTEXT & RELATED CLASSES" section before assuming a feature is missing or unaccounted for. Only report genuine architectural boundary violations within the code of the audited file.
     """
 
     if output_format == "json":
@@ -64,6 +112,9 @@ def run_architecture_audit(file_path: str, output_format: str = "text") -> str:
         Perform an exhaustive Clean Architecture audit on this Kotlin file:
         
         {architecture_checklist}
+        
+        PROJECT CONTEXT & RELATED CLASSES:
+        {project_context}
         
         CODING RULES (AGENTS.md):
         {rules}
@@ -110,6 +161,9 @@ def run_architecture_audit(file_path: str, output_format: str = "text") -> str:
         Perform an exhaustive Clean Architecture audit on this Kotlin file:
         
         {architecture_checklist}
+        
+        PROJECT CONTEXT & RELATED CLASSES:
+        {project_context}
         
         CODING RULES (AGENTS.md):
         {rules}

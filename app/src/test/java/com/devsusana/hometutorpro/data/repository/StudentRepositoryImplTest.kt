@@ -16,8 +16,8 @@ import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.PaymentType
 import com.devsusana.hometutorpro.domain.entities.Student
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.devsusana.hometutorpro.domain.repository.AuthRepository
+import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import io.mockk.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -42,8 +42,8 @@ class StudentRepositoryImplTest {
     private lateinit var sharedResourceDao: SharedResourceDao
     private lateinit var classLogDao: ClassLogDao
     private lateinit var transactionLogDao: TransactionLogDao
-    private lateinit var firestore: FirebaseFirestore
-    private lateinit var auth: FirebaseAuth
+    private lateinit var authRepository: AuthRepository
+    private lateinit var dateTimeProvider: DateTimeProvider
     private lateinit var syncScheduler: SyncScheduler
 
     private val testStudentEntity = StudentEntity(
@@ -88,8 +88,8 @@ class StudentRepositoryImplTest {
         sharedResourceDao = mockk(relaxed = true)
         classLogDao = mockk(relaxed = true)
         transactionLogDao = mockk(relaxed = true)
-        firestore = mockk(relaxed = true)
-        auth = mockk(relaxed = true)
+        authRepository = mockk(relaxed = true)
+        dateTimeProvider = mockk(relaxed = true)
         syncScheduler = mockk(relaxed = true)
 
         repository = StudentRepositoryImpl(
@@ -100,8 +100,8 @@ class StudentRepositoryImplTest {
             sharedResourceDao = sharedResourceDao,
             classLogDao = classLogDao,
             transactionLogDao = transactionLogDao,
-            firestore = firestore,
-            auth = auth,
+            authRepository = authRepository,
+            dateTimeProvider = dateTimeProvider,
             syncScheduler = syncScheduler
         )
     }

@@ -3,7 +3,7 @@ package com.devsusana.hometutorpro.presentation.widget
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.usecases.ICancelClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
@@ -73,7 +73,7 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
                     handleStopClass(context)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error handling widget action: $action", e)
+                SafeLogger.e(TAG, "Error handling widget action: $action", e)
             } finally {
                 pendingResult.finish()
             }

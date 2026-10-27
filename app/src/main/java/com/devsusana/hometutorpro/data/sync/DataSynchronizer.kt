@@ -14,8 +14,8 @@ import com.devsusana.hometutorpro.data.mappers.toScheduleExceptionEntity
 import com.devsusana.hometutorpro.data.mappers.toStudentEntity
 import com.devsusana.hometutorpro.data.security.SecureAuthManager
 import com.devsusana.hometutorpro.core.utils.SafeLogger
-import com.devsusana.hometutorpro.domain.repository.RemoteDataSource
-import com.devsusana.hometutorpro.domain.repository.RemoteDocument
+import com.devsusana.hometutorpro.data.remote.RemoteDataSource
+import com.devsusana.hometutorpro.data.remote.RemoteDocument
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek

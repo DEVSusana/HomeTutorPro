@@ -17,5 +17,8 @@ class AddToBalanceUseCase @Inject constructor(
         professorId: String,
         studentId: String,
         amount: Double
-    ): Result<Unit, DomainError> = repository.addToBalance(professorId, studentId, amount)
+    ): Result<Unit, DomainError> {
+        if (amount <= 0) return Result.Error(DomainError.InvalidAmount)
+        return repository.addToBalance(professorId, studentId, amount)
+    }
 }

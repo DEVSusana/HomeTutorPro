@@ -10,13 +10,11 @@ import java.time.DayOfWeek
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Parses action tags emitted by the LLM (e.g. `[ACTION: CREATE_STUDENT, ...]`)
  * and maps them into pending actions.
  */
-@Singleton
 class SueActionParser @Inject constructor(
     private val studentTools: StudentTools,
     private val scheduleTools: ScheduleTools,

@@ -19,10 +19,14 @@ android {
         applicationId = "com.devsusana.hometutorpro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 112
-        versionName = "1.1.1"
+        versionCode = 113
+        versionName = "1.1.2"
 
         testInstrumentationRunner = "com.devsusana.hometutorpro.CustomTestRunner"
+
+        ndk {
+            debugSymbolLevel = "FULL"
+        }
     }
 
     base {
@@ -74,9 +78,6 @@ android {
             val releaseSigning = signingConfigs.getByName("release")
             if (releaseSigning.storeFile != null) {
                 signingConfig = releaseSigning
-            }
-            ndk {
-                debugSymbolLevel = "FULL"
             }
         }
         debug {

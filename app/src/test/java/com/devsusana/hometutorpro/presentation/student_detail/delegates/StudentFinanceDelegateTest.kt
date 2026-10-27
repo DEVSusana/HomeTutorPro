@@ -128,6 +128,26 @@ class StudentFinanceDelegateTest {
     }
 
     @Test
+    fun `registerPayment does not double subtract when Room flow updates state during use case execution`() = testScope.runTest {
+        // Given — student owes 15€ (e.g. Claudia), pays 15€
+        val claudiaStudent = testStudent.copy(pendingBalance = 15.0)
+        val state = MutableStateFlow(StudentDetailState(student = claudiaStudent))
+
+        // Simulate Room Flow emitting updated student (pendingBalance = 0.0) while registerPaymentUseCase is executing
+        coEvery { registerPaymentUseCase("prof1", "1", 15.0, PaymentType.EFFECTIVE) } coAnswers {
+            state.value = state.value.copy(student = claudiaStudent.copy(pendingBalance = 0.0))
+            Result.Success(Unit)
+        }
+
+        // When
+        delegate.registerPayment("prof1", "1", 15.0, PaymentType.EFFECTIVE, state, this)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then — balance should be exactly 0.0, NOT -15.0 (no double subtraction)
+        assertEquals(0.0, state.value.student!!.pendingBalance, 0.001)
+    }
+
+    @Test
     fun `registerPayment error does not modify balance`() = testScope.runTest {
         // Given
         val state = MutableStateFlow(StudentDetailState(student = testStudent))

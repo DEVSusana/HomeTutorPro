@@ -4,15 +4,25 @@ import androidx.room.*
 import com.devsusana.hometutorpro.data.local.entities.ScheduleEntity
 import com.devsusana.hometutorpro.data.local.entities.ScheduleWithStudent
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
+import com.devsusana.hometutorpro.data.local.models.ScheduleDetailProjection
+import com.devsusana.hometutorpro.data.local.models.ScheduleSummaryProjection
 import kotlinx.coroutines.flow.Flow
 
 /**
- * DAO for Schedule operations in premium flavor.
- * Includes sync-specific queries.
+ * DAO for managing recurring base schedules in local database.
+ * Handles persistence, queries, conflict detection and soft deletion.
+ * Note: Temporary calendar exceptions are managed separately by ScheduleExceptionDao.
  */
 @Dao
 interface ScheduleDao {
 
+    /**
+     * Retrieves all active schedules joined with student information for a specific professor.
+     * Only returns records not marked for deletion.
+     *
+     * @param professorId Non-empty ID of the professor owner.
+     * @return A [Flow] emitting lists of [ScheduleWithStudent] models ordered by day and time.
+     */
     @Query("""
         SELECT s.*, st.name as studentName, st.subjects as studentSubjects, 
                st.color as studentColor, st.isActive as studentIsActive,
@@ -26,9 +36,26 @@ interface ScheduleDao {
     """)
     fun getAllSchedulesWithStudent(professorId: String): Flow<List<ScheduleWithStudent>>
 
+    /**
+     * Retrieves all active schedules associated with a specific student and professor.
+     *
+     * @param studentId The unique identifier of the student.
+     * @param professorId The unique identifier of the professor.
+     * @return A [Flow] emitting a list of [ScheduleEntity] ordered by day and time.
+     */
     @Query("SELECT * FROM schedules WHERE studentId = :studentId AND professorId = :professorId AND pendingDelete = 0 ORDER BY dayOfWeek, startTime")
     fun getSchedulesByStudentId(studentId: Long, professorId: String): Flow<List<ScheduleEntity>>
 
+    /**
+     * Checks if a time conflict exists for the specified day and time range.
+     *
+     * @param dayOfWeek The target day.
+     * @param startTime Start time string (ISO 8601).
+     * @param endTime End time string (ISO 8601).
+     * @param professorId Owner of the schedule.
+     * @param id Optional current schedule ID to exclude from conflict check (for updates).
+     * @return True if an overlapping schedule exists.
+     */
     @Query("""
         SELECT EXISTS(
             SELECT 1 FROM schedules 
@@ -41,6 +68,16 @@ interface ScheduleDao {
     """)
     suspend fun hasConflict(dayOfWeek: Int, startTime: String, endTime: String, professorId: String, id: Long? = null): Boolean
 
+    /**
+     * Finds any schedule overlapping the given day and time range.
+     *
+     * @param dayOfWeek The day of the week (1 = Monday, 7 = Sunday).
+     * @param startTime The start time formatted as HH:mm.
+     * @param endTime The end time formatted as HH:mm.
+     * @param professorId The ID of the professor who owns the schedules.
+     * @param id Optional schedule ID to exclude from conflict checks (e.g. when editing).
+     * @return The conflicting [ScheduleEntity] if an overlap is found, or null otherwise.
+     */
     @Query("""
         SELECT s.* 
         FROM schedules s
@@ -53,43 +90,128 @@ interface ScheduleDao {
     """)
     suspend fun getConflictingSchedule(dayOfWeek: Int, startTime: String, endTime: String, professorId: String, id: Long? = null): ScheduleEntity?
 
+    /**
+     * Retrieves all active schedules for the professor as an observable Flow.
+     *
+     * @param professorId The ID of the professor.
+     * @return A [Flow] emitting the list of active [ScheduleEntity] instances ordered by day and start time.
+     */
     @Query("SELECT * FROM schedules WHERE professorId = :professorId AND pendingDelete = 0 ORDER BY dayOfWeek, startTime")
     fun getAllSchedules(professorId: String): Flow<List<ScheduleEntity>>
 
+    /**
+     * Retrieves all active schedules for the professor as a one-shot query.
+     *
+     * @param professorId The ID of the professor.
+     * @return A list of [ScheduleEntity] instances ordered by ID.
+     */
     @Query("SELECT * FROM schedules WHERE professorId = :professorId ORDER BY id ASC")
     suspend fun getAllSchedulesOnce(professorId: String): List<ScheduleEntity>
 
+    /**
+     * Retrieves an active schedule entity by its local id.
+     *
+     * @param scheduleId The local ID of the schedule.
+     * @param professorId The ID of the professor.
+     * @return The matching [ScheduleEntity], or null if not found or pending delete.
+     */
     @Query("SELECT * FROM schedules WHERE id = :scheduleId AND professorId = :professorId AND pendingDelete = 0")
     suspend fun getScheduleById(scheduleId: Long, professorId: String): ScheduleEntity?
 
+    /**
+     * Retrieves an active schedule entity by its Firestore cloud ID.
+     *
+     * @param cloudId The Firestore document ID.
+     * @param professorId The ID of the professor.
+     * @return The matching [ScheduleEntity], or null if not found or pending delete.
+     */
     @Query("SELECT * FROM schedules WHERE cloudId = :cloudId AND professorId = :professorId AND pendingDelete = 0")
     suspend fun getScheduleByCloudId(cloudId: String, professorId: String): ScheduleEntity?
 
+    /**
+     * Inserts or replaces a schedule entity in the local database.
+     *
+     * @param schedule The [ScheduleEntity] to persist.
+     * @return The row ID of the newly inserted or replaced record.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(schedule: ScheduleEntity): Long
 
+    /**
+     * Updates an existing schedule entity.
+     *
+     * @param schedule Schedule entity with updated data.
+     */
     @Update
     suspend fun updateSchedule(schedule: ScheduleEntity)
 
+    /**
+     * Permanently deletes a schedule entity from local storage.
+     *
+     * @param schedule Schedule entity to delete.
+     */
     @Delete
     suspend fun deleteSchedule(schedule: ScheduleEntity)
 
+    /**
+     * Permanently deletes a schedule by its identifier.
+     *
+     * @param scheduleId Target schedule identifier.
+     * @param professorId Owner professor identifier.
+     */
     @Query("DELETE FROM schedules WHERE id = :scheduleId AND professorId = :professorId")
     suspend fun deleteScheduleById(scheduleId: Long, professorId: String)
 
+    /**
+     * Permanently deletes all schedules associated with a student.
+     *
+     * @param studentId Target student identifier.
+     * @param professorId Owner professor identifier.
+     */
     @Query("DELETE FROM schedules WHERE studentId = :studentId AND professorId = :professorId")
     suspend fun deleteSchedulesByStudentId(studentId: Long, professorId: String)
 
-    // Sync-specific queries
+    /**
+     * Retrieves schedules matching a specific synchronization status.
+     *
+     * @param professorId Owner professor identifier.
+     * @param status Synchronization status filter.
+     * @return List of matching [ScheduleEntity] records.
+     */
     @Query("SELECT * FROM schedules WHERE professorId = :professorId AND syncStatus = :status")
     suspend fun getSchedulesBySyncStatus(professorId: String, status: SyncStatus): List<ScheduleEntity>
 
+    /**
+     * Retrieves schedules modified after a given epoch timestamp.
+     *
+     * @param professorId Owner professor identifier.
+     * @param timestamp Epoch timestamp filter in milliseconds.
+     * @return List of modified [ScheduleEntity] records.
+     */
     @Query("SELECT * FROM schedules WHERE professorId = :professorId AND lastModifiedTimestamp > :timestamp")
     suspend fun getSchedulesModifiedSince(professorId: String, timestamp: Long): List<ScheduleEntity>
 
+    /**
+     * Updates the synchronization status and modification timestamp of a schedule.
+     *
+     * @param id Target schedule identifier.
+     * @param professorId Owner professor identifier.
+     * @param status New [SyncStatus] value.
+     * @param timestamp Modification timestamp in milliseconds.
+     */
     @Query("UPDATE schedules SET syncStatus = :status, lastModifiedTimestamp = :timestamp WHERE id = :id AND professorId = :professorId")
     suspend fun updateSyncStatus(id: Long, professorId: String, status: SyncStatus, timestamp: Long = System.currentTimeMillis())
 
+    /**
+     * Updates schedule completion status and records completion timestamp.
+     *
+     * @param id Target schedule identifier.
+     * @param professorId Owner professor identifier.
+     * @param isCompleted True if completed, false otherwise.
+     * @param completedDate Completion timestamp in milliseconds, or null if uncompleted.
+     * @param syncStatus Synchronization status flag.
+     * @param timestamp Modification timestamp in milliseconds.
+     */
     @Query("UPDATE schedules SET isCompleted = :isCompleted, completedDate = :completedDate, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE id = :id AND professorId = :professorId")
     suspend fun updateCompletionStatus(
         id: Long,
@@ -100,18 +222,50 @@ interface ScheduleDao {
         timestamp: Long = System.currentTimeMillis()
     )
 
+    /**
+     * Marks a schedule for soft deletion.
+     *
+     * @param id Target schedule identifier.
+     * @param professorId Owner professor identifier.
+     * @param syncStatus Synchronization status flag.
+     * @param timestamp Modification timestamp in milliseconds.
+     */
     @Query("UPDATE schedules SET pendingDelete = 1, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE id = :id AND professorId = :professorId")
     suspend fun markForDeletion(id: Long, professorId: String, syncStatus: SyncStatus = SyncStatus.PENDING_DELETE, timestamp: Long = System.currentTimeMillis())
 
+    /**
+     * Marks all schedules belonging to a student for soft deletion.
+     *
+     * @param studentId Target student identifier.
+     * @param professorId Owner professor identifier.
+     * @param syncStatus Synchronization status flag.
+     * @param timestamp Modification timestamp in milliseconds.
+     */
     @Query("UPDATE schedules SET pendingDelete = 1, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE studentId = :studentId AND professorId = :professorId")
     suspend fun markSchedulesForDeletionByStudentId(studentId: Long, professorId: String, syncStatus: SyncStatus = SyncStatus.PENDING_DELETE, timestamp: Long = System.currentTimeMillis())
 
+    /**
+     * Permanently deletes schedules marked for deletion whose deletion has synced.
+     *
+     * @param professorId Owner professor identifier.
+     * @param syncStatus Target sync status confirmation.
+     */
     @Query("DELETE FROM schedules WHERE pendingDelete = 1 AND syncStatus = :syncStatus AND professorId = :professorId")
     suspend fun deleteSyncedPendingDeletes(professorId: String, syncStatus: SyncStatus = SyncStatus.SYNCED)
 
+    /**
+     * Permanently deletes all schedules belonging to a professor.
+     *
+     * @param professorId Owner professor identifier.
+     */
     @Query("DELETE FROM schedules WHERE professorId = :professorId")
     suspend fun deleteAllSchedules(professorId: String)
 
+    /**
+     * Assigns orphaned schedule records without an owner to a professor.
+     *
+     * @param professorId Target professor identifier.
+     */
     @Query("UPDATE schedules SET professorId = :professorId WHERE professorId = '' OR professorId IS NULL")
     suspend fun assignOrphanedDataToProfessor(professorId: String)
 
@@ -119,7 +273,7 @@ interface ScheduleDao {
      * Returns all schedules joined with student names for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary] representing the schedule overviews.
+     * @return A list of [ScheduleSummaryProjection] representing the schedule overviews.
      */
     @Query(
         """
@@ -132,13 +286,13 @@ interface ScheduleDao {
         ORDER BY sch.dayOfWeek, sch.startTime
         """
     )
-    suspend fun getAllSchedulesForAgent(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleSummary>
+    suspend fun getAllScheduleSummaries(professorId: String): List<ScheduleSummaryProjection>
 
     /**
      * Returns all schedule entries with full detail for the given professor.
      *
      * @param professorId The ID of the professor.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail] containing full schedule information.
+     * @return A list of [ScheduleDetailProjection] containing full schedule information.
      */
     @Query(
         """
@@ -152,14 +306,14 @@ interface ScheduleDao {
         ORDER BY sch.dayOfWeek, sch.startTime
         """
     )
-    suspend fun getAllScheduleDetailsForAgent(professorId: String): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail>
+    suspend fun getAllScheduleDetails(professorId: String): List<ScheduleDetailProjection>
 
     /**
      * Returns schedule entries for students whose name matches [studentName].
      *
      * @param professorId The ID of the professor.
      * @param studentName The name query to filter schedules.
-     * @return A list of [com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail] linked to the student search.
+     * @return A list of [ScheduleDetailProjection] linked to the student search.
      */
     @Query(
         """
@@ -177,6 +331,6 @@ interface ScheduleDao {
     suspend fun getSchedulesByStudentName(
         professorId: String,
         studentName: String
-    ): List<com.devsusana.hometutorpro.domain.entities.AgentScheduleDetail>
+    ): List<ScheduleDetailProjection>
 }
 
