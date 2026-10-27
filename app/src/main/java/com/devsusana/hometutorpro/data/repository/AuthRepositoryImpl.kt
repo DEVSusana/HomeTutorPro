@@ -42,7 +42,15 @@ class AuthRepositoryImpl @Inject constructor(
     @param:ApplicationScope private val internalScope: CoroutineScope
 ) : AuthRepository {
 
-    private val _currentUser = MutableStateFlow<User?>(null)
+    private val _currentUser = MutableStateFlow<User?>(
+        firebaseAuth.currentUser?.let { fbUser ->
+            buildUser(
+                fbUser.uid,
+                fbUser.email ?: "",
+                fbUser.displayName ?: ""
+            )
+        }
+    )
     /** The current authenticated user. */
     override val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 

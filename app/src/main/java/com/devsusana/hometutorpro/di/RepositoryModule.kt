@@ -3,6 +3,7 @@ package com.devsusana.hometutorpro.di
 import com.devsusana.hometutorpro.data.repository.*
 import com.devsusana.hometutorpro.domain.repository.*
 import com.devsusana.hometutorpro.data.remote.FirestoreRemoteDataSource
+import com.devsusana.hometutorpro.data.remote.RemoteDataSource
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

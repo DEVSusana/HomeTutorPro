@@ -12,7 +12,6 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.sue.SueEntityE
 import com.devsusana.hometutorpro.domain.usecases.implementations.sue.SueRuleIntentDetector
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Orchestration layer and facade for the Sue AI agent.
@@ -20,7 +19,6 @@ import javax.inject.Singleton
  * Coordinates intent detection, entity extraction, context building, and action parsing
  * by delegating to dedicated single-responsibility components in the `sue` package.
  */
-@Singleton
 class SueAgentImpl @Inject constructor(
     private val studentTools: StudentTools,
     private val scheduleTools: ScheduleTools,

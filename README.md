@@ -19,50 +19,67 @@
 
 ## ✨ Características Principales
 
-* **👥 Gestión de Alumnos:** Perfiles completos con contacto, materias, direcciones y notas.
-* **📅 Agenda y Horarios:** Vistas diarias y semanales optimizadas para trabajo en movilidad.
-* **🧭 Navegación Integrada:** Acceso directo a direcciones con Google Maps.
-* **📂 Materiales y Recursos:** Gestión de PDFs, documentos e imágenes por alumno.
-* **💰 Pagos y Asistencia:** Seguimiento de clases, tarifas y estado de pagos.
-* **📨 Comunicación Rápida:** Accesos directos a WhatsApp y email por alumno.
-* **📴 Offline-first:** Uso completo sin conexión con sincronización posterior.
+* **👥 Gestión de Alumnos:** Fichas completas con nivel académico, materias, tarifas personalizadas y notas privadas.
+* **📅 Agenda y Horarios:** Visualización de horario semanal con detección inteligente de huecos libres y conflictos.
+* **🧭 Navegación GPS Integrada:** Acceso directo a Google Maps para trazar la ruta a casa del alumno en un toque.
+* **💰 Finanzas y Cobros:** Historial de clases, control de saldo pendiente y cobros al día por estudiante.
+* **📱 Widget Android (Glance):** Consulta tu próxima clase e inicia el seguimiento directamente desde tu pantalla de inicio.
+* **🤖 SUE — Asistente IA On-Device:** Asistente de voz local con Edge AI, 100% privado y sin necesidad de conexión a internet.
+* **📴 Offline-first & Sincronización:** Operatividad total sin conexión mediante base de datos Room local y sincronización en segundo plano con Firebase.
 
 ---
 
-## 📸 Screenshots
+## 📸 Capturas de Pantalla
 
+### 📱 Funcionalidades Principales
 
-| Dashboard Principal | Horario Semanal | Calendario Mensual |
+| Dashboard Principal | Directorio de Alumnos | Perfil Alumno & Ruta GPS |
 | :---: | :---: | :---: |
-| ![Dashboard](./docs/screenshots/dashboard.png) | ![Semanal](./docs/screenshots/horario_semanal.png) | ![Mensual](./docs/screenshots/horario_mensual.png) |
+| <img src="./docs/screenshots/play_store_ready/01_dashboard.jpg" width="260" alt="Dashboard Principal" /> | <img src="./docs/screenshots/play_store_ready/05_alumnos.jpg" width="260" alt="Directorio de Alumnos" /> | <img src="./docs/screenshots/play_store_ready/06_perfil_gps.jpg" width="260" alt="Perfil Alumno y GPS" /> |
 
-| Perfil Estudiante | Gestión Financiera | Recursos Cloud |
+| Control de Cobros y Saldo | Widget Glance de Inicio | Asistente de Voz IA (SUE) |
 | :---: | :---: | :---: |
-| ![Perfil](./docs/screenshots/perfil_personal.png) | ![Finanzas](./docs/screenshots/finanzas_alumno.png) | ![Recursos](./docs/screenshots/recursos_compartidos.png) |
+| <img src="./docs/screenshots/play_store_ready/08_finanzas_cobros.jpg" width="260" alt="Finanzas y Cobros" /> | <img src="./docs/screenshots/play_store_ready/04_widget.jpg" width="260" alt="Widget Android Glance" /> | <img src="./docs/screenshots/play_store_ready/03_sue_ia.jpg" width="260" alt="SUE Asistente IA On-Device" /> |
+
+### 🗓️ Gestión de Horarios: Vistas Vertical y Panorámica
+
+| Horario Vertical (Detección de Huecos) | Vista Panorámica (Semana Completa) |
+| :---: | :---: |
+| <img src="./docs/screenshots/play_store_ready/07_horario_vertical.jpg" width="280" alt="Horario Vertical" /> | <img src="./docs/screenshots/play_store_ready/landscape_01_horario_panoramico.jpg" width="520" alt="Horario Panorámico" /> |
 
 ---
 
 ## 🏗️ Arquitectura
 
-El proyecto sigue **Clean Architecture + MVVM**, diseñado como una app real de producción, no como demo.
+El proyecto implementa **Clean Architecture con MVVM** y **Unidirectional Data Flow (UDF)**, diseñado siguiendo los principios SOLID y directrices oficiales de Android:
 
 ```text
-app
+com.devsusana.hometutorpro
 │
-├── core
-│ ├── common
-│ ├── design-system
-│ ├── navigation
-│ └── data
+├── domain/                      # Lógica de negocio pura (independiente de Android/UI)
+│   ├── entities/                # Modelos de datos inmutables del dominio
+│   ├── repository/              # Contratos e interfaces de repositorios
+│   └── usecases/                # Casos de uso con operador invoke()
 │
-├── features
-│ ├── students
-│ ├── schedule
-│ ├── payments
-│ ├── materials
-│ └── settings
+├── data/                        # Recuperación y persistencia de datos
+│   ├── local/                   # Room Database, DAOs y entidades locales
+│   ├── remote/                  # Firebase Firestore y servicios remotos
+│   ├── repository/              # Implementaciones de repositorios del dominio
+│   ├── sync/                    # Workers y schedulers de sincronización en segundo plano
+│   └── mappers/                 # Transformadores entre modelos de datos y entidades
 │
-└── build-logic
+├── presentation/                # Interfaz de usuario declarativa con Jetpack Compose
+│   ├── dashboard/               # Pantalla principal y resumen diario
+│   ├── weekly_schedule/         # Grilla y agenda semanal de clases
+│   ├── student_list/            # Listado, búsqueda y filtrado de estudiantes
+│   ├── student_detail/          # Ficha completa, finanzas y notas del alumno
+│   ├── sue/                     # Interfaz de voz del asistente IA on-device
+│   ├── widget/                  # Widgets de pantalla de inicio con Jetpack Glance
+│   └── components/              # Componentes de UI reutilizables
+│
+├── di/                          # Inyección de dependencias modular con Hilt
+├── navigation/                  # Navegación Type-Safe con Compose Navigation
+└── core/                        # Utilidades comunes y constantes de la aplicación
 ```
 
 ### Capas
@@ -103,27 +120,24 @@ Cada feature está verticalmente segmentada para:
 
 ## 🛣 Roadmap
 
-### Fase 1 — Core
-- Gestión de alumnos
-- Agenda diaria y semanal
-- Persistencia local
-- Navegación
+### Fase 1 — Core ✅
+- [x] Gestión integral de alumnos y fichas académicas
+- [x] Agenda diaria y grilla de horario semanal
+- [x] Persistencia local offline-first con Room Database
+- [x] Navegación Type-Safe con Jetpack Compose
 
-### Fase 2 — Productividad
-- Pagos y asistencia
-- Materiales por alumno
-- Búsqueda y filtros
+### Fase 2 — Productividad & Movilidad ✅
+- [x] Control de pagos, cobros pendientes y tarifas por hora
+- [x] Integración directa de rutas GPS con Google Maps
+- [x] Widget de pantalla de inicio Glance para acceso inmediato
+- [x] Sincronización en segundo plano con Firebase Firestore
 
-### Fase 3 — Inteligencia
-- Detección de conflictos
-- Recordatorios
-- Sugerencias de planificación
+### Fase 3 — Inteligencia Artificial On-Device ✅
+- [x] Asistente de voz interactivo SUE
+- [x] Procesamiento Edge AI 100% local, offline y privado
 
-### Fase 4 — IA
-- Añadir agente interno que ayude a la gestión
-
-### Fase 5 — MULTIPLATAFORMA
-- VERSIÓN PARA iOS
+### Fase 4 — Ecosistema Multiplataforma 🚀
+- [ ] Adaptación para iOS / Compose Multiplatform
 ---
 
 ## 🧠 Por qué existe este proyecto

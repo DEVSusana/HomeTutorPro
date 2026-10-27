@@ -7,7 +7,12 @@ import os
 import sys
 import json
 import time
-from github import Github
+import subprocess
+
+try:
+    from github import Github
+except ImportError:
+    Github = None
 
 # Asegurar importación de skills
 SKILLS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "skills"))
@@ -24,54 +29,79 @@ EXCLUDE_DIRS = ["di/", "ui/theme/"]
 MAX_FILES = 10
 
 
-def get_modified_kt_files():
-    """Detecta los archivos .kt modificados en el PR a través del evento de GitHub."""
+def get_modified_kt_files(explicit_files=None):
+    """Detecta los archivos .kt modificados en el PR a través del evento de GitHub o localmente con git diff."""
+    if explicit_files:
+        valid_files = [
+            f for f in explicit_files
+            if f.endswith(".kt") and os.path.exists(f) and not any(excl in f for excl in EXCLUDE_DIRS)
+        ]
+        if valid_files:
+            return valid_files[:MAX_FILES]
+
     event_path = os.environ.get("GITHUB_EVENT_PATH")
-    if not event_path or not os.path.exists(event_path):
-        print("ℹ️ GITHUB_EVENT_PATH no disponible (ejecución fuera de GitHub Actions).")
-        return []
+    if event_path and os.path.exists(event_path):
+        try:
+            with open(event_path, "r", encoding="utf-8") as f:
+                event_data = json.load(f)
 
-    try:
-        with open(event_path, "r", encoding="utf-8") as f:
-            event_data = json.load(f)
+            if "pull_request" in event_data:
+                pr_number = event_data["pull_request"]["number"]
+                repo_name = os.environ.get("GITHUB_REPOSITORY")
+                github_token = os.environ.get("GITHUB_TOKEN")
 
-        if "pull_request" not in event_data:
-            print("ℹ️ El evento actual no corresponde a un pull_request.")
-            return []
+                if repo_name and github_token and Github is not None:
+                    g = Github(github_token)
+                    repo = g.get_repo(repo_name)
+                    pr = repo.get_pull(pr_number)
 
-        pr_number = event_data["pull_request"]["number"]
-        repo_name = os.environ.get("GITHUB_REPOSITORY")
-        github_token = os.environ.get("GITHUB_TOKEN")
+                    target_files = []
+                    for file in pr.get_files():
+                        if file.status == "removed" or not file.filename.endswith(".kt"):
+                            continue
+                        if any(excl in file.filename for excl in EXCLUDE_DIRS):
+                            continue
 
-        if not repo_name or not github_token:
-            print("⚠️ GITHUB_REPOSITORY o GITHUB_TOKEN no configurados.")
-            return []
+                        target_files.append(file.filename)
+                        if len(target_files) >= MAX_FILES:
+                            break
 
-        g = Github(github_token)
-        repo = g.get_repo(repo_name)
-        pr = repo.get_pull(pr_number)
+                    return target_files
+        except Exception as e:
+            print(f"⚠️ Error obteniendo archivos modificados del PR: {e}")
 
-        target_files = []
-        for file in pr.get_files():
-            if file.status == "removed" or not file.filename.endswith(".kt"):
-                continue
-            if any(excl in file.filename for excl in EXCLUDE_DIRS):
-                continue
+    # Fallback para ejecución local vía git diff
+    print("ℹ️ Detectando archivos Kotlin modificados localmente...")
+    for cmd in [
+        ["git", "diff", "--name-only", "origin/develop...HEAD"],
+        ["git", "diff", "--name-only", "HEAD~1"],
+        ["git", "diff", "--name-only", "--staged"],
+        ["git", "diff", "--name-only"]
+    ]:
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            candidate_files = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+            valid_files = [
+                f for f in candidate_files
+                if f.endswith(".kt") and os.path.exists(f) and not any(excl in f for excl in EXCLUDE_DIRS)
+            ]
+            if valid_files:
+                return valid_files[:MAX_FILES]
+        except Exception:
+            continue
 
-            target_files.append(file.filename)
-            if len(target_files) >= MAX_FILES:
-                break
-
-        return target_files
-    except Exception as e:
-        print(f"⚠️ Error obteniendo archivos modificados del PR: {e}")
-        return []
+    return []
 
 
 def post_pr_comment(comment_body: str):
-    """Publica un comentario único en la conversación del Pull Request."""
+    """Publica un comentario único en el PR o lo muestra en consola si es ejecución local."""
     event_path = os.environ.get("GITHUB_EVENT_PATH")
     if not event_path or not os.path.exists(event_path):
+        print("\n" + "=" * 70)
+        print("🤖 REPORTE DE REVISIÓN DE SKILLS (EJECUCIÓN LOCAL)")
+        print("=" * 70)
+        print(comment_body)
+        print("=" * 70 + "\n")
         return
 
     try:
@@ -79,26 +109,45 @@ def post_pr_comment(comment_body: str):
             event_data = json.load(f)
 
         if "pull_request" not in event_data:
+            print(comment_body)
             return
 
         pr_number = event_data["pull_request"]["number"]
         repo_name = os.environ.get("GITHUB_REPOSITORY")
         github_token = os.environ.get("GITHUB_TOKEN")
 
-        if not repo_name or not github_token:
+        if not repo_name or not github_token or Github is None:
+            print(comment_body)
             return
 
         g = Github(github_token)
         repo = g.get_repo(repo_name)
         pr = repo.get_pull(pr_number)
+
+        # Buscar y limpiar comentarios anteriores del bot para mantener la PR limpia
+        try:
+            bot_markers = [
+                "## 🤖 Agent Code Review",
+                "## ⚠️ Agent Code Review"
+            ]
+            for comment in pr.get_issue_comments():
+                if any(marker in (comment.body or "") for marker in bot_markers):
+                    try:
+                        comment.delete()
+                    except Exception as err:
+                        print(f"⚠️ No se pudo eliminar comentario previo {comment.id}: {err}")
+        except Exception as e:
+            print(f"⚠️ Error limpiando comentarios previos: {e}")
+
         pr.create_issue_comment(comment_body)
-        print("✅ Comentario publicado en el PR.")
+        print("✅ Comentario publicado en el PR (comentarios antiguos limpiados).")
     except Exception as e:
         print(f"⚠️ No se pudo publicar el comentario en el PR: {e}")
+        print(comment_body)
 
 
-def run_pr_review_and_guardrails():
-    files = get_modified_kt_files()
+def run_pr_review_and_guardrails(target_files=None):
+    files = get_modified_kt_files(target_files)
     if not files:
         print("ℹ️ No hay archivos .kt modificados para analizar.")
         post_pr_comment(
@@ -176,6 +225,10 @@ def run_pr_review_and_guardrails():
             for err in errors:
                 body += f"- **{err['skill']}** en `{err['file']}`: `{err['error'][:80]}`\n"
 
+            has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
+            if has_auth_error:
+                body += "\n> 💡 *Aviso de credenciales: Asegúrate de que el Secret `GEMINI_API_KEY` esté configurado en los Secrets de GitHub Actions.*\n"
+
         post_pr_comment(body)
 
     elif errors:
@@ -183,7 +236,12 @@ def run_pr_review_and_guardrails():
         body += "No se pudieron ejecutar algunas skills automáticas:\n\n"
         for err in errors:
             body += f"- **{err['skill']}** en `{err['file']}`: `{err['error'][:90]}`\n"
-        body += "\n> 💡 *Asegúrate de que el Secret `GEMINI_API_KEY` esté configurado en los Secrets de GitHub Actions.*"
+
+        has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
+        if has_auth_error:
+            body += "\n> 💡 *Asegúrate de que el Secret `GEMINI_API_KEY` esté configurado en los Secrets de GitHub Actions.*"
+        else:
+            body += "\n> ℹ️ *Incidencia temporal de red o sobrecarga en los servidores de la API.*"
         post_pr_comment(body)
 
     else:
@@ -219,4 +277,5 @@ def run_pr_review_and_guardrails():
 
 
 if __name__ == "__main__":
-    run_pr_review_and_guardrails()
+    cli_files = [a for a in sys.argv[1:] if not a.startswith("-")]
+    run_pr_review_and_guardrails(cli_files if cli_files else None)

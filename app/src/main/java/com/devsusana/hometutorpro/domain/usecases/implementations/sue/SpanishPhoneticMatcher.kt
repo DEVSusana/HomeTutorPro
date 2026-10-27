@@ -3,19 +3,17 @@ package com.devsusana.hometutorpro.domain.usecases.implementations.sue
 import java.text.Normalizer
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Phonetic matcher and normalizer tailored for Spanish spoken queries,
  * speech-to-text acoustic ambiguities, and colloquial educational terminology.
  */
-@Singleton
-class SpanishPhoneticMatcher @Inject constructor() {
+class SpanishPhoneticMatcher @Inject constructor() : ISpanishPhoneticMatcher {
 
     /**
      * Normalizes a name string by removing accents and mapping homophones in Spanish.
      */
-    fun normalizeName(name: String): String {
+    override fun normalizeName(name: String): String {
         val temp = Normalizer.normalize(name.lowercase(Locale.ROOT), Normalizer.Form.NFD)
         val cleaned = temp.replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
         return cleaned
@@ -33,7 +31,7 @@ class SpanishPhoneticMatcher @Inject constructor() {
     /**
      * Returns the consonant skeleton of a name by stripping vowels from its normalized form.
      */
-    fun normalizeConsonants(name: String): String {
+    override fun normalizeConsonants(name: String): String {
         val norm = normalizeName(name)
         return norm.replace(Regex("[aeiou]"), "")
     }
@@ -41,7 +39,7 @@ class SpanishPhoneticMatcher @Inject constructor() {
     /**
      * Normalizes a single colloquial or abbreviated subject name to its official standard name.
      */
-    fun normalizeSingleSubject(rawSubject: String): String {
+    override fun normalizeSingleSubject(rawSubject: String): String {
         val trimmed = rawSubject.trim()
         if (trimmed.isBlank()) return ""
         val clean = Normalizer.normalize(trimmed.lowercase(Locale.ROOT), Normalizer.Form.NFD)
@@ -81,7 +79,7 @@ class SpanishPhoneticMatcher @Inject constructor() {
      * Normalizes colloquial, abbreviated, or compound subject names (e.g. "mates y física", "lengua, inglés")
      * to their official standard names joined by comma. Returns an empty string if blank or non-subject filler.
      */
-    fun normalizeSubjects(rawSubjects: String): String {
+    override fun normalizeSubjects(rawSubjects: String): String {
         if (rawSubjects.isBlank()) return ""
         val splitRegex = Regex("""\s*(?:,|;|/|\s+y\s+|\s+e\s+)\s*""", RegexOption.IGNORE_CASE)
         val items = rawSubjects.split(splitRegex)
@@ -100,12 +98,12 @@ class SpanishPhoneticMatcher @Inject constructor() {
     /**
      * Normalizes colloquial or abbreviated subject names to their official standard names.
      */
-    fun normalizeSubject(rawSubject: String): String = normalizeSubjects(rawSubject)
+    override fun normalizeSubject(rawSubject: String): String = normalizeSubjects(rawSubject)
 
     /**
      * Resolves conversational Spanish temporal idioms to 24-hour HH:mm representations.
      */
-    fun resolveColloquialTimePhrase(query: String): String? {
+    override fun resolveColloquialTimePhrase(query: String): String? {
         val clean = Normalizer.normalize(query.lowercase(Locale.ROOT), Normalizer.Form.NFD)
             .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
 

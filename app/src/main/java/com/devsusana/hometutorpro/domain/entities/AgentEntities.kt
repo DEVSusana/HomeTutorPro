@@ -64,6 +64,9 @@ data class AgentScheduleDetail(
     val endTime: String
 )
 
+/**
+ * Log entry capturing a tutoring class occurrence executed or recorded via SUE.
+ */
 data class AgentClassLog(
     val studentId: String,
     val scheduleId: String,
@@ -73,6 +76,9 @@ data class AgentClassLog(
     val isExtra: Boolean
 )
 
+/**
+ * Domain entity recording financial movements (payments and balance adjustments) performed via SUE.
+ */
 data class AgentTransactionLog(
     val studentId: String,
     val type: String, // "PAYMENT" or "BALANCE_ADD"

@@ -5,8 +5,7 @@ import com.devsusana.hometutorpro.data.local.entities.ScheduleExceptionEntity
 import com.devsusana.hometutorpro.data.local.entities.StudentEntity
 import com.devsusana.hometutorpro.data.local.entities.SyncStatus
 import com.devsusana.hometutorpro.data.security.SecureAuthManager
-import com.devsusana.hometutorpro.domain.repository.RemoteDocument
-import com.google.firebase.firestore.DocumentSnapshot
+import com.devsusana.hometutorpro.data.remote.RemoteDocument
 import java.time.DayOfWeek
 
 /**
@@ -90,29 +89,6 @@ fun RemoteDocument.toScheduleExceptionEntity(studentId: Long, professorId: Strin
     )
 }
 
-fun DocumentSnapshot.toStudentEntity(secureAuthManager: SecureAuthManager, professorId: String): StudentEntity {
-    return StudentEntity(
-        id = 0,
-        professorId = professorId,
-        cloudId = id,
-        name = getString("name") ?: "",
-        age = getLong("age")?.toInt() ?: 0,
-        address = secureAuthManager.decryptPII(getString("address")),
-        parentPhones = secureAuthManager.decryptPII(getString("parentPhones")),
-        studentPhone = secureAuthManager.decryptPII(getString("studentPhone")),
-        studentEmail = secureAuthManager.decryptPII(getString("studentEmail")),
-        subjects = getString("subjects") ?: "",
-        course = getString("course") ?: "",
-        pricePerHour = getDouble("pricePerHour") ?: 0.0,
-        pendingBalance = getDouble("pendingBalance") ?: 0.0,
-        educationalAttention = getString("educationalAttention") ?: "",
-        lastPaymentDate = getLong("lastPaymentDate"),
-        color = getLong("color")?.toInt(),
-        lastModifiedTimestamp = getLong("lastModified") ?: System.currentTimeMillis(),
-        syncStatus = SyncStatus.SYNCED
-    )
-}
-
 fun ScheduleEntity.toFirestoreMap(): Map<String, Any?> {
     return mapOf(
         "localId" to id,
@@ -122,22 +98,6 @@ fun ScheduleEntity.toFirestoreMap(): Map<String, Any?> {
         "isCompleted" to isCompleted,
         "completedDate" to completedDate,
         "lastModified" to lastModifiedTimestamp
-    )
-}
-
-fun DocumentSnapshot.toScheduleEntity(studentId: Long, professorId: String): ScheduleEntity {
-    return ScheduleEntity(
-        id = 0,
-        professorId = professorId,
-        studentId = studentId,
-        cloudId = id,
-        dayOfWeek = DayOfWeek.valueOf(getString("dayOfWeek") ?: "MONDAY"),
-        startTime = getString("startTime") ?: "",
-        endTime = getString("endTime") ?: "",
-        isCompleted = getBoolean("isCompleted") ?: false,
-        completedDate = getLong("completedDate"),
-        lastModifiedTimestamp = getLong("lastModified") ?: System.currentTimeMillis(),
-        syncStatus = SyncStatus.SYNCED
     )
 }
 
@@ -152,23 +112,5 @@ fun ScheduleExceptionEntity.toFirestoreMap(): Map<String, Any?> {
         "newEndTime" to newEndTime,
         "newDayOfWeek" to newDayOfWeek?.name,
         "lastModified" to lastModifiedTimestamp
-    )
-}
-
-fun DocumentSnapshot.toScheduleExceptionEntity(studentId: Long, professorId: String): ScheduleExceptionEntity {
-    return ScheduleExceptionEntity(
-        id = 0,
-        professorId = professorId,
-        studentId = studentId,
-        cloudId = id,
-        originalScheduleId = getString("originalScheduleId") ?: "",
-        exceptionDate = getLong("exceptionDate") ?: 0L,
-        reason = getString("reason") ?: "",
-        type = getString("type") ?: if (getBoolean("isCancelled") ?: true) "CANCELLED" else "RESCHEDULED",
-        newStartTime = getString("newStartTime"),
-        newEndTime = getString("newEndTime"),
-        newDayOfWeek = getString("newDayOfWeek")?.let { DayOfWeek.valueOf(it) },
-        lastModifiedTimestamp = getLong("lastModified") ?: System.currentTimeMillis(),
-        syncStatus = SyncStatus.SYNCED
     )
 }

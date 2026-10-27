@@ -13,7 +13,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SyncScheduler @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val workManager: WorkManager
 ) {
 
@@ -78,6 +78,11 @@ class SyncScheduler @Inject constructor(
     }
 
     companion object {
+        /**
+         * Cloud cost control directive from BUSINESS_RULES.md (Section 3).
+         * Cloud sync is temporarily disabled; operations run in local mode prioritizing Room.
+         */
+        const val CLOUD_SYNC_ENABLED = false
         private const val IMMEDIATE_SYNC_WORK = "immediate_sync"
         private const val PERIODIC_SYNC_WORK = "periodic_sync"
     }
