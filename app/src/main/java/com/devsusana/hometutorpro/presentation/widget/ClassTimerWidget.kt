@@ -78,7 +78,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                 val activeSession = getActiveSessionUseCase()?.takeIf { session ->
                     currentUser != null && (session.tutorId.isEmpty() || session.tutorId == currentUser.uid)
                 }
-                val nextClass = if (activeSession == null && currentUser != null) getNextClassUseCase() else null
+                val nextClass = if (currentUser != null) getNextClassUseCase() else null
                 val doorCode = if (currentUser != null && nextClass != null) {
                     val student = getStudentByIdUseCase(currentUser.uid, nextClass.student.id).firstOrNull()
                     DoorCodeExtractor.extractDoorCode(student?.address, student?.notes)
@@ -160,6 +160,33 @@ class ClassTimerWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_chronometer_label, context.getString(R.string.widget_time_completed))
             } else {
                 views.setTextViewText(R.id.widget_chronometer_label, context.getString(R.string.widget_time_remaining))
+            }
+
+            // Next class preview while active class is running
+            if (nextClass != null) {
+                val isSameActive = nextClass.student.id == activeSession.studentId &&
+                    nextClass.date == LocalDate.now() &&
+                    try {
+                        val classStart = parseTimeSafely(nextClass.startTime)
+                        val sessionEnd = Instant.ofEpochMilli(activeSession.startTimeMillis)
+                            .atZone(ZoneId.systemDefault()).toLocalTime()
+                            .plusMinutes(activeSession.durationMinutes)
+                        classStart != null && classStart.isBefore(sessionEnd)
+                    } catch (_: Exception) { false }
+
+                if (!isSameActive) {
+                    val dateLabel = formatScheduleDate(context, nextClass.date)
+                    val cleanStartTime = formatTimeDisplay(context, nextClass.startTime)
+                    views.setViewVisibility(R.id.widget_active_next_class_preview, View.VISIBLE)
+                    views.setTextViewText(
+                        R.id.widget_active_next_class_preview,
+                        context.getString(R.string.widget_upcoming_preview, nextClass.student.name, "$dateLabel • $cleanStartTime")
+                    )
+                } else {
+                    views.setViewVisibility(R.id.widget_active_next_class_preview, View.GONE)
+                }
+            } else {
+                views.setViewVisibility(R.id.widget_active_next_class_preview, View.GONE)
             }
 
             // Stop button

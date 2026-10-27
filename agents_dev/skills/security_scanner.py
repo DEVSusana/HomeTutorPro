@@ -47,6 +47,11 @@ def run_security_scan(file_path: str, output_format: str = "text") -> str:
        
     7. Code Hygiene & Language Compliance:
        - Strict English naming for all classes, functions, variables, and comments as mandated by AGENTS.md.
+       
+    8. Single-File Scope & False Positive Guardrails:
+       - Room DAOs (`@Dao`): A DAO is strictly an interface declaring SQL query mappings. Do NOT flag a DAO for lacking database-level encryption (such as SQLCipher). Storage encryption and Keystore configuration are configured in `DatabaseModule` and `AppDatabase`, not inside individual DAO interfaces.
+       - Parameterized Room Queries: Room queries using `:param` parameter binding are secure against SQL injection. Do not flag them.
+       - Only report genuine code-level vulnerabilities present in the scanned file (e.g., dynamic SQL string concatenation in `@RawQuery`, hardcoded plaintext secrets, insecure RNG, or unhandled exceptions in launched coroutines).
     """
 
     if output_format == "json":
@@ -58,6 +63,8 @@ def run_security_scan(file_path: str, output_format: str = "text") -> str:
         
         CODE TO SCAN ({file_path}):
         {code}
+        
+        CRITICAL GUARDRAIL: Do not flag Room DAOs for not implementing database encryption (SQLCipher) or for storing standard domain entities. Only flag actionable, genuine security flaws in this specific file's code.
         
         Return a strict JSON object matching this schema:
         {{

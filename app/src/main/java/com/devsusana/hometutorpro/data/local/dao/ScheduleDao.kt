@@ -70,6 +70,13 @@ interface ScheduleDao {
 
     /**
      * Finds any schedule overlapping the given day and time range.
+     *
+     * @param dayOfWeek The day of the week (1 = Monday, 7 = Sunday).
+     * @param startTime The start time formatted as HH:mm.
+     * @param endTime The end time formatted as HH:mm.
+     * @param professorId The ID of the professor who owns the schedules.
+     * @param id Optional schedule ID to exclude from conflict checks (e.g. when editing).
+     * @return The conflicting [ScheduleEntity] if an overlap is found, or null otherwise.
      */
     @Query("""
         SELECT s.* 
@@ -85,25 +92,48 @@ interface ScheduleDao {
 
     /**
      * Retrieves all active schedules for the professor as an observable Flow.
+     *
+     * @param professorId The ID of the professor.
+     * @return A [Flow] emitting the list of active [ScheduleEntity] instances ordered by day and start time.
      */
     @Query("SELECT * FROM schedules WHERE professorId = :professorId AND pendingDelete = 0 ORDER BY dayOfWeek, startTime")
     fun getAllSchedules(professorId: String): Flow<List<ScheduleEntity>>
 
     /**
      * Retrieves all active schedules for the professor as a one-shot query.
+     *
+     * @param professorId The ID of the professor.
+     * @return A list of [ScheduleEntity] instances ordered by ID.
      */
     @Query("SELECT * FROM schedules WHERE professorId = :professorId ORDER BY id ASC")
     suspend fun getAllSchedulesOnce(professorId: String): List<ScheduleEntity>
 
     /**
-     * Retrieves a schedule entity by its local id.
+     * Retrieves an active schedule entity by its local id.
+     *
+     * @param scheduleId The local ID of the schedule.
+     * @param professorId The ID of the professor.
+     * @return The matching [ScheduleEntity], or null if not found or pending delete.
      */
     @Query("SELECT * FROM schedules WHERE id = :scheduleId AND professorId = :professorId AND pendingDelete = 0")
     suspend fun getScheduleById(scheduleId: Long, professorId: String): ScheduleEntity?
 
+    /**
+     * Retrieves an active schedule entity by its Firestore cloud ID.
+     *
+     * @param cloudId The Firestore document ID.
+     * @param professorId The ID of the professor.
+     * @return The matching [ScheduleEntity], or null if not found or pending delete.
+     */
     @Query("SELECT * FROM schedules WHERE cloudId = :cloudId AND professorId = :professorId AND pendingDelete = 0")
     suspend fun getScheduleByCloudId(cloudId: String, professorId: String): ScheduleEntity?
 
+    /**
+     * Inserts or replaces a schedule entity in the local database.
+     *
+     * @param schedule The [ScheduleEntity] to persist.
+     * @return The row ID of the newly inserted or replaced record.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(schedule: ScheduleEntity): Long
 
