@@ -40,29 +40,29 @@ class StudentFinanceDelegate @Inject constructor(
         scope: CoroutineScope
     ) {
         scope.launch {
+            val studentBefore = state.value.student
             state.value = state.value.copy(isLoading = true)
             when (val result = registerPaymentUseCase(professorId, studentId, amount, paymentType)) {
                 is Result.Success -> {
-                    // Optimistic UI update: reflect the DB changes immediately in memory
-                    // so the UI shows the correct balance and lastPaymentDate without
-                    // waiting for the Room Flow to re-emit.
-                    val currentStudent = state.value.student
-                    if (currentStudent != null) {
-                        val updatedStudent = currentStudent.copy(
-                            pendingBalance = currentStudent.pendingBalance - amount,
-                            lastPaymentDate = System.currentTimeMillis()
-                        )
-                        state.value = state.value.copy(
-                            student = updatedStudent,
-                            isLoading = false,
-                            successMessage = application.getString(R.string.student_detail_success_payment_registered, amount)
-                        )
+                    // Prevent double-subtraction race condition:
+                    // Room Flow in ViewModel may have already emitted the updated student from DB (0.0).
+                    // We must calculate the target balance against the baseline before the payment,
+                    // rather than subtracting again from state.value.student.
+                    val baseStudent = state.value.student ?: studentBefore
+                    val targetBalance = if (studentBefore != null) {
+                        studentBefore.pendingBalance - amount
                     } else {
-                        state.value = state.value.copy(
-                            isLoading = false,
-                            successMessage = application.getString(R.string.student_detail_success_payment_registered, amount)
-                        )
+                        baseStudent?.pendingBalance ?: 0.0
                     }
+                    val updatedStudent = baseStudent?.copy(
+                        pendingBalance = targetBalance,
+                        lastPaymentDate = System.currentTimeMillis()
+                    )
+                    state.value = state.value.copy(
+                        student = updatedStudent,
+                        isLoading = false,
+                        successMessage = application.getString(R.string.student_detail_success_payment_registered, amount)
+                    )
                 }
                 is Result.Error -> {
                     handlePaymentError(result.error, state)

@@ -3,7 +3,7 @@
 Motor agéntico autónomo y desacoplado, diseñado para integrarse directamente en **Android Studio** (vía Terminal integrada o Gradle) y fácilmente extrapolable a cualquier otro proyecto de software (iOS, Web, Backend).
 
 > [!TIP]
-> **Guía Visual y Cheat Sheet de Comandos:** Para ver los diagramas de arquitectura detallados (`system_tools` vs `skill_tools`), el flujo de ejecución y todos los comandos posibles, consulta la [Guía de Arquitectura y Comandos](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/docs/AGENTIC_LOOP_ARCHITECTURE_AND_COMMANDS.md).
+> **Guía Maestra y Cheat Sheet de Comandos:** Para ver la guía didáctica completa, los diagramas de arquitectura (`system_tools` vs `skill_tools`), el flujo de ejecución y todos los comandos posibles, consulta la [Guía Maestra del Bucle Agéntico](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/docs/GUIA_MAESTRA_BUCLE_AGENTICO.md).
 
 ---
 
@@ -133,7 +133,7 @@ Los tests verifican:
 ```text
 agents_dev/
 ├── ci/
-│   └── pr_review.py            # Único ejecutor de CI: analiza PRs con 5 skills y aplica guardrails
+│   └── pr_review.py            # Ejecutor de CI: revisa PRs con unified_reviewer y publica informes limpios
 ├── core/
 │   ├── engine.py               # Bucle autónomo ReAct con auto-reparación de compilación/tests
 │   ├── system_tools.py         # Herramientas de sistema: read_file, patch_file, run_command, list_files
@@ -143,20 +143,23 @@ agents_dev/
 │   └── spec_interviewer.py     # Motor de entrevista y gate estricto de aprobación de specs
 ├── providers/
 │   ├── base.py                 # Interfaz universal BaseLLMProvider, LLMResponse, ToolCall
-│   ├── gemini_provider.py      # Conector nativo de Google Gemini (gemini-3.1-flash-lite)
+│   ├── gemini_provider.py      # Conector nativo de Google Gemini
 │   └── anthropic_provider.py   # Conector nativo de Anthropic Claude con Tool Use
-├── skills/                     # TUS SKILLS ESENCIALES:
-│   ├── architecture_auditor.py # 1. Auditoría de Arquitectura
-│   ├── security_scanner.py     # 2. Escáner de Seguridad
-│   ├── test_generator.py       # 3. Diseño de Tests
-│   ├── kdoc_specialist.py      # 4. Auditoría KDoc
-│   ├── refactor_assistant.py   # 5. Asistente de Refactorización
-│   ├── hilt_checker.py         # 6. Validador rápido local de inyección Hilt
+├── skills/                     # MOTOR DE SKILLS Y ESTÁNDARES:
+│   ├── PROJECT_STANDARDS.md    # 📋 Fuente de verdad: Límites de capas, OWASP, KDoc y calidad
+│   ├── context_engine.py       # 🧠 Clasificador de componentes y blindaje anti-alucinaciones
+│   ├── unified_reviewer.py     # ⚡ Revisión integral quirúrgica (1 llamada por archivo para CI)
+│   ├── architecture_auditor.py # 1. Auditoría individual de Arquitectura (CLI)
+│   ├── security_scanner.py     # 2. Escáner individual de Seguridad (CLI)
+│   ├── test_generator.py       # 3. Diseño individual de Tests (CLI)
+│   ├── kdoc_specialist.py      # 4. Auditoría individual de KDoc (CLI)
+│   ├── refactor_assistant.py   # 5. Asistente individual de Refactorización (CLI)
+│   ├── hilt_checker.py         # 6. Validador local rápido de inyección Hilt
 │   ├── test_scaffolder.py      # 7. Generador físico de tests JUnit 5 en disco
 │   ├── config.py               # Cliente local de IA (ignorado en git)
 │   └── config.example.py       # Plantilla segura de configuración
 ├── specs/                      # Especificaciones (.md) generadas en el proyecto
-├── tests/                      # Suite de pruebas unitarias del motor agéntico
+├── tests/                      # Suite de pruebas unitarias del motor agéntico (15 tests)
 ├── cli.py                      # CLI unificado (plan | run) con soporte para --provider y --model
 ├── run.sh                      # Lanzador con activación automática de entorno virtual
 ├── requirements.txt            # Dependencias Python requeridas (google-genai, anthropic, PyGithub)

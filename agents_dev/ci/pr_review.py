@@ -19,13 +19,9 @@ SKILLS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "skil
 if SKILLS_DIR not in sys.path:
     sys.path.insert(0, SKILLS_DIR)
 
-import architecture_auditor
-import security_scanner
-import test_generator
-import kdoc_specialist
-import refactor_assistant
+import unified_reviewer
 
-EXCLUDE_DIRS = ["di/", "ui/theme/"]
+EXCLUDE_DIRS = ["di/", "ui/theme/", "build/", ".gradle/", "ksp/"]
 MAX_FILES = 10
 
 
@@ -159,61 +155,50 @@ def run_pr_review_and_guardrails(target_files=None):
 
     print(f"🔍 Archivos Kotlin a revisar ({len(files)}): {files}")
 
-    skills = [
-        ("Architecture", architecture_auditor.run_architecture_audit),
-        ("Security", security_scanner.run_security_scan),
-        ("Testing", test_generator.run_test_design),
-        ("KDoc", kdoc_specialist.run_kdoc_audit),
-        ("Refactor", refactor_assistant.run_refactor_analysis)
-    ]
-
     all_findings = []
     errors = []
 
     for file_path in files:
-        print(f"\n📄 Analizando: {file_path}")
+        print(f"\n📄 Analizando quirúrgicamente (Unified Review): {file_path}")
         if not os.path.exists(file_path):
             print(f"  ⚠️ Archivo no encontrado en checkout local: {file_path}")
             continue
 
-        for name, skill_func in skills:
-            print(f"  ↳ Ejecutando skill: {name}...")
-            try:
-                response = skill_func(file_path, output_format="json")
-                response = response.strip()
-                if response.startswith("```json"):
-                    response = response[7:]
-                if response.endswith("```"):
-                    response = response[:-3]
+        try:
+            result_data = unified_reviewer.run_unified_review(file_path)
+            findings = result_data.get("findings", [])
+            all_findings.extend(findings)
+            print(f"  ↳ Hallazgos detectados en {file_path}: {len(findings)}")
+        except Exception as e:
+            err_msg = str(e)
+            print(f"  ⚠️ Error analizando {file_path}: {err_msg}")
+            errors.append({"skill": "UnifiedReview", "file": file_path, "error": err_msg})
 
-                result_data = json.loads(response.strip())
-                if "findings" in result_data and isinstance(result_data["findings"], list):
-                    all_findings.extend(result_data["findings"])
-            except Exception as e:
-                err_msg = str(e)
-                print(f"    ⚠️ Error en {name} ({file_path}): {err_msg}")
-                errors.append({"skill": name, "file": file_path, "error": err_msg})
+        time.sleep(2)
 
-            time.sleep(3)
+    # 1. Filtrar solo hallazgos accionables (ignorar informativos/verdes para mantener el informe limpio y conciso)
+    actionable_findings = [
+        f for f in all_findings
+        if str(f.get("severity", "")).lower() in ["critical", "high", "warning", "medium"]
+    ]
 
-    # 1. Construir el comentario para el PR
-    if all_findings:
+    if actionable_findings:
         findings_by_file = {}
-        for f in all_findings:
+        for f in actionable_findings:
             file_key = f.get("file", "General")
             findings_by_file.setdefault(file_key, []).append(f)
 
         body = "## 🤖 Agent Code Review: Hallazgos Detectados\n\n"
-        emoji_map = {"critical": "🔴", "warning": "🟡", "info": "🟢"}
+        emoji_map = {"critical": "🔴", "high": "🔴", "warning": "🟡", "medium": "🟡"}
 
         for file_key, file_findings in findings_by_file.items():
             body += f"### 📄 `{file_key}`\n"
             body += "| Sev | Categoría | Hallazgo | Sugerencia |\n"
             body += "| :---: | :--- | :--- | :--- |\n"
             for f in file_findings:
-                sev = f.get("severity", "info").lower()
-                emoji = emoji_map.get(sev, "🟢")
-                cat = f.get("category", "-").capitalize()
+                sev = str(f.get("severity", "warning")).lower()
+                emoji = emoji_map.get(sev, "🟡")
+                cat = str(f.get("category", "-")).capitalize()
                 line = f"L{f.get('line')}" if f.get("line") else ""
                 msg = str(f.get("message") or f.get("title") or "-").replace("|", "-")
                 sug = str(f.get("suggestion") or f.get("remediation") or "-").replace("|", "-")
