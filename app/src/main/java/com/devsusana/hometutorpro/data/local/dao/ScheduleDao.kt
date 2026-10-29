@@ -105,7 +105,7 @@ interface ScheduleDao {
      * @param professorId The ID of the professor.
      * @return A list of [ScheduleEntity] instances ordered by ID.
      */
-    @Query("SELECT * FROM schedules WHERE professorId = :professorId ORDER BY id ASC")
+    @Query("SELECT * FROM schedules WHERE professorId = :professorId AND pendingDelete = 0 ORDER BY id ASC")
     suspend fun getAllSchedulesOnce(professorId: String): List<ScheduleEntity>
 
     /**

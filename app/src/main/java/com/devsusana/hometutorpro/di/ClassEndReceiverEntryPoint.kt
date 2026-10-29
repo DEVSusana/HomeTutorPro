@@ -1,6 +1,8 @@
 package com.devsusana.hometutorpro.di
 
+import com.devsusana.hometutorpro.domain.usecases.IConsolidateActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.INotifyClassEndUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -17,7 +19,10 @@ interface ClassEndReceiverEntryPoint {
     fun notifyClassEndUseCase(): INotifyClassEndUseCase
 
     /** Provides the stop active session use case. */
-    fun stopActiveSessionUseCase(): com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
+    fun stopActiveSessionUseCase(): IStopActiveSessionUseCase
+
+    /** Provides the session billing consolidation use case. */
+    fun consolidateActiveSessionUseCase(): IConsolidateActiveSessionUseCase
 
     /** Provides the application-scoped CoroutineScope. */
     @ApplicationScope

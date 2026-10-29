@@ -45,48 +45,48 @@
 ---
 
 # 3. El Caso de Estudio: HomeTutorPro
-### Un asistente conversacional por voz para profesores particulares
+### Un sandbox de validación para arquitectura offline-first en movilidad
 
-* 👩‍🏫 **El Problema del Usuario:** Profesores particulares autónomos que dan clase a 15-30 alumnos a domicilio y necesitan gestionar agenda, pagos y materiales sin perder tiempo en menús complejos.
-* 🎙️ **La Solución: SUE (Smart User Entity):** Asistente por voz integrado en Android que atiende peticiones como:
-  * *«¿Qué clases tengo hoy por la tarde?»*
-  * *«Pepe se ha mudado a Calle Mayor 12»*
-  * *«Cancela la clase de Juan y dime qué huecos libres tengo el viernes»*
-* 🔒 **Requisito Innegociable:** **Edge Computing 100% On-Device**. Nada sale del teléfono.
+* 👩‍🏫 **El Problema del Usuario:** Profesores particulares que atienden alumnos a domicilio y necesitan consultar agendas, cobros y notas con inmediatez sin depender de cobertura.
+* 🔒 **Inferencia 100% Local:** Cero llamadas a servidores centrales; los datos de menores y finanzas nunca abandonan el dispositivo.
+* 📱 **Target de Despliegue:** Android 14+ en terminales comerciales estándar (presupuesto de RAM acotado para convivir con el sistema).
+* 🎙️ **Asistencia por Voz y Texto:** Operaciones rápidas mediante lógica híbrida (Fast-Path determinista + LLM local).
 
 > **Notas de Oradora (Minuto 03:00 - 05:00):**  
-> *"Para validar esto creamos HomeTutorPro. Su asistente SUE no es un chatbot de juguete: gestiona cobros, cancelaciones, huecos libres y perfiles completos. Y la premisa fue tajante: 'Si desconectas el móvil de internet, SUE debe seguir funcionando al 100%'."*
+> *"Para validar esta arquitectura utilizamos HomeTutorPro y su asistente SUE. El caso de uso es perfecto: un profesor particular que se desplaza entre domicilios, a veces sin cobertura en sótanos o zonas rurales, gestionando datos sensibles de menores. La premisa técnica fue clara: la inferencia generativa, la base de datos de Room y la lógica de negocio deben resolverse íntegramente en local. Si el usuario utiliza entrada por voz, nos apoyamos en el reconocimiento offline del sistema operativo, pero toda la inteligencia y la persistencia viven en el silicio del teléfono."*
 
 ---
 
 # 4. Los Tres Grandes Desafíos de la IA en Móvil
 ### Lo que nadie te cuenta antes de meter un LLM en un APK
 
-1. 🧠 **Memoria RAM y VRAM Asfixiadas:**  
-   Un smartphone medio tiene entre 4 y 8 GB de RAM compartida entre sistema operativo, apps y GPU. Un modelo mal gestionado provoca cierres forzados por el temido *Out-Of-Memory (OOM)*.
-2. 🔋 **Consumo de Batería y Calor:**  
-   Despertar la GPU/NPU a máxima frecuencia drena la batería y calienta el terminal en cuestión de minutos.
-3. 🌀 **Alucinaciones Factuales:**  
-   Los modelos compactos (~1B - 2B de parámetros) tienden a inventar cifras o equivocarse en sumas y fechas si se les pregunta directamente.
+1. 🧠 **Memoria RAM y VRAM Asfixiadas (La Lección de Gemma 2B):**  
+   800 MB de RAM activa en inferencia sigue siendo una cifra muy exigente en terminales de 4 GB. En pruebas iniciales con Gemma 2B, la presión de memoria provocaba cierres por LowMemoryKiller y riesgo inminente de ANR. Eso nos obligó a descender a 1B INT4 y diseñar un ciclo de vida ultra-defensivo.
+2. 🔋 **Presupuesto Térmico y Batería:**  
+   Despertar la GPU/NPU de forma continua calienta el chasis y activa el *thermal throttling*, degradando las frecuencias de reloj.
+3. 🌀 **Inconsistencias en Estructurado:**  
+   Los modelos pequeños cuantizados rompen frecuentemente esquemas JSON anidados y fallan en cálculos cronológicos exactos.
 
 > **Notas de Oradora (Minuto 05:00 - 07:30):**  
-> *"Llevar un LLM a un móvil no es gratis. Tienes tres enemigos mortales: los límites estrictos de RAM en Android, el consumo de batería y la tendencia de los modelos pequeños a alucinar. La clave de esta charla es cómo superamos estos tres obstáculos mediante arquitectura software."*
+> *"Llevar un LLM a un móvil no es gratis. Nuestra primera prueba de concepto la hicimos con Gemma 2B. ¿El resultado en el mundo real? Terminales de gama media sofocados por la memoria compartida y riesgo constante de ANR. Tuvimos que ser pragmáticos: bajar a Gemma 3 1B cuantizado en INT4 y asumir que 800 MB de RAM sigue siendo un consumo crítico que exige descargar el modelo de la memoria en cuanto el usuario deja de hablar."*
 
 ---
 
-# 5. Selección del Runtime: ¿Por qué Google MediaPipe?
+# 5. Selección de Runtime: MediaPipe GenAI y Hoja de Ruta a LiteRT-LM
 ### Comparativa de frameworks de inferencia en Android
 
-| Criterio | Google MediaPipe GenAI | llama.cpp (JNI/C++) | ONNX Runtime Mobile |
+| Criterio | Google MediaPipe Tasks GenAI | llama.cpp (JNI/C++) | ONNX Runtime Mobile |
 |:---|:---:|:---:|:---:|
 | **Integración Android** | ⭐⭐⭐⭐⭐ Nativa Gradle (`tasks-genai`) | ⭐⭐⭐ Wrappers JNI C++ manuales | ⭐⭐⭐⭐ Adaptadores adicionales |
 | **Aceleración Hardware** | GPU / OpenCL / Vulkan automática | Requiere flags NDK muy afinados | CPU / NNAPI |
-| **Soporte Gemma** | ⭐⭐⭐⭐⭐ Oficial de Google (.task / .bin) | Conversión a GGUF obligada | Conversión a ONNX compleja |
-| **Páginas de 16 KB** | ✅ Totalmente alineado (Android 15+) | Requiere recompilar binarios | En transición |
-| **Mantenimiento** | Cero código C++ en tu repositorio | Alto mantenimiento de librerías .so | Complejidad de operadores |
+| **Páginas de 16 KB** | ✅ Alineado v0.10.27+ (Android 15+) | Requiere recompilar binarios NDK | En transición |
+| **Estado Oficial Google** | ⚠️ En mantenimiento (Estable en v0.10) | Sin relación con Google AI Edge | Ecosistema independiente |
+| **Hoja de Ruta Futura** | 🔄 **Migración prevista a LiteRT-LM** | Sin soporte oficial de Google | Soporte heterogéneo |
+
+* **Decisión de Arquitectura:** Implementamos con MediaPipe Tasks GenAI v0.10.x por su estabilidad actual y soporte de 16 KB. La interfaz `InferenceRepository` en la Capa de Datos permite migrar a **LiteRT-LM** sin alterar dominio ni UI.
 
 > **Notas de Oradora (Minuto 07:30 - 10:00):**  
-> *"Evaluamos varias opciones. llama.cpp es genial pero te ata a compilar binarios NDK para cada arquitectura de procesador y mantener JNI en C++. MediaPipe Tasks GenAI nos dio soporte oficial de Google, aceleración por GPU transparente y cero dolores de cabeza con páginas de 16 KB."*
+> *"Para esta implementación utilizamos MediaPipe Tasks GenAI v0.10.x, que nos ofrecía integración directa en Gradle, aceleración por GPU y soporte de páginas de 16 KB para Android 15. Ahora bien, como sabéis, Google ha anunciado que la API LLM de MediaPipe entra en fase de mantenimiento para dar paso a LiteRT-LM. Precisamente por aplicar Clean Architecture, el motor está confinado tras la interfaz `InferenceRepository`: en cuanto LiteRT-LM alcance madurez completa en Android, la migración se hará exclusivamente en la capa de datos, sin tocar una sola línea de lógica de negocio."*
 
 ---
 

@@ -3,15 +3,19 @@ package com.devsusana.hometutorpro.domain.usecases.implementations
 import com.devsusana.hometutorpro.domain.entities.CalendarOccurrence
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.ScheduleException
+import com.devsusana.hometutorpro.domain.usecases.IGetActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetAllSchedulesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetScheduleExceptionsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentsUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGenerateCalendarOccurrencesUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetNextClassUseCase
+import com.devsusana.hometutorpro.domain.utils.ScheduleTimeParser
 import kotlinx.coroutines.flow.firstOrNull
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import javax.inject.Inject
 
 class GetNextClassUseCase @Inject constructor(
@@ -19,17 +23,20 @@ class GetNextClassUseCase @Inject constructor(
     private val getStudentsUseCase: IGetStudentsUseCase,
     private val getAllSchedulesUseCase: IGetAllSchedulesUseCase,
     private val getScheduleExceptionsUseCase: IGetScheduleExceptionsUseCase,
-    private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase
+    private val generateCalendarOccurrencesUseCase: IGenerateCalendarOccurrencesUseCase,
+    private val getActiveSessionUseCase: IGetActiveSessionUseCase
 ) : IGetNextClassUseCase {
 
     override suspend fun invoke(): CalendarOccurrence? {
-        val user = getCurrentUserUseCase().value ?: return null
-        val students = getStudentsUseCase(user.uid).firstOrNull() ?: return null
-        val schedules = getAllSchedulesUseCase(user.uid).firstOrNull() ?: return null
+        val tutorId = getCurrentUserUseCase().value?.uid
+            ?: getActiveSessionUseCase()?.tutorId?.takeIf { it.isNotBlank() }
+            ?: return null
+        val students = getStudentsUseCase(tutorId).firstOrNull() ?: return null
+        val schedules = getAllSchedulesUseCase(tutorId).firstOrNull() ?: return null
 
         val allExceptions = mutableListOf<ScheduleException>()
         students.filter { it.id.isNotEmpty() }.forEach { student ->
-            getScheduleExceptionsUseCase(user.uid, student.id).firstOrNull()?.let {
+            getScheduleExceptionsUseCase(tutorId, student.id).firstOrNull()?.let {
                 allExceptions.addAll(it)
             }
         }
@@ -50,6 +57,7 @@ class GetNextClassUseCase @Inject constructor(
         val now = java.time.LocalDateTime.now()
         val today = now.toLocalDate()
         val timeNow = now.toLocalTime()
+        val activeSession = getActiveSessionUseCase()?.takeIf { it.isOngoing }
 
         val validOccurrences = occurrences.filter { occurrence ->
             val exc = occurrence.exception ?: return@filter true
@@ -68,13 +76,34 @@ class GetNextClassUseCase @Inject constructor(
             compareBy<CalendarOccurrence> { it.date }.thenBy { it.startTime }
         )
 
-        val nextToday = sorted.filter { it.date == today }.find {
-            val start = it.startTime
-            try {
-                LocalTime.parse(start).isAfter(timeNow)
-            } catch (e: Exception) {
-                false
+        val nextToday = sorted.filter { it.date == today }.find { occurrence ->
+            // 1. If this occurrence corresponds to an active ongoing session, skip it (it is already active)
+            if (activeSession != null && activeSession.studentId == occurrence.student.id) {
+                return@find false
             }
+
+            // 2. Parse times safely
+            val classStart = ScheduleTimeParser.parseTimeSafely(occurrence.startTime)
+            val classEnd = ScheduleTimeParser.parseTimeSafely(occurrence.endTime) ?: classStart?.plusHours(1)
+
+            // 3. If slot has already ended, skip it
+            if (classEnd != null && timeNow.isAfter(classEnd)) {
+                return@find false
+            }
+
+            // 4. If this student already had a class started/completed today, skip it
+            val lastClassDate = occurrence.student.lastClassDate
+            if (lastClassDate != null) {
+                val lastClassLocalDate = Instant.ofEpochMilli(lastClassDate)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                if (lastClassLocalDate == today) {
+                    return@find false
+                }
+            }
+
+            // Otherwise, class is upcoming or currently within its slot and ready to be taught
+            true
         }
 
         if (nextToday != null) return nextToday

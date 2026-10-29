@@ -4,10 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.devsusana.hometutorpro.core.utils.SafeLogger
+import com.devsusana.hometutorpro.domain.constants.SessionConstants
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
+import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.ICancelClassEndNotificationUseCase
+import com.devsusana.hometutorpro.domain.usecases.IConsolidateActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
-import com.devsusana.hometutorpro.domain.usecases.IGetNextClassUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
@@ -37,13 +40,13 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
     lateinit var getCurrentUserUseCase: IGetCurrentUserUseCase
 
     @Inject
-    lateinit var getNextClassUseCase: IGetNextClassUseCase
-
-    @Inject
     lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
 
     @Inject
     lateinit var saveStudentUseCase: ISaveStudentUseCase
+
+    @Inject
+    lateinit var addToBalanceUseCase: IAddToBalanceUseCase
 
     @Inject
     lateinit var startActiveSessionUseCase: IStartActiveSessionUseCase
@@ -52,14 +55,27 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
     lateinit var stopActiveSessionUseCase: IStopActiveSessionUseCase
 
     @Inject
+    lateinit var consolidateActiveSessionUseCase: IConsolidateActiveSessionUseCase
+
+    @Inject
+    lateinit var getActiveSessionUseCase: IGetActiveSessionUseCase
+
+    @Inject
     lateinit var scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase
 
     @Inject
     lateinit var cancelClassEndNotificationUseCase: ICancelClassEndNotificationUseCase
 
     private val job = SupervisorJob()
-    private val coroutineScope = CoroutineScope(Dispatchers.Main + job)
+    var coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.Main + job)
+        @androidx.annotation.VisibleForTesting set
 
+    /**
+     * Receives widget broadcast intents for starting or stopping tutoring sessions.
+     *
+     * @param context The Context in which the receiver is running.
+     * @param intent The Intent being received.
+     */
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         if (action != ACTION_START_CLASS && action != ACTION_STOP_CLASS) return
@@ -68,67 +84,112 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
         coroutineScope.launch {
             try {
                 if (action == ACTION_START_CLASS) {
-                    handleStartClass(context)
+                    handleStartClass(context, intent)
                 } else {
                     handleStopClass(context)
                 }
             } catch (e: Exception) {
                 SafeLogger.e(TAG, "Error handling widget action: $action", e)
             } finally {
-                pendingResult.finish()
+                pendingResult?.finish()
             }
         }
     }
 
-    private suspend fun handleStartClass(context: Context) {
-        val user = getCurrentUserUseCase().filterNotNull().firstOrNull() ?: return
-        val nextOccurrence = getNextClassUseCase() ?: return
-        val studentId = nextOccurrence.student.id
-        val student = getStudentByIdUseCase(user.uid, studentId).firstOrNull() ?: return
+    /**
+     * Handles starting a tutoring session from a widget action intent.
+     *
+     * @param context Application context for broadcasting widget updates.
+     * @param intent Intent containing [ClassTimerWidget.EXTRA_STUDENT_ID] and duration payload.
+     */
+    @androidx.annotation.VisibleForTesting
+    internal suspend fun handleStartClass(context: Context, intent: Intent) {
+        val explicitTutorId = intent.getStringExtra(ClassTimerWidget.EXTRA_TUTOR_ID)
+        val tutorId = if (!explicitTutorId.isNullOrBlank()) {
+            explicitTutorId
+        } else {
+            (getCurrentUserUseCase().value
+                ?: kotlinx.coroutines.withTimeoutOrNull(1000L) { getCurrentUserUseCase().filterNotNull().firstOrNull() }
+            )?.uid
+        } ?: return
 
-        // Calculate class duration safely
-        val durationMinutes = try {
-            val start = ClassTimerWidget.parseTimeSafely(nextOccurrence.startTime)
-            val end = ClassTimerWidget.parseTimeSafely(nextOccurrence.endTime)
-            if (start != null && end != null) {
-                java.time.Duration.between(start, end).toMinutes().coerceAtLeast(15)
-            } else 60L
-        } catch (_: Exception) {
-            60L
+        // Rule 6.A (BUSINESS_RULES.md): Start class actions must be strictly bound to explicit student ID
+        val explicitStudentId = intent.getStringExtra(ClassTimerWidget.EXTRA_STUDENT_ID)
+        if (explicitStudentId.isNullOrBlank()) {
+            SafeLogger.w(TAG, "Cannot start class: Missing EXTRA_STUDENT_ID in intent payload")
+            return
         }
 
-        // Charge the student pending balance
-        val priceToAdd = (durationMinutes / 60.0) * student.pricePerHour
-        val updatedStudent = student.copy(
-            pendingBalance = student.pendingBalance + priceToAdd,
-            lastClassDate = System.currentTimeMillis()
-        )
-        saveStudentUseCase(user.uid, updatedStudent)
+        val student = getStudentByIdUseCase(tutorId, explicitStudentId).firstOrNull()
+        if (student == null) {
+            SafeLogger.w(TAG, "Cannot start class: Student $explicitStudentId not found")
+            return
+        }
 
-        // Save active session
+        val durationMinutes = intent.getLongExtra(ClassTimerWidget.EXTRA_DURATION_MINUTES, 60L).takeIf { it > 0 } ?: 60L
+
+        // 1. Save active session immediately with isBilled = false.
+        // Financial billing is deferred until the session has run for at least MIN_BILLABLE_DURATION_MINUTES (15 min)
+        // so that accidental starts or early cancellations do not corrupt student accounting or mark the class completed.
         val session = ActiveSession(
             studentId = student.id,
             studentName = student.name,
             startTimeMillis = System.currentTimeMillis(),
             durationMinutes = durationMinutes,
             isOngoing = true,
-            tutorId = user.uid
+            tutorId = tutorId,
+            isBilled = false
         )
         startActiveSessionUseCase(session)
+        ClassTimerWidget.updateWidget(context)
 
-        // Schedule notification for class end (with rollback if scheduling fails)
+        // 2. Schedule notification for class end (log warning if scheduling fails, but keep active session intact)
         val scheduled = scheduleClassEndNotificationUseCase(student.name, durationMinutes)
         if (!scheduled) {
-            stopActiveSessionUseCase()
+            SafeLogger.w(TAG, "Exact alarm permission or notification scheduling failed; continuing active session without notification")
         }
-
-        ClassTimerWidget.updateWidget(context)
     }
 
-    private suspend fun handleStopClass(context: Context) {
+    /**
+     * Handles stopping an active tutoring session from a widget action intent.
+     *
+     * @param context Application context for broadcasting widget updates.
+     */
+    @androidx.annotation.VisibleForTesting
+    internal suspend fun handleStopClass(context: Context) {
+        val activeSession = if (::getActiveSessionUseCase.isInitialized) {
+            getActiveSessionUseCase()
+        } else {
+            null
+        }
+        if (::consolidateActiveSessionUseCase.isInitialized) {
+            consolidateActiveSessionUseCase(activeSession)
+        } else if (activeSession != null && activeSession.isOngoing && !activeSession.isBilled) {
+            val elapsedMillis = System.currentTimeMillis() - activeSession.startTimeMillis
+            if (elapsedMillis >= SessionConstants.MIN_BILLABLE_DURATION_MILLIS) {
+                consolidateSessionCharge(activeSession)
+            }
+        }
+
         stopActiveSessionUseCase()
         cancelClassEndNotificationUseCase()
         ClassTimerWidget.updateWidget(context)
+    }
+
+    private suspend fun consolidateSessionCharge(activeSession: ActiveSession) {
+        val tutorId = activeSession.tutorId.takeIf { it.isNotBlank() }
+            ?: (getCurrentUserUseCase().value
+                ?: kotlinx.coroutines.withTimeoutOrNull(1000L) { getCurrentUserUseCase().filterNotNull().firstOrNull() }
+            )?.uid
+            ?: return
+
+        val student = getStudentByIdUseCase(tutorId, activeSession.studentId).firstOrNull() ?: return
+        val priceToAdd = (activeSession.durationMinutes / 60.0) * student.pricePerHour
+        if (priceToAdd > 0) {
+            addToBalanceUseCase(tutorId, student.id, priceToAdd)
+        } else {
+            saveStudentUseCase(tutorId, student.copy(lastClassDate = System.currentTimeMillis()))
+        }
     }
 
     companion object {
