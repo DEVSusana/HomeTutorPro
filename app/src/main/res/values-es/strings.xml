@@ -712,4 +712,9 @@
     <string name="widget_tomorrow">Mañana</string>
     <string name="widget_door_code">🔔 %1$s</string>
     <string name="widget_upcoming_preview">Siguiente: %1$s • %2$s</string>
+    <string name="widget_badge_extra">EXTRA</string>
+    <string name="widget_badge_rescheduled">RECUPERADA</string>
+    <string name="widget_day_progress">%1$d/%2$d hoy</string>
+    <string name="widget_day_progress_all_done">%1$d/%2$d completadas</string>
+    <string name="widget_navigate">📍 Navegar</string>
 </resources>

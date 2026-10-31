@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.SystemClock
 import android.text.format.DateFormat
 import android.view.View
@@ -16,12 +17,15 @@ import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.entities.CalendarOccurrence
+import com.devsusana.hometutorpro.domain.entities.ExceptionType
+import com.devsusana.hometutorpro.domain.entities.TodayClassesSummary
 import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.usecases.ICancelClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetNextClassUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
+import com.devsusana.hometutorpro.domain.usecases.IGetTodayClassesSummaryUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
@@ -31,9 +35,13 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -65,6 +73,9 @@ class ClassTimerWidget : AppWidgetProvider() {
     lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
 
     @Inject
+    lateinit var getTodayClassesSummaryUseCase: IGetTodayClassesSummaryUseCase
+
+    @Inject
     lateinit var configRepository: IConfigRepository
 
     private val job = SupervisorJob()
@@ -76,33 +87,106 @@ class ClassTimerWidget : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         val pendingResult = goAsync()
-        coroutineScope.launch {
+        // Cancel any pending/in-flight update job to prevent stale out-of-order state flickers
+        activeUpdateJob?.cancel()
+        val updateJob = coroutineScope.launch {
             try {
-                val currentUser = getCurrentUserUseCase().filterNotNull().firstOrNull()
-                val activeSession = getActiveSessionUseCase()?.takeIf { session ->
-                    currentUser != null && (session.tutorId.isEmpty() || session.tutorId == currentUser.uid)
-                }
-                val nextClass = if (currentUser != null) getNextClassUseCase() else null
-                val doorCode = if (currentUser != null && nextClass != null) {
-                    val student = getStudentByIdUseCase(currentUser.uid, nextClass.student.id).firstOrNull()
-                    DoorCodeExtractor.extractDoorCode(student?.address, student?.notes)
-                } else null
+                updateMutex.withLock {
+                    ensureActive()
+                    // Synchronous read of active session from repository
+                    val activeSession = getActiveSessionUseCase()
 
-                for (appWidgetId in appWidgetIds) {
-                    val views = RemoteViews(context.packageName, R.layout.widget_class_timer)
-                    setupWidgetUi(context, views, activeSession, nextClass, doorCode)
-                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                    // If a class is actively running, render it immediately in a single atomic pass
+                    // using the dedicated active XML layout (R.layout.widget_class_timer_active).
+                    if (activeSession != null) {
+                        val hasTutor = getCurrentUserUseCase().value != null || activeSession.tutorId.isNotBlank()
+                        val nextClass = if (hasTutor) getNextClassUseCase() else null
+                        val daySummary = if (hasTutor) getTodayClassesSummaryUseCase() else null
+                        ensureActive()
+
+                        val snapshot = WidgetRenderSnapshot(
+                            isActive = true,
+                            activeStudentId = activeSession.studentId,
+                            activeStartTimeMillis = activeSession.startTimeMillis,
+                            nextStudentId = nextClass?.student?.id,
+                            nextStartTime = nextClass?.startTime,
+                            nextDate = nextClass?.date?.toString(),
+                            doorCode = null,
+                            studentAddress = null,
+                            completedToday = daySummary?.completedClassesToday ?: 0,
+                            totalToday = daySummary?.totalClassesToday ?: 0
+                        )
+
+                        for (appWidgetId in appWidgetIds) {
+                            if (lastRenderedSnapshots[appWidgetId] == snapshot) {
+                                SafeLogger.d(TAG, "Skipping duplicate ACTIVE widget render for id=$appWidgetId")
+                                continue
+                            }
+                            val views = RemoteViews(context.packageName, R.layout.widget_class_timer_active)
+                            setupWidgetUi(context, views, activeSession, nextClass, null, daySummary, null)
+                            appWidgetManager.updateAppWidget(appWidgetId, views)
+                            lastRenderedSnapshots[appWidgetId] = snapshot
+                        }
+                        return@withLock
+                    }
+
+                    // Idle state: fetch upcoming class and door code using R.layout.widget_class_timer
+                    val currentUser = getCurrentUserUseCase().value
+                        ?: kotlinx.coroutines.withTimeoutOrNull(1000L) { getCurrentUserUseCase().filterNotNull().firstOrNull() }
+                    val nextClass = if (currentUser != null) getNextClassUseCase() else null
+                    val daySummary = if (currentUser != null) getTodayClassesSummaryUseCase() else TodayClassesSummary()
+                    val student = if (currentUser != null && nextClass != null) {
+                        getStudentByIdUseCase(currentUser.uid, nextClass.student.id).firstOrNull()
+                    } else null
+                    val doorCode = DoorCodeExtractor.extractDoorCode(student?.address, student?.notes)
+                    val studentAddress = student?.address?.trim()?.takeIf { it.isNotEmpty() }
+                    ensureActive()
+
+                    val snapshot = WidgetRenderSnapshot(
+                        isActive = false,
+                        activeStudentId = null,
+                        activeStartTimeMillis = 0L,
+                        nextStudentId = nextClass?.student?.id,
+                        nextStartTime = nextClass?.startTime,
+                        nextDate = nextClass?.date?.toString(),
+                        doorCode = doorCode,
+                        studentAddress = studentAddress,
+                        completedToday = daySummary.completedClassesToday,
+                        totalToday = daySummary.totalClassesToday
+                    )
+
+                    for (appWidgetId in appWidgetIds) {
+                        if (lastRenderedSnapshots[appWidgetId] == snapshot) {
+                            SafeLogger.d(TAG, "Skipping duplicate IDLE widget render for id=$appWidgetId")
+                            continue
+                        }
+                        val views = RemoteViews(context.packageName, R.layout.widget_class_timer)
+                        setupWidgetUi(context, views, null, nextClass, doorCode, daySummary, studentAddress, currentUser?.uid)
+                        appWidgetManager.updateAppWidget(appWidgetId, views)
+                        lastRenderedSnapshots[appWidgetId] = snapshot
+                    }
                 }
             } catch (e: Exception) {
-                SafeLogger.e(TAG, "Error updating widget", e)
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    SafeLogger.e(TAG, "Error updating widget", e)
+                }
             } finally {
                 pendingResult.finish()
             }
+        }
+        activeUpdateJob = updateJob
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        for (id in appWidgetIds) {
+            lastRenderedSnapshots.remove(id)
         }
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
+        lastRenderedSnapshots.clear()
         job.cancel()
     }
 
@@ -115,7 +199,10 @@ class ClassTimerWidget : AppWidgetProvider() {
         views: RemoteViews,
         activeSession: ActiveSession?,
         nextClass: CalendarOccurrence?,
-        doorCode: String? = null
+        doorCode: String? = null,
+        daySummary: TodayClassesSummary? = null,
+        studentAddress: String? = null,
+        currentTutorId: String? = null
     ) {
         val isActionsEnabled = try {
             configRepository.isWidgetActionsEnabled()
@@ -135,12 +222,31 @@ class ClassTimerWidget : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.widget_brand_title, pendingMainIntent)
 
+        // Proposal 3: Day progress badge in header (e.g. "2/4 hoy" or "4/4 completadas")
+        if (daySummary != null && daySummary.totalClassesToday > 0) {
+            views.setViewVisibility(R.id.widget_day_progress_badge, View.VISIBLE)
+            val progressText = if (daySummary.isAllCompleted) {
+                context.getString(
+                    R.string.widget_day_progress_all_done,
+                    daySummary.completedClassesToday,
+                    daySummary.totalClassesToday
+                )
+            } else {
+                context.getString(
+                    R.string.widget_day_progress,
+                    daySummary.currentClassIndex,
+                    daySummary.totalClassesToday
+                )
+            }
+            views.setTextViewText(R.id.widget_day_progress_badge, progressText)
+        } else {
+            views.setViewVisibility(R.id.widget_day_progress_badge, View.GONE)
+        }
+
         if (activeSession != null) {
             // ----------------------------------------------------
-            // Active Session State
+            // Active Session State (R.layout.widget_class_timer_active)
             // ----------------------------------------------------
-            views.setViewVisibility(R.id.layout_no_active, View.GONE)
-            views.setViewVisibility(R.id.layout_active, View.VISIBLE)
             views.setTextViewText(R.id.widget_status_badge, context.getString(R.string.widget_active_class_header))
 
             views.setTextViewText(
@@ -199,7 +305,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.widget_active_next_class_preview, View.GONE)
             }
 
-            // Stop button
+            // Stop button (also bind to chronometer for instant stop on tap)
             if (isActionsEnabled) {
                 val stopIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
                     action = ACTION_STOP_CLASS
@@ -212,20 +318,44 @@ class ClassTimerWidget : AppWidgetProvider() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 views.setOnClickPendingIntent(R.id.btn_stop_class, pendingStopIntent)
+                views.setOnClickPendingIntent(R.id.widget_chronometer, pendingStopIntent)
+                views.setOnClickPendingIntent(R.id.layout_chronometer_container, pendingStopIntent)
             } else {
                 // Actions disabled remotely via kill-switch: redirect to app to finish safely in foreground
                 views.setOnClickPendingIntent(R.id.btn_stop_class, pendingMainIntent)
+                views.setOnClickPendingIntent(R.id.widget_chronometer, pendingMainIntent)
+                views.setOnClickPendingIntent(R.id.layout_chronometer_container, pendingMainIntent)
             }
 
         } else {
             // ----------------------------------------------------
-            // Idle State: Next Class or No Classes
+            // Idle State: Next Class or No Classes (R.layout.widget_class_timer)
             // ----------------------------------------------------
-            views.setViewVisibility(R.id.layout_active, View.GONE)
-            views.setViewVisibility(R.id.layout_no_active, View.VISIBLE)
             views.setTextViewText(R.id.widget_status_badge, context.getString(R.string.widget_next_class_header))
 
             if (nextClass != null) {
+                // Proposal 2: Extra or Rescheduled Badge
+                val isExtra = nextClass.isExtra || nextClass.exception?.type == ExceptionType.EXTRA
+                val isRescheduled = nextClass.exception?.type == ExceptionType.RESCHEDULED
+
+                when {
+                    isExtra -> {
+                        views.setViewVisibility(R.id.widget_class_tag_badge, View.VISIBLE)
+                        views.setTextViewText(R.id.widget_class_tag_badge, context.getString(R.string.widget_badge_extra))
+                        views.setInt(R.id.widget_class_tag_badge, "setBackgroundResource", R.drawable.widget_badge_extra_bg)
+                        views.setTextColor(R.id.widget_class_tag_badge, android.graphics.Color.parseColor("#F59E0B"))
+                    }
+                    isRescheduled -> {
+                        views.setViewVisibility(R.id.widget_class_tag_badge, View.VISIBLE)
+                        views.setTextViewText(R.id.widget_class_tag_badge, context.getString(R.string.widget_badge_rescheduled))
+                        views.setInt(R.id.widget_class_tag_badge, "setBackgroundResource", R.drawable.widget_badge_rescheduled_bg)
+                        views.setTextColor(R.id.widget_class_tag_badge, android.graphics.Color.parseColor("#60A5FA"))
+                    }
+                    else -> {
+                        views.setViewVisibility(R.id.widget_class_tag_badge, View.GONE)
+                    }
+                }
+
                 views.setTextViewText(
                     R.id.widget_next_student_text,
                     context.getString(R.string.widget_next_student, nextClass.student.name)
@@ -240,22 +370,69 @@ class ClassTimerWidget : AppWidgetProvider() {
                     "$dateLabel • $cleanStartTime - $cleanEndTime"
                 )
 
-                if (!doorCode.isNullOrBlank()) {
-                    views.setViewVisibility(R.id.widget_door_code_text, View.VISIBLE)
-                    views.setTextViewText(
-                        R.id.widget_door_code_text,
-                        context.getString(R.string.widget_door_code, doorCode)
-                    )
+                // Proposal 4: Door code & Direct GPS Navigation Button
+                val hasDoorCode = !doorCode.isNullOrBlank()
+                val hasAddress = !studentAddress.isNullOrBlank()
+
+                if (hasDoorCode || hasAddress) {
+                    views.setViewVisibility(R.id.layout_aux_info, View.VISIBLE)
+
+                    if (hasDoorCode) {
+                        views.setViewVisibility(R.id.widget_door_code_text, View.VISIBLE)
+                        views.setTextViewText(
+                            R.id.widget_door_code_text,
+                            context.getString(R.string.widget_door_code, doorCode)
+                        )
+                    } else {
+                        views.setViewVisibility(R.id.widget_door_code_text, View.GONE)
+                    }
+
+                    if (hasAddress) {
+                        views.setViewVisibility(R.id.btn_widget_navigate, View.VISIBLE)
+                        val navUri = Uri.parse("geo:0,0?q=" + Uri.encode(studentAddress))
+                        val navIntent = Intent(Intent.ACTION_VIEW, navUri).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        val pendingNavIntent = PendingIntent.getActivity(
+                            context,
+                            RQ_NAVIGATE,
+                            navIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                        views.setOnClickPendingIntent(R.id.btn_widget_navigate, pendingNavIntent)
+                    } else {
+                        views.setViewVisibility(R.id.btn_widget_navigate, View.GONE)
+                    }
                 } else {
+                    views.setViewVisibility(R.id.layout_aux_info, View.GONE)
                     views.setViewVisibility(R.id.widget_door_code_text, View.GONE)
+                    views.setViewVisibility(R.id.btn_widget_navigate, View.GONE)
                 }
 
                 if (isActionsEnabled) {
                     views.setViewVisibility(R.id.btn_start_class, View.VISIBLE)
+
+                    // Calculate duration in minutes safely
+                    val durationMinutes = try {
+                        val start = parseTimeSafely(nextClass.startTime)
+                        val end = parseTimeSafely(nextClass.endTime)
+                        if (start != null && end != null) {
+                            Duration.between(start, end).toMinutes().coerceAtLeast(15)
+                        } else 60L
+                    } catch (_: Exception) {
+                        60L
+                    }
+
                     // Start button
                     val startIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
                         action = ACTION_START_CLASS
                         `package` = context.packageName
+                        putExtra(EXTRA_STUDENT_ID, nextClass.student.id)
+                        putExtra(EXTRA_STUDENT_NAME, nextClass.student.name)
+                        putExtra(EXTRA_DURATION_MINUTES, durationMinutes)
+                        if (!currentTutorId.isNullOrBlank()) {
+                            putExtra(EXTRA_TUTOR_ID, currentTutorId)
+                        }
                     }
                     val pendingStartIntent = PendingIntent.getBroadcast(
                         context,
@@ -269,6 +446,10 @@ class ClassTimerWidget : AppWidgetProvider() {
                     views.setViewVisibility(R.id.btn_start_class, View.GONE)
                 }
             } else {
+                views.setViewVisibility(R.id.widget_class_tag_badge, View.GONE)
+                views.setViewVisibility(R.id.layout_aux_info, View.GONE)
+                views.setViewVisibility(R.id.widget_door_code_text, View.GONE)
+                views.setViewVisibility(R.id.btn_widget_navigate, View.GONE)
                 views.setTextViewText(
                     R.id.widget_next_student_text,
                     context.getString(R.string.widget_no_active_class)
@@ -277,21 +458,42 @@ class ClassTimerWidget : AppWidgetProvider() {
                     R.id.widget_no_active_subtitle,
                     context.getString(R.string.widget_no_upcoming_class)
                 )
-                views.setViewVisibility(R.id.widget_door_code_text, View.GONE)
                 views.setViewVisibility(R.id.btn_start_class, View.GONE)
             }
         }
     }
 
+    private data class WidgetRenderSnapshot(
+        val isActive: Boolean,
+        val activeStudentId: String?,
+        val activeStartTimeMillis: Long,
+        val nextStudentId: String?,
+        val nextStartTime: String?,
+        val nextDate: String?,
+        val doorCode: String?,
+        val studentAddress: String? = null,
+        val completedToday: Int,
+        val totalToday: Int
+    )
+
     companion object {
         private const val TAG = "ClassTimerWidget"
+        private var activeUpdateJob: kotlinx.coroutines.Job? = null
+        private val updateMutex = Mutex()
+        private val lastRenderedSnapshots = ConcurrentHashMap<Int, WidgetRenderSnapshot>()
 
         const val ACTION_START_CLASS = "com.devsusana.hometutorpro.ACTION_START_CLASS"
         const val ACTION_STOP_CLASS = "com.devsusana.hometutorpro.ACTION_STOP_CLASS"
 
+        const val EXTRA_STUDENT_ID = "com.devsusana.hometutorpro.EXTRA_STUDENT_ID"
+        const val EXTRA_STUDENT_NAME = "com.devsusana.hometutorpro.EXTRA_STUDENT_NAME"
+        const val EXTRA_DURATION_MINUTES = "com.devsusana.hometutorpro.EXTRA_DURATION_MINUTES"
+        const val EXTRA_TUTOR_ID = "com.devsusana.hometutorpro.EXTRA_TUTOR_ID"
+
         private const val RQ_MAIN = 200
         private const val RQ_START = 201
         private const val RQ_STOP = 202
+        private const val RQ_NAVIGATE = 203
 
         /**
          * Triggers an update for all active ClassTimerWidget instances.

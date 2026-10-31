@@ -39,7 +39,12 @@
         <receiver
             android:name=".presentation.widget.ClassTimerActionReceiver"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.devsusana.hometutorpro.ACTION_START_CLASS" />
+                <action android:name="com.devsusana.hometutorpro.ACTION_STOP_CLASS" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".presentation.widget.ClassTimerWidget"

@@ -252,19 +252,17 @@ class DashboardViewModel @Inject constructor(
                                 startTimeMillis = System.currentTimeMillis(),
                                 durationMinutes = durationMinutes.toLong(),
                                 isOngoing = true,
-                                tutorId = uid
+                                tutorId = uid,
+                                isBilled = true
                             )
                         )
                         ClassTimerWidget.updateWidget(application)
 
-                        val scheduled = scheduleClassEndNotificationUseCase(
+                        // Notification is best-effort; failure to schedule alarm must never cancel the ongoing session
+                        scheduleClassEndNotificationUseCase(
                             student.name,
                             durationMinutes.toLong()
                         )
-                        if (!scheduled) {
-                            stopActiveSessionUseCase?.invoke()
-                            ClassTimerWidget.updateWidget(application)
-                        }
                         
                         dismissDialog()
                         loadDashboardData()

@@ -246,7 +246,15 @@ abstract class UseCaseModule {
     abstract fun bindGetNextClassUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetNextClassUseCase): IGetNextClassUseCase
 
     @Binds
+    abstract fun bindGetTodayClassesSummaryUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetTodayClassesSummaryUseCase): com.devsusana.hometutorpro.domain.usecases.IGetTodayClassesSummaryUseCase
+
+    @Binds
     abstract fun bindCancelClassEndNotificationUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.CancelClassEndNotificationUseCase): ICancelClassEndNotificationUseCase
+
+    @Binds
+    abstract fun bindConsolidateActiveSessionUseCase(
+        impl: com.devsusana.hometutorpro.domain.usecases.implementations.ConsolidateActiveSessionUseCase
+    ): IConsolidateActiveSessionUseCase
 
     @Binds
     abstract fun bindGetAppFeatureFlagsUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetAppFeatureFlagsUseCase): IGetAppFeatureFlagsUseCase

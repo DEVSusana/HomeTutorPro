@@ -288,10 +288,8 @@ class StudentTools @Inject constructor(
                         tutorId = professorId
                     )
                 )
-                val scheduled = scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
-                if (!scheduled) {
-                    stopActiveSessionUseCase?.invoke()
-                }
+                // Notification is best-effort; failure to schedule alarm must never cancel the ongoing session
+                scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
                 SueOperationResult.Execute.Success(action)
             }
             is Result.Error -> SueOperationResult.Execute.Error(result.error)
