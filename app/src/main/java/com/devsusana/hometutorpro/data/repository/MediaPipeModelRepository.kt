@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.util.Log
+import com.devsusana.hometutorpro.domain.entities.AppFeatureFlags
+import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
@@ -24,8 +26,24 @@ import javax.inject.Singleton
  */
 @Singleton
 class MediaPipeModelRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val configRepository: IConfigRepository
 ) : InferenceRepository {
+
+    /**
+     * Testing constructor allowing instantiation without Hilt or mock configuration.
+     */
+    constructor(context: Context) : this(
+        context,
+        object : IConfigRepository {
+            override val featureFlags = MutableStateFlow(AppFeatureFlags())
+            override suspend fun fetchAndActivate(): Boolean = true
+            override fun isWidgetActionsEnabled(): Boolean = true
+            override fun isSueLocalAiEnabled(): Boolean = true
+            override fun getSueModelUrl(): String = ""
+            override fun getMaintenanceMessage(): String = ""
+        }
+    )
 
     companion object {
         private const val TAG = "MediaPipeModelRepo"
@@ -62,6 +80,11 @@ class MediaPipeModelRepository @Inject constructor(
     }
 
     override suspend fun loadModel(): Boolean = withContext(Dispatchers.IO) {
+        if (!configRepository.isSueLocalAiEnabled()) {
+            Log.w(TAG, "Local LLM inference is disabled via remote configuration kill-switch.")
+            return@withContext false
+        }
+
         if (_isModelLoaded.value) {
             Log.d(TAG, "Model already loaded.")
             return@withContext true

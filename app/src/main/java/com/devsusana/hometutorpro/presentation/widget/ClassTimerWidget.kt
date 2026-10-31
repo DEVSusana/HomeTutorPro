@@ -19,6 +19,7 @@ import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.entities.CalendarOccurrence
 import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.TodayClassesSummary
+import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.usecases.ICancelClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
@@ -73,6 +74,9 @@ class ClassTimerWidget : AppWidgetProvider() {
 
     @Inject
     lateinit var getTodayClassesSummaryUseCase: IGetTodayClassesSummaryUseCase
+
+    @Inject
+    lateinit var configRepository: IConfigRepository
 
     private val job = SupervisorJob()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + job)
@@ -200,6 +204,12 @@ class ClassTimerWidget : AppWidgetProvider() {
         studentAddress: String? = null,
         currentTutorId: String? = null
     ) {
+        val isActionsEnabled = try {
+            configRepository.isWidgetActionsEnabled()
+        } catch (_: Exception) {
+            true
+        }
+
         // Tap on widget header/background opens the main app
         val mainIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -296,19 +306,26 @@ class ClassTimerWidget : AppWidgetProvider() {
             }
 
             // Stop button (also bind to chronometer for instant stop on tap)
-            val stopIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
-                action = ACTION_STOP_CLASS
-                `package` = context.packageName
+            if (isActionsEnabled) {
+                val stopIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
+                    action = ACTION_STOP_CLASS
+                    `package` = context.packageName
+                }
+                val pendingStopIntent = PendingIntent.getBroadcast(
+                    context,
+                    RQ_STOP,
+                    stopIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.btn_stop_class, pendingStopIntent)
+                views.setOnClickPendingIntent(R.id.widget_chronometer, pendingStopIntent)
+                views.setOnClickPendingIntent(R.id.layout_chronometer_container, pendingStopIntent)
+            } else {
+                // Actions disabled remotely via kill-switch: redirect to app to finish safely in foreground
+                views.setOnClickPendingIntent(R.id.btn_stop_class, pendingMainIntent)
+                views.setOnClickPendingIntent(R.id.widget_chronometer, pendingMainIntent)
+                views.setOnClickPendingIntent(R.id.layout_chronometer_container, pendingMainIntent)
             }
-            val pendingStopIntent = PendingIntent.getBroadcast(
-                context,
-                RQ_STOP,
-                stopIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.btn_stop_class, pendingStopIntent)
-            views.setOnClickPendingIntent(R.id.widget_chronometer, pendingStopIntent)
-            views.setOnClickPendingIntent(R.id.layout_chronometer_container, pendingStopIntent)
 
         } else {
             // ----------------------------------------------------
@@ -392,37 +409,42 @@ class ClassTimerWidget : AppWidgetProvider() {
                     views.setViewVisibility(R.id.btn_widget_navigate, View.GONE)
                 }
 
-                views.setViewVisibility(R.id.btn_start_class, View.VISIBLE)
+                if (isActionsEnabled) {
+                    views.setViewVisibility(R.id.btn_start_class, View.VISIBLE)
 
-                // Calculate duration in minutes safely
-                val durationMinutes = try {
-                    val start = parseTimeSafely(nextClass.startTime)
-                    val end = parseTimeSafely(nextClass.endTime)
-                    if (start != null && end != null) {
-                        Duration.between(start, end).toMinutes().coerceAtLeast(15)
-                    } else 60L
-                } catch (_: Exception) {
-                    60L
-                }
-
-                // Start button
-                val startIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
-                    action = ACTION_START_CLASS
-                    `package` = context.packageName
-                    putExtra(EXTRA_STUDENT_ID, nextClass.student.id)
-                    putExtra(EXTRA_STUDENT_NAME, nextClass.student.name)
-                    putExtra(EXTRA_DURATION_MINUTES, durationMinutes)
-                    if (!currentTutorId.isNullOrBlank()) {
-                        putExtra(EXTRA_TUTOR_ID, currentTutorId)
+                    // Calculate duration in minutes safely
+                    val durationMinutes = try {
+                        val start = parseTimeSafely(nextClass.startTime)
+                        val end = parseTimeSafely(nextClass.endTime)
+                        if (start != null && end != null) {
+                            Duration.between(start, end).toMinutes().coerceAtLeast(15)
+                        } else 60L
+                    } catch (_: Exception) {
+                        60L
                     }
+
+                    // Start button
+                    val startIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
+                        action = ACTION_START_CLASS
+                        `package` = context.packageName
+                        putExtra(EXTRA_STUDENT_ID, nextClass.student.id)
+                        putExtra(EXTRA_STUDENT_NAME, nextClass.student.name)
+                        putExtra(EXTRA_DURATION_MINUTES, durationMinutes)
+                        if (!currentTutorId.isNullOrBlank()) {
+                            putExtra(EXTRA_TUTOR_ID, currentTutorId)
+                        }
+                    }
+                    val pendingStartIntent = PendingIntent.getBroadcast(
+                        context,
+                        RQ_START,
+                        startIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    views.setOnClickPendingIntent(R.id.btn_start_class, pendingStartIntent)
+                } else {
+                    // Actions disabled remotely via kill-switch: hide start button, tapping card opens main app
+                    views.setViewVisibility(R.id.btn_start_class, View.GONE)
                 }
-                val pendingStartIntent = PendingIntent.getBroadcast(
-                    context,
-                    RQ_START,
-                    startIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.btn_start_class, pendingStartIntent)
             } else {
                 views.setViewVisibility(R.id.widget_class_tag_badge, View.GONE)
                 views.setViewVisibility(R.id.layout_aux_info, View.GONE)

@@ -4,9 +4,11 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import com.devsusana.hometutorpro.core.utils.SafeLogger
+import com.devsusana.hometutorpro.domain.entities.AppFeatureFlags
 import com.devsusana.hometutorpro.domain.entities.SueDeviceCompatibility
 import com.devsusana.hometutorpro.domain.entities.SueModelStatus
 import com.devsusana.hometutorpro.domain.entities.SueUnsupportedReason
+import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
 import com.devsusana.hometutorpro.domain.repository.SueModelRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,23 +39,46 @@ import kotlin.math.roundToInt
 @Singleton
 class SueModelRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val inferenceRepository: InferenceRepository
+    private val inferenceRepository: InferenceRepository,
+    private val configRepository: IConfigRepository
 ) : SueModelRepository {
 
     private var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
     private var downloadScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Testing constructor allowing injection of custom [CoroutineDispatcher].
+     * Testing constructor allowing injection of custom [CoroutineDispatcher] and [IConfigRepository].
+     */
+    constructor(
+        context: Context,
+        inferenceRepository: InferenceRepository,
+        configRepository: IConfigRepository,
+        ioDispatcher: CoroutineDispatcher
+    ) : this(context, inferenceRepository, configRepository) {
+        this.ioDispatcher = ioDispatcher
+        this.downloadScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    }
+
+    /**
+     * Testing constructor for backwards compatibility with tests.
      */
     constructor(
         context: Context,
         inferenceRepository: InferenceRepository,
         ioDispatcher: CoroutineDispatcher
-    ) : this(context, inferenceRepository) {
-        this.ioDispatcher = ioDispatcher
-        this.downloadScope = CoroutineScope(SupervisorJob() + ioDispatcher)
-    }
+    ) : this(
+        context,
+        inferenceRepository,
+        object : IConfigRepository {
+            override val featureFlags = MutableStateFlow(AppFeatureFlags())
+            override suspend fun fetchAndActivate(): Boolean = true
+            override fun isWidgetActionsEnabled(): Boolean = true
+            override fun isSueLocalAiEnabled(): Boolean = true
+            override fun getSueModelUrl(): String = ""
+            override fun getMaintenanceMessage(): String = ""
+        },
+        ioDispatcher
+    )
 
     companion object {
         private const val TAG = "SueModelRepo"
@@ -121,6 +146,17 @@ class SueModelRepositoryImpl @Inject constructor(
 
     override fun checkDeviceCompatibility(): SueDeviceCompatibility {
         val sdkVersion = sdkIntOverride ?: Build.VERSION.SDK_INT
+
+        // 0. Check remote configuration kill-switch
+        if (!configRepository.isSueLocalAiEnabled()) {
+            SafeLogger.d(TAG, "Device marked incompatible: Local AI is disabled via remote config kill-switch")
+            return SueDeviceCompatibility(
+                isSupported = false,
+                reason = SueUnsupportedReason.DISABLED_BY_CONFIG,
+                totalRamBytes = 0L,
+                sdkVersion = sdkVersion
+            )
+        }
 
         // 1. Check Android OS version: Must be at least Android 9.0 (API 28, Pie)
         if (sdkVersion < Build.VERSION_CODES.P) {
@@ -204,7 +240,12 @@ class SueModelRepositoryImpl @Inject constructor(
     }
 
     override suspend fun downloadModel(url: String?): Flow<SueModelStatus> {
-        val downloadUrl = if (!url.isNullOrBlank()) url else DEFAULT_MODEL_URL
+        val remoteModelUrl = configRepository.getSueModelUrl()
+        val downloadUrl = when {
+            !url.isNullOrBlank() -> url
+            remoteModelUrl.isNotBlank() -> remoteModelUrl
+            else -> DEFAULT_MODEL_URL
+        }
 
         // If already downloaded, notify immediately
         val existingSize = getDownloadedModelSize()
