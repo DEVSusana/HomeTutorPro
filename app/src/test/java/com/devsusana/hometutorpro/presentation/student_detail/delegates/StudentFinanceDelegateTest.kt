@@ -292,7 +292,7 @@ class StudentFinanceDelegateTest {
         customDelegate.startClass("prof1", "1", 60, state, this)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        verify(exactly = 1) { startActiveSession(match { it.studentId == "1" && it.tutorId == "prof1" && it.durationMinutes == 60L }) }
+        coVerify(exactly = 1) { startActiveSession(match { it.studentId == "1" && it.tutorId == "prof1" && it.durationMinutes == 60L }) }
         verify(exactly = 1) { scheduleNotification("Test Student", 60L) }
     }
 

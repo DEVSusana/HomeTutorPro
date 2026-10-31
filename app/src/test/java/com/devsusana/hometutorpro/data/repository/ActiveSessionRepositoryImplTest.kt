@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -20,24 +21,24 @@ class ActiveSessionRepositoryImplTest {
     private lateinit var repository: ActiveSessionRepositoryImpl
 
     @Before
-    fun setup() {
+    fun setup() = runTest {
         context = ApplicationProvider.getApplicationContext()
         repository = ActiveSessionRepositoryImpl(context)
         repository.stopSession()
     }
 
     @After
-    fun tearDown() {
+    fun tearDown() = runTest {
         repository.stopSession()
     }
 
     @Test
-    fun `getActiveSession returns null initially`() {
+    fun `getActiveSession returns null initially`() = runTest {
         assertNull(repository.getActiveSession())
     }
 
     @Test
-    fun `startSession saves session and getActiveSession retrieves it`() {
+    fun `startSession saves session and getActiveSession retrieves it`() = runTest {
         val session = ActiveSession(
             studentId = "s123",
             studentName = "Alice",
@@ -59,7 +60,7 @@ class ActiveSessionRepositoryImplTest {
     }
 
     @Test
-    fun `stopSession clears active session`() {
+    fun `stopSession clears active session`() = runTest {
         val session = ActiveSession(
             studentId = "s123",
             studentName = "Alice",
@@ -77,7 +78,7 @@ class ActiveSessionRepositoryImplTest {
     }
 
     @Test
-    fun `getActiveSession auto expires and clears session when duration passed and session is billed`() {
+    fun `getActiveSession auto expires and clears session when duration passed and session is billed`() = runTest {
         val twoHoursAgo = System.currentTimeMillis() - (120 * 60 * 1000L)
         val expiredSession = ActiveSession(
             studentId = "s456",
@@ -100,7 +101,7 @@ class ActiveSessionRepositoryImplTest {
     }
 
     @Test
-    fun `getActiveSession preserves unbilled session past scheduled duration to allow consolidation`() {
+    fun `getActiveSession preserves unbilled session past scheduled duration to allow consolidation`() = runTest {
         val twoHoursAgo = System.currentTimeMillis() - (120 * 60 * 1000L)
         val unbilledSession = ActiveSession(
             studentId = "s456",

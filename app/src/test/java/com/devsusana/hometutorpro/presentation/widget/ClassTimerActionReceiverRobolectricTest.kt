@@ -103,7 +103,7 @@ class ClassTimerActionReceiverRobolectricTest {
 
         every { getCurrentUserUseCase() } returns MutableStateFlow(testUser)
         every { getStudentByIdUseCase("user123", "student_pablo") } returns flowOf(testStudentPablo)
-        every { getActiveSessionUseCase() } returns null
+        coEvery { getActiveSessionUseCase() } returns null
         coEvery { addToBalanceUseCase("user123", "student_pablo", any()) } returns Result.Success(Unit)
         coEvery { scheduleClassEndNotificationUseCase(any(), any()) } returns true
     }
@@ -173,7 +173,7 @@ class ClassTimerActionReceiverRobolectricTest {
             tutorId = "user123",
             isBilled = false
         )
-        every { getActiveSessionUseCase() } returns recentSession
+        coEvery { getActiveSessionUseCase() } returns recentSession
 
         receiver.handleStopClass(context)
 
@@ -197,7 +197,7 @@ class ClassTimerActionReceiverRobolectricTest {
             tutorId = "user123",
             isBilled = false
         )
-        every { getActiveSessionUseCase() } returns matureSession
+        coEvery { getActiveSessionUseCase() } returns matureSession
 
         receiver.handleStopClass(context)
 
@@ -221,7 +221,7 @@ class ClassTimerActionReceiverRobolectricTest {
             tutorId = "user123",
             isBilled = true
         )
-        every { getActiveSessionUseCase() } returns alreadyBilledSession
+        coEvery { getActiveSessionUseCase() } returns alreadyBilledSession
 
         receiver.handleStopClass(context)
 
@@ -265,7 +265,7 @@ class ClassTimerActionReceiverRobolectricTest {
             tutorId = "user123",
             isBilled = false
         )
-        every { getActiveSessionUseCase() } returns matureSession
+        coEvery { getActiveSessionUseCase() } returns matureSession
         coEvery { consolidateActiveSessionUseCase(any()) } returns com.devsusana.hometutorpro.domain.core.Result.Error(com.devsusana.hometutorpro.domain.core.DomainError.NetworkError)
 
         receiver.handleStopClass(context)

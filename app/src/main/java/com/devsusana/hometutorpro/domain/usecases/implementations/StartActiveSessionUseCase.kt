@@ -9,7 +9,7 @@ class StartActiveSessionUseCase @Inject constructor(
     private val repository: IActiveSessionRepository
 ) : IStartActiveSessionUseCase {
 
-    override operator fun invoke(session: ActiveSession) {
+    override suspend operator fun invoke(session: ActiveSession) {
         repository.startSession(session)
     }
 }

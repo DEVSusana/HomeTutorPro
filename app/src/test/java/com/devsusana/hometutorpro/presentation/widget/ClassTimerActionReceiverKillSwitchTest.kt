@@ -59,6 +59,6 @@ class ClassTimerActionReceiverKillSwitchTest {
 
         shadowOf(Looper.getMainLooper()).idle()
 
-        verify(exactly = 0) { anyConstructed<StartActiveSessionUseCase>().invoke(any()) }
+        coVerify(exactly = 0) { anyConstructed<StartActiveSessionUseCase>().invoke(any()) }
     }
 }
