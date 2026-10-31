@@ -98,6 +98,7 @@ class StudentToolsTest {
     )
 
     private lateinit var authRepository: AuthRepository
+    private lateinit var startActiveSessionUseCase: com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
 
     @Before
     fun setup() {
@@ -111,6 +112,7 @@ class StudentToolsTest {
         authRepository = mockk()
         getSharedResourcesUseCase = mockk()
         agentContextRepository = mockk()
+        startActiveSessionUseCase = mockk(relaxed = true)
 
         studentTools = StudentTools(
             queryStudentsUseCase = queryStudentsUseCase,
@@ -122,7 +124,8 @@ class StudentToolsTest {
             scheduleClassEndNotificationUseCase = scheduleClassEndNotificationUseCase,
             authRepository = authRepository,
             getSharedResourcesUseCase = getSharedResourcesUseCase,
-            agentContextRepository = agentContextRepository
+            agentContextRepository = agentContextRepository,
+            startActiveSessionUseCase = startActiveSessionUseCase
         )
     }
 
@@ -368,6 +371,7 @@ class StudentToolsTest {
             assertEquals(55.0, it.pendingBalance, 0.001)
         })}
         coVerify { scheduleClassEndNotificationUseCase("María García", 60L) }
+        coVerify { startActiveSessionUseCase(match { it.studentId == "stu-1" && it.isBilled }) }
     }
 
     // ──────────────────────────────────────────────────────────────────────────

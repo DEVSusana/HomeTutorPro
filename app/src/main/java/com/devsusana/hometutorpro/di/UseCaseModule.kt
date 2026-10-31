@@ -91,6 +91,9 @@ abstract class UseCaseModule {
     abstract fun bindAddToBalanceUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.AddToBalanceUseCase): IAddToBalanceUseCase
 
     @Binds
+    abstract fun bindUpdateLastClassDateUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.UpdateLastClassDateUseCase): com.devsusana.hometutorpro.domain.usecases.IUpdateLastClassDateUseCase
+
+    @Binds
     abstract fun bindRegisterUseCase(impl: RegisterUseCase): IRegisterUseCase
 
     @Binds

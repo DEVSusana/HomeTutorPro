@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.constants.SessionConstants
+import com.devsusana.hometutorpro.domain.core.DomainError
+import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
@@ -17,6 +19,7 @@ import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
 import com.devsusana.hometutorpro.domain.usecases.IScheduleClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IStopActiveSessionUseCase
+import com.devsusana.hometutorpro.domain.usecases.IUpdateLastClassDateUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -69,6 +72,9 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
 
     @Inject
     lateinit var configRepository: IConfigRepository
+
+    @Inject
+    lateinit var updateLastClassDateUseCase: IUpdateLastClassDateUseCase
 
     private val job = SupervisorJob()
     var coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.Main + job)
@@ -176,13 +182,22 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
         } else {
             null
         }
-        if (::consolidateActiveSessionUseCase.isInitialized) {
+        val consolidationResult = if (::consolidateActiveSessionUseCase.isInitialized) {
             consolidateActiveSessionUseCase(activeSession)
         } else if (activeSession != null && activeSession.isOngoing && !activeSession.isBilled) {
             val elapsedMillis = System.currentTimeMillis() - activeSession.startTimeMillis
             if (elapsedMillis >= SessionConstants.MIN_BILLABLE_DURATION_MILLIS) {
                 consolidateSessionCharge(activeSession)
+            } else {
+                Result.Success(false)
             }
+        } else {
+            Result.Success(false)
+        }
+
+        if (consolidationResult is Result.Error) {
+            SafeLogger.e(TAG, "Consolidation failed: ${consolidationResult.error}, retaining session for recovery")
+            return
         }
 
         stopActiveSessionUseCase()
@@ -190,19 +205,33 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
         ClassTimerWidget.updateWidget(context)
     }
 
-    private suspend fun consolidateSessionCharge(activeSession: ActiveSession) {
+    private suspend fun consolidateSessionCharge(activeSession: ActiveSession): Result<Boolean, DomainError> {
         val tutorId = activeSession.tutorId.takeIf { it.isNotBlank() }
             ?: (getCurrentUserUseCase().value
                 ?: kotlinx.coroutines.withTimeoutOrNull(1000L) { getCurrentUserUseCase().filterNotNull().firstOrNull() }
             )?.uid
-            ?: return
+            ?: return Result.Error(DomainError.UserNotFound)
 
-        val student = getStudentByIdUseCase(tutorId, activeSession.studentId).firstOrNull() ?: return
+        val student = getStudentByIdUseCase(tutorId, activeSession.studentId).firstOrNull()
+            ?: return Result.Error(DomainError.StudentNotFound)
         val priceToAdd = (activeSession.durationMinutes / 60.0) * student.pricePerHour
-        if (priceToAdd > 0) {
-            addToBalanceUseCase(tutorId, student.id, priceToAdd)
+        return if (priceToAdd > 0) {
+            when (val res = addToBalanceUseCase(tutorId, student.id, priceToAdd)) {
+                is Result.Success -> Result.Success(true)
+                is Result.Error -> Result.Error(res.error)
+            }
         } else {
-            saveStudentUseCase(tutorId, student.copy(lastClassDate = System.currentTimeMillis()))
+            if (::updateLastClassDateUseCase.isInitialized) {
+                when (val res = updateLastClassDateUseCase(tutorId, student.id, System.currentTimeMillis())) {
+                    is Result.Success -> Result.Success(true)
+                    is Result.Error -> Result.Error(res.error)
+                }
+            } else {
+                when (val res = saveStudentUseCase(tutorId, student.copy(lastClassDate = System.currentTimeMillis()))) {
+                    is Result.Success -> Result.Success(true)
+                    is Result.Error -> Result.Error(res.error)
+                }
+            }
         }
     }
 

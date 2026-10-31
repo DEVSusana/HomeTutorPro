@@ -63,6 +63,8 @@ class ClassTimerActionReceiverRobolectricTest {
     private val getActiveSessionUseCase: IGetActiveSessionUseCase = mockk()
     private val scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase = mockk()
     private val cancelClassEndNotificationUseCase: ICancelClassEndNotificationUseCase = mockk(relaxed = true)
+    private val updateLastClassDateUseCase: com.devsusana.hometutorpro.domain.usecases.IUpdateLastClassDateUseCase = mockk(relaxed = true)
+    private val consolidateActiveSessionUseCase: com.devsusana.hometutorpro.domain.usecases.IConsolidateActiveSessionUseCase = mockk()
 
     private lateinit var receiver: ClassTimerActionReceiver
     private lateinit var context: Context
@@ -96,6 +98,7 @@ class ClassTimerActionReceiverRobolectricTest {
             this.getActiveSessionUseCase = this@ClassTimerActionReceiverRobolectricTest.getActiveSessionUseCase
             this.scheduleClassEndNotificationUseCase = this@ClassTimerActionReceiverRobolectricTest.scheduleClassEndNotificationUseCase
             this.cancelClassEndNotificationUseCase = this@ClassTimerActionReceiverRobolectricTest.cancelClassEndNotificationUseCase
+            this.updateLastClassDateUseCase = this@ClassTimerActionReceiverRobolectricTest.updateLastClassDateUseCase
         }
 
         every { getCurrentUserUseCase() } returns MutableStateFlow(testUser)
@@ -247,6 +250,29 @@ class ClassTimerActionReceiverRobolectricTest {
         }
         coVerify(exactly = 0) {
             stopActiveSessionUseCase()
+        }
+    }
+
+    @Test
+    fun `stop class preserves session when consolidation returns Result Error`() = runTest {
+        receiver.consolidateActiveSessionUseCase = consolidateActiveSessionUseCase
+        val matureSession = ActiveSession(
+            studentId = "student_pablo",
+            studentName = "Pablo",
+            startTimeMillis = System.currentTimeMillis() - (16 * 60 * 1000L),
+            durationMinutes = 60L,
+            isOngoing = true,
+            tutorId = "user123",
+            isBilled = false
+        )
+        every { getActiveSessionUseCase() } returns matureSession
+        coEvery { consolidateActiveSessionUseCase(any()) } returns com.devsusana.hometutorpro.domain.core.Result.Error(com.devsusana.hometutorpro.domain.core.DomainError.NetworkError)
+
+        receiver.handleStopClass(context)
+
+        coVerify(exactly = 0) {
+            stopActiveSessionUseCase()
+            cancelClassEndNotificationUseCase()
         }
     }
 }

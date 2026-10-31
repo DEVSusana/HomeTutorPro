@@ -19,8 +19,8 @@ android {
         applicationId = "com.devsusana.hometutorpro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 114
-        versionName = "1.1.3"
+        versionCode = 115
+        versionName = "1.1.4"
 
         testInstrumentationRunner = "com.devsusana.hometutorpro.CustomTestRunner"
 

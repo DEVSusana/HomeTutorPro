@@ -77,7 +77,7 @@ class ActiveSessionRepositoryImplTest {
     }
 
     @Test
-    fun `getActiveSession auto expires and clears session when duration passed`() {
+    fun `getActiveSession auto expires and clears session when duration passed and session is billed`() {
         val twoHoursAgo = System.currentTimeMillis() - (120 * 60 * 1000L)
         val expiredSession = ActiveSession(
             studentId = "s456",
@@ -85,16 +85,39 @@ class ActiveSessionRepositoryImplTest {
             startTimeMillis = twoHoursAgo,
             durationMinutes = 60L, // 60 min duration expired 1 hr ago
             isOngoing = true,
-            tutorId = "tutorA"
+            tutorId = "tutorA",
+            isBilled = true
         )
 
         repository.startSession(expiredSession)
 
-        // Reading expired session should auto-clear and return null
+        // Reading expired billed session should auto-clear and return null
         val result = repository.getActiveSession()
         assertNull(result)
 
         // Subsequent read should remain null
         assertNull(repository.getActiveSession())
+    }
+
+    @Test
+    fun `getActiveSession preserves unbilled session past scheduled duration to allow consolidation`() {
+        val twoHoursAgo = System.currentTimeMillis() - (120 * 60 * 1000L)
+        val unbilledSession = ActiveSession(
+            studentId = "s456",
+            studentName = "Bob",
+            startTimeMillis = twoHoursAgo,
+            durationMinutes = 60L,
+            isOngoing = true,
+            tutorId = "tutorA",
+            isBilled = false
+        )
+
+        repository.startSession(unbilledSession)
+
+        // Reading unbilled session must not clear it, preserving it for consolidation
+        val result = repository.getActiveSession()
+        assertNotNull(result)
+        assertEquals("s456", result?.studentId)
+        assertEquals(false, result?.isBilled)
     }
 }
