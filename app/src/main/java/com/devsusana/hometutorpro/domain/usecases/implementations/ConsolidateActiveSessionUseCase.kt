@@ -10,6 +10,7 @@ import com.devsusana.hometutorpro.domain.usecases.IGetActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetStudentByIdUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISaveStudentUseCase
+import com.devsusana.hometutorpro.domain.usecases.IStartActiveSessionUseCase
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 
@@ -24,7 +25,8 @@ class ConsolidateActiveSessionUseCase @Inject constructor(
     private val getCurrentUserUseCase: IGetCurrentUserUseCase,
     private val getStudentByIdUseCase: IGetStudentByIdUseCase,
     private val addToBalanceUseCase: IAddToBalanceUseCase,
-    private val saveStudentUseCase: ISaveStudentUseCase
+    private val saveStudentUseCase: ISaveStudentUseCase,
+    private val startActiveSessionUseCase: IStartActiveSessionUseCase
 ) : IConsolidateActiveSessionUseCase {
 
     override suspend operator fun invoke(session: ActiveSession?): Result<Boolean, DomainError> {
@@ -48,16 +50,25 @@ class ConsolidateActiveSessionUseCase @Inject constructor(
             ?: return Result.Error(DomainError.StudentNotFound)
 
         val priceToAdd = (targetSession.durationMinutes / 60.0) * student.pricePerHour
-        return if (priceToAdd > 0) {
+        val consolidationResult = if (priceToAdd > 0) {
             when (val res = addToBalanceUseCase(tutorId, student.id, priceToAdd)) {
                 is Result.Success -> Result.Success(true)
                 is Result.Error -> Result.Error(res.error)
             }
         } else {
-            when (val res = saveStudentUseCase(tutorId, student.copy(lastClassDate = System.currentTimeMillis()))) {
+            // For zero-price sessions, fetch fresh student to avoid overwriting recent balance mutations
+            val freshStudent = getStudentByIdUseCase(tutorId, student.id).firstOrNull() ?: student
+            when (val res = saveStudentUseCase(tutorId, freshStudent.copy(lastClassDate = System.currentTimeMillis()))) {
                 is Result.Success -> Result.Success(true)
                 is Result.Error -> Result.Error(res.error)
             }
         }
+
+        // Persist isBilled = true immediately upon successful billing to prevent double charging
+        if (consolidationResult is Result.Success && consolidationResult.data) {
+            startActiveSessionUseCase(targetSession.copy(isBilled = true))
+        }
+
+        return consolidationResult
     }
 }

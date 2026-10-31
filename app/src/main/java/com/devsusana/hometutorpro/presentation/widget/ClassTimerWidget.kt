@@ -108,6 +108,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                             nextStartTime = nextClass?.startTime,
                             nextDate = nextClass?.date?.toString(),
                             doorCode = null,
+                            studentAddress = null,
                             completedToday = daySummary?.completedClassesToday ?: 0,
                             totalToday = daySummary?.totalClassesToday ?: 0
                         )
@@ -145,6 +146,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                         nextStartTime = nextClass?.startTime,
                         nextDate = nextClass?.date?.toString(),
                         doorCode = doorCode,
+                        studentAddress = studentAddress,
                         completedToday = daySummary.completedClassesToday,
                         totalToday = daySummary.totalClassesToday
                     )
@@ -447,6 +449,7 @@ class ClassTimerWidget : AppWidgetProvider() {
         val nextStartTime: String?,
         val nextDate: String?,
         val doorCode: String?,
+        val studentAddress: String? = null,
         val completedToday: Int,
         val totalToday: Int
     )

@@ -5,7 +5,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.di.ClassEndReceiverEntryPoint
+import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 
@@ -49,14 +52,15 @@ class ClassEndReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         applicationScope.launch {
             try {
-                consolidateActiveSessionUseCase()
-                stopActiveSessionUseCase()
-
-                // Trigger standard app widget update broadcast
-                val updateIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-                    `package` = context.packageName
+                val consolidationResult = consolidateActiveSessionUseCase()
+                if (consolidationResult !is Result.Error) {
+                    stopActiveSessionUseCase()
+                } else {
+                    SafeLogger.e(TAG, "Consolidation failed: ${consolidationResult.error}, retaining session for recovery")
                 }
-                context.sendBroadcast(updateIntent)
+
+                // Trigger standard app widget update broadcast with explicit widget IDs
+                ClassTimerWidget.updateWidget(context)
 
                 notifyClassEndUseCase.execute(studentName)
             } catch (e: Exception) {

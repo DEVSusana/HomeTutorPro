@@ -274,4 +274,42 @@ class GenerateCalendarOccurrencesUseCaseTest {
         assertEquals(ExceptionType.RESCHEDULED, originalOcc?.exception?.type)
         assertEquals("11:00", newOcc?.startTime)
     }
+
+    @Test
+    fun `invoke preserves student lastClassDate in regular occurrences`() = runTest {
+        val today = LocalDate.of(2023, 10, 2)
+        val lastClassTimestamp = 1696237200000L
+
+        val student = StudentSummary(
+            id = "student_with_date",
+            name = "Student Date",
+            subjects = "English",
+            color = 1,
+            pendingBalance = 50.0,
+            pricePerHour = 25.0,
+            isActive = true,
+            lastClassDate = lastClassTimestamp
+        )
+
+        val schedule = Schedule(
+            id = "sched_date",
+            studentId = "student_with_date",
+            dayOfWeek = DayOfWeek.MONDAY,
+            startTime = "09:00",
+            endTime = "10:00",
+            studentName = "Student Date",
+            studentIsActive = true
+        )
+
+        val result = useCase(
+            students = listOf(student),
+            schedules = listOf(schedule),
+            exceptions = emptyList(),
+            startDate = today,
+            endDate = today
+        )
+
+        assertEquals(1, result.size)
+        assertEquals(lastClassTimestamp, result.first().student.lastClassDate)
+    }
 }

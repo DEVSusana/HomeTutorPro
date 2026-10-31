@@ -26,6 +26,7 @@ class ConsolidateActiveSessionUseCaseTest {
     private val getStudentByIdUseCase: IGetStudentByIdUseCase = mockk()
     private val addToBalanceUseCase: IAddToBalanceUseCase = mockk()
     private val saveStudentUseCase: ISaveStudentUseCase = mockk()
+    private val startActiveSessionUseCase: IStartActiveSessionUseCase = mockk(relaxed = true)
 
     private lateinit var useCase: ConsolidateActiveSessionUseCase
 
@@ -45,7 +46,8 @@ class ConsolidateActiveSessionUseCaseTest {
             getCurrentUserUseCase,
             getStudentByIdUseCase,
             addToBalanceUseCase,
-            saveStudentUseCase
+            saveStudentUseCase,
+            startActiveSessionUseCase
         )
 
         every { getCurrentUserUseCase() } returns MutableStateFlow(testUser)
@@ -123,6 +125,7 @@ class ConsolidateActiveSessionUseCaseTest {
         assertTrue(result is Result.Success)
         assertEquals(true, (result as Result.Success).data)
         coVerify(exactly = 1) { addToBalanceUseCase("tutor123", "student_ana", 20.0) }
+        io.mockk.verify(exactly = 1) { startActiveSessionUseCase(matureSession.copy(isBilled = true)) }
     }
 
     @Test

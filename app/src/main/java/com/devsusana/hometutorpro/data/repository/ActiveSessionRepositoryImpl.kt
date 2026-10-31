@@ -25,10 +25,14 @@ class ActiveSessionRepositoryImpl @Inject constructor(
         val tutorId = prefs.getString(KEY_TUTOR_ID, "") ?: ""
         val isBilled = prefs.getBoolean(KEY_IS_BILLED, false)
 
-        // Check if the session has expired past its scheduled duration
+        // Check if the session has expired past its scheduled duration.
+        // If already billed, clear as soon as the scheduled end time has arrived.
+        // If unbilled, allow a grace period (30 min) before auto-clearing so scheduled
+        // alarms (ClassEndReceiver) and user actions have time to consolidate billing.
         if (startTimeMillis > 0 && durationMinutes > 0) {
             val endTimeMillis = startTimeMillis + (durationMinutes * 60 * 1000L)
-            if (System.currentTimeMillis() >= endTimeMillis) {
+            val expiryThreshold = if (isBilled) endTimeMillis else endTimeMillis + UNBILLED_EXPIRATION_GRACE_MILLIS
+            if (System.currentTimeMillis() >= expiryThreshold) {
                 stopSession()
                 return null
             }
@@ -70,5 +74,6 @@ class ActiveSessionRepositoryImpl @Inject constructor(
         private const val KEY_DURATION_MINUTES = "duration_minutes"
         private const val KEY_TUTOR_ID = "tutor_id"
         private const val KEY_IS_BILLED = "is_billed"
+        private const val UNBILLED_EXPIRATION_GRACE_MILLIS = 30 * 60 * 1000L
     }
 }
