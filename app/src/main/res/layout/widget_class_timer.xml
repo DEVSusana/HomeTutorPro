@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="14dp"
+    android:padding="12dp"
     android:background="@drawable/widget_background">
 
     <!-- Header bar -->
@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
+        android:layout_marginBottom="6dp">
 
         <TextView
             android:id="@+id/widget_brand_title"
@@ -26,6 +26,21 @@
             android:textStyle="bold"
             android:ellipsize="end"
             android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/widget_day_progress_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/widget_badge_bg"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:textColor="#38BDF8"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/widget_status_badge"
@@ -42,25 +57,46 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- State 1: No Active Session -->
+    <!-- Idle State Content (No Active Session) -->
     <LinearLayout
         android:id="@+id/layout_no_active"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:orientation="vertical"
-        android:gravity="center_vertical"
-        android:visibility="visible">
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/widget_next_student_text"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/widget_no_active_class"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:ellipsize="end"
-            android:maxLines="1" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/widget_next_student_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/widget_no_active_class"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/widget_class_tag_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/widget_no_active_subtitle"
@@ -74,17 +110,41 @@
             android:ellipsize="end"
             android:maxLines="1" />
 
-        <TextView
-            android:id="@+id/widget_door_code_text"
+        <LinearLayout
+            android:id="@+id/layout_aux_info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#FBBF24"
-            android:textSize="12sp"
-            android:textStyle="bold"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:layout_marginBottom="8dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:visibility="gone" />
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/widget_door_code_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#FBBF24"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/btn_widget_navigate"
+                android:layout_width="wrap_content"
+                android:layout_height="26dp"
+                android:background="@drawable/widget_button_nav_bg"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:gravity="center"
+                android:text="@string/widget_navigate"
+                android:textColor="#60A5FA"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/btn_start_class"
@@ -95,90 +155,7 @@
             android:textColor="#FFFFFF"
             android:gravity="center"
             android:textSize="13sp"
-            android:textStyle="bold"
-            android:clickable="true"
-            android:focusable="true" />
-    </LinearLayout>
-
-    <!-- State 2: Active Session (Countdown Chronometer) -->
-    <LinearLayout
-        android:id="@+id/layout_active"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center_vertical"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/widget_active_student_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:ellipsize="end"
-            android:maxLines="1" />
-
-        <TextView
-            android:id="@+id/widget_active_time_info"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#94A3B8"
-            android:textSize="12sp"
-            android:layout_marginTop="2dp"
-            android:layout_marginBottom="4dp"
-            android:ellipsize="end"
-            android:maxLines="1" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="6dp">
-
-            <Chronometer
-                android:id="@+id/widget_chronometer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#10B981"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_chronometer_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/widget_time_remaining"
-                android:textColor="#64748B"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/widget_active_next_class_preview"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#818CF8"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="6dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/btn_stop_class"
-            android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:background="@drawable/widget_button_stop_bg"
-            android:text="@string/widget_stop_class"
-            android:textColor="#FFFFFF"
-            android:gravity="center"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:clickable="true"
-            android:focusable="true" />
+            android:textStyle="bold" />
     </LinearLayout>
 
 </LinearLayout>

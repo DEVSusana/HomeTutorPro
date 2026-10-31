@@ -49,3 +49,28 @@ Calendar modifications operate solely on the date of a specific session (`date: 
 ## 5. Data Synchronization and Integrity
 * **Priority Local Persistence:** All data storage operates in local mode on the Room database due to the temporary deactivation of Cloud services.
 * **Cloud Readiness:** If synchronization is reactivated, pending local data must be marked with `isSyncPending`, and in case of conflicts, the data with the most recent modification `timestamp` will prevail.
+
+---
+
+## 6. Financial Transactions & Class Lifecycle Integrity Directives
+
+### A. Immutable Trigger Binding (Strict Student Attribution):
+* Any user action or automated trigger that initiates a tutoring class (including Jetpack Compose UI dialogs, Home Screen Widgets, Push Notifications, App Shortcuts, or the Sue AI Assistant) **MUST be explicitly bound to the immutable `studentId` of the target student**.
+* External trigger surfaces (e.g., `ClassTimerWidget`'s `PendingIntent`) must NEVER dynamically recalculate, infer, or guess the student at execution time. The intent payload must explicitly freeze and deliver `EXTRA_STUDENT_ID` and `EXTRA_DURATION_MINUTES`.
+* Recalculation fallbacks based on current time (e.g., `getNextClassUseCase()`) are strictly forbidden during class execution; if the explicit student identifier is missing or invalid, the operation must abort safely without modifying balances or starting sessions.
+
+### B. Atomic Financial Ledger Mutations & 15-Minute Consolidation Threshold:
+* When a class is billed, the monetary charge owed by the student must be calculated strictly as:
+  `priceToAdd = (durationMinutes / 60.0) * student.pricePerHour`
+* For widget-initiated classes (`ClassTimerActionReceiver`), billing and `lastClassDate` updates are deferred until the session has been active for at least **15 minutes (`MIN_BILLABLE_DURATION_MINUTES = 15`)**:
+  - If a widget-initiated session is stopped before 15 minutes have elapsed, it is treated as an accidental start / early cancellation: **no balance is charged and `lastClassDate` is not modified**, so the class remains pending on the widget.
+  - Once a widget-initiated session has run for at least 15 minutes, stopping the session or reaching the end of the countdown (`ClassEndReceiver`) consolidates the charge atomically once (`isBilled = true`).
+* Financial updates **MUST be performed atomically** via dedicated domain operations (`IAddToBalanceUseCase`), executing targeted SQL updates (`UPDATE students SET pendingBalance = pendingBalance + :amount, lastClassDate = :classDate...`).
+* Full-entity overwrites (`saveStudentUseCase`) are strictly prohibited for balance adjustments to prevent race conditions with concurrent payment registrations or background synchronization.
+
+### C. Class Termination & Idempotency:
+* Stopping an active class after it has already been billed (`isBilled = true`) or stopping a widget-initiated class within the 15-minute grace period must **NEVER double-charge or deduct money**, preserving financial idempotency.
+
+### D. Zero-Price / Pro-Bono Sessions:
+* If a student's `pricePerHour` is 0 or negative, `priceToAdd` is 0.0. The class session must still be tracked, updating `lastClassDate`, without recording a financial charge.
+

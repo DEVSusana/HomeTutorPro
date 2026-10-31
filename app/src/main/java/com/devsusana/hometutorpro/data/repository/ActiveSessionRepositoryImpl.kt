@@ -23,16 +23,7 @@ class ActiveSessionRepositoryImpl @Inject constructor(
         val startTimeMillis = prefs.getLong(KEY_START_TIME_MILLIS, 0)
         val durationMinutes = prefs.getLong(KEY_DURATION_MINUTES, 0)
         val tutorId = prefs.getString(KEY_TUTOR_ID, "") ?: ""
-
-        // Validate that session belongs to the currently authenticated tutor
-        val currentTutorId = try {
-            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-        } catch (_: Exception) {
-            null
-        }
-        if (currentTutorId != null && tutorId.isNotBlank() && tutorId != currentTutorId) {
-            return null
-        }
+        val isBilled = prefs.getBoolean(KEY_IS_BILLED, false)
 
         // Check if the session has expired past its scheduled duration
         if (startTimeMillis > 0 && durationMinutes > 0) {
@@ -49,27 +40,21 @@ class ActiveSessionRepositoryImpl @Inject constructor(
             startTimeMillis = startTimeMillis,
             durationMinutes = durationMinutes,
             isOngoing = true,
-            tutorId = tutorId
+            tutorId = tutorId,
+            isBilled = isBilled
         )
     }
 
     override fun startSession(session: ActiveSession) {
-        val effectiveTutorId = session.tutorId.ifBlank {
-            try {
-                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            } catch (_: Exception) {
-                ""
-            }
-        }
-        prefs.edit().apply {
-            putBoolean(KEY_IS_ONGOING, true)
-            putString(KEY_STUDENT_ID, session.studentId)
-            putString(KEY_STUDENT_NAME, session.studentName)
-            putLong(KEY_START_TIME_MILLIS, session.startTimeMillis)
-            putLong(KEY_DURATION_MINUTES, session.durationMinutes)
-            putString(KEY_TUTOR_ID, effectiveTutorId)
-            apply()
-        }
+        prefs.edit()
+            .putBoolean(KEY_IS_ONGOING, true)
+            .putString(KEY_STUDENT_ID, session.studentId)
+            .putString(KEY_STUDENT_NAME, session.studentName)
+            .putLong(KEY_START_TIME_MILLIS, session.startTimeMillis)
+            .putLong(KEY_DURATION_MINUTES, session.durationMinutes)
+            .putString(KEY_TUTOR_ID, session.tutorId)
+            .putBoolean(KEY_IS_BILLED, session.isBilled)
+            .apply()
     }
 
     override fun stopSession() {
@@ -84,5 +69,6 @@ class ActiveSessionRepositoryImpl @Inject constructor(
         private const val KEY_START_TIME_MILLIS = "start_time_millis"
         private const val KEY_DURATION_MINUTES = "duration_minutes"
         private const val KEY_TUTOR_ID = "tutor_id"
+        private const val KEY_IS_BILLED = "is_billed"
     }
 }

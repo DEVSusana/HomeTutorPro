@@ -50,9 +50,9 @@ Cuando se plantea añadir capacidades de IA a una app móvil, la tentación est�
 
 ---
 
-## 2. Comparativa de Frameworks de Inferencia Móvil
+## 2. Comparativa de Frameworks de Inferencia Móvil y Hoja de Ruta
 
-¿Por qué elegimos **Google MediaPipe Tasks GenAI** frente a las alternativas del ecosistema de Edge Computing?
+¿Por qué elegimos **Google MediaPipe Tasks GenAI** para la versión actual y cómo diseñamos la transición hacia **LiteRT-LM**?
 
 ```
                                ┌─────────────────────────────────────────┐
@@ -60,25 +60,26 @@ Cuando se plantea añadir capacidades de IA a una app móvil, la tentación est�
                                └────────────────────┬────────────────────┘
              ┌──────────────────────┬───────────────┴───────────────┬──────────────────────┐
              ▼                      ▼                               ▼                      ▼
-  Google MediaPipe GenAI       llama.cpp / llama-android       ONNX Runtime Mobile       ExecuTorch (PyTorch)
-  ─────────────────────       ─────────────────────────       ───────────────────       ────────────────────
-  ⭐ Oficial de Google         • Gran comunidad C++            • Excelente para ML       • Gran flexibilidad
-  ⭐ Aceleración GPU NDK      • Requiere wrappers JNI         tradicional               • Ecosistema aún joven
-  ⭐ Formatos .task / .bin     manuales complejos              • LLM GenAI menos          en Android nativo
-  ⭐ Integración Gemma        • Mayor mantenimiento           optimizado en móvil
+  Google MediaPipe GenAI       Google LiteRT-LM (Siguiente)    llama.cpp / llama-android   ONNX Runtime Mobile
+  ─────────────────────       ────────────────────────────    ─────────────────────────   ───────────────────
+  ⭐ Oficial en Gradle         🚀 Siguiente estándar oficial   • Gran comunidad C++        • Excelente para ML
+  ⭐ Aceleración GPU NDK       🚀 Optimizado para NPUs directas • Requiere wrappers JNI     tradicional
+  ⭐ Formatos .task / .bin     🚀 Caching prefijos / LoRA      manuales complejos          • LLM GenAI menos
+  ⚠️ Pasa a mantenimiento      🚀 Sucesor natural TFLite/Edge  • Mayor coste de mant.      optimizado en móvil
 ```
 
 ### Tabla Comparativa Exhaustiva
 
-| Criterio | Google MediaPipe GenAI | llama.cpp (JNI / NDK) | ONNX Runtime Mobile | ExecuTorch (Meta) |
+| Criterio | Google MediaPipe GenAI (Actual) | Google LiteRT-LM (Evolución Oficial) | llama.cpp (JNI / NDK) | ONNX Runtime Mobile |
 |---|---|---|---|---|
-| **Integración en Android** | ⭐⭐⭐⭐⭐ Nativa vía dependencias Gradle (`com.google.mediapipe:tasks-genai`). | ⭐⭐⭐ Requiere compilar binarios C++ por arquitectura (arm64-v8a) y mantener código JNI manual. | ⭐⭐⭐⭐ Buena en Java/Kotlin, pero la API de LLMs requiere adaptadores. | ⭐⭐⭐ En evolución activa, excelente para modelos PyTorch pero con setup NDK complejo. |
-| **Aceleración Hardware** | GPU / OpenCL / Vulkan / Adreno / Mali optimizado automáticamente por Google para chipsets Snapdragon, Dimensity, Exynos y Tensor. | OpenCL / Vulkan configurable, pero requiere flags de compilación NDK muy afinados. | DirectML / NNAPI / CPU. | XNNPACK / Vulkan. |
-| **Compatibilidad con Gemma** | ⭐⭐⭐⭐⭐ Modelo de referencia de Google. Soporte de primera clase para `.task` y `.bin`. | ⭐⭐⭐⭐ Requiere conversión a formato GGUF. | ⭐⭐⭐ Requiere conversión ONNX + cuants. | ⭐⭐⭐ Requiere exportación específica. |
-| **Páginas de 16 KB (Android 15+)** | Totalmente alineado en versiones `0.10.27+`. | Requiere compilar con `-Wl,-z,max-page-size=16384`. | Requiere versiones actualizadas. | En proceso de adopción. |
-| **Mantenimiento y Estabilidad** | Respaldado oficialmente por el equipo de Google AI Edge. | Proyecto Open Source muy activo pero con cambios de API frecuentes (breaking changes). | Respaldado por Microsoft. | Respaldado por Meta. |
+| **Integración en Android** | ⭐⭐⭐⭐⭐ Nativa vía Gradle (`com.google.mediapipe:tasks-genai`). | ⭐⭐⭐⭐⭐ Nativa vía Gradle (`com.google.ai.edge.litert`). | ⭐⭐⭐ Requiere compilar binarios C++ por arquitectura (arm64-v8a) y mantener JNI manual. | ⭐⭐⭐⭐ Buena en Java/Kotlin, pero la API de LLMs requiere adaptadores. |
+| **Aceleración Hardware** | GPU / OpenCL / Vulkan optimizado para Snapdragon, Dimensity, Exynos y Tensor. | **NPU de última generación** (QNN, Neuropilot, Tensor) + GPU / Vulkan sin estrangulamiento térmico. | OpenCL / Vulkan configurable, pero requiere flags de compilación NDK muy afinados. | DirectML / NNAPI / CPU. |
+| **Compatibilidad con Gemma** | Soporte de primera clase para `.task` y `.bin`. | Soporte nativo para Gemma 2 y Gemma 3 con cuantizaciones INT4/INT8 mixtas y LoRA dinámico. | Requiere conversión a formato GGUF. | Requiere conversión ONNX + cuants. |
+| **Páginas de 16 KB (Android 15+)** | Totalmente alineado en versiones `0.10.27+`. | Nativo desde su concepción en Android 15+. | Requiere compilar con `-Wl,-z,max-page-size=16384`. | Requiere versiones actualizadas. |
+| **Mantenimiento y Futuro** | ⚠️ En fase de mantenimiento; sin nuevas optimizaciones de microarquitectura. | ⭐⭐⭐⭐⭐ **El estándar oficial a largo plazo** respaldado por Google AI Edge. | Proyecto Open Source muy activo pero con breaking changes frecuentes. | Respaldado por Microsoft. |
 
-**Conclusión para la ponencia:** MediaPipe nos ofrece la menor fricción de integración en Kotlin, estabilidad de API a largo plazo y la máxima optimización de aceleración por GPU/NPU en Android sin obligarnos a mantener una capa JNI en C++ dentro del repositorio.
+**Conclusión y Lección de Arquitectura para la ponencia:** 
+MediaPipe nos proporcionó la menor fricción de integración inicial en Kotlin, soporte nativo de 16 KB y aceleración GPU probada. Al anunciar Google el paso de MediaPipe a mantenimiento para dar paso a **LiteRT-LM**, la arquitectura del proyecto validó su diseño: mediante Clean Architecture, el motor reside 100% confinado tras la interfaz `InferenceRepository` en la Capa de Datos. Migrar a LiteRT-LM consiste únicamente en suministrar una nueva implementación (`LiteRtModelRepository`) sin modificar ni una sola línea de lógica de negocio, casos de uso o Compose UI.
 
 ---
 
