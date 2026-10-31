@@ -5,6 +5,7 @@ import com.devsusana.hometutorpro.core.utils.NotificationHelper
 import com.devsusana.hometutorpro.di.ApplicationScope
 import com.devsusana.hometutorpro.domain.usecases.AppInitializer
 import com.devsusana.hometutorpro.domain.usecases.ICleanupDuplicateStudentsUseCase
+import com.devsusana.hometutorpro.domain.usecases.IFetchRemoteConfigUseCase
 import com.devsusana.hometutorpro.domain.usecases.ISyncCoordinator
 import com.devsusana.hometutorpro.domain.usecases.implementations.RescueOrphanedDataUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -25,6 +26,7 @@ class AppInitializerImpl @Inject constructor(
     private val syncCoordinator: ISyncCoordinator,
     private val rescueOrphanedDataUseCase: RescueOrphanedDataUseCase,
     private val cleanupDuplicateStudentsUseCase: ICleanupDuplicateStudentsUseCase,
+    private val fetchRemoteConfigUseCase: IFetchRemoteConfigUseCase,
     @ApplicationScope private val applicationScope: CoroutineScope
 ) : AppInitializer {
 
@@ -33,6 +35,13 @@ class AppInitializerImpl @Inject constructor(
         try {
             com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
         } catch (_: Exception) {}
+
+        // Fetch and activate latest remote configuration asynchronously
+        applicationScope.launch(Dispatchers.IO) {
+            try {
+                fetchRemoteConfigUseCase()
+            } catch (_: Exception) {}
+        }
 
         // Create notification channel
         NotificationHelper.createNotificationChannel(context)

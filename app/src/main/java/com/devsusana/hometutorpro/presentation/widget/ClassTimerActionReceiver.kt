@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
+import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.usecases.ICancelClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetNextClassUseCase
@@ -57,12 +58,25 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
     @Inject
     lateinit var cancelClassEndNotificationUseCase: ICancelClassEndNotificationUseCase
 
+    @Inject
+    lateinit var configRepository: IConfigRepository
+
     private val job = SupervisorJob()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + job)
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         if (action != ACTION_START_CLASS && action != ACTION_STOP_CLASS) return
+
+        val isActionsEnabled = try {
+            configRepository.isWidgetActionsEnabled()
+        } catch (_: Exception) {
+            true
+        }
+        if (!isActionsEnabled) {
+            SafeLogger.w(TAG, "Widget action rejected: actions are disabled via remote config kill-switch ($action)")
+            return
+        }
 
         val pendingResult = goAsync()
         coroutineScope.launch {

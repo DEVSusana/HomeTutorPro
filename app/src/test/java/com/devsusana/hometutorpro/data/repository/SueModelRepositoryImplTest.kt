@@ -176,4 +176,23 @@ class SueModelRepositoryImplTest {
         assertFalse(repository.isModelDownloaded())
         assertNull(repository.getDownloadedModelSize())
     }
+
+    @Test
+    fun checkDeviceCompatibility_returnsDisabledByConfig_whenLocalAiKillSwitchActive() {
+        val mockConfig = io.mockk.mockk<com.devsusana.hometutorpro.domain.repository.IConfigRepository>(relaxed = true)
+        io.mockk.every { mockConfig.isSueLocalAiEnabled() } returns false
+
+        val testRepo = SueModelRepositoryImpl(
+            context = context,
+            inferenceRepository = inferenceRepository,
+            configRepository = mockConfig,
+            ioDispatcher = testDispatcher
+        )
+        testRepo.sdkIntOverride = 34
+
+        val compatibility = testRepo.checkDeviceCompatibility()
+
+        assertFalse(compatibility.isSupported)
+        assertEquals(com.devsusana.hometutorpro.domain.entities.SueUnsupportedReason.DISABLED_BY_CONFIG, compatibility.reason)
+    }
 }

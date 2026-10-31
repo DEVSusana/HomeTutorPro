@@ -16,6 +16,7 @@ import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 import com.devsusana.hometutorpro.domain.entities.CalendarOccurrence
+import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.usecases.ICancelClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.IGetCurrentUserUseCase
@@ -62,6 +63,9 @@ class ClassTimerWidget : AppWidgetProvider() {
 
     @Inject
     lateinit var getStudentByIdUseCase: IGetStudentByIdUseCase
+
+    @Inject
+    lateinit var configRepository: IConfigRepository
 
     private val job = SupervisorJob()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + job)
@@ -113,6 +117,12 @@ class ClassTimerWidget : AppWidgetProvider() {
         nextClass: CalendarOccurrence?,
         doorCode: String? = null
     ) {
+        val isActionsEnabled = try {
+            configRepository.isWidgetActionsEnabled()
+        } catch (_: Exception) {
+            true
+        }
+
         // Tap on widget header/background opens the main app
         val mainIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -190,17 +200,22 @@ class ClassTimerWidget : AppWidgetProvider() {
             }
 
             // Stop button
-            val stopIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
-                action = ACTION_STOP_CLASS
-                `package` = context.packageName
+            if (isActionsEnabled) {
+                val stopIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
+                    action = ACTION_STOP_CLASS
+                    `package` = context.packageName
+                }
+                val pendingStopIntent = PendingIntent.getBroadcast(
+                    context,
+                    RQ_STOP,
+                    stopIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.btn_stop_class, pendingStopIntent)
+            } else {
+                // Actions disabled remotely via kill-switch: redirect to app to finish safely in foreground
+                views.setOnClickPendingIntent(R.id.btn_stop_class, pendingMainIntent)
             }
-            val pendingStopIntent = PendingIntent.getBroadcast(
-                context,
-                RQ_STOP,
-                stopIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.btn_stop_class, pendingStopIntent)
 
         } else {
             // ----------------------------------------------------
@@ -235,20 +250,24 @@ class ClassTimerWidget : AppWidgetProvider() {
                     views.setViewVisibility(R.id.widget_door_code_text, View.GONE)
                 }
 
-                views.setViewVisibility(R.id.btn_start_class, View.VISIBLE)
-
-                // Start button
-                val startIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
-                    action = ACTION_START_CLASS
-                    `package` = context.packageName
+                if (isActionsEnabled) {
+                    views.setViewVisibility(R.id.btn_start_class, View.VISIBLE)
+                    // Start button
+                    val startIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
+                        action = ACTION_START_CLASS
+                        `package` = context.packageName
+                    }
+                    val pendingStartIntent = PendingIntent.getBroadcast(
+                        context,
+                        RQ_START,
+                        startIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    views.setOnClickPendingIntent(R.id.btn_start_class, pendingStartIntent)
+                } else {
+                    // Actions disabled remotely via kill-switch: hide start button, tapping card opens main app
+                    views.setViewVisibility(R.id.btn_start_class, View.GONE)
                 }
-                val pendingStartIntent = PendingIntent.getBroadcast(
-                    context,
-                    RQ_START,
-                    startIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.btn_start_class, pendingStartIntent)
             } else {
                 views.setTextViewText(
                     R.id.widget_next_student_text,

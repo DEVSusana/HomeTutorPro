@@ -148,6 +148,7 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.storage)
     implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.config)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
