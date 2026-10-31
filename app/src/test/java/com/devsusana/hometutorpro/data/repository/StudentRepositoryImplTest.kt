@@ -325,6 +325,31 @@ class StudentRepositoryImplTest {
     }
 
     @Test
+    fun `updateLastClassDate updates only classDate atomically`() = runTest {
+        // Given
+        val studentId = "1"
+        val timestamp = 1700000000000L
+        every { studentDao.getStudentById(1L, "prof123") } returns flowOf(testStudentEntity)
+        coEvery {
+            studentDao.updateLastClassDate(any(), any(), any(), any(), any())
+        } just Runs
+        coEvery { syncScheduler.scheduleSyncNow() } just Runs
+
+        // When
+        val result = repository.updateLastClassDate("prof123", studentId, timestamp)
+
+        // Then
+        assertTrue(result is Result.Success)
+        coVerify {
+            studentDao.updateLastClassDate(
+                1L, "prof123", timestamp,
+                com.devsusana.hometutorpro.data.local.entities.SyncStatus.PENDING_UPLOAD, any()
+            )
+        }
+        coVerify { syncScheduler.scheduleSyncNow() }
+    }
+
+    @Test
     fun `addToBalance returns error for invalid amount`() = runTest {
         // Given
         val studentId = "1"

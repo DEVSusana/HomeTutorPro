@@ -9,6 +9,7 @@ package com.devsusana.hometutorpro.domain.entities
  * @property durationMinutes Scheduled duration of the class in minutes.
  * @property isOngoing True if the session is currently active.
  * @property tutorId Unique identifier of the authenticated tutor who started the session.
+ * @property isBilled True if the session has already been charged to the student's pending balance.
  */
 data class ActiveSession(
     val studentId: String,
@@ -16,5 +17,6 @@ data class ActiveSession(
     val startTimeMillis: Long,
     val durationMinutes: Long,
     val isOngoing: Boolean,
-    val tutorId: String = ""
+    val tutorId: String = "",
+    val isBilled: Boolean = false
 )

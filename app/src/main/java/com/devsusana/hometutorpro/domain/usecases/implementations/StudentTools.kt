@@ -60,7 +60,8 @@ class StudentTools @Inject constructor(
         scheduleClassEndNotificationUseCase: IScheduleClassEndNotificationUseCase,
         authRepository: AuthRepository,
         getSharedResourcesUseCase: IGetSharedResourcesUseCase,
-        agentContextRepository: AgentContextRepository
+        agentContextRepository: AgentContextRepository,
+        startActiveSessionUseCase: IStartActiveSessionUseCase? = null
     ) : this(
         queryStudentsUseCase = queryStudentsUseCase,
         registerPaymentUseCase = registerPaymentUseCase,
@@ -74,7 +75,7 @@ class StudentTools @Inject constructor(
         agentContextRepository = agentContextRepository,
         phoneticMatcher = SpanishPhoneticMatcher(),
         dateTimeProvider = null,
-        startActiveSessionUseCase = null,
+        startActiveSessionUseCase = startActiveSessionUseCase,
         stopActiveSessionUseCase = null
     )
 
@@ -285,13 +286,12 @@ class StudentTools @Inject constructor(
                         startTimeMillis = sessionStartTime,
                         durationMinutes = action.durationMinutes.toLong(),
                         isOngoing = true,
-                        tutorId = professorId
+                        tutorId = professorId,
+                        isBilled = true
                     )
                 )
-                val scheduled = scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
-                if (!scheduled) {
-                    stopActiveSessionUseCase?.invoke()
-                }
+                // Notification is best-effort; failure to schedule alarm must never cancel the ongoing session
+                scheduleClassEndNotificationUseCase(student.name, action.durationMinutes.toLong())
                 SueOperationResult.Execute.Success(action)
             }
             is Result.Error -> SueOperationResult.Execute.Error(result.error)

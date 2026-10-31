@@ -140,19 +140,17 @@ class StudentFinanceDelegate @Inject constructor(
                             startTimeMillis = System.currentTimeMillis(),
                             durationMinutes = duration.toLong(),
                             isOngoing = true,
-                            tutorId = professorId
+                            tutorId = professorId,
+                            isBilled = true
                         )
                     )
                     ClassTimerWidget.updateWidget(application)
 
-                    val scheduled = scheduleClassEndNotificationUseCase?.invoke(
+                    // Notification is best-effort; failure to schedule alarm must never cancel the ongoing session
+                    scheduleClassEndNotificationUseCase?.invoke(
                         currentStudent.name,
                         duration.toLong()
-                    ) ?: true
-                    if (!scheduled) {
-                        stopActiveSessionUseCase?.invoke()
-                        ClassTimerWidget.updateWidget(application)
-                    }
+                    )
 
                     state.value = state.value.copy(
                         student = updatedStudent,

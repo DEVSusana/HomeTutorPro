@@ -1,23 +1,22 @@
 package com.devsusana.hometutorpro.core.receiver
 
+import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.devsusana.hometutorpro.R
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.di.ClassEndReceiverEntryPoint
-import com.devsusana.hometutorpro.domain.usecases.INotifyClassEndUseCase
+import com.devsusana.hometutorpro.domain.core.Result
+import com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 
 /**
  * Thin BroadcastReceiver gateway for scheduled class-end alarms.
  *
- * Delegates all business logic (settings check, notification display) to
- * [INotifyClassEndUseCase], keeping this class free of domain or data dependencies
- * beyond the use case interface contract.
- *
- * Fully covered by unit tests in [ClassEndReceiverTest] (app/src/test/java/com/devsusana/hometutorpro/core/receiver/ClassEndReceiverTest.kt)
- * verifying intent extra extraction and background coroutine usecase execution.
+ * Delegates all business logic (settings check, notification display, session consolidation)
+ * to domain use cases via [ClassEndReceiverEntryPoint].
  */
 class ClassEndReceiver : BroadcastReceiver() {
 
@@ -29,14 +28,12 @@ class ClassEndReceiver : BroadcastReceiver() {
     }
 
     /**
-     * Handles the incoming broadcast intent for the class-end event.
+     * Handles the incoming broadcast intent for the class-end alarm.
      *
-     * Extracts the student name from the intent extras and delegates the notification
-     * logic to [INotifyClassEndUseCase] within application scope. Uses [goAsync] to
-     * keep the receiver alive during the coroutine execution.
+     * Consolidates session billing via domain use case and triggers end notification.
      *
-     * @param context The context in which the receiver is running.
-     * @param intent The intent being received, containing the student name extra.
+     * @param context The Context in which the receiver is running.
+     * @param intent The Intent being received.
      */
     override fun onReceive(context: Context, intent: Intent) {
         val studentName = intent.getStringExtra(EXTRA_STUDENT_NAME)
@@ -46,20 +43,25 @@ class ClassEndReceiver : BroadcastReceiver() {
             context.applicationContext,
             ClassEndReceiverEntryPoint::class.java
         )
-        val stopActiveSessionUseCase = entryPoint.stopActiveSessionUseCase()
-        try {
-            stopActiveSessionUseCase()
-            com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget.updateWidget(context)
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "Error stopping active session on class end", e)
-        }
 
+        val consolidateActiveSessionUseCase = entryPoint.consolidateActiveSessionUseCase()
         val notifyClassEndUseCase = entryPoint.notifyClassEndUseCase()
+        val stopActiveSessionUseCase = entryPoint.stopActiveSessionUseCase()
         val applicationScope = entryPoint.applicationScope()
 
         val pendingResult = goAsync()
         applicationScope.launch {
             try {
+                val consolidationResult = consolidateActiveSessionUseCase()
+                if (consolidationResult !is Result.Error) {
+                    stopActiveSessionUseCase()
+                } else {
+                    SafeLogger.e(TAG, "Consolidation failed: ${consolidationResult.error}, retaining session for recovery")
+                }
+
+                // Trigger standard app widget update broadcast with explicit widget IDs
+                ClassTimerWidget.updateWidget(context)
+
                 notifyClassEndUseCase.execute(studentName)
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Error processing class end notification", e)

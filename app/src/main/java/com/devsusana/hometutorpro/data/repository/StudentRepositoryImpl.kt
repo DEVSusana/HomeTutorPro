@@ -218,6 +218,32 @@ class StudentRepositoryImpl @Inject constructor(
     }
 
     /**
+     * Updates only [lastClassDate] for a student without touching pending balance or other fields.
+     */
+    override suspend fun updateLastClassDate(
+        professorId: String,
+        studentId: String,
+        classDate: Long
+    ): Result<Unit, DomainError> = safeIoCall {
+        val (id, _) = when (val res = findStudent(professorId, studentId)) {
+            is Result.Success -> res.data
+            is Result.Error -> return@safeIoCall Result.Error(res.error)
+        }
+
+        studentDao.updateLastClassDate(
+            studentId = id,
+            professorId = professorId,
+            classDate = classDate,
+            syncStatus = SyncStatus.PENDING_UPLOAD,
+            timestamp = dateTimeProvider.currentTimeMillis()
+        )
+
+        syncScheduler.scheduleSyncNow()
+
+        Result.Success(Unit)
+    }
+
+    /**
      * Updates a student's pending balance to a specific value and records an adjustment transaction.
      *
      * @param professorId Owner professor identifier.

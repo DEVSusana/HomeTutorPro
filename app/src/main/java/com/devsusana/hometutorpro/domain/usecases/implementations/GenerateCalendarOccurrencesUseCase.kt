@@ -33,21 +33,23 @@ class GenerateCalendarOccurrencesUseCase @Inject constructor() : IGenerateCalend
         }
 
         val consumedExceptionIds = mutableSetOf<String>()
+        val studentsMap = students.associateBy { it.id }
 
         // 1. Generate regular occurrences
         schedules.forEach { schedule ->
             // Use details already present in schedule (JOIN optimization)
             val studentName = schedule.studentName
             if (studentName != null && schedule.studentIsActive == true) {
+                val matchedStudent = studentsMap[schedule.studentId]
                 val student = StudentSummary(
                     id = schedule.studentId,
                     name = studentName,
-                    subjects = schedule.studentSubjects ?: "",
-                    color = schedule.studentColor,
-                    pendingBalance = schedule.studentPendingBalance ?: 0.0,
-                    pricePerHour = schedule.studentPricePerHour ?: 0.0,
+                    subjects = schedule.studentSubjects ?: matchedStudent?.subjects ?: "",
+                    color = schedule.studentColor ?: matchedStudent?.color,
+                    pendingBalance = schedule.studentPendingBalance ?: matchedStudent?.pendingBalance ?: 0.0,
+                    pricePerHour = schedule.studentPricePerHour ?: matchedStudent?.pricePerHour ?: 0.0,
                     isActive = true,
-                    lastClassDate = null
+                    lastClassDate = matchedStudent?.lastClassDate
                 )
                 
                 var currentDate = startDate
