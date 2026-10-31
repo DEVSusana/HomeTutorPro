@@ -38,6 +38,15 @@ interface StudentRepository {
     ): Result<Unit, DomainError>
 
     /**
+     * Updates only [lastClassDate] for the specified student without modifying balance or other fields.
+     */
+    suspend fun updateLastClassDate(
+        professorId: String,
+        studentId: String,
+        classDate: Long
+    ): Result<Unit, DomainError>
+
+    /**
      * Updates the student's balance to an absolute value [newBalance].
      * Uses an atomic update to prevent race conditions.
      */

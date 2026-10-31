@@ -117,6 +117,19 @@ interface StudentDao {
     )
 
     /**
+     * Atomic lastClassDate update — used for free classes to avoid full-entity overwrites
+     * that could race with concurrent payment operations.
+     */
+    @Query("UPDATE students SET lastClassDate = :classDate, syncStatus = :syncStatus, lastModifiedTimestamp = :timestamp WHERE id = :studentId AND professorId = :professorId")
+    suspend fun updateLastClassDate(
+        studentId: Long,
+        professorId: String,
+        classDate: Long,
+        syncStatus: SyncStatus,
+        timestamp: Long
+    )
+
+    /**
      * Retrieves students matching a specific synchronization status.
      *
      * @param professorId Owner professor identifier.

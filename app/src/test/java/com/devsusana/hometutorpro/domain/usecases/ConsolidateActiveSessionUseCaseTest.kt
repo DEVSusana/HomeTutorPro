@@ -25,7 +25,7 @@ class ConsolidateActiveSessionUseCaseTest {
     private val getCurrentUserUseCase: IGetCurrentUserUseCase = mockk()
     private val getStudentByIdUseCase: IGetStudentByIdUseCase = mockk()
     private val addToBalanceUseCase: IAddToBalanceUseCase = mockk()
-    private val saveStudentUseCase: ISaveStudentUseCase = mockk()
+    private val updateLastClassDateUseCase: IUpdateLastClassDateUseCase = mockk()
     private val startActiveSessionUseCase: IStartActiveSessionUseCase = mockk(relaxed = true)
 
     private lateinit var useCase: ConsolidateActiveSessionUseCase
@@ -46,14 +46,14 @@ class ConsolidateActiveSessionUseCaseTest {
             getCurrentUserUseCase,
             getStudentByIdUseCase,
             addToBalanceUseCase,
-            saveStudentUseCase,
+            updateLastClassDateUseCase,
             startActiveSessionUseCase
         )
 
         every { getCurrentUserUseCase() } returns MutableStateFlow(testUser)
         every { getStudentByIdUseCase("tutor123", "student_ana") } returns flowOf(testStudent)
         coEvery { addToBalanceUseCase("tutor123", "student_ana", any()) } returns Result.Success(Unit)
-        coEvery { saveStudentUseCase("tutor123", any()) } returns Result.Success("student_ana")
+        coEvery { updateLastClassDateUseCase("tutor123", "student_ana", any()) } returns Result.Success(Unit)
     }
 
     @Test
@@ -129,7 +129,7 @@ class ConsolidateActiveSessionUseCaseTest {
     }
 
     @Test
-    fun `invoke records lastClassDate without monetary charge when student price is zero`() = runTest {
+    fun `invoke records lastClassDate with targeted update without monetary charge when student price is zero`() = runTest {
         val freeStudent = testStudent.copy(pricePerHour = 0.0)
         every { getStudentByIdUseCase("tutor123", "student_ana") } returns flowOf(freeStudent)
 
@@ -149,6 +149,28 @@ class ConsolidateActiveSessionUseCaseTest {
         assertTrue(result is Result.Success)
         assertEquals(true, (result as Result.Success).data)
         coVerify(exactly = 0) { addToBalanceUseCase(any(), any(), any()) }
-        coVerify(exactly = 1) { saveStudentUseCase("tutor123", match { it.lastClassDate != null }) }
+        coVerify(exactly = 1) { updateLastClassDateUseCase("tutor123", "student_ana", any()) }
+    }
+
+    @Test
+    fun `invoke skips billing when target session was already billed concurrently`() = runTest {
+        val matureSession = ActiveSession(
+            studentId = "student_ana",
+            studentName = "Ana",
+            startTimeMillis = 1000000L,
+            durationMinutes = 60L,
+            isOngoing = true,
+            tutorId = "tutor123",
+            isBilled = false
+        )
+        val billedSessionInRepo = matureSession.copy(isBilled = true)
+        every { getActiveSessionUseCase() } returns billedSessionInRepo
+
+        // Passed unbilled snapshot from an earlier read, but repo has already billed it concurrently
+        val result = useCase(matureSession)
+
+        assertTrue(result is Result.Success)
+        assertEquals(false, (result as Result.Success).data)
+        coVerify(exactly = 0) { addToBalanceUseCase(any(), any(), any()) }
     }
 }
