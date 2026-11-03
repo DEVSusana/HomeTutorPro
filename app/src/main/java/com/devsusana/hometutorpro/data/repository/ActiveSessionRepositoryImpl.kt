@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.devsusana.hometutorpro.data.repository
 
 import android.content.Context
@@ -97,15 +99,19 @@ class ActiveSessionRepositoryImpl internal constructor(
     }
 
     override suspend fun startSession(session: ActiveSession): Unit = withContext(ioDispatcher) {
-        prefs.edit()
-            .putBoolean(KEY_IS_ONGOING, true)
-            .putString(KEY_STUDENT_ID, session.studentId)
-            .putString(KEY_STUDENT_NAME, session.studentName)
-            .putLong(KEY_START_TIME_MILLIS, session.startTimeMillis)
-            .putLong(KEY_DURATION_MINUTES, session.durationMinutes)
-            .putString(KEY_TUTOR_ID, session.tutorId)
-            .putBoolean(KEY_IS_BILLED, session.isBilled)
-            .apply()
+        try {
+            prefs.edit()
+                .putBoolean(KEY_IS_ONGOING, true)
+                .putString(KEY_STUDENT_ID, session.studentId)
+                .putString(KEY_STUDENT_NAME, session.studentName)
+                .putLong(KEY_START_TIME_MILLIS, session.startTimeMillis)
+                .putLong(KEY_DURATION_MINUTES, session.durationMinutes)
+                .putString(KEY_TUTOR_ID, session.tutorId)
+                .putBoolean(KEY_IS_BILLED, session.isBilled)
+                .apply()
+        } catch (e: Exception) {
+            SafeLogger.e(TAG, "Failed to persist active session: ${e.message}", e)
+        }
     }
 
     override suspend fun stopSession(): Unit = withContext(ioDispatcher) {
@@ -113,7 +119,11 @@ class ActiveSessionRepositoryImpl internal constructor(
     }
 
     private fun clearSessionSync() {
-        prefs.edit().clear().apply()
+        try {
+            prefs.edit().clear().apply()
+        } catch (e: Exception) {
+            SafeLogger.e(TAG, "Failed to clear active session: ${e.message}", e)
+        }
     }
 
     /**

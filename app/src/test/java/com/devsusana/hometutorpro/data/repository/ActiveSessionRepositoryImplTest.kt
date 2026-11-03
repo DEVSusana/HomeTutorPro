@@ -169,4 +169,28 @@ class ActiveSessionRepositoryImplTest {
         repo.stopSession()
         assertNull(repo.getActiveSession())
     }
+
+    @Test
+    fun `startSession and stopSession safely handle SharedPreferences exceptions without crashing`() = runTest {
+        val faultyPrefs = io.mockk.mockk<android.content.SharedPreferences>()
+        io.mockk.every { faultyPrefs.edit() } throws RuntimeException("Simulated Keystore I/O failure")
+
+        val repo = ActiveSessionRepositoryImpl(
+            context = context,
+            prefsOverride = faultyPrefs
+        )
+
+        val session = ActiveSession(
+            studentId = "sErr",
+            studentName = "ErrUser",
+            startTimeMillis = System.currentTimeMillis(),
+            durationMinutes = 30L,
+            isOngoing = true,
+            tutorId = "tutorErr"
+        )
+
+        // Must handle exception safely without throwing uncaught runtime exception
+        repo.startSession(session)
+        repo.stopSession()
+    }
 }
