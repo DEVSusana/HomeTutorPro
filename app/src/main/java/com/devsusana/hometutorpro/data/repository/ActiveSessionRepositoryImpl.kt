@@ -18,14 +18,15 @@ import javax.inject.Singleton
 @Singleton
 class ActiveSessionRepositoryImpl internal constructor(
     @param:ApplicationContext private val context: Context,
-    private val ioDispatcher: CoroutineDispatcher
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    prefsOverride: SharedPreferences? = null
 ) : IActiveSessionRepository {
 
     @Inject
-    constructor(@ApplicationContext context: Context) : this(context, Dispatchers.IO)
+    constructor(@ApplicationContext context: Context) : this(context, Dispatchers.IO, null)
 
     private val prefs: SharedPreferences by lazy {
-        createEncryptedPreferences()
+        prefsOverride ?: createEncryptedPreferences()
     }
 
     private fun createEncryptedPreferences(): SharedPreferences {
@@ -56,8 +57,8 @@ class ActiveSessionRepositoryImpl internal constructor(
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
                 )
             } catch (fallbackEx: Exception) {
-                SafeLogger.e(TAG, "EncryptedSharedPreferences fallback failed: ${fallbackEx.message}. Using standard SharedPreferences", fallbackEx)
-                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                SafeLogger.e(TAG, "EncryptedSharedPreferences fallback failed: ${fallbackEx.message}. Falling back to in-memory storage to prevent plaintext persistence.", fallbackEx)
+                InMemorySharedPreferences()
             }
         }
     }
@@ -74,13 +75,12 @@ class ActiveSessionRepositoryImpl internal constructor(
         val isBilled = prefs.getBoolean(KEY_IS_BILLED, false)
 
         // Check if the session has expired past its scheduled duration.
-        // If already billed, clear as soon as the scheduled end time has arrived.
-        // If unbilled, do not auto-delete on read so alarms (ClassEndReceiver) and
+        // If already billed, consider it expired and return null without mutating state (CQS).
+        // If unbilled, do not consider it expired so alarms (ClassEndReceiver) and
         // consolidation mechanisms can process and bill the session without losing state.
         if (startTimeMillis > 0 && durationMinutes > 0) {
             val endTimeMillis = startTimeMillis + (durationMinutes * 60 * 1000L)
             if (isBilled && System.currentTimeMillis() >= endTimeMillis) {
-                clearSessionSync()
                 return@withContext null
             }
         }
@@ -114,6 +114,108 @@ class ActiveSessionRepositoryImpl internal constructor(
 
     private fun clearSessionSync() {
         prefs.edit().clear().apply()
+    }
+
+    /**
+     * In-memory fallback for [SharedPreferences] used when [EncryptedSharedPreferences]
+     * fails completely (e.g. MasterKey corruption or keystore failure).
+     * Guarantees that sensitive data (studentId, tutorId) is never written to disk in plaintext.
+     */
+    internal class InMemorySharedPreferences : SharedPreferences {
+        private val data = java.util.concurrent.ConcurrentHashMap<String, Any>()
+        private val listeners = java.util.concurrent.CopyOnWriteArraySet<SharedPreferences.OnSharedPreferenceChangeListener>()
+
+        override fun getAll(): Map<String, *> = HashMap(data)
+
+        override fun getString(key: String?, defValue: String?): String? =
+            (data[key] as? String) ?: defValue
+
+        @Suppress("UNCHECKED_CAST")
+        override fun getStringSet(key: String?, defValues: Set<String>?): Set<String>? =
+            (data[key] as? Set<String>) ?: defValues
+
+        override fun getInt(key: String?, defValue: Int): Int =
+            (data[key] as? Int) ?: defValue
+
+        override fun getLong(key: String?, defValue: Long): Long =
+            (data[key] as? Long) ?: defValue
+
+        override fun getFloat(key: String?, defValue: Float): Float =
+            (data[key] as? Float) ?: defValue
+
+        override fun getBoolean(key: String?, defValue: Boolean): Boolean =
+            (data[key] as? Boolean) ?: defValue
+
+        override fun contains(key: String?): Boolean = key != null && data.containsKey(key)
+
+        override fun edit(): SharedPreferences.Editor = EditorImpl()
+
+        override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {
+            if (listener != null) listeners.add(listener)
+        }
+
+        override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {
+            if (listener != null) listeners.remove(listener)
+        }
+
+        private inner class EditorImpl : SharedPreferences.Editor {
+            private val pendingChanges = HashMap<String, Any?>()
+            private var clearPending = false
+
+            override fun putString(key: String?, value: String?): SharedPreferences.Editor = apply {
+                if (key != null) pendingChanges[key] = value
+            }
+
+            override fun putStringSet(key: String?, values: Set<String>?): SharedPreferences.Editor = apply {
+                if (key != null) pendingChanges[key] = values
+            }
+
+            override fun putInt(key: String?, value: Int): SharedPreferences.Editor = apply {
+                if (key != null) pendingChanges[key] = value
+            }
+
+            override fun putLong(key: String?, value: Long): SharedPreferences.Editor = apply {
+                if (key != null) pendingChanges[key] = value
+            }
+
+            override fun putFloat(key: String?, value: Float): SharedPreferences.Editor = apply {
+                if (key != null) pendingChanges[key] = value
+            }
+
+            override fun putBoolean(key: String?, value: Boolean): SharedPreferences.Editor = apply {
+                if (key != null) pendingChanges[key] = value
+            }
+
+            override fun remove(key: String?): SharedPreferences.Editor = apply {
+                if (key != null) pendingChanges[key] = this
+            }
+
+            override fun clear(): SharedPreferences.Editor = apply {
+                clearPending = true
+            }
+
+            override fun commit(): Boolean {
+                apply()
+                return true
+            }
+
+            override fun apply() {
+                synchronized(this@InMemorySharedPreferences) {
+                    if (clearPending) {
+                        data.clear()
+                    }
+                    for ((k, v) in pendingChanges) {
+                        if (v === this) {
+                            data.remove(k)
+                        } else if (v != null) {
+                            data[k] = v
+                        } else {
+                            data.remove(k)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     companion object {

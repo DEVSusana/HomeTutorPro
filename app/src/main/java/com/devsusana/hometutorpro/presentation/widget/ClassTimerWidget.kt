@@ -194,7 +194,8 @@ class ClassTimerWidget : AppWidgetProvider() {
         super.onReceive(context, intent)
     }
 
-    private fun setupWidgetUi(
+    @androidx.annotation.VisibleForTesting
+    internal fun setupWidgetUi(
         context: Context,
         views: RemoteViews,
         activeSession: ActiveSession?,

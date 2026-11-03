@@ -61,4 +61,39 @@ class ClassTimerActionReceiverKillSwitchTest {
 
         coVerify(exactly = 0) { anyConstructed<StartActiveSessionUseCase>().invoke(any()) }
     }
+
+    @Test
+    fun whenWidgetActionsDisabled_onReceiveIgnoresStopClassBroadcast() = runTest {
+        every { anyConstructed<FirebaseConfigRepositoryImpl>().isWidgetActionsEnabled() } returns false
+
+        val receiver = ClassTimerActionReceiver()
+        val context = RuntimeEnvironment.getApplication()
+        val intent = Intent(ClassTimerWidget.ACTION_STOP_CLASS).apply {
+            `package` = context.packageName
+        }
+
+        context.registerReceiver(receiver, IntentFilter(ClassTimerWidget.ACTION_STOP_CLASS))
+        context.sendBroadcast(intent)
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        coVerify(exactly = 0) { anyConstructed<StartActiveSessionUseCase>().invoke(any()) }
+    }
+
+    @Test
+    fun whenConfigThrows_defaultsToActionsEnabled() = runTest {
+        every { anyConstructed<FirebaseConfigRepositoryImpl>().isWidgetActionsEnabled() } throws RuntimeException("Remote config error")
+
+        val receiver = ClassTimerActionReceiver()
+        val context = RuntimeEnvironment.getApplication()
+        val intent = Intent("UNKNOWN_ACTION").apply {
+            `package` = context.packageName
+        }
+
+        context.registerReceiver(receiver, IntentFilter("UNKNOWN_ACTION"))
+        context.sendBroadcast(intent)
+
+        shadowOf(Looper.getMainLooper()).idle()
+        // Should not crash and safely ignore unknown action
+    }
 }

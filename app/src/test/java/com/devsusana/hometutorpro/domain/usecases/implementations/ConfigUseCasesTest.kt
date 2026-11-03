@@ -1,5 +1,6 @@
 package com.devsusana.hometutorpro.domain.usecases.implementations
 
+import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.AppFeatureFlags
 import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import io.mockk.coEvery
@@ -40,6 +41,6 @@ class ConfigUseCasesTest {
         val useCase = FetchRemoteConfigUseCase(configRepository)
         val result = useCase()
 
-        assertTrue(result)
+        assertTrue(result is Result.Success && result.data)
     }
 }

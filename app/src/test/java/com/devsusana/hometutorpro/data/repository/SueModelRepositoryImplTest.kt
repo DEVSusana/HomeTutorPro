@@ -62,13 +62,13 @@ class SueModelRepositoryImplTest {
     }
 
     @Test
-    fun isModelDownloaded_returnsFalse_whenNoModelFileExists() {
+    fun isModelDownloaded_returnsFalse_whenNoModelFileExists() = testScope.runTest {
         assertFalse(repository.isModelDownloaded())
         assertNull(repository.getDownloadedModelSize())
     }
 
     @Test
-    fun isModelDownloaded_returnsTrue_whenModelFileExists() {
+    fun isModelDownloaded_returnsTrue_whenModelFileExists() = testScope.runTest {
         val dummyModel = File(modelDir, "gemma-3-1b-it-int4.bin")
         dummyModel.writeBytes(ByteArray(1024))
 
@@ -77,7 +77,7 @@ class SueModelRepositoryImplTest {
     }
 
     @Test
-    fun isModelDownloaded_detectsTaskExtension() {
+    fun isModelDownloaded_detectsTaskExtension() = testScope.runTest {
         val dummyModel = File(modelDir, "gemma-model.task")
         dummyModel.writeBytes(ByteArray(2048))
 
@@ -168,7 +168,7 @@ class SueModelRepositoryImplTest {
     }
 
     @Test
-    fun isModelDownloaded_returnsFalse_whenFileBelowMinimumSize() {
+    fun isModelDownloaded_returnsFalse_whenFileBelowMinimumSize() = testScope.runTest {
         repository.minModelSizeOverride = 50_000_000L
         val dummyModel = File(modelDir, "gemma-3-1b-it-int4.task")
         dummyModel.writeBytes(ByteArray(1024)) // only 1KB
@@ -178,7 +178,25 @@ class SueModelRepositoryImplTest {
     }
 
     @Test
-    fun checkDeviceCompatibility_returnsDisabledByConfig_whenLocalAiKillSwitchActive() {
+    fun downloadModel_returnsError_whenLocalAiKillSwitchActive() = testScope.runTest {
+        val mockConfig = io.mockk.mockk<com.devsusana.hometutorpro.domain.repository.IConfigRepository>(relaxed = true)
+        io.mockk.every { mockConfig.isSueLocalAiEnabled() } returns false
+
+        val testRepo = SueModelRepositoryImpl(
+            context = context,
+            inferenceRepository = inferenceRepository,
+            configRepository = mockConfig,
+            ioDispatcher = testDispatcher
+        )
+
+        val flow = testRepo.downloadModel()
+        val firstStatus = flow.first()
+
+        assertTrue(firstStatus is SueModelStatus.Error)
+    }
+
+    @Test
+    fun checkDeviceCompatibility_keepsSupportedTrue_whenLocalAiKillSwitchActive_toPreserveFastPath() {
         val mockConfig = io.mockk.mockk<com.devsusana.hometutorpro.domain.repository.IConfigRepository>(relaxed = true)
         io.mockk.every { mockConfig.isSueLocalAiEnabled() } returns false
 
@@ -192,7 +210,8 @@ class SueModelRepositoryImplTest {
 
         val compatibility = testRepo.checkDeviceCompatibility()
 
-        assertFalse(compatibility.isSupported)
-        assertEquals(com.devsusana.hometutorpro.domain.entities.SueUnsupportedReason.DISABLED_BY_CONFIG, compatibility.reason)
+        // Fast path requires device to remain supported on compatible hardware
+        assertTrue(compatibility.isSupported)
+        assertNull(compatibility.reason)
     }
 }

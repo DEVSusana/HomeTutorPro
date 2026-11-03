@@ -19,12 +19,12 @@ interface SueModelRepository {
      *
      * @return True if the model file is present.
      */
-    fun isModelDownloaded(): Boolean
+    suspend fun isModelDownloaded(): Boolean
 
     /**
      * Returns the size in bytes of the downloaded model file, or null if not downloaded.
      */
-    fun getDownloadedModelSize(): Long?
+    suspend fun getDownloadedModelSize(): Long?
 
     /**
      * Initiates downloading the Sue LLM model from the given URL (or default URL).

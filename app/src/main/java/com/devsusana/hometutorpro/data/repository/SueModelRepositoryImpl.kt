@@ -112,10 +112,12 @@ class SueModelRepositoryImpl @Inject constructor(
     internal fun getMinValidSize(): Long = minModelSizeOverride ?: MIN_MODEL_SIZE_BYTES
 
     init {
-        refreshModelStatus()
+        downloadScope.launch {
+            refreshModelStatus()
+        }
     }
 
-    private fun refreshModelStatus() {
+    private suspend fun refreshModelStatus() = withContext(ioDispatcher) {
         val size = getDownloadedModelSize()
         if (size != null && size >= getMinValidSize()) {
             _modelStatusFlow.value = SueModelStatus.Downloaded(
@@ -127,14 +129,14 @@ class SueModelRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun isModelDownloaded(): Boolean {
+    override suspend fun isModelDownloaded(): Boolean = withContext(ioDispatcher) {
         val candidate = findModelFile()
-        return candidate != null && candidate.exists() && candidate.length() >= getMinValidSize()
+        candidate != null && candidate.exists() && candidate.length() >= getMinValidSize()
     }
 
-    override fun getDownloadedModelSize(): Long? {
+    override suspend fun getDownloadedModelSize(): Long? = withContext(ioDispatcher) {
         val file = findModelFile()
-        return if (file != null && file.exists() && file.length() >= getMinValidSize()) {
+        if (file != null && file.exists() && file.length() >= getMinValidSize()) {
             file.length()
         } else {
             null
@@ -146,17 +148,6 @@ class SueModelRepositoryImpl @Inject constructor(
 
     override fun checkDeviceCompatibility(): SueDeviceCompatibility {
         val sdkVersion = sdkIntOverride ?: Build.VERSION.SDK_INT
-
-        // 0. Check remote configuration kill-switch
-        if (!configRepository.isSueLocalAiEnabled()) {
-            SafeLogger.d(TAG, "Device marked incompatible: Local AI is disabled via remote config kill-switch")
-            return SueDeviceCompatibility(
-                isSupported = false,
-                reason = SueUnsupportedReason.DISABLED_BY_CONFIG,
-                totalRamBytes = 0L,
-                sdkVersion = sdkVersion
-            )
-        }
 
         // 1. Check Android OS version: Must be at least Android 9.0 (API 28, Pie)
         if (sdkVersion < Build.VERSION_CODES.P) {
@@ -240,6 +231,14 @@ class SueModelRepositoryImpl @Inject constructor(
     }
 
     override suspend fun downloadModel(url: String?): Flow<SueModelStatus> {
+        // Enforce remote configuration kill-switch: block new model downloads if local AI is disabled
+        if (!configRepository.isSueLocalAiEnabled()) {
+            SafeLogger.w(TAG, "Model download blocked: Local AI is disabled via remote config kill-switch")
+            val status = SueModelStatus.Error("On-device AI is temporarily paused for maintenance.")
+            _modelStatusFlow.value = status
+            return _modelStatusFlow.asStateFlow()
+        }
+
         val remoteModelUrl = configRepository.getSueModelUrl()
         val downloadUrl = when {
             !url.isNullOrBlank() -> url
@@ -401,6 +400,12 @@ class SueModelRepositoryImpl @Inject constructor(
                 tempFile.delete()
             }
             _modelStatusFlow.value = SueModelStatus.NotDownloaded
+        } catch (e: IllegalStateException) {
+            SafeLogger.e(TAG, "Redirect or state error during model download: ${e.message}", e)
+            if (tempFile.exists()) {
+                tempFile.delete()
+            }
+            _modelStatusFlow.value = SueModelStatus.Error(e.localizedMessage ?: "Download failed: Too many redirects")
         } catch (e: Exception) {
             SafeLogger.e(TAG, "Error during model download: ${e.message}", e)
             if (tempFile.exists()) {
@@ -413,17 +418,17 @@ class SueModelRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun getModelDirectories(): List<File> = listOfNotNull(
+        File(context.filesDir, MODEL_DIRECTORY),
+        context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
+    )
+
     override fun cancelDownload() {
         SafeLogger.d(TAG, "cancelDownload called")
         currentDownloadJob?.cancel()
         currentDownloadJob = null
 
-        val dirs = listOf(
-            File(context.filesDir, MODEL_DIRECTORY),
-            context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
-        ).filterNotNull()
-
-        for (dir in dirs) {
+        for (dir in getModelDirectories()) {
             if (dir.exists() && dir.isDirectory) {
                 dir.listFiles { _, name -> name.endsWith(TEMP_SUFFIX, ignoreCase = true) }?.forEach {
                     it.delete()
@@ -431,7 +436,7 @@ class SueModelRepositoryImpl @Inject constructor(
             }
         }
         _modelStatusFlow.value = SueModelStatus.NotDownloaded
-        refreshModelStatus()
+        downloadScope.launch { refreshModelStatus() }
     }
 
     override suspend fun deleteModel(): Boolean = withContext(ioDispatcher) {
@@ -440,13 +445,8 @@ class SueModelRepositoryImpl @Inject constructor(
             cancelDownload()
             inferenceRepository.release()
 
-            val dirs = listOf(
-                File(context.filesDir, MODEL_DIRECTORY),
-                context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
-            ).filterNotNull()
-
             var deletedAny = false
-            for (dir in dirs) {
+            for (dir in getModelDirectories()) {
                 if (dir.exists() && dir.isDirectory) {
                     val files = dir.listFiles { _, name ->
                         name.endsWith(".bin", ignoreCase = true) ||
@@ -470,12 +470,7 @@ class SueModelRepositoryImpl @Inject constructor(
     }
 
     private fun findModelFile(): File? {
-        val dirs = listOf(
-            File(context.filesDir, MODEL_DIRECTORY),
-            context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
-        ).filterNotNull()
-
-        for (dir in dirs) {
+        for (dir in getModelDirectories()) {
             if (dir.exists() && dir.isDirectory) {
                 val candidate = dir.listFiles { _, name ->
                     name.endsWith(".bin", ignoreCase = true) || name.endsWith(".task", ignoreCase = true)
