@@ -8,6 +8,7 @@ import com.devsusana.hometutorpro.domain.constants.SessionConstants
 import com.devsusana.hometutorpro.domain.core.DomainError
 import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
+import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.usecases.IAddToBalanceUseCase
 import com.devsusana.hometutorpro.domain.usecases.ICancelClassEndNotificationUseCase
 import com.devsusana.hometutorpro.domain.usecases.IConsolidateActiveSessionUseCase
@@ -70,6 +71,9 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
     lateinit var cancelClassEndNotificationUseCase: ICancelClassEndNotificationUseCase
 
     @Inject
+    lateinit var configRepository: IConfigRepository
+
+    @Inject
     lateinit var updateLastClassDateUseCase: IUpdateLastClassDateUseCase
 
     private val job = SupervisorJob()
@@ -85,6 +89,16 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         if (action != ACTION_START_CLASS && action != ACTION_STOP_CLASS) return
+
+        val isActionsEnabled = try {
+            configRepository.isWidgetActionsEnabled()
+        } catch (_: Exception) {
+            true
+        }
+        if (!isActionsEnabled) {
+            SafeLogger.w(TAG, "Widget action rejected: actions are disabled via remote config kill-switch ($action)")
+            return
+        }
 
         val pendingResult = goAsync()
         coroutineScope.launch {

@@ -101,7 +101,7 @@ class GetTodayClassesSummaryUseCaseTest {
             )
         } returns listOf(occurrence1, occurrence2)
 
-        every { getActiveSessionUseCase() } returns null
+        coEvery { getActiveSessionUseCase() } returns null
 
         val result = useCase()
 
@@ -139,7 +139,7 @@ class GetTodayClassesSummaryUseCaseTest {
             )
         } returns listOf(occurrence1)
 
-        every { getActiveSessionUseCase() } returns null
+        coEvery { getActiveSessionUseCase() } returns null
 
         val result = useCase()
 
@@ -176,7 +176,7 @@ class GetTodayClassesSummaryUseCaseTest {
         } returns listOf(occurrence1)
 
         // Session is ongoing for s1
-        every { getActiveSessionUseCase() } returns ActiveSession(
+        coEvery { getActiveSessionUseCase() } returns ActiveSession(
             studentId = "s1",
             studentName = "Pablo",
             startTimeMillis = System.currentTimeMillis() - 1000,

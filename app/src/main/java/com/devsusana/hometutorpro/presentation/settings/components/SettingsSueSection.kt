@@ -60,6 +60,8 @@ fun SettingsSueSection(
                         stringResource(R.string.sue_compatibility_reason_android)
                     SueUnsupportedReason.INSUFFICIENT_RAM ->
                         stringResource(R.string.sue_compatibility_reason_ram)
+                    SueUnsupportedReason.DISABLED_BY_CONFIG ->
+                        stringResource(R.string.sue_compatibility_reason_disabled)
                     null ->
                         stringResource(R.string.sue_compatibility_reason_generic)
                 }

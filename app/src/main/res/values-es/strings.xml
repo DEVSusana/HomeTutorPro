@@ -691,6 +691,7 @@
     <string name="sue_compatibility_unsupported_title">SUE no disponible en este dispositivo</string>
     <string name="sue_compatibility_reason_android">SUE requiere Android 9.0 (Pie) o superior para ejecutar IA en el dispositivo.</string>
     <string name="sue_compatibility_reason_ram">SUE requiere al menos 4 GB de memoria RAM para ejecutar IA en el dispositivo.</string>
+    <string name="sue_compatibility_reason_disabled">La IA local está temporalmente pausada por mantenimiento. El resto de funciones continúan operativas.</string>
     <string name="sue_compatibility_reason_generic">Este dispositivo no cumple los requisitos de hardware para ejecutar IA local.</string>
 
     <!-- Class Timer Widget -->

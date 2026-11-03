@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<defaultsMap>
+    <entry>
+        <key>enable_widget_actions</key>
+        <value>true</value>
+    </entry>
+    <entry>
+        <key>enable_sue_local_ai</key>
+        <value>true</value>
+    </entry>
+    <entry>
+        <key>sue_model_url</key>
+        <value></value>
+    </entry>
+    <entry>
+        <key>maintenance_message</key>
+        <value></value>
+    </entry>
+</defaultsMap>

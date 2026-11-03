@@ -1,0 +1,32 @@
+{
+  "parameters": {
+    "enable_widget_actions": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Kill-switch to enable or disable interactive background actions (start/stop) from the widget.",
+      "valueType": "BOOLEAN"
+    },
+    "enable_sue_local_ai": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Kill-switch for SUE on-device Gemma LLM inference. If false, SUE operates purely on deterministic Fast-Path.",
+      "valueType": "BOOLEAN"
+    },
+    "sue_model_url": {
+      "defaultValue": {
+        "value": ""
+      },
+      "description": "Remote OTA download URL for SUE AI model. If empty, uses the app default release URL.",
+      "valueType": "STRING"
+    },
+    "maintenance_message": {
+      "defaultValue": {
+        "value": ""
+      },
+      "description": "Optional maintenance notice message for users.",
+      "valueType": "STRING"
+    }
+  }
+}

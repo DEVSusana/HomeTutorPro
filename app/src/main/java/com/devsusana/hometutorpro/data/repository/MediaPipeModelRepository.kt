@@ -4,14 +4,19 @@ import android.app.Application
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.util.Log
+import com.devsusana.hometutorpro.domain.entities.AppFeatureFlags
+import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -24,8 +29,24 @@ import javax.inject.Singleton
  */
 @Singleton
 class MediaPipeModelRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val configRepository: IConfigRepository
 ) : InferenceRepository {
+
+    /**
+     * Testing constructor allowing instantiation without Hilt or mock configuration.
+     */
+    constructor(context: Context) : this(
+        context,
+        object : IConfigRepository {
+            override val featureFlags = MutableStateFlow(AppFeatureFlags())
+            override suspend fun fetchAndActivate(): Boolean = true
+            override fun isWidgetActionsEnabled(): Boolean = true
+            override fun isSueLocalAiEnabled(): Boolean = true
+            override fun getSueModelUrl(): String = ""
+            override fun getMaintenanceMessage(): String = ""
+        }
+    )
 
     companion object {
         private const val TAG = "MediaPipeModelRepo"
@@ -43,7 +64,19 @@ class MediaPipeModelRepository @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     init {
+        // Automatically release model when on-device AI kill-switch is activated
+        repositoryScope.launch {
+            configRepository.featureFlags.collect { flags ->
+                if (!flags.isSueLocalAiEnabled && _isModelLoaded.value) {
+                    Log.w(TAG, "Local AI kill-switch activated via remote config: releasing loaded model.")
+                    release()
+                }
+            }
+        }
+
         (context.applicationContext as? Application)?.registerComponentCallbacks(object : ComponentCallbacks2 {
             override fun onTrimMemory(level: Int) {
                 if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
@@ -54,6 +87,8 @@ class MediaPipeModelRepository @Inject constructor(
 
             override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {}
 
+            @Deprecated("Deprecated in Java")
+            @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
             override fun onLowMemory() {
                 Log.d(TAG, "onLowMemory triggered: releasing LLM inference immediately.")
                 release()
@@ -62,6 +97,11 @@ class MediaPipeModelRepository @Inject constructor(
     }
 
     override suspend fun loadModel(): Boolean = withContext(Dispatchers.IO) {
+        if (!configRepository.isSueLocalAiEnabled()) {
+            Log.w(TAG, "Local LLM inference is disabled via remote configuration kill-switch.")
+            return@withContext false
+        }
+
         if (_isModelLoaded.value) {
             Log.d(TAG, "Model already loaded.")
             return@withContext true
@@ -112,8 +152,17 @@ class MediaPipeModelRepository @Inject constructor(
     }
 
     override suspend fun generateResponse(prompt: String): String = withContext(Dispatchers.Default) {
+        if (!configRepository.isSueLocalAiEnabled()) {
+            Log.w(TAG, "Local LLM inference is disabled via remote configuration kill-switch.")
+            release()
+            return@withContext "Sorry, on-device AI is temporarily paused for maintenance. Please try again later."
+        }
+
         val inference = llmInference
-            ?: throw IllegalStateException("Model not loaded. Call loadModel() first.")
+        if (inference == null) {
+            Log.e(TAG, "Inference error: Model not loaded for prompt.")
+            return@withContext "Sorry, the AI model is not ready yet. Please try again after loading the model."
+        }
 
         var session: LlmInferenceSession? = null
         try {
@@ -138,14 +187,19 @@ class MediaPipeModelRepository @Inject constructor(
     }
 
     override fun release() {
-        try {
-            llmInference?.close()
-        } catch (t: Throwable) {
-            Log.e(TAG, "Error closing LLM inference: ${t.message}", t)
-        }
+        val inferenceToClose = llmInference
         llmInference = null
         _isModelLoaded.value = false
         _isLoading.value = false
+        if (inferenceToClose != null) {
+            repositoryScope.launch(Dispatchers.IO) {
+                try {
+                    inferenceToClose.close()
+                } catch (t: Throwable) {
+                    Log.e(TAG, "Error closing LLM inference off-main: ${t.message}", t)
+                }
+            }
+        }
         Log.d(TAG, "Model released.")
     }
 
