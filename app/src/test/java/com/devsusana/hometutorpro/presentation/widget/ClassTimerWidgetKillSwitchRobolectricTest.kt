@@ -122,6 +122,29 @@ class ClassTimerWidgetKillSwitchRobolectricTest {
     }
 
     @Test
+    fun `whenActionsToggledFromFalseToTrue_startButtonReappears`() {
+        val viewsDisabled = RemoteViews(context.packageName, R.layout.widget_class_timer)
+        every { configRepository.isWidgetActionsEnabled() } returns false
+        widget.setupWidgetUi(
+            context = context,
+            views = viewsDisabled,
+            activeSession = null,
+            nextClass = sampleNextClass,
+            currentTutorId = "tutor_1"
+        )
+
+        val viewsEnabled = RemoteViews(context.packageName, R.layout.widget_class_timer)
+        every { configRepository.isWidgetActionsEnabled() } returns true
+        widget.setupWidgetUi(
+            context = context,
+            views = viewsEnabled,
+            activeSession = null,
+            nextClass = sampleNextClass,
+            currentTutorId = "tutor_1"
+        )
+    }
+
+    @Test
     fun `setupWidgetUi with config exception defaults to actions enabled safely`() {
         every { configRepository.isWidgetActionsEnabled() } throws RuntimeException("Config error")
 
