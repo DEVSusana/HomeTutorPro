@@ -95,8 +95,8 @@ class ClassTimerActionReceiver : BroadcastReceiver() {
         } catch (_: Exception) {
             true
         }
-        if (!isActionsEnabled) {
-            SafeLogger.w(TAG, "Widget action rejected: actions are disabled via remote config kill-switch ($action)")
+        if (action == ACTION_START_CLASS && !isActionsEnabled) {
+            SafeLogger.w(TAG, "Widget action rejected: start class action is disabled via remote config kill-switch")
             return
         }
 

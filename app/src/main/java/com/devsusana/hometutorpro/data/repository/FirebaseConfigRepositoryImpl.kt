@@ -39,7 +39,7 @@ class FirebaseConfigRepositoryImpl @Inject constructor(
 
         private const val FETCH_TIMEOUT_SECONDS = 10L
         private const val MIN_FETCH_INTERVAL_DEBUG_SECONDS = 0L
-        private const val MIN_FETCH_INTERVAL_RELEASE_SECONDS = 3600L // 1 hour
+        private const val MIN_FETCH_INTERVAL_RELEASE_SECONDS = 60L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -112,13 +112,7 @@ class FirebaseConfigRepositoryImpl @Inject constructor(
 
     private fun notifyWidgetUpdate() {
         try {
-            val intent = android.content.Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-                component = android.content.ComponentName(context, "com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget")
-                val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
-                val ids = appWidgetManager.getAppWidgetIds(component)
-                putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            }
-            context.sendBroadcast(intent)
+            com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget.updateWidget(context)
         } catch (e: Exception) {
             SafeLogger.e(TAG, "Error triggering widget update on config change: ${e.message}", e)
         }

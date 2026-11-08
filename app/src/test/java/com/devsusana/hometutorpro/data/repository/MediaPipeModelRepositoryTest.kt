@@ -57,24 +57,81 @@ class MediaPipeModelRepositoryTest {
 
     @Test
     fun `generateResponse returns maintenance message when kill-switch is active`() = runTest {
+        val originalLocale = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.ENGLISH)
+            every { configRepository.isSueLocalAiEnabled() } returns false
+            every { configRepository.getMaintenanceMessage() } returns ""
+
+            val repository = MediaPipeModelRepository(context, configRepository)
+            val response = repository.generateResponse("How do I solve quadratic equations?")
+
+            assertTrue(response.contains("temporarily paused for maintenance"))
+        } finally {
+            java.util.Locale.setDefault(originalLocale)
+        }
+    }
+
+    @Test
+    fun `generateResponse returns Spanish maintenance message when locale is Spanish`() = runTest {
+        val originalLocale = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("es-ES"))
+            every { configRepository.isSueLocalAiEnabled() } returns false
+            every { configRepository.getMaintenanceMessage() } returns ""
+
+            val repository = MediaPipeModelRepository(context, configRepository)
+            val response = repository.generateResponse("¿Cómo resuelvo ecuaciones?")
+
+            assertTrue(response.contains("pausada temporalmente por mantenimiento"))
+        } finally {
+            java.util.Locale.setDefault(originalLocale)
+        }
+    }
+
+    @Test
+    fun `generateResponse returns custom maintenance message when configured in remote config`() = runTest {
         every { configRepository.isSueLocalAiEnabled() } returns false
+        every { configRepository.getMaintenanceMessage() } returns "Mantenimiento programado: volvemos a las 18:00"
 
         val repository = MediaPipeModelRepository(context, configRepository)
+        val response = repository.generateResponse("Test query")
 
-        val response = repository.generateResponse("How do I solve quadratic equations?")
-
-        assertTrue(response.contains("temporarily paused for maintenance"))
+        assertEquals("Mantenimiento programado: volvemos a las 18:00", response)
     }
 
     @Test
     fun `generateResponse returns model not ready message when model is not loaded`() = runTest {
-        every { configRepository.isSueLocalAiEnabled() } returns true
+        val originalLocale = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.ENGLISH)
+            every { configRepository.isSueLocalAiEnabled() } returns true
 
-        val repository = MediaPipeModelRepository(context, configRepository)
+            val repository = MediaPipeModelRepository(context, configRepository)
 
-        val response = repository.generateResponse("Hello SUE")
+            val response = repository.generateResponse("Hello SUE")
 
-        assertTrue(response.contains("AI model is not ready yet"))
+            assertTrue(response.contains("AI model is not ready yet"))
+        } finally {
+            java.util.Locale.setDefault(originalLocale)
+        }
+    }
+
+    @Test
+    fun `generateResponse returns Spanish model not ready message when locale is Spanish and model not loaded`() = runTest {
+        val originalLocale = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("es-ES"))
+            every { configRepository.isSueLocalAiEnabled() } returns true
+
+            val repository = MediaPipeModelRepository(context, configRepository)
+
+            val response = repository.generateResponse("Hola SUE")
+
+            assertTrue(response.contains("El modelo de IA no está listo todavía"))
+        } finally {
+            java.util.Locale.setDefault(originalLocale)
+        }
     }
 
     @Test

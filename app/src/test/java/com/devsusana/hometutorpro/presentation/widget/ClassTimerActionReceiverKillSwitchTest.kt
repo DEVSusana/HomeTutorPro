@@ -63,7 +63,7 @@ class ClassTimerActionReceiverKillSwitchTest {
     }
 
     @Test
-    fun whenWidgetActionsDisabled_onReceiveIgnoresStopClassBroadcast() = runTest {
+    fun whenWidgetActionsDisabled_onReceiveHandlesStopClassBroadcastSafely() = runTest {
         every { anyConstructed<FirebaseConfigRepositoryImpl>().isWidgetActionsEnabled() } returns false
 
         val receiver = ClassTimerActionReceiver()

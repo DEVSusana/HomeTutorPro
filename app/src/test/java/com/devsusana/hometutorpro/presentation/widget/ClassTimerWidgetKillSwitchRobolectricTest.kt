@@ -80,7 +80,7 @@ class ClassTimerWidgetKillSwitchRobolectricTest {
     }
 
     @Test
-    fun `setupWidgetUi with active session and actions disabled via kill-switch redirects to main app`() {
+    fun `setupWidgetUi with active session and actions disabled via kill-switch still configures stop action`() {
         every { configRepository.isWidgetActionsEnabled() } returns false
 
         val views = RemoteViews(context.packageName, R.layout.widget_class_timer_active)

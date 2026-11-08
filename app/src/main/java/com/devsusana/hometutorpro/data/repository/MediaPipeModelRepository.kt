@@ -3,7 +3,7 @@ package com.devsusana.hometutorpro.data.repository
 import android.app.Application
 import android.content.ComponentCallbacks2
 import android.content.Context
-import android.util.Log
+import com.devsusana.hometutorpro.core.utils.SafeLogger
 import com.devsusana.hometutorpro.domain.entities.AppFeatureFlags
 import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
@@ -71,7 +71,7 @@ class MediaPipeModelRepository @Inject constructor(
         repositoryScope.launch {
             configRepository.featureFlags.collect { flags ->
                 if (!flags.isSueLocalAiEnabled && _isModelLoaded.value) {
-                    Log.w(TAG, "Local AI kill-switch activated via remote config: releasing loaded model.")
+                    SafeLogger.w(TAG, "Local AI kill-switch activated via remote config: releasing loaded model.")
                     release()
                 }
             }
@@ -80,7 +80,7 @@ class MediaPipeModelRepository @Inject constructor(
         (context.applicationContext as? Application)?.registerComponentCallbacks(object : ComponentCallbacks2 {
             override fun onTrimMemory(level: Int) {
                 if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-                    Log.d(TAG, "onTrimMemory (level $level) triggered: releasing LLM inference to free RAM.")
+                    SafeLogger.d(TAG, "onTrimMemory (level $level) triggered: releasing LLM inference to free RAM.")
                     release()
                 }
             }
@@ -90,7 +90,7 @@ class MediaPipeModelRepository @Inject constructor(
             @Deprecated("Deprecated in Java")
             @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
             override fun onLowMemory() {
-                Log.d(TAG, "onLowMemory triggered: releasing LLM inference immediately.")
+                SafeLogger.d(TAG, "onLowMemory triggered: releasing LLM inference immediately.")
                 release()
             }
         })
@@ -98,17 +98,17 @@ class MediaPipeModelRepository @Inject constructor(
 
     override suspend fun loadModel(): Boolean = withContext(Dispatchers.IO) {
         if (!configRepository.isSueLocalAiEnabled()) {
-            Log.w(TAG, "Local LLM inference is disabled via remote configuration kill-switch.")
+            SafeLogger.w(TAG, "Local LLM inference is disabled via remote configuration kill-switch.")
             return@withContext false
         }
 
         if (_isModelLoaded.value) {
-            Log.d(TAG, "Model already loaded.")
+            SafeLogger.d(TAG, "Model already loaded.")
             return@withContext true
         }
 
         if (_isLoading.value) {
-            Log.d(TAG, "Model loading already in progress.")
+            SafeLogger.d(TAG, "Model loading already in progress.")
             return@withContext false
         }
 
@@ -117,19 +117,19 @@ class MediaPipeModelRepository @Inject constructor(
         try {
             val modelPath = findModelFile()
             if (modelPath == null) {
-                Log.w(TAG, "Model file not found. See docs/sue-model-setup.md for instructions.")
+                SafeLogger.w(TAG, "Model file not found. See docs/sue-model-setup.md for instructions.")
                 _isLoading.value = false
                 return@withContext false
             }
 
             val modelFile = File(modelPath)
             if (!modelFile.exists() || modelFile.length() <= 0) {
-                Log.w(TAG, "Model file is invalid or empty: $modelPath")
+                SafeLogger.w(TAG, "Model file is invalid or empty: $modelPath")
                 _isLoading.value = false
                 return@withContext false
             }
 
-            Log.d(TAG, "Loading model from: $modelPath (${modelFile.length()} bytes)")
+            SafeLogger.d(TAG, "Loading model from: $modelPath (${modelFile.length()} bytes)")
 
             val options = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
@@ -141,10 +141,10 @@ class MediaPipeModelRepository @Inject constructor(
             _isModelLoaded.value = true
             _isLoading.value = false
 
-            Log.d(TAG, "Model loaded successfully.")
+            SafeLogger.d(TAG, "Model loaded successfully.")
             true
         } catch (t: Throwable) {
-            Log.e(TAG, "Failed to load model: ${t.message}", t)
+            SafeLogger.e(TAG, "Failed to load model: ${t.message}", t)
             _isModelLoaded.value = false
             _isLoading.value = false
             false
@@ -153,15 +153,31 @@ class MediaPipeModelRepository @Inject constructor(
 
     override suspend fun generateResponse(prompt: String): String = withContext(Dispatchers.Default) {
         if (!configRepository.isSueLocalAiEnabled()) {
-            Log.w(TAG, "Local LLM inference is disabled via remote configuration kill-switch.")
+            SafeLogger.w(TAG, "Local LLM inference is disabled via remote configuration kill-switch.")
             release()
-            return@withContext "Sorry, on-device AI is temporarily paused for maintenance. Please try again later."
+            val customMsg = configRepository.getMaintenanceMessage().trim()
+            if (customMsg.isNotBlank()) {
+                return@withContext customMsg
+            }
+            val isSpanish = java.util.Locale.getDefault().language.equals("es", ignoreCase = true)
+            val defaultMsg = if (isSpanish) {
+                "Lo sentimos, la IA en el dispositivo está pausada temporalmente por mantenimiento. Por favor, inténtalo más tarde."
+            } else {
+                "Sorry, on-device AI is temporarily paused for maintenance. Please try again later."
+            }
+            return@withContext defaultMsg
         }
 
         val inference = llmInference
         if (inference == null) {
-            Log.e(TAG, "Inference error: Model not loaded for prompt.")
-            return@withContext "Sorry, the AI model is not ready yet. Please try again after loading the model."
+            SafeLogger.e(TAG, "Inference error: Model not loaded for prompt.")
+            val isSpanish = java.util.Locale.getDefault().language.equals("es", ignoreCase = true)
+            val notReadyMsg = if (isSpanish) {
+                "El modelo de IA no está listo todavía. Por favor, inténtalo de nuevo en unos momentos."
+            } else {
+                "Sorry, the AI model is not ready yet. Please try again after loading the model."
+            }
+            return@withContext notReadyMsg
         }
 
         var session: LlmInferenceSession? = null
@@ -175,13 +191,13 @@ class MediaPipeModelRepository @Inject constructor(
             session.addQueryChunk(prompt)
             session.generateResponse()
         } catch (t: Throwable) {
-            Log.e(TAG, "Inference error: ${t.message}", t)
+            SafeLogger.e(TAG, "Inference error: ${t.message}", t)
             "Sorry, there was an error processing your query. Please try again."
         } finally {
             try {
                 session?.close()
             } catch (t: Throwable) {
-                Log.e(TAG, "Error closing session: ${t.message}", t)
+                SafeLogger.e(TAG, "Error closing session: ${t.message}", t)
             }
         }
     }
@@ -196,11 +212,11 @@ class MediaPipeModelRepository @Inject constructor(
                 try {
                     inferenceToClose.close()
                 } catch (t: Throwable) {
-                    Log.e(TAG, "Error closing LLM inference off-main: ${t.message}", t)
+                    SafeLogger.e(TAG, "Error closing LLM inference off-main: ${t.message}", t)
                 }
             }
         }
-        Log.d(TAG, "Model released.")
+        SafeLogger.d(TAG, "Model released.")
     }
 
     private fun findModelFile(): String? {
@@ -216,7 +232,7 @@ class MediaPipeModelRepository @Inject constructor(
                     name.endsWith(".bin", ignoreCase = true) || name.endsWith(".task", ignoreCase = true)
                 }?.firstOrNull()
                 if (candidate != null) {
-                    Log.i(TAG, "Found model file: ${candidate.name}")
+                    SafeLogger.i(TAG, "Found model file: ${candidate.name}")
                     return candidate.absolutePath
                 }
             }

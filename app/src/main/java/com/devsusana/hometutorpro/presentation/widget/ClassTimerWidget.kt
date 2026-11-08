@@ -130,7 +130,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                                 continue
                             }
                             val views = RemoteViews(context.packageName, R.layout.widget_class_timer_active)
-                            setupWidgetUi(context, views, activeSession, nextClass, null, daySummary, null)
+                            setupWidgetUi(context, views, activeSession, nextClass, null, daySummary, null, null, isActionsEnabled)
                             appWidgetManager.updateAppWidget(appWidgetId, views)
                             lastRenderedSnapshots[appWidgetId] = snapshot
                         }
@@ -175,7 +175,7 @@ class ClassTimerWidget : AppWidgetProvider() {
                             continue
                         }
                         val views = RemoteViews(context.packageName, R.layout.widget_class_timer)
-                        setupWidgetUi(context, views, null, nextClass, doorCode, daySummary, studentAddress, currentUser?.uid)
+                        setupWidgetUi(context, views, null, nextClass, doorCode, daySummary, studentAddress, currentUser?.uid, isActionsEnabled)
                         appWidgetManager.updateAppWidget(appWidgetId, views)
                         lastRenderedSnapshots[appWidgetId] = snapshot
                     }
@@ -217,13 +217,13 @@ class ClassTimerWidget : AppWidgetProvider() {
         doorCode: String? = null,
         daySummary: TodayClassesSummary? = null,
         studentAddress: String? = null,
-        currentTutorId: String? = null
-    ) {
-        val isActionsEnabled = try {
+        currentTutorId: String? = null,
+        isActionsEnabled: Boolean = try {
             configRepository.isWidgetActionsEnabled()
         } catch (_: Exception) {
             true
         }
+    ) {
 
         // Tap on widget header/background opens the main app
         val mainIntent = Intent(context, MainActivity::class.java).apply {
@@ -321,26 +321,20 @@ class ClassTimerWidget : AppWidgetProvider() {
             }
 
             // Stop button (also bind to chronometer for instant stop on tap)
-            if (isActionsEnabled) {
-                val stopIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
-                    action = ACTION_STOP_CLASS
-                    `package` = context.packageName
-                }
-                val pendingStopIntent = PendingIntent.getBroadcast(
-                    context,
-                    RQ_STOP,
-                    stopIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.btn_stop_class, pendingStopIntent)
-                views.setOnClickPendingIntent(R.id.widget_chronometer, pendingStopIntent)
-                views.setOnClickPendingIntent(R.id.layout_chronometer_container, pendingStopIntent)
-            } else {
-                // Actions disabled remotely via kill-switch: redirect to app to finish safely in foreground
-                views.setOnClickPendingIntent(R.id.btn_stop_class, pendingMainIntent)
-                views.setOnClickPendingIntent(R.id.widget_chronometer, pendingMainIntent)
-                views.setOnClickPendingIntent(R.id.layout_chronometer_container, pendingMainIntent)
+            // Active session completion must always be permitted to ensure tutors can finish/stop running classes directly
+            val stopIntent = Intent(context, ClassTimerActionReceiver::class.java).apply {
+                action = ACTION_STOP_CLASS
+                `package` = context.packageName
             }
+            val pendingStopIntent = PendingIntent.getBroadcast(
+                context,
+                RQ_STOP,
+                stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.btn_stop_class, pendingStopIntent)
+            views.setOnClickPendingIntent(R.id.widget_chronometer, pendingStopIntent)
+            views.setOnClickPendingIntent(R.id.layout_chronometer_container, pendingStopIntent)
 
         } else {
             // ----------------------------------------------------

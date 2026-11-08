@@ -471,6 +471,30 @@ class SueViewModel @Inject constructor(
         if (actions.isNotEmpty()) {
             handleConfirmation(transcription, actions)
         } else {
+            val lower = transcription.trim().lowercase()
+            if (lower in listOf("hola", "hola sue", "buenos días", "buenos dias", "buenas tardes", "buenas noches", "buenas", "hey")) {
+                val greetingMsg = if (java.util.Locale.getDefault().language.equals("es", ignoreCase = true)) {
+                    "¡Hola! ¿En qué puedo ayudarte hoy?"
+                } else {
+                    "Hello! How can I help you today?"
+                }
+                conversationHistory.add(Pair(transcription, greetingMsg))
+                _uiState.update { it.copy(agentResponse = greetingMsg, speechState = SpeechState.IDLE) }
+                speakIfOverlayVisible(greetingMsg)
+                return
+            }
+            if (lower in listOf("gracias", "muchas gracias", "thank you", "thanks")) {
+                val thanksMsg = if (java.util.Locale.getDefault().language.equals("es", ignoreCase = true)) {
+                    "¡De nada! Estoy aquí para lo que necesites."
+                } else {
+                    "You're welcome! I'm here to help."
+                }
+                conversationHistory.add(Pair(transcription, thanksMsg))
+                _uiState.update { it.copy(agentResponse = thanksMsg, speechState = SpeechState.IDLE) }
+                speakIfOverlayVisible(thanksMsg)
+                return
+            }
+
             // 1. Try local rule-based intent parsing (fast, offline, reliable)
             val intentResult = sueAgent.detectActionIntent(transcription)
             if (intentResult != null) {
@@ -487,7 +511,7 @@ class SueViewModel @Inject constructor(
                 _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
                 speakIfOverlayVisible(message)
             } else {
-                // 2. Fallback to local LLM
+                // 2. Fallback to local LLM or RAG tool extraction
                 processWithAgent(transcription)
             }
         }
@@ -671,11 +695,15 @@ class SueViewModel @Inject constructor(
             } else {
                 val fallback = extractDataFromPrompt(prompt)
                 SafeLogger.d("SueVM", "LLM not loaded. Fallback Response: '$fallback'")
-                if (fallback.startsWith("No he encontrado")) {
-                    val repoResponse = generateSueResponseUseCase(prompt)
-                    if (repoResponse.isNotBlank()) repoResponse else fallback
-                } else {
+                if (fallback != null) {
                     fallback
+                } else {
+                    val repoResponse = generateSueResponseUseCase(prompt)
+                    if (repoResponse.isNotBlank()) repoResponse else {
+                        val isSpanish = java.util.Locale.getDefault().language.equals("es", ignoreCase = true)
+                        if (isSpanish) "No he encontrado datos relevantes para tu consulta."
+                        else "No relevant data found for your query."
+                    }
                 }
             }
 
@@ -723,7 +751,7 @@ class SueViewModel @Inject constructor(
      * Fallback for when the LLM model is not loaded.
      * Extracts the tool data section from the prompt and presents it directly.
      */
-    private fun extractDataFromPrompt(prompt: String): String {
+    private fun extractDataFromPrompt(prompt: String): String? {
         // Try English tags first (from SueAgentImpl.kt)
         var startTag = "--- AVAILABLE DATA ---"
         var endTag = "--- END OF DATA ---"
@@ -740,9 +768,9 @@ class SueViewModel @Inject constructor(
 
         return if (dataStart >= 0 && dataEnd >= 0) {
             val data = prompt.substring(dataStart + startTag.length, dataEnd).trim()
-            "Aquí tienes los datos solicitados:\n\n$data"
+            data.ifBlank { null }
         } else {
-            "No he encontrado datos relevantes para tu consulta."
+            null
         }
     }
 
