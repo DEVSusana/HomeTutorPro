@@ -6,5 +6,5 @@ import com.devsusana.hometutorpro.domain.entities.ActiveSession
  * Use case to retrieve the current active tutoring session.
  */
 interface IGetActiveSessionUseCase {
-    operator fun invoke(): ActiveSession?
+    suspend operator fun invoke(): ActiveSession?
 }

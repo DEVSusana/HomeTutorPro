@@ -74,6 +74,9 @@ class SueViewModel @Inject constructor(
     /** Job that unloads the LLM model after a period of user inactivity to conserve RAM. */
     private var idleReleaseJob: Job? = null
 
+    /** Active job for processing transcription (LLM inference or action execution). */
+    private var activeProcessingJob: Job? = null
+
     /** Conversation history list of user query to SUE response. */
     private val conversationHistory = mutableListOf<Pair<String, String>>()
 
@@ -193,10 +196,8 @@ class SueViewModel @Inject constructor(
                     )
                 }
                 
-                if (modelLoaded) {
-                    speechService.startListening()
-                    startListeningTimeout()
-                }
+                speechService.startListening()
+                startListeningTimeout()
             }
             SpeechState.LISTENING -> {
                 cancelListeningTimeout()
@@ -224,7 +225,8 @@ class SueViewModel @Inject constructor(
                 partialTranscription = ""
             )
         }
-        viewModelScope.launch {
+        activeProcessingJob?.cancel()
+        activeProcessingJob = viewModelScope.launch {
             handleTranscription(suggestion)
         }
     }
@@ -234,6 +236,8 @@ class SueViewModel @Inject constructor(
      * Also clears any pending action and schedules model unload.
      */
     fun onDismiss() {
+        activeProcessingJob?.cancel()
+        activeProcessingJob = null
         sueAgent.resetConversationContext()
         conversationHistory.clear()
         cancelListeningTimeout()
@@ -243,7 +247,8 @@ class SueViewModel @Inject constructor(
             it.copy(
                 isOverlayVisible = false,
                 errorMessage = null,
-                pendingActions = emptyList()
+                pendingActions = emptyList(),
+                speechState = SpeechState.IDLE
             )
         }
         startIdleReleaseTimer(DISMISS_RELEASE_TIMEOUT_MS)
@@ -255,7 +260,8 @@ class SueViewModel @Inject constructor(
     fun onConfirmAction() {
         val actions = _uiState.value.pendingActions
         if (actions.isNotEmpty()) {
-            viewModelScope.launch {
+            activeProcessingJob?.cancel()
+            activeProcessingJob = viewModelScope.launch {
                 _uiState.update { it.copy(pendingActions = emptyList()) }
                 if (actions.size == 1) {
                     executePendingAction("Confirmación manual", actions.first())
@@ -270,12 +276,14 @@ class SueViewModel @Inject constructor(
      * Cancels the pending action when the user clicks 'Cancel' manually.
      */
     fun onCancelAction() {
+        activeProcessingJob?.cancel()
+        activeProcessingJob = null
         _uiState.update { it.copy(pendingActions = emptyList()) }
         val cancelMessage = "De acuerdo, he cancelado la acción."
         conversationHistory.add(Pair("Cancelación manual", cancelMessage))
         while (conversationHistory.size > 10) conversationHistory.removeAt(0)
         _uiState.update { it.copy(agentResponse = cancelMessage) }
-        speechService.speak(cancelMessage)
+        speakIfOverlayVisible(cancelMessage)
     }
 
     /** Clears any displayed error message and resets speech state if needed. */
@@ -344,7 +352,10 @@ class SueViewModel @Inject constructor(
                         partialTranscription = ""
                     )
                 }
-                handleTranscription(transcription)
+                activeProcessingJob?.cancel()
+                activeProcessingJob = viewModelScope.launch {
+                    handleTranscription(transcription)
+                }
             }
         }
     }
@@ -460,6 +471,30 @@ class SueViewModel @Inject constructor(
         if (actions.isNotEmpty()) {
             handleConfirmation(transcription, actions)
         } else {
+            val lower = transcription.trim().lowercase()
+            if (lower in listOf("hola", "hola sue", "buenos días", "buenos dias", "buenas tardes", "buenas noches", "buenas", "hey")) {
+                val greetingMsg = if (java.util.Locale.getDefault().language.equals("es", ignoreCase = true)) {
+                    "¡Hola! ¿En qué puedo ayudarte hoy?"
+                } else {
+                    "Hello! How can I help you today?"
+                }
+                conversationHistory.add(Pair(transcription, greetingMsg))
+                _uiState.update { it.copy(agentResponse = greetingMsg, speechState = SpeechState.IDLE) }
+                speakIfOverlayVisible(greetingMsg)
+                return
+            }
+            if (lower in listOf("gracias", "muchas gracias", "thank you", "thanks")) {
+                val thanksMsg = if (java.util.Locale.getDefault().language.equals("es", ignoreCase = true)) {
+                    "¡De nada! Estoy aquí para lo que necesites."
+                } else {
+                    "You're welcome! I'm here to help."
+                }
+                conversationHistory.add(Pair(transcription, thanksMsg))
+                _uiState.update { it.copy(agentResponse = thanksMsg, speechState = SpeechState.IDLE) }
+                speakIfOverlayVisible(thanksMsg)
+                return
+            }
+
             // 1. Try local rule-based intent parsing (fast, offline, reliable)
             val intentResult = sueAgent.detectActionIntent(transcription)
             if (intentResult != null) {
@@ -474,9 +509,9 @@ class SueViewModel @Inject constructor(
                 while (conversationHistory.size > 10) conversationHistory.removeAt(0)
 
                 _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
-                speechService.speak(message)
+                speakIfOverlayVisible(message)
             } else {
-                // 2. Fallback to local LLM
+                // 2. Fallback to local LLM or RAG tool extraction
                 processWithAgent(transcription)
             }
         }
@@ -514,7 +549,7 @@ class SueViewModel @Inject constructor(
                         conversationHistory.add(Pair(transcription, message))
                         while (conversationHistory.size > 10) conversationHistory.removeAt(0)
                         _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
-                        speechService.speak(message)
+                        speakIfOverlayVisible(message)
                     } else {
                         processWithAgent(transcription)
                     }
@@ -523,7 +558,7 @@ class SueViewModel @Inject constructor(
                     conversationHistory.add(Pair(transcription, cancelMessage))
                     while (conversationHistory.size > 10) conversationHistory.removeAt(0)
                     _uiState.update { it.copy(agentResponse = cancelMessage) }
-                    speechService.speak(cancelMessage)
+                    speakIfOverlayVisible(cancelMessage)
                 }
             }
             else -> {
@@ -540,13 +575,13 @@ class SueViewModel @Inject constructor(
                     conversationHistory.add(Pair(transcription, message))
                     while (conversationHistory.size > 10) conversationHistory.removeAt(0)
                     _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
-                    speechService.speak(message)
+                    speakIfOverlayVisible(message)
                 } else {
                     val askAgain = "No he entendido. Di «sí» para confirmar o «no» para cancelar."
                     conversationHistory.add(Pair(transcription, askAgain))
                     while (conversationHistory.size > 10) conversationHistory.removeAt(0)
                     _uiState.update { it.copy(agentResponse = askAgain) }
-                    speechService.speak(askAgain)
+                    speakIfOverlayVisible(askAgain)
                 }
             }
         }
@@ -579,13 +614,13 @@ class SueViewModel @Inject constructor(
             conversationHistory.add(Pair(transcription, response))
             while (conversationHistory.size > 10) conversationHistory.removeAt(0)
             _uiState.update { it.copy(agentResponse = response) }
-            speechService.speak(response)
+            speakIfOverlayVisible(response)
         } catch (e: Exception) {
             val errorMsg = "Lo siento, no se pudo completar la acción."
             conversationHistory.add(Pair(transcription, errorMsg))
             while (conversationHistory.size > 10) conversationHistory.removeAt(0)
             _uiState.update { it.copy(agentResponse = errorMsg, errorMessage = e.message) }
-            speechService.speak(errorMsg)
+            speakIfOverlayVisible(errorMsg)
         }
     }
 
@@ -621,13 +656,13 @@ class SueViewModel @Inject constructor(
             conversationHistory.add(Pair(transcription, responseStr))
             while (conversationHistory.size > 10) conversationHistory.removeAt(0)
             _uiState.update { it.copy(agentResponse = responseStr) }
-            speechService.speak(responseStr)
+            speakIfOverlayVisible(responseStr)
         } catch (e: Exception) {
             val errorMsg = "Lo siento, no se pudo completar la acción."
             conversationHistory.add(Pair(transcription, errorMsg))
             while (conversationHistory.size > 10) conversationHistory.removeAt(0)
             _uiState.update { it.copy(agentResponse = errorMsg, errorMessage = e.message) }
-            speechService.speak(errorMsg)
+            speakIfOverlayVisible(errorMsg)
         }
     }
 
@@ -660,7 +695,16 @@ class SueViewModel @Inject constructor(
             } else {
                 val fallback = extractDataFromPrompt(prompt)
                 SafeLogger.d("SueVM", "LLM not loaded. Fallback Response: '$fallback'")
-                fallback
+                if (fallback != null) {
+                    fallback
+                } else {
+                    val repoResponse = generateSueResponseUseCase(prompt)
+                    if (repoResponse.isNotBlank()) repoResponse else {
+                        val isSpanish = java.util.Locale.getDefault().language.equals("es", ignoreCase = true)
+                        if (isSpanish) "No he encontrado datos relevantes para tu consulta."
+                        else "No relevant data found for your query."
+                    }
+                }
             }
 
             val intentResult = sueAgent.parseLlmActionResponse(rawResponse)
@@ -679,7 +723,7 @@ class SueViewModel @Inject constructor(
                 while (conversationHistory.size > 10) conversationHistory.removeAt(0)
 
                 _uiState.update { it.copy(agentResponse = message, pendingActions = nextActions) }
-                speechService.speak(message)
+                speakIfOverlayVisible(message)
             } else {
                 val cleanResponse = rawResponse.replace(Regex("^(?i)sue:\\s*"), "")
                 conversationHistory.add(Pair(transcription, cleanResponse))
@@ -688,7 +732,7 @@ class SueViewModel @Inject constructor(
                 }
 
                 _uiState.update { it.copy(agentResponse = cleanResponse) }
-                speechService.speak(cleanResponse)
+                speakIfOverlayVisible(cleanResponse)
             }
         } catch (e: Exception) {
             val errorResponse = "Lo siento, hubo un error al procesar tu consulta."
@@ -699,7 +743,7 @@ class SueViewModel @Inject constructor(
             _uiState.update {
                 it.copy(agentResponse = errorResponse, errorMessage = e.message)
             }
-            speechService.speak(errorResponse)
+            speakIfOverlayVisible(errorResponse)
         }
     }
 
@@ -707,7 +751,7 @@ class SueViewModel @Inject constructor(
      * Fallback for when the LLM model is not loaded.
      * Extracts the tool data section from the prompt and presents it directly.
      */
-    private fun extractDataFromPrompt(prompt: String): String {
+    private fun extractDataFromPrompt(prompt: String): String? {
         // Try English tags first (from SueAgentImpl.kt)
         var startTag = "--- AVAILABLE DATA ---"
         var endTag = "--- END OF DATA ---"
@@ -724,9 +768,22 @@ class SueViewModel @Inject constructor(
 
         return if (dataStart >= 0 && dataEnd >= 0) {
             val data = prompt.substring(dataStart + startTag.length, dataEnd).trim()
-            "Aquí tienes los datos solicitados:\n\n$data"
+            data.ifBlank { null }
         } else {
-            "No he encontrado datos relevantes para tu consulta."
+            null
+        }
+    }
+
+    /**
+     * Speaks the given [text] through TTS only if the SUE overlay is currently visible.
+     * Prevents unexpected audio playback when the user has dismissed SUE, closed the app,
+     * or locked the device while an in-flight operation was completing in the background.
+     */
+    private fun speakIfOverlayVisible(text: String) {
+        if (_uiState.value.isOverlayVisible) {
+            speechService.speak(text)
+        } else {
+            SafeLogger.d("SueVM", "Skipped speaking response because overlay is dismissed: '$text'")
         }
     }
 }

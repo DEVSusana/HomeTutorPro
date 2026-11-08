@@ -178,7 +178,7 @@ class WeeklyScheduleViewModelTest {
         viewModel.startClass("student1", 60)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        verify(exactly = 1) { startActiveSession(match { it.studentId == "student1" && it.tutorId == "user123" && it.durationMinutes == 60L }) }
+        coVerify(exactly = 1) { startActiveSession(match { it.studentId == "student1" && it.tutorId == "user123" && it.durationMinutes == 60L }) }
         verify(exactly = 1) { scheduleNotification("Student 1", 60L) }
     }
 }

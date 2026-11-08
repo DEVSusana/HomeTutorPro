@@ -53,7 +53,7 @@ class GetNextClassUseCase @Inject constructor(
         return findNextClass(occurrences)
     }
 
-    private fun findNextClass(occurrences: List<CalendarOccurrence>): CalendarOccurrence? {
+    private suspend fun findNextClass(occurrences: List<CalendarOccurrence>): CalendarOccurrence? {
         val now = java.time.LocalDateTime.now()
         val today = now.toLocalDate()
         val timeNow = now.toLocalTime()

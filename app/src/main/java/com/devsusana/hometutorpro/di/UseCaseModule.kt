@@ -258,5 +258,11 @@ abstract class UseCaseModule {
     abstract fun bindConsolidateActiveSessionUseCase(
         impl: com.devsusana.hometutorpro.domain.usecases.implementations.ConsolidateActiveSessionUseCase
     ): IConsolidateActiveSessionUseCase
+
+    @Binds
+    abstract fun bindGetAppFeatureFlagsUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.GetAppFeatureFlagsUseCase): IGetAppFeatureFlagsUseCase
+
+    @Binds
+    abstract fun bindFetchRemoteConfigUseCase(impl: com.devsusana.hometutorpro.domain.usecases.implementations.FetchRemoteConfigUseCase): IFetchRemoteConfigUseCase
 }
 

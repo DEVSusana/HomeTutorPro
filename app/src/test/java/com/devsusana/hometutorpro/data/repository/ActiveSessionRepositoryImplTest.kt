@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -20,24 +21,24 @@ class ActiveSessionRepositoryImplTest {
     private lateinit var repository: ActiveSessionRepositoryImpl
 
     @Before
-    fun setup() {
+    fun setup() = runTest {
         context = ApplicationProvider.getApplicationContext()
         repository = ActiveSessionRepositoryImpl(context)
         repository.stopSession()
     }
 
     @After
-    fun tearDown() {
+    fun tearDown() = runTest {
         repository.stopSession()
     }
 
     @Test
-    fun `getActiveSession returns null initially`() {
+    fun `getActiveSession returns null initially`() = runTest {
         assertNull(repository.getActiveSession())
     }
 
     @Test
-    fun `startSession saves session and getActiveSession retrieves it`() {
+    fun `startSession saves session and getActiveSession retrieves it`() = runTest {
         val session = ActiveSession(
             studentId = "s123",
             studentName = "Alice",
@@ -59,7 +60,7 @@ class ActiveSessionRepositoryImplTest {
     }
 
     @Test
-    fun `stopSession clears active session`() {
+    fun `stopSession clears active session`() = runTest {
         val session = ActiveSession(
             studentId = "s123",
             studentName = "Alice",
@@ -77,7 +78,7 @@ class ActiveSessionRepositoryImplTest {
     }
 
     @Test
-    fun `getActiveSession auto expires and clears session when duration passed and session is billed`() {
+    fun `getActiveSession auto expires and clears session when duration passed and session is billed`() = runTest {
         val twoHoursAgo = System.currentTimeMillis() - (120 * 60 * 1000L)
         val expiredSession = ActiveSession(
             studentId = "s456",
@@ -100,7 +101,7 @@ class ActiveSessionRepositoryImplTest {
     }
 
     @Test
-    fun `getActiveSession preserves unbilled session past scheduled duration to allow consolidation`() {
+    fun `getActiveSession preserves unbilled session past scheduled duration to allow consolidation`() = runTest {
         val twoHoursAgo = System.currentTimeMillis() - (120 * 60 * 1000L)
         val unbilledSession = ActiveSession(
             studentId = "s456",
@@ -119,5 +120,77 @@ class ActiveSessionRepositoryImplTest {
         assertNotNull(result)
         assertEquals("s456", result?.studentId)
         assertEquals(false, result?.isBilled)
+    }
+
+    @Test
+    fun `InMemorySharedPreferences functions properly in fallback mode`() = runTest {
+        val inMemoryPrefs = ActiveSessionRepositoryImpl.InMemorySharedPreferences()
+        val repo = ActiveSessionRepositoryImpl(
+            context = context,
+            prefsOverride = inMemoryPrefs
+        )
+
+        val session = ActiveSession(
+            studentId = "sInMemory",
+            studentName = "InMemoryUser",
+            startTimeMillis = System.currentTimeMillis(),
+            durationMinutes = 45L,
+            isOngoing = true,
+            tutorId = "tutorMem"
+        )
+
+        repo.startSession(session)
+
+        val retrieved = repo.getActiveSession()
+        assertNotNull(retrieved)
+        assertEquals("sInMemory", retrieved?.studentId)
+        assertEquals("InMemoryUser", retrieved?.studentName)
+
+        // Exercise in-memory methods directly for coverage and reliability
+        inMemoryPrefs.edit()
+            .putInt("int_key", 42)
+            .putFloat("float_key", 3.14f)
+            .putStringSet("set_key", setOf("a", "b"))
+            .apply()
+
+        assertEquals(42, inMemoryPrefs.getInt("int_key", 0))
+        assertEquals(3.14f, inMemoryPrefs.getFloat("float_key", 0f), 0.01f)
+        assertEquals(setOf("a", "b"), inMemoryPrefs.getStringSet("set_key", emptySet()))
+        assertTrue(inMemoryPrefs.contains("int_key"))
+        assertTrue(inMemoryPrefs.getAll().containsKey("int_key"))
+
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> }
+        inMemoryPrefs.registerOnSharedPreferenceChangeListener(listener)
+        inMemoryPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+
+        inMemoryPrefs.edit().remove("int_key").commit()
+        assertEquals(0, inMemoryPrefs.getInt("int_key", 0))
+
+        repo.stopSession()
+        assertNull(repo.getActiveSession())
+    }
+
+    @Test
+    fun `startSession and stopSession safely handle SharedPreferences exceptions without crashing`() = runTest {
+        val faultyPrefs = io.mockk.mockk<android.content.SharedPreferences>()
+        io.mockk.every { faultyPrefs.edit() } throws RuntimeException("Simulated Keystore I/O failure")
+
+        val repo = ActiveSessionRepositoryImpl(
+            context = context,
+            prefsOverride = faultyPrefs
+        )
+
+        val session = ActiveSession(
+            studentId = "sErr",
+            studentName = "ErrUser",
+            startTimeMillis = System.currentTimeMillis(),
+            durationMinutes = 30L,
+            isOngoing = true,
+            tutorId = "tutorErr"
+        )
+
+        // Must handle exception safely without throwing uncaught runtime exception
+        repo.startSession(session)
+        repo.stopSession()
     }
 }
