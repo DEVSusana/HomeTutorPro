@@ -70,6 +70,7 @@ class FirebaseConfigRepositoryImpl @Inject constructor(
             remoteConfig.activate().addOnCompleteListener {
                 _featureFlags.value = readCurrentFlags()
                 SafeLogger.d(TAG, "Activated cached config on startup: ${_featureFlags.value}")
+                notifyWidgetUpdate()
             }
 
             // Real-time remote config updates
@@ -78,6 +79,7 @@ class FirebaseConfigRepositoryImpl @Inject constructor(
                     SafeLogger.d(TAG, "Remote config updated in real time for keys: ${configUpdate.updatedKeys}")
                     remoteConfig.activate().addOnCompleteListener {
                         _featureFlags.value = readCurrentFlags()
+                        notifyWidgetUpdate()
                     }
                 }
 
@@ -100,10 +102,25 @@ class FirebaseConfigRepositoryImpl @Inject constructor(
             val updated = remoteConfig.fetchAndActivate().await()
             _featureFlags.value = readCurrentFlags()
             SafeLogger.d(TAG, "fetchAndActivate completed (updated=$updated), current flags: ${_featureFlags.value}")
+            notifyWidgetUpdate()
             true
         } catch (e: Exception) {
             SafeLogger.w(TAG, "fetchAndActivate failed: ${e.message}")
             false
+        }
+    }
+
+    private fun notifyWidgetUpdate() {
+        try {
+            val intent = android.content.Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+                component = android.content.ComponentName(context, "com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget")
+                val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
+                val ids = appWidgetManager.getAppWidgetIds(component)
+                putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            }
+            context.sendBroadcast(intent)
+        } catch (e: Exception) {
+            SafeLogger.e(TAG, "Error triggering widget update on config change: ${e.message}", e)
         }
     }
 

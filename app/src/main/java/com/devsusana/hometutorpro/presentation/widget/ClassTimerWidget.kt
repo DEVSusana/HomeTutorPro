@@ -104,6 +104,12 @@ class ClassTimerWidget : AppWidgetProvider() {
                         val daySummary = if (hasTutor) getTodayClassesSummaryUseCase() else null
                         ensureActive()
 
+                        val isActionsEnabled = try {
+                            configRepository.isWidgetActionsEnabled()
+                        } catch (_: Exception) {
+                            true
+                        }
+
                         val snapshot = WidgetRenderSnapshot(
                             isActive = true,
                             activeStudentId = activeSession.studentId,
@@ -114,7 +120,8 @@ class ClassTimerWidget : AppWidgetProvider() {
                             doorCode = null,
                             studentAddress = null,
                             completedToday = daySummary?.completedClassesToday ?: 0,
-                            totalToday = daySummary?.totalClassesToday ?: 0
+                            totalToday = daySummary?.totalClassesToday ?: 0,
+                            isActionsEnabled = isActionsEnabled
                         )
 
                         for (appWidgetId in appWidgetIds) {
@@ -142,6 +149,12 @@ class ClassTimerWidget : AppWidgetProvider() {
                     val studentAddress = student?.address?.trim()?.takeIf { it.isNotEmpty() }
                     ensureActive()
 
+                    val isActionsEnabled = try {
+                        configRepository.isWidgetActionsEnabled()
+                    } catch (_: Exception) {
+                        true
+                    }
+
                     val snapshot = WidgetRenderSnapshot(
                         isActive = false,
                         activeStudentId = null,
@@ -152,7 +165,8 @@ class ClassTimerWidget : AppWidgetProvider() {
                         doorCode = doorCode,
                         studentAddress = studentAddress,
                         completedToday = daySummary.completedClassesToday,
-                        totalToday = daySummary.totalClassesToday
+                        totalToday = daySummary.totalClassesToday,
+                        isActionsEnabled = isActionsEnabled
                     )
 
                     for (appWidgetId in appWidgetIds) {
@@ -474,7 +488,8 @@ class ClassTimerWidget : AppWidgetProvider() {
         val doorCode: String?,
         val studentAddress: String? = null,
         val completedToday: Int,
-        val totalToday: Int
+        val totalToday: Int,
+        val isActionsEnabled: Boolean = true
     )
 
     companion object {

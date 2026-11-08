@@ -193,10 +193,8 @@ class SueViewModel @Inject constructor(
                     )
                 }
                 
-                if (modelLoaded) {
-                    speechService.startListening()
-                    startListeningTimeout()
-                }
+                speechService.startListening()
+                startListeningTimeout()
             }
             SpeechState.LISTENING -> {
                 cancelListeningTimeout()
@@ -660,7 +658,12 @@ class SueViewModel @Inject constructor(
             } else {
                 val fallback = extractDataFromPrompt(prompt)
                 SafeLogger.d("SueVM", "LLM not loaded. Fallback Response: '$fallback'")
-                fallback
+                if (fallback.startsWith("No he encontrado")) {
+                    val repoResponse = generateSueResponseUseCase(prompt)
+                    if (repoResponse.isNotBlank()) repoResponse else fallback
+                } else {
+                    fallback
+                }
             }
 
             val intentResult = sueAgent.parseLlmActionResponse(rawResponse)
