@@ -23,8 +23,8 @@ class LLMResponse:
 
 class BaseLLMProvider(ABC):
     """
-    Interfaz abstracta y universal para conectar cualquier LLM con soporte de Tool Calling.
-    Permite cambiar de Claude a Gemini o GPT sin tocar una sola línea del motor agéntico.
+    Abstract and universal interface to connect any LLM with Tool Calling support.
+    Enables swapping between Claude, Gemini, or other providers without changing the core engine.
     """
 
     @abstractmethod
@@ -35,7 +35,7 @@ class BaseLLMProvider(ABC):
         system_prompt: str = ""
     ) -> LLMResponse:
         """
-        Envía el historial de mensajes, la lista de herramientas y el system prompt al modelo.
-        Retorna un LLMResponse unificado que contiene texto y/o llamadas a herramientas.
+        Sends the message history, tool schemas, and system prompt to the model.
+        Returns a unified LLMResponse containing text and/or tool calls.
         """
         pass

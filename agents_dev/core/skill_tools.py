@@ -30,53 +30,11 @@ def _run_audit_skill(file_path: str, module_name: str, func_name: str, title: st
 
 def check_hilt_bindings(file_path: str) -> str:
     """Verifies whether a UseCase or Repository interface is properly bound in Hilt DI modules."""
-    full_path = _resolve_path(file_path)
-    if not os.path.exists(full_path):
-        return f"ERROR: File '{file_path}' does not exist."
-
-    filename = os.path.basename(full_path)
-    if not filename.endswith(".kt"):
-        return f"File '{filename}' is not a Kotlin file."
-
-    class_name = filename.replace(".kt", "")
-    is_usecase = "UseCase" in class_name
-    is_repository = "Repository" in class_name
-
-    if not is_usecase and not is_repository:
-        return f"Class '{class_name}' is neither a UseCase nor a Repository. No Hilt module binding required."
-
-    di_dir = _resolve_path("app/src/main/java/com/devsusana/hometutorpro/di")
-    if not os.path.exists(di_dir):
-        return f"WARNING: Hilt DI directory '{di_dir}' not found."
-
-    found = False
-    matching_module = None
-    checked_files = []
-
-    for root, dirs, files in os.walk(di_dir):
-        for file in files:
-            if file.endswith(".kt"):
-                di_file_path = os.path.join(root, file)
-                checked_files.append(file)
-                try:
-                    with open(di_file_path, "r", encoding="utf-8") as f:
-                        if class_name in f.read():
-                            found = True
-                            matching_module = file
-                            break
-                except Exception:
-                    pass
-        if found:
-            break
-
-    if found:
-        return f"PASS: Hilt binding for '{class_name}' verified in module '{matching_module}'."
-    else:
-        return (
-            f"FAIL: No Hilt binding found for '{class_name}' in '{di_dir}'. "
-            f"Scanned modules: {', '.join(checked_files)}. "
-            f"Action needed: Add @Binds or @Provides for this interface in the corresponding Hilt module."
-        )
+    try:
+        import hilt_checker
+        return hilt_checker.check_hilt_bindings(file_path)
+    except Exception as e:
+        return f"ERROR: Failed checking Hilt bindings: {str(e)}"
 
 
 def audit_architecture(file_path: str) -> str:

@@ -76,23 +76,30 @@ def generate_content_with_retry(client, contents, config_args=None, max_retries=
                     delay *= 2
                     continue
                 else:
+                    # If free API quota is exhausted, provide a mock response for local testing
+                    print("\n🛑 Quota exhausted. Activating Mock Fallback for developer loop test...")
                     contents_str = str(contents)
+                    
+                    # Case 1: Surgical Refactoring Test (JSON replacements)
                     if "StudentRepositoryImpl_temp" in contents_str and "replacements" in contents_str and "ERROR LOG" not in contents_str:
                         mock_json = """{
   "replacements": [
     {
-      "search": "    fun calcular_saldo_pendiente() {\\n        // Violaciones: Nombre en español, snake_case y variable no utilizada.\\n        val saldo_alumno = 100\\n        println(\\"Prueba de refactor\\")\\n    }",
-      "replace": "    fun calculatePendingBalance() {\\n        println(\\"Prueba de refactor\\")\\n    }"
+      "search": "    fun calculate_pending_balance() {\\n        // Violations: Snake_case naming and unused variable.\\n        val student_balance = 100\\n        println(\\"Refactor test\\")\\n    }",
+      "replace": "    fun calculatePendingBalance() {\\n        println(\\"Refactor test\\")\\n    }"
     }
   ]
 }"""
                         return MockResponse(mock_json)
+                    
+                    # Case 2: Self-healing compilation error test
                     elif "StudentRepositoryImpl_temp" in contents_str and "ERROR LOG" in contents_str:
+                        # Return JSON patch that removes the broken compilation line
                         mock_json_fix = """{
   "replacements": [
     {
-      "search": "val error_de_compilacion =",
-      "replace": "// Corregido: Remoción de línea inválida"
+      "search": "val compilation_error =",
+      "replace": "// Fixed: Removed invalid line"
     }
   ]
 }"""

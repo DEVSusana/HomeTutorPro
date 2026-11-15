@@ -48,7 +48,10 @@ Strictly implement **Clean Architecture** with **MVVM (Model-View-ViewModel)** i
 * **Language:** **All code (names, comments, messages, etc.) must be in English.** This includes package names, classes, functions, and variables.
 * **Clean Code:**
     * **SOLID Principles:** The implementation of all components must strictly adhere to SOLID principles (Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion).
-    * **Small Functions and Classes:** Each function must have a single responsibility. Classes must be cohesive and have well-defined responsibilities.
+    * **Small Functions and Classes (Strict Size Limits):**
+        * **Files / Classes:** Maximum **300 lines of code** per file (excluding generated code or pure static data catalogs). Monolithic classes must be split into cohesive child components, delegates, or helper classes.
+        * **Functions & Composables:** Maximum **50-60 lines** per function or `@Composable`. Extract UI rows, cards, dialogs, and sections into dedicated composables.
+        * **Single Responsibility & Low Cyclomatic Complexity:** Each function must have a single responsibility. Large `when` / `if-else` blocks (e.g. intent matching, parsers) exceeding 10 branches must be decomposed into Strategy patterns or delegated handler classes.
     * **DRY (Don't Repeat Yourself):** Avoid code duplication at all costs. Refactor and reuse components.
     * **Readability and Maintainability:** Code must be easily understandable by any developer, even without excessive comments. Prioritize clarity over brevity.
     * **Testability:** Generated code must be inherently easy to unit and integration test (see section 8). This implies low coupling and high cohesion.
@@ -193,77 +196,12 @@ Gemini MUST generate classes in the following specific locations, respecting pac
 
 ---
 
-## 11. Local Verification & Autonomous Development via Agentic Loop
+## 11. Autonomous Development Tools (`agents_dev/`)
 
-HomeTutorPro includes an integrated **Universal Agentic Loop** located in `agents_dev/`. It provides autonomous development capabilities with tool use, compiler self-healing via Gradle, and human-in-the-loop verification, powered by **Claude 3.5 / 3.7 Sonnet** or **Gemini 2.5 Flash / Pro**.
+HomeTutorPro includes an integrated, model-agnostic development agentic loop in `agents_dev/` supporting interactive requirement interviews (`plan`), precision surgical code patches, and Gradle compiler self-healing (`run`), powered by Google Gemini and Anthropic Claude.
 
-For in-depth architecture, troubleshooting, and project extrapolation guides, see [agents_dev/README.md](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/agents_dev/README.md).
-
-### Prerequisites and Configuration
-
-1. **Activate Virtual Environment & Install Dependencies:**
-```bash
-# Recommended: activate project's Python 3.11 environment
-source agents_dev/.venv_agente/bin/activate
-
-# Install dependencies:
-pip install -r agents_dev/requirements.txt
-# or directly:
-pip install google-genai anthropic
-```
-
-2. **Configure Provider API Keys in your terminal or `~/.zshrc`:**
-```bash
-# Recommended for Google Gemini:
-export GEMINI_API_KEY="your-gemini-key"
-
-# Alternative (Anthropic Claude):
-export ANTHROPIC_API_KEY="your-anthropic-key"
-
-# Optional: Default model overrides
-export GEMINI_MODEL="gemini-3.1-flash-lite"        # or "gemini-2.5-pro"
-export ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"
-```
-
-3. **Verify Installation:**
-```bash
-python3 -m unittest discover agents_dev/tests
-```
-
-### Daily Workflow from Android Studio Terminal
-
-#### Phase 1: Interactive Spec Interview (`plan`)
-Before coding, interview the agent to define, clarify, and lock requirements against `AGENTS.md` and `BUSINESS_RULES.md`:
-```bash
-python3 -m agents_dev plan "Your feature idea or change description"
-
-# With specific model (e.g. Gemini 2.5 Pro for complex architecture design):
-python3 -m agents_dev --provider=gemini --model=gemini-2.5-pro plan "Your feature idea"
-```
-* The agent conducts an interactive interview in the terminal, asking about edge cases, architectural boundaries, and persistence.
-* **Strict Confirmation Gate:** The interview will NOT finish until you explicitly type `OK` or `APROBADO`. It then saves the validated spec to `specs/<feature_name>.md`.
-
-#### Phase 2: Autonomous Execution Loop (`run`)
-Once the spec is approved, launch the autonomous loop:
-```bash
-# Build from an approved spec:
-python3 -m agents_dev run --spec specs/your_feature.md
-
-# Quick refactor or targeted task:
-python3 -m agents_dev run "Refactor StudentRepository to enforce Clean Architecture boundaries"
-
-# Explicit provider and model selection:
-python3 -m agents_dev --provider=gemini --model=gemini-2.5-pro run --spec specs/your_feature.md
-python3 -m agents_dev --provider=claude run --spec specs/your_feature.md
-```
-During execution, the agent autonomously:
-1. Displays the active provider and model in console: `🤖 Proveedor activo: GeminiProvider | Modelo: gemini-3.1-flash-lite`.
-2. Inspects files with `read_file` and lists directories with `list_files`.
-3. Applies **precision surgical patches (`patch_file`)** — never regenerating whole classes unnecessarily (Minimal Blast Radius).
-4. Verifies Hilt bindings with `check_hilt_bindings` and scaffolds tests with `scaffold_test`.
-5. Runs `./gradlew compileDebugKotlin` and `./gradlew test` in a closed self-healing loop until all checks are green.
-6. Pauses to ask questions via `ask_human` if any runtime ambiguity arises.
-7. Displays the final `git diff` and asks for your interactive `(y/n)` approval before keeping changes.
+* **Developer Setup & CLI Workflow:** See [agents_dev/README.md](agents_dev/README.md) for virtual environment activation, API key configuration, and execution commands (`plan` / `run`).
+* **Educational & Architecture Guide:** See [docs/GUIA_MAESTRA_BUCLE_AGENTICO.md](docs/GUIA_MAESTRA_BUCLE_AGENTICO.md) for execution flow diagrams and full tool references.
 
 
 

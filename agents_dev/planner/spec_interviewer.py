@@ -7,9 +7,9 @@ from core.system_tools import PROJECT_ROOT
 
 class SpecInterviewer:
     """
-    Motor de Entrevista de Especificaciones (Fase 1: Pensar y Acordar).
-    Dialoga interactivamente con el desarrollador hasta que todos los requisitos
-    estén perfectamente definidos y confirmados explícitamente.
+    Specification Interview Engine (Phase 1: Think and Agree).
+    Interactively dialogues with the developer until all technical requirements
+    and architecture boundaries are clearly defined and approved.
     """
 
     def __init__(self, provider: BaseLLMProvider):
@@ -46,74 +46,74 @@ Your goal is to help the developer convert their feature idea into a crystal-cle
    - Your questions or clarifications.
    - An updated DRAFT of the specification formatted in clean Markdown.
 4. **STRICT CONFIRMATION GATE:**
-   - You MUST NOT consider the spec final until the developer explicitly states they are 100% satisfied and approves it (e.g. typing 'OK', 'Aprobado', 'Sí').
+   - You MUST NOT consider the spec final until the developer explicitly states they are 100% satisfied and approves it (e.g. typing 'OK', 'Approved', 'Yes').
    - In each turn, remind the developer that they can keep refining or approve with 'OK' when satisfied.
 """
 
     def interview(self, initial_idea: str) -> str:
         """
-        Sostiene la entrevista interactiva con el desarrollador hasta la aprobación final.
+        Conducts the interactive interview with the developer until final approval.
         """
         system_prompt = self._build_interviewer_prompt()
         messages: List[Dict[str, Any]] = [
-            {"role": "user", "content": f"Quiero definir la especificación para esta feature/tarea: '{initial_idea}'"}
+            {"role": "user", "content": f"I want to define the technical specification for this feature/task: '{initial_idea}'"}
         ]
 
         print("\n" + "📋" + "═" * 70)
-        print("🧠 [FASE 1: MODO ENTREVISTA DE ESPECIFICACIONES]")
-        print(f"💡 Idea inicial: {initial_idea}")
+        print("🧠 [PHASE 1: SPECIFICATION INTERVIEW MODE]")
+        print(f"💡 Initial idea: {initial_idea}")
         print("═" * 72)
-        print("El agente revisará las reglas de arquitectura y te entrevistará para cerrar la spec.")
-        print("Nota: El proceso NO terminará hasta que tú confirmes que todo está 100% claro.\n")
+        print("The agent will review architecture guidelines and interview you to finalize the specification.")
+        print("Note: The process will NOT finish until you explicitly approve the spec.\n")
 
         latest_spec_draft = ""
         turn = 1
 
         while True:
-            print(f"⏳ [Turno {turn}] El arquitecto está analizando...")
+            print(f"⏳ [Turn {turn}] Architect is analyzing...")
             try:
                 response = self.provider.chat(
                     messages=messages,
-                    tools=[],  # En la entrevista dialogamos directamente sin tools
+                    tools=[],  # Direct dialogue without tools during planning interview
                     system_prompt=system_prompt
                 )
             except Exception as e:
-                print(f"❌ Error conectando con el modelo: {e}")
+                print(f"❌ Error connecting to model: {e}")
                 return ""
 
             agent_reply = response.content
             latest_spec_draft = agent_reply
 
             print("\n" + "━" * 70)
-            print("🤖 [RESPUESTA DEL ARQUITECTO]")
+            print("🤖 [ARCHITECT RESPONSE]")
             print(agent_reply)
             print("━" * 70)
 
-            # Gate de confirmación explícito
-            print("\n👉 ¿Qué deseas hacer?")
-            print("   - Escribe 'OK' o 'APROBADO' si la spec está 100% clara y lista para guardar.")
-            print("   - O escribe tus dudas, ajustes o respuestas a las preguntas anteriores:")
+            # Explicit confirmation gate
+            print("\n👉 What would you like to do?")
+            print("   - Type 'OK' or 'APPROVED' if the spec is 100% clear and ready to save.")
+            print("   - Or enter your feedback, adjustments, or answers to the questions above:")
 
             try:
-                user_feedback = input("\nTu respuesta: ").strip()
+                user_feedback = input("\nYour response: ").strip()
                 while not user_feedback:
-                    user_feedback = input("Por favor ingresa una respuesta: ").strip()
+                    user_feedback = input("Please enter a response: ").strip()
             except (EOFError, KeyboardInterrupt):
-                print("\nEntrevista cancelada por el usuario.")
+                print("\nInterview cancelled by user.")
                 return ""
 
-            # Verificación del Gate
-            approval_keywords = {"ok", "aprobado", "aprobar", "sí", "si", "yes", "listo"}
+            # Gate verification (supporting English & Spanish confirmation keywords)
+            approval_keywords = {"ok", "approved", "approve", "yes", "y", "done", "aprobado", "aprobar", "sí", "si", "listo"}
             if user_feedback.lower() in approval_keywords:
-                print("\n🎉 ¡Especificación aprobada al 100% por el desarrollador!")
+                print("\n🎉 Specification 100% approved by the developer!")
                 break
 
-            # Agregar turno al historial y continuar
+            # Add turn to history and continue
             messages.append({"role": "assistant", "content": agent_reply})
             messages.append({"role": "user", "content": user_feedback})
             turn += 1
 
-        # Extraer y guardar la spec en specs/<slug>.md
+        # Extract and save spec into specs/<slug>.md
         slug = re.sub(r"[^a-zA-Z0-9]+", "_", initial_idea.lower()).strip("_")[:30] or "feature_spec"
         spec_filename = f"{slug}.md"
         spec_path = os.path.join(self.specs_dir, spec_filename)
@@ -123,8 +123,8 @@ Your goal is to help the developer convert their feature idea into a crystal-cle
 
         rel_spec_path = os.path.relpath(spec_path, PROJECT_ROOT)
         print("\n" + "💾" + "═" * 70)
-        print(f"✅ Spec guardada exitosamente en: {rel_spec_path}")
-        print(f"🚀 Ahora puedes lanzar el bucle autónomo cuando desees:")
+        print(f"✅ Spec successfully saved to: {rel_spec_path}")
+        print(f"🚀 You can now launch the autonomous loop whenever you want:")
         print(f"   python -m agents_dev run --spec {rel_spec_path}")
         print("═" * 72 + "\n")
 

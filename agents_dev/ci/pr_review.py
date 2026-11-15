@@ -1,7 +1,7 @@
 """
 Universal CI: PR Reviewer & Quality Guardrails
-Ejecuta las 5 skills especialistas sobre los archivos Kotlin modificados en la PR,
-publica un informe claro y bloquea el merge si detecta violaciones críticas.
+Executes the 5 specialist skills over Kotlin files modified in a PR,
+publishes a clean report, and enforces quality guardrails.
 """
 import os
 import sys
@@ -14,7 +14,7 @@ try:
 except ImportError:
     Github = None
 
-# Asegurar importación de skills
+# Ensure skills directory is on sys.path
 SKILLS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "skills"))
 if SKILLS_DIR not in sys.path:
     sys.path.insert(0, SKILLS_DIR)
@@ -26,7 +26,7 @@ MAX_FILES = 10
 
 
 def get_modified_kt_files(explicit_files=None):
-    """Detecta los archivos .kt modificados en el PR a través del evento de GitHub o localmente con git diff."""
+    """Detects modified .kt files in the PR via GitHub event or locally using git diff."""
     if explicit_files:
         valid_files = [
             f for f in explicit_files
@@ -64,10 +64,10 @@ def get_modified_kt_files(explicit_files=None):
 
                     return target_files
         except Exception as e:
-            print(f"⚠️ Error obteniendo archivos modificados del PR: {e}")
+            print(f"⚠️ Error retrieving modified files from PR event: {e}")
 
-    # Fallback para ejecución local vía git diff
-    print("ℹ️ Detectando archivos Kotlin modificados localmente...")
+    # Fallback for local execution via git diff
+    print("ℹ️ Detecting locally modified Kotlin files...")
     for cmd in [
         ["git", "diff", "--name-only", "origin/develop...HEAD"],
         ["git", "diff", "--name-only", "HEAD~1"],
@@ -90,11 +90,11 @@ def get_modified_kt_files(explicit_files=None):
 
 
 def post_pr_comment(comment_body: str):
-    """Publica un comentario único en el PR o lo muestra en consola si es ejecución local."""
+    """Publishes a unique comment to the PR or prints it to the console for local execution."""
     event_path = os.environ.get("GITHUB_EVENT_PATH")
     if not event_path or not os.path.exists(event_path):
         print("\n" + "=" * 70)
-        print("🤖 REPORTE DE REVISIÓN DE SKILLS (EJECUCIÓN LOCAL)")
+        print("🤖 AGENT SKILLS REVIEW REPORT (LOCAL EXECUTION)")
         print("=" * 70)
         print(comment_body)
         print("=" * 70 + "\n")
@@ -120,7 +120,7 @@ def post_pr_comment(comment_body: str):
         repo = g.get_repo(repo_name)
         pr = repo.get_pull(pr_number)
 
-        # Buscar y limpiar comentarios anteriores del bot para mantener la PR limpia
+        # Search and clean previous bot comments to keep the PR clean
         try:
             bot_markers = [
                 "## 🤖 Agent Code Review",
@@ -131,52 +131,52 @@ def post_pr_comment(comment_body: str):
                     try:
                         comment.delete()
                     except Exception as err:
-                        print(f"⚠️ No se pudo eliminar comentario previo {comment.id}: {err}")
+                        print(f"⚠️ Could not delete previous comment {comment.id}: {err}")
         except Exception as e:
-            print(f"⚠️ Error limpiando comentarios previos: {e}")
+            print(f"⚠️ Error cleaning previous comments: {e}")
 
         pr.create_issue_comment(comment_body)
-        print("✅ Comentario publicado en el PR (comentarios antiguos limpiados).")
+        print("✅ Comment published on PR (previous comments cleaned up).")
     except Exception as e:
-        print(f"⚠️ No se pudo publicar el comentario en el PR: {e}")
+        print(f"⚠️ Could not publish comment to PR: {e}")
         print(comment_body)
 
 
 def run_pr_review_and_guardrails(target_files=None):
     files = get_modified_kt_files(target_files)
     if not files:
-        print("ℹ️ No hay archivos .kt modificados para analizar.")
+        print("ℹ️ No modified .kt files detected to analyze.")
         post_pr_comment(
             "## 🤖 Agent Code Review\n\n"
-            "ℹ️ No se detectaron archivos Kotlin (`.kt`) modificados en este Pull Request. "
-            "Revisión completada sin incidencias."
+            "ℹ️ No modified Kotlin (`.kt`) files detected in this Pull Request. "
+            "Review completed without issues."
         )
         sys.exit(0)
 
-    print(f"🔍 Archivos Kotlin a revisar ({len(files)}): {files}")
+    print(f"🔍 Kotlin files to review ({len(files)}): {files}")
 
     all_findings = []
     errors = []
 
     for file_path in files:
-        print(f"\n📄 Analizando quirúrgicamente (Unified Review): {file_path}")
+        print(f"\n📄 Analyzing surgically (Unified Review): {file_path}")
         if not os.path.exists(file_path):
-            print(f"  ⚠️ Archivo no encontrado en checkout local: {file_path}")
+            print(f"  ⚠️ File not found in local workspace: {file_path}")
             continue
 
         try:
             result_data = unified_reviewer.run_unified_review(file_path)
             findings = result_data.get("findings", [])
             all_findings.extend(findings)
-            print(f"  ↳ Hallazgos detectados en {file_path}: {len(findings)}")
+            print(f"  ↳ Findings detected in {file_path}: {len(findings)}")
         except Exception as e:
             err_msg = str(e)
-            print(f"  ⚠️ Error analizando {file_path}: {err_msg}")
+            print(f"  ⚠️ Error analyzing {file_path}: {err_msg}")
             errors.append({"skill": "UnifiedReview", "file": file_path, "error": err_msg})
 
         time.sleep(2)
 
-    # 1. Filtrar solo hallazgos accionables (ignorar informativos/verdes para mantener el informe limpio y conciso)
+    # 1. Filter actionable findings only (critical, high, warning, medium)
     actionable_findings = [
         f for f in all_findings
         if str(f.get("severity", "")).lower() in ["critical", "high", "warning", "medium"]
@@ -188,12 +188,12 @@ def run_pr_review_and_guardrails(target_files=None):
             file_key = f.get("file", "General")
             findings_by_file.setdefault(file_key, []).append(f)
 
-        body = "## 🤖 Agent Code Review: Hallazgos Detectados\n\n"
+        body = "## 🤖 Agent Code Review: Findings Detected\n\n"
         emoji_map = {"critical": "🔴", "high": "🔴", "warning": "🟡", "medium": "🟡"}
 
         for file_key, file_findings in findings_by_file.items():
             body += f"### 📄 `{file_key}`\n"
-            body += "| Sev | Categoría | Hallazgo | Sugerencia |\n"
+            body += "| Sev | Category | Finding | Suggestion |\n"
             body += "| :---: | :--- | :--- | :--- |\n"
             for f in file_findings:
                 sev = str(f.get("severity", "warning")).lower()
@@ -206,57 +206,57 @@ def run_pr_review_and_guardrails(target_files=None):
             body += "\n"
 
         if errors:
-            body += "\n### ⚠️ Incidencias de ejecución:\n"
+            body += "\n### ⚠️ Execution Issues:\n"
             for err in errors:
-                body += f"- **{err['skill']}** en `{err['file']}`: `{err['error'][:80]}`\n"
+                body += f"- **{err['skill']}** on `{err['file']}`: `{err['error'][:80]}`\n"
 
             has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
             if has_auth_error:
-                body += "\n> 💡 *Aviso de credenciales: Asegúrate de que el Secret `GEMINI_API_KEY` esté configurado en los Secrets de GitHub Actions.*\n"
+                body += "\n> 💡 *Credentials note: Ensure `GEMINI_API_KEY` is configured in GitHub Actions Secrets.*\n"
 
         post_pr_comment(body)
 
     elif errors:
-        body = "## ⚠️ Agent Code Review: Alerta durante el análisis\n\n"
-        body += "No se pudieron ejecutar algunas skills automáticas:\n\n"
+        body = "## ⚠️ Agent Code Review: Warning During Analysis\n\n"
+        body += "Some automated skills could not complete execution:\n\n"
         for err in errors:
-            body += f"- **{err['skill']}** en `{err['file']}`: `{err['error'][:90]}`\n"
+            body += f"- **{err['skill']}** on `{err['file']}`: `{err['error'][:90]}`\n"
 
         has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
         if has_auth_error:
-            body += "\n> 💡 *Asegúrate de que el Secret `GEMINI_API_KEY` esté configurado en los Secrets de GitHub Actions.*"
+            body += "\n> 💡 *Ensure `GEMINI_API_KEY` is configured in GitHub Actions Secrets.*"
         else:
-            body += "\n> ℹ️ *Incidencia temporal de red o sobrecarga en los servidores de la API.*"
+            body += "\n> ℹ️ *Temporary network issue or rate limit on API servers.*"
         post_pr_comment(body)
 
     else:
-        body = "## 🤖 Agent Code Review: Todo en Orden ✅\n\n"
-        body += f"Se analizaron con éxito **{len(files)} archivo(s) Kotlin** con las 5 skills de agentes:\n"
+        body = "## 🤖 Agent Code Review: All Clear ✅\n\n"
+        body += f"Successfully analyzed **{len(files)} Kotlin file(s)** with all 5 agent skills:\n"
         for f in files:
             body += f"- `{f}`\n"
-        body += "\n| Skill | Estado | Resultado |\n"
+        body += "\n| Skill | Status | Result |\n"
         body += "| :--- | :---: | :--- |\n"
-        body += "| 🔒 **Seguridad** | ✅ PASS | Sin credenciales expuestas, corrutinas seguras y nomenclatura en inglés. |\n"
-        body += "| 🏛️ **Arquitectura** | ✅ PASS | Cumple Clean Architecture y reglas de negocio. |\n"
-        body += "| 🧪 **Tests** | ✅ PASS | Estructura de pruebas unitarias validada. |\n"
-        body += "| 📝 **KDoc** | ✅ PASS | Documentación pública conforme. |\n"
-        body += "| 🧹 **Refactor** | ✅ PASS | Sin code smells críticos detectados. |\n"
+        body += "| 🔒 **Security** | ✅ PASS | Zero exposed credentials, safe coroutines, and strict English naming. |\n"
+        body += "| 🏛️ **Architecture** | ✅ PASS | Complies with Clean Architecture and domain business rules. |\n"
+        body += "| 🧪 **Tests** | ✅ PASS | Unit test structure verified. |\n"
+        body += "| 📝 **KDoc** | ✅ PASS | Public API documentation conforms to standards. |\n"
+        body += "| 🧹 **Refactor** | ✅ PASS | No critical code smells detected. |\n"
         post_pr_comment(body)
 
-    # 2. Guardrails: Mostrar todas las sugerencias de forma consultiva sin bloquear el merge del PR
+    # 2. Guardrails: Advisory display of critical findings without blocking merge
     critical_violations = [
         f for f in all_findings
         if f.get("severity", "").lower() == "critical"
     ]
 
     if critical_violations:
-        print(f"\n⚠️ Se detectaron {len(critical_violations)} observaciones críticas (sugerencias publicadas en el PR):")
+        print(f"\n⚠️ Detected {len(critical_violations)} critical observation(s) (posted to PR):")
         for v in critical_violations:
             cat = str(v.get("category", "GENERAL")).upper()
             print(f"  - [{cat}] {v.get('file')}: {v.get('message')}")
-        print("\nℹ️ [ADVISORY GUARDRAIL]: Sugerencias publicadas en el PR. No bloquea el merge para permitir revisión humana.")
+        print("\nℹ️ [ADVISORY GUARDRAIL]: Suggestions published to PR. Merge is not blocked to allow human review.")
     else:
-        print("\n✅ [GUARDRAILS PASS]: Cero violaciones críticas. PR apto para merge.")
+        print("\n✅ [GUARDRAILS PASS]: Zero critical violations. PR ready for merge.")
 
     sys.exit(0)
 
