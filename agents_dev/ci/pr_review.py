@@ -22,7 +22,7 @@ if SKILLS_DIR not in sys.path:
 import unified_reviewer
 
 EXCLUDE_DIRS = ["di/", "ui/theme/", "build/", ".gradle/", "ksp/"]
-MAX_FILES = 10
+MAX_FILES = int(os.environ.get("MAX_FILES", "100"))
 
 
 def get_modified_kt_files(explicit_files=None):
@@ -208,7 +208,7 @@ def run_pr_review_and_guardrails(target_files=None):
         if errors:
             body += "\n### ⚠️ Execution Issues:\n"
             for err in errors:
-                body += f"- **{err['skill']}** on `{err['file']}`: `{err['error'][:80]}`\n"
+                body += f"- **{err['skill']}** on `{err['file']}`: `{err['error'][:250]}`\n"
 
             has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
             if has_auth_error:
@@ -220,7 +220,7 @@ def run_pr_review_and_guardrails(target_files=None):
         body = "## ⚠️ Agent Code Review: Warning During Analysis\n\n"
         body += "Some automated skills could not complete execution:\n\n"
         for err in errors:
-            body += f"- **{err['skill']}** on `{err['file']}`: `{err['error'][:90]}`\n"
+            body += f"- **{err['skill']}** on `{err['file']}`: `{err['error'][:250]}`\n"
 
         has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
         if has_auth_error:

@@ -37,7 +37,7 @@ def get_client():
             "Export it as an environment variable or set it in config.py. "
             "See config.example.py for details."
         )
-    return genai.Client(api_key=API_KEY)
+    return genai.Client(api_key=API_KEY, http_options={"api_version": "v1beta"})
 
 
 class MockResponse:
@@ -63,6 +63,15 @@ def generate_content_with_retry(client, contents, config_args=None, max_retries=
                 )
         except Exception as e:
             err_str = str(e)
+            if "JSON mode is not enabled" in err_str and config_args is not None:
+                # Resilient fallback: Retry immediately without forced response_mime_type
+                try:
+                    return client.models.generate_content(
+                        model=MODEL_ID,
+                        contents=contents
+                    )
+                except Exception as inner_e:
+                    err_str = str(inner_e)
             is_transient = any(code in err_str for code in [
                 "429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE", "500", "INTERNAL", "high traffic"
             ])
