@@ -58,7 +58,7 @@ class ConsolidateActiveSessionUseCaseTest {
 
     @Test
     fun `invoke returns false when no active session exists`() = runTest {
-        every { getActiveSessionUseCase() } returns null
+        coEvery { getActiveSessionUseCase() } returns null
 
         val result = useCase()
 
@@ -78,7 +78,7 @@ class ConsolidateActiveSessionUseCaseTest {
             tutorId = "tutor123",
             isBilled = false
         )
-        every { getActiveSessionUseCase() } returns youngSession
+        coEvery { getActiveSessionUseCase() } returns youngSession
 
         val result = useCase()
 
@@ -98,7 +98,7 @@ class ConsolidateActiveSessionUseCaseTest {
             tutorId = "tutor123",
             isBilled = true
         )
-        every { getActiveSessionUseCase() } returns billedSession
+        coEvery { getActiveSessionUseCase() } returns billedSession
 
         val result = useCase()
 
@@ -118,14 +118,14 @@ class ConsolidateActiveSessionUseCaseTest {
             tutorId = "tutor123",
             isBilled = false
         )
-        every { getActiveSessionUseCase() } returns matureSession
+        coEvery { getActiveSessionUseCase() } returns matureSession
 
         val result = useCase()
 
         assertTrue(result is Result.Success)
         assertEquals(true, (result as Result.Success).data)
         coVerify(exactly = 1) { addToBalanceUseCase("tutor123", "student_ana", 20.0) }
-        io.mockk.verify(exactly = 1) { startActiveSessionUseCase(matureSession.copy(isBilled = true)) }
+        coVerify(exactly = 1) { startActiveSessionUseCase(matureSession.copy(isBilled = true)) }
     }
 
     @Test
@@ -142,7 +142,7 @@ class ConsolidateActiveSessionUseCaseTest {
             tutorId = "tutor123",
             isBilled = false
         )
-        every { getActiveSessionUseCase() } returns matureSession
+        coEvery { getActiveSessionUseCase() } returns matureSession
 
         val result = useCase()
 
@@ -164,7 +164,7 @@ class ConsolidateActiveSessionUseCaseTest {
             isBilled = false
         )
         val billedSessionInRepo = matureSession.copy(isBilled = true)
-        every { getActiveSessionUseCase() } returns billedSessionInRepo
+        coEvery { getActiveSessionUseCase() } returns billedSessionInRepo
 
         // Passed unbilled snapshot from an earlier read, but repo has already billed it concurrently
         val result = useCase(matureSession)

@@ -7,8 +7,8 @@ from providers.base import BaseLLMProvider, LLMResponse, ToolCall
 
 class GeminiProvider(BaseLLMProvider):
     """
-    Conector nativo con Google GenAI SDK
-    Incluye manejo de reintentos exponenciales ante error 429 (Resource Exhausted).
+    Native connector for the Google GenAI SDK.
+    Includes exponential backoff retry handling for 429 (Resource Exhausted) and 503 (Unavailable) errors.
     """
 
     def __init__(self, api_key: str = None, model: str = None):
@@ -24,17 +24,17 @@ class GeminiProvider(BaseLLMProvider):
             from google import genai
         except ImportError:
             raise ImportError(
-                "La biblioteca 'google-genai' no está instalada. "
-                "Para instalarla ejecuta:\n"
+                "The 'google-genai' library is not installed. "
+                "To install it, run:\n"
                 "  pip3 install --break-system-packages google-genai\n"
-                "o en tu entorno virtual:\n"
+                "or in your virtual environment:\n"
                 "  pip install -r agents_dev/requirements.txt"
             )
 
         if not self.api_key:
             raise ValueError(
-                "GEMINI_API_KEY no está configurada. "
-                "Ejecuta en tu terminal: export GEMINI_API_KEY='tu-api-key'"
+                "GEMINI_API_KEY is not configured. "
+                "Run in your terminal: export GEMINI_API_KEY='your-api-key'"
             )
 
         from google import genai
@@ -42,7 +42,7 @@ class GeminiProvider(BaseLLMProvider):
         return self._client
 
     def _convert_tools_to_gemini(self, tools: List[Dict[str, Any]]):
-        """Convierte los esquemas universales de tools a FunctionDeclaration de Gemini."""
+        """Converts universal tool schemas to Gemini FunctionDeclaration."""
         from google.genai import types
         function_declarations = []
         for t in tools:
@@ -55,7 +55,7 @@ class GeminiProvider(BaseLLMProvider):
         return [types.Tool(function_declarations=function_declarations)] if function_declarations else None
 
     def _convert_messages_to_contents(self, messages: List[Dict[str, Any]]):
-        """Convierte el historial a la estructura de contents de Gemini preservando function calls y responses."""
+        """Converts message history to Gemini contents structure, preserving function calls and responses."""
         from google.genai import types
         contents = []
 
@@ -63,7 +63,7 @@ class GeminiProvider(BaseLLMProvider):
             role = msg.get("role")
 
             if role == "assistant":
-                # Si tenemos el Content original de Gemini (con thought_signature y tokens de pensamiento intactos), úsalo directamente
+                # If we have original Gemini Content (with intact thought_signature and thinking tokens), use directly
                 raw_obj = msg.get("raw")
                 if raw_obj is not None:
                     if hasattr(raw_obj, "parts"):
@@ -136,7 +136,7 @@ class GeminiProvider(BaseLLMProvider):
 
         config = types.GenerateContentConfig(**config_kwargs)
 
-        # Bucle de reintento exponencial ante Rate Limit 429 y sobrecarga 503 Unavailable
+        # Exponential backoff retry loop for Rate Limit 429 and high demand 503 Unavailable
         max_retries = 3
         delay = 6
 
@@ -154,14 +154,14 @@ class GeminiProvider(BaseLLMProvider):
                     "429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE", "high demand", "500", "INTERNAL"
                 ])
                 if is_transient and attempt < max_retries:
-                    err_label = "503 Alta Demanda en Google" if any(k in err_str for k in ["503", "UNAVAILABLE", "high demand"]) else "429 Rate Limit"
-                    print(f"⚠️ {err_label}. Esperando {delay}s antes del reintento automático (Intento {attempt+1}/{max_retries})...")
+                    err_label = "503 High Demand on Google Servers" if any(k in err_str for k in ["503", "UNAVAILABLE", "high demand"]) else "429 Rate Limit"
+                    print(f"⚠️ {err_label}. Waiting {delay}s before automatic retry (Attempt {attempt+1}/{max_retries})...")
                     time.sleep(delay)
                     delay *= 2
                     continue
                 raise e
 
-        # Extraer texto, function calls y preservar el Content raw con thought_signature intacto
+        # Extract text, function calls, and preserve raw Content with thought_signature intact
         raw_content = None
         text_content = ""
         tool_calls = []
@@ -171,7 +171,7 @@ class GeminiProvider(BaseLLMProvider):
             raw_content = candidate.content
             if candidate.content and candidate.content.parts:
                 for idx, part in enumerate(candidate.content.parts):
-                    # Extraer texto del modelo evitando advertencias de SDK
+                    # Extract text while avoiding SDK warnings
                     if getattr(part, "text", None):
                         if not getattr(part, "thought", False):
                             text_content += part.text
@@ -185,7 +185,7 @@ class GeminiProvider(BaseLLMProvider):
                             )
                         )
 
-        # Fallback a propiedades auxiliares si no se extrajeron por parts
+        # Fallback to auxiliary properties if not extracted from parts
         if not tool_calls and hasattr(response, "function_calls") and response.function_calls:
             for idx, fc in enumerate(response.function_calls):
                 tool_calls.append(

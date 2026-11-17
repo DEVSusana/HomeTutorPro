@@ -8,7 +8,7 @@ class StopActiveSessionUseCase @Inject constructor(
     private val repository: IActiveSessionRepository
 ) : IStopActiveSessionUseCase {
 
-    override operator fun invoke() {
+    override suspend operator fun invoke() {
         repository.stopSession()
     }
 }

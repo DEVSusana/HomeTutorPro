@@ -552,24 +552,27 @@ class SueContextBuilder @Inject constructor(
             "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes",
             "sábado", "sabado", "domingo",
             "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-            "semana", "week", "hoy", "today", "mañana", "tomorrow", "tarde", "esta tarde",
-            "ayer", "esta mañana", "luego", "que viene", "pasado", "el próximo", "la próxima",
-            "próxima clase", "siguiente clase", "hueco", "libre"
+            "semana", "week", "hoy", "today", "mañana", "manana", "tomorrow", "tarde", "esta tarde",
+            "ayer", "esta mañana", "esta manana", "luego", "que viene", "pasado", "el próximo", "el proximo", "la próxima", "la proxima",
+            "próxima clase", "proxima clase", "siguiente clase", "hueco", "libre"
         ).any { it in query }
 
     private fun containsNextClassKeywords(query: String) =
         listOf(
-            "próxima clase", "siguiente clase", "próxima", "siguiente",
-            "cuándo tengo", "cuándo es", "cuándo empieza", "next class"
+            "próxima clase", "proxima clase", "siguiente clase", "próxima", "proxima", "siguiente",
+            "próximo", "proximo", "la próxima", "la proxima", "el próximo", "el proximo",
+            "cuándo tengo", "cuando tengo", "cuándo es", "cuando es", "cuándo empieza", "cuando empieza",
+            "a qué hora", "a que hora", "a qué hora es", "a que hora es", "a qué hora tengo", "a que hora tengo",
+            "qué clase tengo", "que clase tengo", "next class"
         ).any { it in query }
 
     private fun containsFreeSlotKeywords(query: String): Boolean {
-        val days = listOf("lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo", "hoy", "mañana")
+        val days = listOf("lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo", "hoy", "mañana", "manana")
         if (days.any { it in query }) {
             return false
         }
         return listOf(
-            "hueco libre", "huecos libres", "día libre", "días libres",
+            "hueco libre", "huecos libres", "día libre", "dia libre", "días libres", "dias libres",
             "tengo libre", "estoy libre", "tengo disponible", "estoy disponible",
             "espacio libre", "rato libre", "momento libre",
             "free slot", "available slot", "am i free", "am i available"
@@ -583,7 +586,7 @@ class SueContextBuilder @Inject constructor(
         ).any { it in query }
         val hasDay = listOf(
             "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes",
-            "sábado", "sabado", "domingo", "hoy", "mañana"
+            "sábado", "sabado", "domingo", "hoy", "mañana", "manana"
         ).any { it in query }
         return hasFreeIntent && hasDay
     }
@@ -600,7 +603,7 @@ class SueContextBuilder @Inject constructor(
             "cancelacion", "cancelación", "cancelaciones",
             "que cancelaciones", "qué cancelaciones", "cuales canceladas", "cuáles canceladas",
             "clase extra", "clases extra", "clases extras", "clase adicional", "clases adicionales",
-            "reprogramaciones", "excepciones", "excepcion", "excepción"
+            "reprogramacion", "reprogramación", "reprogramaciones", "excepciones", "excepcion", "excepción"
         ).any { it in query }
 
         val isActionCommand = listOf(
@@ -629,7 +632,7 @@ class SueContextBuilder @Inject constructor(
 
     private fun containsCountKeywords(query: String) =
         listOf(
-            "cuántos", "cuantos", "how many", "count",
-            "total", "número", "numero", "number", "cuánta", "cuenta"
+            "cuántos", "cuantos", "cuántas", "cuantas", "how many", "count",
+            "total", "número", "numero", "number", "cuánta", "cuanta", "cuenta"
         ).any { it in query }
 }

@@ -13,6 +13,7 @@ import com.devsusana.hometutorpro.domain.usecases.AppInitializer
 import com.devsusana.hometutorpro.presentation.utils.AppInitializerImpl
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.storage.FirebaseStorage
 import androidx.work.WorkManager
 import dagger.Binds
@@ -55,6 +56,10 @@ abstract class TestAppModule {
         @Provides
         @Singleton
         fun provideFirebaseFirestore(): FirebaseFirestore = mockk(relaxed = true)
+
+        @Provides
+        @Singleton
+        fun provideFirebaseRemoteConfig(): FirebaseRemoteConfig = mockk(relaxed = true)
 
         @Provides
         @Singleton

@@ -4,9 +4,11 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import com.devsusana.hometutorpro.core.utils.SafeLogger
+import com.devsusana.hometutorpro.domain.entities.AppFeatureFlags
 import com.devsusana.hometutorpro.domain.entities.SueDeviceCompatibility
 import com.devsusana.hometutorpro.domain.entities.SueModelStatus
 import com.devsusana.hometutorpro.domain.entities.SueUnsupportedReason
+import com.devsusana.hometutorpro.domain.repository.IConfigRepository
 import com.devsusana.hometutorpro.domain.repository.InferenceRepository
 import com.devsusana.hometutorpro.domain.repository.SueModelRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,23 +39,46 @@ import kotlin.math.roundToInt
 @Singleton
 class SueModelRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val inferenceRepository: InferenceRepository
+    private val inferenceRepository: InferenceRepository,
+    private val configRepository: IConfigRepository
 ) : SueModelRepository {
 
     private var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
     private var downloadScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Testing constructor allowing injection of custom [CoroutineDispatcher].
+     * Testing constructor allowing injection of custom [CoroutineDispatcher] and [IConfigRepository].
+     */
+    constructor(
+        context: Context,
+        inferenceRepository: InferenceRepository,
+        configRepository: IConfigRepository,
+        ioDispatcher: CoroutineDispatcher
+    ) : this(context, inferenceRepository, configRepository) {
+        this.ioDispatcher = ioDispatcher
+        this.downloadScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    }
+
+    /**
+     * Testing constructor for backwards compatibility with tests.
      */
     constructor(
         context: Context,
         inferenceRepository: InferenceRepository,
         ioDispatcher: CoroutineDispatcher
-    ) : this(context, inferenceRepository) {
-        this.ioDispatcher = ioDispatcher
-        this.downloadScope = CoroutineScope(SupervisorJob() + ioDispatcher)
-    }
+    ) : this(
+        context,
+        inferenceRepository,
+        object : IConfigRepository {
+            override val featureFlags = MutableStateFlow(AppFeatureFlags())
+            override suspend fun fetchAndActivate(): Boolean = true
+            override fun isWidgetActionsEnabled(): Boolean = true
+            override fun isSueLocalAiEnabled(): Boolean = true
+            override fun getSueModelUrl(): String = ""
+            override fun getMaintenanceMessage(): String = ""
+        },
+        ioDispatcher
+    )
 
     companion object {
         private const val TAG = "SueModelRepo"
@@ -87,10 +112,12 @@ class SueModelRepositoryImpl @Inject constructor(
     internal fun getMinValidSize(): Long = minModelSizeOverride ?: MIN_MODEL_SIZE_BYTES
 
     init {
-        refreshModelStatus()
+        downloadScope.launch {
+            refreshModelStatus()
+        }
     }
 
-    private fun refreshModelStatus() {
+    private suspend fun refreshModelStatus() = withContext(ioDispatcher) {
         val size = getDownloadedModelSize()
         if (size != null && size >= getMinValidSize()) {
             _modelStatusFlow.value = SueModelStatus.Downloaded(
@@ -102,14 +129,14 @@ class SueModelRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun isModelDownloaded(): Boolean {
+    override suspend fun isModelDownloaded(): Boolean = withContext(ioDispatcher) {
         val candidate = findModelFile()
-        return candidate != null && candidate.exists() && candidate.length() >= getMinValidSize()
+        candidate != null && candidate.exists() && candidate.length() >= getMinValidSize()
     }
 
-    override fun getDownloadedModelSize(): Long? {
+    override suspend fun getDownloadedModelSize(): Long? = withContext(ioDispatcher) {
         val file = findModelFile()
-        return if (file != null && file.exists() && file.length() >= getMinValidSize()) {
+        if (file != null && file.exists() && file.length() >= getMinValidSize()) {
             file.length()
         } else {
             null
@@ -204,7 +231,20 @@ class SueModelRepositoryImpl @Inject constructor(
     }
 
     override suspend fun downloadModel(url: String?): Flow<SueModelStatus> {
-        val downloadUrl = if (!url.isNullOrBlank()) url else DEFAULT_MODEL_URL
+        // Enforce remote configuration kill-switch: block new model downloads if local AI is disabled
+        if (!configRepository.isSueLocalAiEnabled()) {
+            SafeLogger.w(TAG, "Model download blocked: Local AI is disabled via remote config kill-switch")
+            val status = SueModelStatus.Error("On-device AI is temporarily paused for maintenance.")
+            _modelStatusFlow.value = status
+            return _modelStatusFlow.asStateFlow()
+        }
+
+        val remoteModelUrl = configRepository.getSueModelUrl()
+        val downloadUrl = when {
+            !url.isNullOrBlank() -> url
+            remoteModelUrl.isNotBlank() -> remoteModelUrl
+            else -> DEFAULT_MODEL_URL
+        }
 
         // If already downloaded, notify immediately
         val existingSize = getDownloadedModelSize()
@@ -360,6 +400,12 @@ class SueModelRepositoryImpl @Inject constructor(
                 tempFile.delete()
             }
             _modelStatusFlow.value = SueModelStatus.NotDownloaded
+        } catch (e: IllegalStateException) {
+            SafeLogger.e(TAG, "Redirect or state error during model download: ${e.message}", e)
+            if (tempFile.exists()) {
+                tempFile.delete()
+            }
+            _modelStatusFlow.value = SueModelStatus.Error(e.localizedMessage ?: "Download failed: Too many redirects")
         } catch (e: Exception) {
             SafeLogger.e(TAG, "Error during model download: ${e.message}", e)
             if (tempFile.exists()) {
@@ -372,17 +418,17 @@ class SueModelRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun getModelDirectories(): List<File> = listOfNotNull(
+        File(context.filesDir, MODEL_DIRECTORY),
+        context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
+    )
+
     override fun cancelDownload() {
         SafeLogger.d(TAG, "cancelDownload called")
         currentDownloadJob?.cancel()
         currentDownloadJob = null
 
-        val dirs = listOf(
-            File(context.filesDir, MODEL_DIRECTORY),
-            context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
-        ).filterNotNull()
-
-        for (dir in dirs) {
+        for (dir in getModelDirectories()) {
             if (dir.exists() && dir.isDirectory) {
                 dir.listFiles { _, name -> name.endsWith(TEMP_SUFFIX, ignoreCase = true) }?.forEach {
                     it.delete()
@@ -390,7 +436,7 @@ class SueModelRepositoryImpl @Inject constructor(
             }
         }
         _modelStatusFlow.value = SueModelStatus.NotDownloaded
-        refreshModelStatus()
+        downloadScope.launch { refreshModelStatus() }
     }
 
     override suspend fun deleteModel(): Boolean = withContext(ioDispatcher) {
@@ -399,13 +445,8 @@ class SueModelRepositoryImpl @Inject constructor(
             cancelDownload()
             inferenceRepository.release()
 
-            val dirs = listOf(
-                File(context.filesDir, MODEL_DIRECTORY),
-                context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
-            ).filterNotNull()
-
             var deletedAny = false
-            for (dir in dirs) {
+            for (dir in getModelDirectories()) {
                 if (dir.exists() && dir.isDirectory) {
                     val files = dir.listFiles { _, name ->
                         name.endsWith(".bin", ignoreCase = true) ||
@@ -429,12 +470,7 @@ class SueModelRepositoryImpl @Inject constructor(
     }
 
     private fun findModelFile(): File? {
-        val dirs = listOf(
-            File(context.filesDir, MODEL_DIRECTORY),
-            context.getExternalFilesDir(null)?.let { File(it, MODEL_DIRECTORY) }
-        ).filterNotNull()
-
-        for (dir in dirs) {
+        for (dir in getModelDirectories()) {
             if (dir.exists() && dir.isDirectory) {
                 val candidate = dir.listFiles { _, name ->
                     name.endsWith(".bin", ignoreCase = true) || name.endsWith(".task", ignoreCase = true)

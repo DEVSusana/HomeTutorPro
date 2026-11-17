@@ -11,17 +11,21 @@ interface IActiveSessionRepository {
      *
      * @return [ActiveSession] if an active session exists, null otherwise.
      */
-    fun getActiveSession(): ActiveSession?
+    suspend fun getActiveSession(): ActiveSession?
 
     /**
      * Starts and persists a new active tutoring session.
      *
      * @param session The active session details to persist.
+     * @return Unit indicating the session has been persisted.
      */
-    fun startSession(session: ActiveSession)
+    suspend fun startSession(session: ActiveSession)
 
     /**
      * Stops and clears the current active tutoring session.
+     *
+     * @return Unit indicating that any active session has been successfully cleared,
+     * or that no action was needed if no session was active.
      */
-    fun stopSession()
+    suspend fun stopSession()
 }

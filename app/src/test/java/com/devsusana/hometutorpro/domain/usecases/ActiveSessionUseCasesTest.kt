@@ -5,11 +5,12 @@ import com.devsusana.hometutorpro.domain.repository.IActiveSessionRepository
 import com.devsusana.hometutorpro.domain.usecases.implementations.GetActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.StartActiveSessionUseCase
 import com.devsusana.hometutorpro.domain.usecases.implementations.StopActiveSessionUseCase
-import io.mockk.every
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
-import io.mockk.verify
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -23,41 +24,42 @@ class ActiveSessionUseCasesTest {
     private val stopActiveSessionUseCase = StopActiveSessionUseCase(repository)
 
     @Test
-    fun `getActiveSession should return session when repository returns session`() {
+    fun `getActiveSession should return session when repository returns session`() = runTest {
         val session = ActiveSession("stud1", "Juan", 1000L, 60L, true)
-        every { repository.getActiveSession() } returns session
+        coEvery { repository.getActiveSession() } returns session
 
         val result = getActiveSessionUseCase()
 
         assertEquals(session, result)
-        verify(exactly = 1) { repository.getActiveSession() }
+        coVerify(exactly = 1) { repository.getActiveSession() }
     }
 
     @Test
-    fun `getActiveSession should return null when repository returns null`() {
-        every { repository.getActiveSession() } returns null
+    fun `getActiveSession should return null when repository returns null`() = runTest {
+        coEvery { repository.getActiveSession() } returns null
 
         val result = getActiveSessionUseCase()
 
         assertNull(result)
+        coVerify(exactly = 1) { repository.getActiveSession() }
     }
 
     @Test
-    fun `startSession should call repository startSession`() {
+    fun `startSession should call repository startSession`() = runTest {
         val session = ActiveSession("stud1", "Juan", 1000L, 60L, true)
-        every { repository.startSession(session) } just runs
+        coEvery { repository.startSession(session) } just runs
 
         startActiveSessionUseCase(session)
 
-        verify(exactly = 1) { repository.startSession(session) }
+        coVerify(exactly = 1) { repository.startSession(session) }
     }
 
     @Test
-    fun `stopSession should call repository stopSession`() {
-        every { repository.stopSession() } just runs
+    fun `stopSession should call repository stopSession`() = runTest {
+        coEvery { repository.stopSession() } just runs
 
         stopActiveSessionUseCase()
 
-        verify(exactly = 1) { repository.stopSession() }
+        coVerify(exactly = 1) { repository.stopSession() }
     }
 }

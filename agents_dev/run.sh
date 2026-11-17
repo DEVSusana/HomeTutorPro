@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Script lanzador del Universal Agentic Loop con entorno virtual automático
+# Universal Agentic Loop launcher script with automatic virtual environment activation
 set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"

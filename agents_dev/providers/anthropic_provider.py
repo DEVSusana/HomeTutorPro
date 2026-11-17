@@ -5,8 +5,8 @@ from providers.base import BaseLLMProvider, LLMResponse, ToolCall
 
 class AnthropicProvider(BaseLLMProvider):
     """
-    Conector nativo con la API de Anthropic (Claude 3.5 Sonnet).
-    Líder en programación y razonamiento agéntico estructurado.
+    Native connector for the Anthropic Claude API (e.g. Claude 3.5 Sonnet).
+    Optimized for structured tool use and coding workflows.
     """
 
     def __init__(self, api_key: str = None, model: str = None):
@@ -22,24 +22,24 @@ class AnthropicProvider(BaseLLMProvider):
             import anthropic
         except ImportError:
             raise ImportError(
-                "La biblioteca 'anthropic' no está instalada. "
-                "Para instalarla ejecuta:\n"
+                "The 'anthropic' library is not installed. "
+                "To install it, run:\n"
                 "  pip3 install --break-system-packages anthropic\n"
-                "o en tu entorno virtual:\n"
+                "or in your virtual environment:\n"
                 "  pip install -r agents_dev/requirements.txt"
             )
 
         if not self.api_key:
             raise ValueError(
-                "ANTHROPIC_API_KEY no está configurada. "
-                "Ejecuta en tu terminal: export ANTHROPIC_API_KEY='tu-api-key'"
+                "ANTHROPIC_API_KEY is not configured. "
+                "Run in your terminal: export ANTHROPIC_API_KEY='your-api-key'"
             )
 
         self._client = anthropic.Anthropic(api_key=self.api_key)
         return self._client
 
     def _convert_tools(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Convierte los esquemas universales de tools al formato input_schema de Anthropic."""
+        """Converts universal tool schemas to Anthropic input_schema format."""
         anthropic_tools = []
         for t in tools:
             anthropic_tools.append({
@@ -50,7 +50,7 @@ class AnthropicProvider(BaseLLMProvider):
         return anthropic_tools
 
     def _convert_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Convierte los mensajes universales al formato estructurado de bloques de Anthropic."""
+        """Converts universal messages to Anthropic's structured content block format."""
         anthropic_messages = []
         for msg in messages:
             role = msg.get("role")

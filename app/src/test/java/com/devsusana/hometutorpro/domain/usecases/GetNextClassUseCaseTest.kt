@@ -198,7 +198,7 @@ class GetNextClassUseCaseTest {
         every { getScheduleExceptionsUseCase(user.uid, any()) } returns flowOf(emptyList())
 
         // Pablo is currently in an active session
-        every { getActiveSessionUseCase() } returns ActiveSession(
+        coEvery { getActiveSessionUseCase() } returns ActiveSession(
             studentId = "stud_pablo",
             studentName = "Pablo",
             startTimeMillis = System.currentTimeMillis(),
@@ -261,7 +261,7 @@ class GetNextClassUseCaseTest {
         every { getStudentsUseCase(user.uid) } returns flowOf(listOf(studentPablo, studentLucia))
         every { getAllSchedulesUseCase(user.uid) } returns flowOf(listOf(schedulePablo, scheduleLucia))
         every { getScheduleExceptionsUseCase(user.uid, any()) } returns flowOf(emptyList())
-        every { getActiveSessionUseCase() } returns null
+        coEvery { getActiveSessionUseCase() } returns null
 
         val occPablo = CalendarOccurrence(schedulePablo, studentPablo, null, today)
         val occLucia = CalendarOccurrence(scheduleLucia, studentLucia, null, today)
