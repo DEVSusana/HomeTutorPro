@@ -45,7 +45,7 @@ class MockResponse:
         self.text = text
 
 
-def generate_content_with_retry(client, contents, config_args=None, max_retries=3, initial_delay=35):
+def generate_content_with_retry(client, contents, config_args=None, max_retries=2, initial_delay=8):
     """Generates content using Gemini, with exponential backoff and jitter on 429/Resource Exhausted errors."""
     delay = initial_delay
     for attempt in range(max_retries + 1):
@@ -77,7 +77,7 @@ def generate_content_with_retry(client, contents, config_args=None, max_retries=
             ])
             if is_transient:
                 if attempt < max_retries:
-                    jitter = random.uniform(1.0, 5.0)
+                    jitter = random.uniform(1.0, 3.0)
                     retry_base = 5.0 if ("503" in err_str or "UNAVAILABLE" in err_str or "high traffic" in err_str) else delay
                     sleep_time = retry_base + jitter
                     print(f"\n⚠️ Transient API Error ({err_str[:60]}...). Retrying in {sleep_time:.1f}s (Attempt {attempt + 1}/{max_retries})...")

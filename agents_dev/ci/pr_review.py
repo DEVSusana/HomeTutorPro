@@ -21,8 +21,56 @@ if SKILLS_DIR not in sys.path:
 
 import unified_reviewer
 
-EXCLUDE_DIRS = ["di/", "ui/theme/", "build/", ".gradle/", "ksp/"]
-MAX_FILES = int(os.environ.get("MAX_FILES", "100"))
+EXCLUDE_DIRS = [
+    "di/",
+    "ui/theme/",
+    "build/",
+    ".gradle/",
+    "ksp/",
+    "src/test/",
+    "src/androidTest/",
+    "Previews.kt"
+]
+MAX_FILES = int(os.environ.get("MAX_FILES", "15"))
+
+
+def get_file_priority(file_path: str) -> int:
+    """
+    Ranks Kotlin files by architectural risk and implementation impact:
+    Tier 1 (Domain Use Cases & Core Engines): domain/usecases/implementations/
+    Tier 2 (Data Repositories & Data Sources): data/repository/, data/local/, data/remote/
+    Tier 3 (Presentation ViewModels & State Delegates): /viewmodels/, /delegates/
+    Tier 4 (Core UI Screens & Widgets): /widget/, *Screen.kt, *Content.kt
+    Tier 5 (Domain Entities & Domain Services): /domain/
+    Tier 6 (UI Components & Dialogs): /presentation/
+    Tier 7 (Pure Contracts/Interfaces, e.g. IFoo.kt): minimal risk
+    """
+    fp = file_path.replace("\\", "/")
+    base_name = os.path.basename(fp)
+    if base_name.startswith("I") and len(base_name) > 1 and base_name[1].isupper() and "Impl" not in base_name:
+        return 7
+    if "/domain/usecases/implementations/" in fp:
+        return 1
+    if "/data/repository/" in fp or "/data/local/" in fp or "/data/remote/" in fp:
+        return 2
+    if "/viewmodels/" in fp or "/delegates/" in fp:
+        return 3
+    if "/widget/" in fp or "Screen.kt" in fp or "Content.kt" in fp:
+        return 4
+    if "/domain/" in fp:
+        return 5
+    if "/presentation/" in fp:
+        return 6
+    return 7
+
+
+def prioritize_files(files: list, max_count: int = MAX_FILES) -> list:
+    """Sorts files by architectural priority tier, ensuring highest-impact business logic is reviewed."""
+    if not files:
+        return []
+    unique_files = list(dict.fromkeys(files))
+    sorted_files = sorted(unique_files, key=lambda f: (get_file_priority(f), f))
+    return sorted_files[:max_count]
 
 
 def get_modified_kt_files(explicit_files=None):
@@ -33,7 +81,7 @@ def get_modified_kt_files(explicit_files=None):
             if f.endswith(".kt") and os.path.exists(f) and not any(excl in f for excl in EXCLUDE_DIRS)
         ]
         if valid_files:
-            return valid_files[:MAX_FILES]
+            return prioritize_files(valid_files, MAX_FILES)
 
     event_path = os.environ.get("GITHUB_EVENT_PATH")
     if event_path and os.path.exists(event_path):
@@ -57,22 +105,21 @@ def get_modified_kt_files(explicit_files=None):
                             continue
                         if any(excl in file.filename for excl in EXCLUDE_DIRS):
                             continue
-
                         target_files.append(file.filename)
-                        if len(target_files) >= MAX_FILES:
-                            break
 
-                    return target_files
+                    return prioritize_files(target_files, MAX_FILES)
         except Exception as e:
             print(f"⚠️ Error retrieving modified files from PR event: {e}")
 
     # Fallback for local execution via git diff
     print("ℹ️ Detecting locally modified Kotlin files...")
+    import shutil
+    git_bin = "/usr/local/bin/git" if os.path.exists("/usr/local/bin/git") else (shutil.which("git") or "git")
     for cmd in [
-        ["git", "diff", "--name-only", "origin/develop...HEAD"],
-        ["git", "diff", "--name-only", "HEAD~1"],
-        ["git", "diff", "--name-only", "--staged"],
-        ["git", "diff", "--name-only"]
+        [git_bin, "diff", "--name-only", "origin/develop...HEAD"],
+        [git_bin, "diff", "--name-only", "HEAD~1"],
+        [git_bin, "diff", "--name-only", "--staged"],
+        [git_bin, "diff", "--name-only"]
     ]:
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -82,7 +129,7 @@ def get_modified_kt_files(explicit_files=None):
                 if f.endswith(".kt") and os.path.exists(f) and not any(excl in f for excl in EXCLUDE_DIRS)
             ]
             if valid_files:
-                return valid_files[:MAX_FILES]
+                return prioritize_files(valid_files, MAX_FILES)
         except Exception:
             continue
 
@@ -157,6 +204,8 @@ def run_pr_review_and_guardrails(target_files=None):
 
     all_findings = []
     errors = []
+    analyzed_files = []
+    quota_exhausted = False
 
     for file_path in files:
         print(f"\n📄 Analyzing surgically (Unified Review): {file_path}")
@@ -168,13 +217,18 @@ def run_pr_review_and_guardrails(target_files=None):
             result_data = unified_reviewer.run_unified_review(file_path)
             findings = result_data.get("findings", [])
             all_findings.extend(findings)
+            analyzed_files.append(file_path)
             print(f"  ↳ Findings detected in {file_path}: {len(findings)}")
         except Exception as e:
             err_msg = str(e)
             print(f"  ⚠️ Error analyzing {file_path}: {err_msg}")
             errors.append({"skill": "UnifiedReview", "file": file_path, "error": err_msg})
+            if any(code in err_msg for code in ["429", "RESOURCE_EXHAUSTED", "quota", "rate-limits"]):
+                print("\n🛑 Rate limit / Quota reached. Circuit breaker activated to prevent workflow timeout.")
+                quota_exhausted = True
+                break
 
-        time.sleep(2)
+        time.sleep(4)
 
     # 1. Filter actionable findings only (critical, high, warning, medium)
     actionable_findings = [
@@ -213,26 +267,34 @@ def run_pr_review_and_guardrails(target_files=None):
             has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
             if has_auth_error:
                 body += "\n> 💡 *Credentials note: Ensure `GEMINI_API_KEY` is configured in GitHub Actions Secrets.*\n"
+            elif quota_exhausted:
+                body += f"\n> ℹ️ *Analysis paused early: Gemini rate limit/quota reached after reviewing {len(analyzed_files)} priority files. Circuit breaker activated to prevent CI delay.*\n"
 
         post_pr_comment(body)
 
     elif errors:
         body = "## ⚠️ Agent Code Review: Warning During Analysis\n\n"
-        body += "Some automated skills could not complete execution:\n\n"
+        if quota_exhausted and analyzed_files:
+            body += f"Successfully analyzed **{len(analyzed_files)} prioritized files** before reaching rate limit:\n\n"
+        else:
+            body += "Some automated skills could not complete execution:\n\n"
         for err in errors:
             body += f"- **{err['skill']}** on `{err['file']}`: `{err['error'][:250]}`\n"
 
         has_auth_error = any("GEMINI_API_KEY" in str(e["error"]) or "API_KEY_INVALID" in str(e["error"]) for e in errors)
         if has_auth_error:
             body += "\n> 💡 *Ensure `GEMINI_API_KEY` is configured in GitHub Actions Secrets.*"
+        elif quota_exhausted:
+            body += f"\n> ℹ️ *Analysis paused early: Gemini rate limit reached after {len(analyzed_files)} files. The highest-impact architectural files were prioritized.*"
         else:
             body += "\n> ℹ️ *Temporary network issue or rate limit on API servers.*"
         post_pr_comment(body)
 
     else:
+        analyzed_list = analyzed_files if analyzed_files else files
         body = "## 🤖 Agent Code Review: All Clear ✅\n\n"
-        body += f"Successfully analyzed **{len(files)} Kotlin file(s)** with all 5 agent skills:\n"
-        for f in files:
+        body += f"Successfully analyzed **{len(analyzed_list)} prioritized Kotlin file(s)** with all 5 agent skills:\n"
+        for f in analyzed_list:
             body += f"- `{f}`\n"
         body += "\n| Skill | Status | Result |\n"
         body += "| :--- | :---: | :--- |\n"
@@ -241,6 +303,8 @@ def run_pr_review_and_guardrails(target_files=None):
         body += "| 🧪 **Tests** | ✅ PASS | Unit test structure verified. |\n"
         body += "| 📝 **KDoc** | ✅ PASS | Public API documentation conforms to standards. |\n"
         body += "| 🧹 **Refactor** | ✅ PASS | No critical code smells detected. |\n"
+        if quota_exhausted:
+            body += f"\n> ℹ️ *Analysis paused early: Gemini rate limit reached after {len(analyzed_files)} files. The top architectural files were verified.*"
         post_pr_comment(body)
 
     # 2. Guardrails: Advisory display of critical findings without blocking merge
