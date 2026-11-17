@@ -3,9 +3,10 @@ package com.devsusana.hometutorpro.domain.usecases.implementations.sue
 import javax.inject.Inject
 
 /**
- * Encapsulates all keyword detection and regex matching for Sue intent classification.
+ * Internal helper for [SueRuleIntentDetector] that encapsulates all keyword detection
+ * and regex matching for Sue intent classification.
  */
-class SueIntentKeywords @Inject constructor(
+internal class SueIntentKeywords @Inject constructor(
     private val entityExtractor: SueEntityExtractor
 ) {
 

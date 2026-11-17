@@ -92,5 +92,11 @@ abstract class RepositoryModule {
     abstract fun bindConfigRepository(
         firebaseConfigRepositoryImpl: FirebaseConfigRepositoryImpl
     ): IConfigRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWidgetUpdater(
+        widgetUpdaterImpl: com.devsusana.hometutorpro.presentation.widget.WidgetUpdaterImpl
+    ): IWidgetUpdater
 }
 

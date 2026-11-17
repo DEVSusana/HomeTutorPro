@@ -17,6 +17,9 @@ import com.devsusana.hometutorpro.domain.entities.ExceptionType
 
 /**
  * Filter chips allowing the user to choose between CANCELLED or RESCHEDULED exception types.
+ *
+ * @param exceptionType The currently selected exception type. Can be null if no type is selected.
+ * @param onTypeSelected Callback invoked when an exception type is selected.
  */
 @Composable
 fun ScheduleExceptionTypeSelector(
@@ -33,29 +36,27 @@ fun ScheduleExceptionTypeSelector(
     ) {
         val selectedStateDescription = stringResource(R.string.cd_state_selected)
         val notSelectedStateDescription = stringResource(R.string.cd_state_not_selected)
+        val isCancelled = exceptionType == ExceptionType.CANCELLED
+        val isRescheduled = exceptionType == ExceptionType.RESCHEDULED
         FilterChip(
-            selected = exceptionType == ExceptionType.CANCELLED,
+            selected = isCancelled,
             onClick = { onTypeSelected(ExceptionType.CANCELLED) },
             label = { Text(stringResource(R.string.schedule_exception_cancel)) },
-            modifier = Modifier.semantics {
-                stateDescription = if (exceptionType == ExceptionType.CANCELLED) {
-                    selectedStateDescription
-                } else {
-                    notSelectedStateDescription
-                }
-            }
+            modifier = Modifier.chipStateDescription(isCancelled, selectedStateDescription, notSelectedStateDescription)
         )
         FilterChip(
-            selected = exceptionType == ExceptionType.RESCHEDULED,
+            selected = isRescheduled,
             onClick = { onTypeSelected(ExceptionType.RESCHEDULED) },
             label = { Text(stringResource(R.string.schedule_exception_reschedule)) },
-            modifier = Modifier.semantics {
-                stateDescription = if (exceptionType == ExceptionType.RESCHEDULED) {
-                    selectedStateDescription
-                } else {
-                    notSelectedStateDescription
-                }
-            }
+            modifier = Modifier.chipStateDescription(isRescheduled, selectedStateDescription, notSelectedStateDescription)
         )
     }
+}
+
+private fun Modifier.chipStateDescription(
+    isSelected: Boolean,
+    selectedDesc: String,
+    notSelectedDesc: String
+): Modifier = semantics {
+    stateDescription = if (isSelected) selectedDesc else notSelectedDesc
 }

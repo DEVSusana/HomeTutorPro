@@ -151,7 +151,7 @@ class MediaPipeModelRepository @Inject constructor(
         }
     }
 
-    override suspend fun generateResponse(prompt: String): String = withContext(Dispatchers.Default) {
+    override suspend fun generateResponse(prompt: String): String = withContext(Dispatchers.IO) {
         if (!configRepository.isSueLocalAiEnabled()) {
             SafeLogger.w(TAG, "Local LLM inference is disabled via remote configuration kill-switch.")
             release()

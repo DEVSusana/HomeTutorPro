@@ -36,13 +36,14 @@ To prevent false positives and hallucinated violations, each file must only be e
 
 ### D. Use Cases (`domain/usecases/`)
 * **IN SCOPE:**
-  - Single public `operator fun invoke(...)`.
+  - Single public `operator fun invoke(...)` for standalone Use Case classes.
   - Pure Kotlin domain logic and orchestration.
   - Explicit business validation and domain error returns (e.g. `Result<T, DomainError>`).
   - Constructor injection with `@Inject constructor(...)`.
 * **STRICTLY OUT OF SCOPE:**
   - Direct persistence calls without a repository contract.
   - Android framework dependencies (Context, Views, ViewModels).
+  - Internal engine delegates/handlers (e.g. SUE conversational engine modules in `sue/`) that orchestrate multi-turn intent actions are domain helpers, not single-shot Use Cases. Natural language dialogue prompts in conversational engines are domain responses, not UI leaks.
 
 ### E. Repositories (`data/repository/` and `domain/repository/`)
 * **IN SCOPE:**

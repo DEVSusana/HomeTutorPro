@@ -24,6 +24,10 @@ import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailEvent
 
 /**
  * Section cards containing student academic details (course, subjects) and general notes.
+ *
+ * @param student The student entity containing academic and notes information.
+ * @param isEditMode Whether the form fields are editable or read-only.
+ * @param onEvent Callback to dispatch UI events to the ViewModel.
  */
 @Composable
 fun StudentAcademicNotesSection(

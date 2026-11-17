@@ -25,6 +25,14 @@ import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailState
 
 /**
  * Bottom action bar shown in edit mode with Save, Continue, and Delete actions.
+ *
+ * @param state Current UI state for student detail.
+ * @param isNewStudent Whether this screen represents creating a new student.
+ * @param showDeleteDialog Whether the delete confirmation dialog is visible.
+ * @param onEvent Callback to dispatch UI events.
+ * @param onSetEditMode Callback to toggle edit mode.
+ * @param onShowDeleteDialog Callback to request showing the delete dialog.
+ * @param onDismissDeleteDialog Callback to dismiss the delete dialog.
  */
 @Composable
 fun StudentDetailBottomBar(

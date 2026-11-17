@@ -7,17 +7,18 @@ import java.util.Locale
 import javax.inject.Inject
 
 /**
- * Handles student-related intents: creation, deletion, field updates (address, phone, price, course, notes),
- * and student profile/count/weekly queries.
+ * Internal delegate handler for [SueRuleIntentDetector] that processes student-related intents
+ * (e.g. creation, deletion, field updates, and student profile/count/weekly queries).
+ * This component is an internal domain delegate, not a standalone public Use Case.
  */
-class SueStudentIntentHandler @Inject constructor(
+internal class SueStudentIntentHandler @Inject constructor(
     private val studentTools: StudentTools,
     private val scheduleTools: ScheduleTools,
     private val entityExtractor: SueEntityExtractor,
     private val conversationContext: SueConversationContext
 ) {
 
-    suspend fun handleCreateStudent(query: String, lower: String): SueOperationResult {
+    internal suspend fun handleCreateStudent(query: String, lower: String): SueOperationResult {
         val prefixesToStrip = listOf(
             "crear un nuevo estudiante", "crear un nuevo alumno", "crear una nueva estudiante", "crear una nueva alumna",
             "crea un nuevo estudiante", "crea un nuevo alumno", "crea una nueva estudiante", "crea una nueva alumna",
@@ -126,7 +127,7 @@ class SueStudentIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleDeleteStudent(): SueOperationResult {
+    internal suspend fun handleDeleteStudent(): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.DELETE_STUDENT, SlotType.STUDENT_NAME)
@@ -139,7 +140,7 @@ class SueStudentIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleUpdateNotes(lower: String): SueOperationResult {
+    internal suspend fun handleUpdateNotes(lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_NOTES, SlotType.STUDENT_NAME)
@@ -161,7 +162,7 @@ class SueStudentIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleUpdateAddress(query: String, lower: String): SueOperationResult {
+    internal suspend fun handleUpdateAddress(query: String, lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_ADDRESS, SlotType.STUDENT_NAME)
@@ -188,7 +189,7 @@ class SueStudentIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleUpdatePrice(lower: String): SueOperationResult {
+    internal suspend fun handleUpdatePrice(lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_PRICE, SlotType.STUDENT_NAME)
@@ -212,7 +213,7 @@ class SueStudentIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleUpdatePhone(query: String, lower: String): SueOperationResult {
+    internal suspend fun handleUpdatePhone(query: String, lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_PHONE, SlotType.STUDENT_NAME)
@@ -239,7 +240,7 @@ class SueStudentIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleUpdateCourse(query: String, lower: String): SueOperationResult {
+    internal suspend fun handleUpdateCourse(query: String, lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.UPDATE_STUDENT_COURSE, SlotType.STUDENT_NAME)
@@ -266,11 +267,11 @@ class SueStudentIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleQueryStudentCount(): SueOperationResult {
+    internal suspend fun handleQueryStudentCount(): SueOperationResult {
         return studentTools.getActiveStudentCount()
     }
 
-    suspend fun handleQueryStudentDetails(query: String, lower: String): SueOperationResult {
+    internal suspend fun handleQueryStudentDetails(query: String, lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
             ?: return SueOperationResult.StudentDetails(query, emptyList())
 
@@ -309,7 +310,7 @@ class SueStudentIntentHandler @Inject constructor(
         return detailsResult
     }
 
-    suspend fun handleQueryStudentWeeklyClasses(lower: String): SueOperationResult {
+    internal suspend fun handleQueryStudentWeeklyClasses(lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
             ?: return SueOperationResult.ReadSuccess("No he identificado de qué alumno quieres saber las clases. ¿Puedes decirme su nombre?")
 

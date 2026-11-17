@@ -19,12 +19,12 @@ class SueRuleIntentDetector @Inject constructor(
     private val dateTimeProvider: DateTimeProvider,
     private val authRepository: AuthRepository,
     private val entityExtractor: SueEntityExtractor,
-    private val conversationContext: SueConversationContext,
-    private val keywords: SueIntentKeywords = SueIntentKeywords(entityExtractor),
-    private val studentHandler: SueStudentIntentHandler = SueStudentIntentHandler(studentTools, scheduleTools, entityExtractor, conversationContext),
-    private val scheduleHandler: SueScheduleIntentHandler = SueScheduleIntentHandler(scheduleTools, studentTools, authRepository, dateTimeProvider, entityExtractor, conversationContext),
-    private val financeHandler: SueFinanceIntentHandler = SueFinanceIntentHandler(studentTools, conversationContext)
+    private val conversationContext: SueConversationContext
 ) {
+    private val keywords = SueIntentKeywords(entityExtractor)
+    private val studentHandler = SueStudentIntentHandler(studentTools, scheduleTools, entityExtractor, conversationContext)
+    private val scheduleHandler = SueScheduleIntentHandler(scheduleTools, studentTools, authRepository, dateTimeProvider, entityExtractor, conversationContext)
+    private val financeHandler = SueFinanceIntentHandler(studentTools, conversationContext)
 
     suspend fun detectActionIntent(query: String): SueOperationResult? {
         val lower = entityExtractor.stripAccents(query.lowercase().trim())

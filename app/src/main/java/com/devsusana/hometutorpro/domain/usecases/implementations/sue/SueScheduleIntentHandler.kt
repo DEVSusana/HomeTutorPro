@@ -12,10 +12,12 @@ import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 
 /**
- * Handles schedule-related intents: starting classes, adding extra classes, creating/deleting schedules,
- * cancelling, rescheduling, querying free slots, and daily schedule summaries.
+ * Internal delegate handler for [SueRuleIntentDetector] that processes schedule-related intents
+ * (e.g. starting classes, adding extra classes, creating/deleting schedules, cancelling,
+ * rescheduling, querying free slots, and daily schedule summaries).
+ * This component is an internal domain delegate, not a standalone public Use Case.
  */
-class SueScheduleIntentHandler @Inject constructor(
+internal class SueScheduleIntentHandler @Inject constructor(
     private val scheduleTools: ScheduleTools,
     private val studentTools: StudentTools,
     private val authRepository: AuthRepository,
@@ -24,7 +26,12 @@ class SueScheduleIntentHandler @Inject constructor(
     private val conversationContext: SueConversationContext
 ) {
 
-    suspend fun handleStartClass(): SueOperationResult {
+    /**
+     * Handles starting an immediate class session for a student.
+     *
+     * @return Operation result representing the prepared action or conversational slot prompt.
+     */
+    internal suspend fun handleStartClass(): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.START_CLASS, SlotType.STUDENT_NAME)
@@ -46,7 +53,13 @@ class SueScheduleIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleAddExtraClass(lower: String): SueOperationResult {
+    /**
+     * Handles scheduling an extra/ad-hoc class session for a student.
+     *
+     * @param lower Normalized lowercase user query string.
+     * @return Operation result representing the prepared action or prompt.
+     */
+    internal suspend fun handleAddExtraClass(lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.ADD_EXTRA_CLASS, SlotType.STUDENT_NAME)
@@ -89,7 +102,13 @@ class SueScheduleIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleCreateSchedule(lower: String): SueOperationResult {
+    /**
+     * Handles creating a recurring weekly schedule slot for a student.
+     *
+     * @param lower Normalized lowercase user query string.
+     * @return Operation result representing the prepared creation action or prompt.
+     */
+    internal suspend fun handleCreateSchedule(lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.CREATE_SCHEDULE, SlotType.STUDENT_NAME)
@@ -131,7 +150,12 @@ class SueScheduleIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleDeleteSchedule(): SueOperationResult {
+    /**
+     * Handles deleting a recurring schedule slot for a student.
+     *
+     * @return Operation result representing the prepared deletion action or prompt.
+     */
+    internal suspend fun handleDeleteSchedule(): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.DELETE_SCHEDULE, SlotType.STUDENT_NAME)
@@ -154,7 +178,13 @@ class SueScheduleIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleCancelClass(lower: String): SueOperationResult {
+    /**
+     * Handles cancelling a scheduled class occurrence.
+     *
+     * @param lower Normalized lowercase user query string.
+     * @return Operation result representing the cancellation action or prompt.
+     */
+    internal suspend fun handleCancelClass(lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.CANCEL_CLASS, SlotType.STUDENT_NAME)
@@ -199,7 +229,13 @@ class SueScheduleIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleRescheduleClass(lower: String): SueOperationResult {
+    /**
+     * Handles rescheduling a class occurrence to a different date or time.
+     *
+     * @param lower Normalized lowercase user query string.
+     * @return Operation result representing the reschedule action or prompt.
+     */
+    internal suspend fun handleRescheduleClass(lower: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.RESCHEDULE_CLASS, SlotType.STUDENT_NAME)
@@ -358,7 +394,12 @@ class SueScheduleIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleQueryNextClass(): SueOperationResult {
+    /**
+     * Queries the next scheduled class for the active or all students.
+     *
+     * @return Operation result representing the next class occurrence.
+     */
+    internal suspend fun handleQueryNextClass(): SueOperationResult {
         val nextClassResult = scheduleTools.getNextClass(conversationContext.lastMentionedStudentName)
         if (nextClassResult is SueOperationResult.NextClass && nextClassResult.schedule != null) {
             val s = nextClassResult.schedule
@@ -369,7 +410,12 @@ class SueScheduleIntentHandler @Inject constructor(
         return nextClassResult
     }
 
-    suspend fun handleQueryFreeSlots(): SueOperationResult {
+    /**
+     * Queries available free time slots for teaching.
+     *
+     * @return Operation result containing free schedule slots.
+     */
+    internal suspend fun handleQueryFreeSlots(): SueOperationResult {
         val day = conversationContext.lastMentionedDayOfWeek
         val professor = authRepository.currentUser.value
         val workingStart = professor?.workingStartTime?.takeIf { it.isNotBlank() } ?: "08:00"
@@ -377,13 +423,24 @@ class SueScheduleIntentHandler @Inject constructor(
         return scheduleTools.getFreeSlots(workingStart, workingEnd, day)
     }
 
-    suspend fun handleQueryDaySchedule(lower: String): SueOperationResult {
+    /**
+     * Queries the schedule for a specific day.
+     *
+     * @param lower Normalized user query string.
+     * @return Operation result with the day's classes.
+     */
+    internal suspend fun handleQueryDaySchedule(lower: String): SueOperationResult {
         val day = conversationContext.lastMentionedDayOfWeek ?: dateTimeProvider.getNow().dayOfWeek.value
         val timeFilter = entityExtractor.extractTime(lower) ?: entityExtractor.extractTimeOfDayFilter(lower)
         return scheduleTools.getScheduleForDay(day, timeFilter)
     }
 
-    suspend fun handleQueryTodaySummary(): SueOperationResult {
+    /**
+     * Queries the summary of all classes and balances for today.
+     *
+     * @return Operation result with today's class summary and debt alerts.
+     */
+    internal suspend fun handleQueryTodaySummary(): SueOperationResult {
         val today = dateTimeProvider.getNow().dayOfWeek.value
         val todayResult = scheduleTools.getScheduleForDay(today, null)
         val scheduleText = SueResponseFormatter.format(todayResult)
@@ -405,7 +462,16 @@ class SueScheduleIntentHandler @Inject constructor(
         return SueOperationResult.ReadSuccess(scheduleText + debtAlert)
     }
 
-    suspend fun handleQueryCancelledClasses(
+    /**
+     * Queries cancelled classes for a specific day or student.
+     *
+     * @param lower Normalized user query string.
+     * @param matchedStudentName Optional matched student name.
+     * @param relativeDay Relative day offset if mentioned.
+     * @param explicitDay Explicit day of week value if mentioned.
+     * @return Operation result listing cancelled classes.
+     */
+    internal suspend fun handleQueryCancelledClasses(
         lower: String,
         matchedStudentName: String?,
         relativeDay: Int?,

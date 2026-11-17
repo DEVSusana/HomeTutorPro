@@ -30,6 +30,19 @@ import kotlinx.coroutines.launch
 /**
  * Host composable managing all overlays and dialogs for the Student Detail screen:
  * feedback, file sharing, payment registration, starting class, and extra class addition.
+ *
+ * @param context Android context for launching system settings or intents.
+ * @param scope Coroutine scope for launching snackbar messages.
+ * @param state Current UI state for student detail.
+ * @param student The student being edited or viewed.
+ * @param snackbarHostState State holder for snackbars.
+ * @param showPaymentDialog Whether the payment dialog is visible.
+ * @param selectedPaymentType The pre-selected payment type, if any.
+ * @param onDismissPaymentDialog Callback to dismiss the payment dialog.
+ * @param showStartClassDialog Whether the start class dialog is visible.
+ * @param onDismissStartClassDialog Callback to dismiss the start class dialog.
+ * @param notificationPermissionLauncher Activity result launcher for notification permissions.
+ * @param onEvent Callback to dispatch UI events.
  */
 @Composable
 fun StudentDetailDialogHost(

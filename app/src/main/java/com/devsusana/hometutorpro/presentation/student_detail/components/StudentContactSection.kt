@@ -20,6 +20,10 @@ import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailEvent
 
 /**
  * Section card containing parent and student phone numbers and email address.
+ *
+ * @param student The student entity containing contact information.
+ * @param isEditMode Whether the form fields are editable or read-only.
+ * @param onEvent Callback to dispatch UI events to the ViewModel.
  */
 @Composable
 fun StudentContactSection(

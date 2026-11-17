@@ -23,6 +23,8 @@ interface SueModelRepository {
 
     /**
      * Returns the size in bytes of the downloaded model file, or null if not downloaded.
+     *
+     * @return The size in bytes of the downloaded model file, or null if not downloaded.
      */
     suspend fun getDownloadedModelSize(): Long?
 

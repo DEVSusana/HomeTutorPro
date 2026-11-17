@@ -13,6 +13,11 @@ import java.time.DayOfWeek
 
 /**
  * Displays the student name and original scheduled day/time in the exception dialog.
+ *
+ * @param studentName The display name of the student.
+ * @param dayOfWeek The original day of week for the class.
+ * @param startTime The original class start time string.
+ * @param endTime The original class end time string.
  */
 @Composable
 fun ScheduleClassHeader(

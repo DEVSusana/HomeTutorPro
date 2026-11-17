@@ -11,6 +11,15 @@ import java.time.DayOfWeek
 /**
  * Section grouping the day-of-week dropdown, time pickers, and potential conflict warnings
  * when rescheduling a class.
+ *
+ * @param newDayOfWeek The proposed new day of week for the rescheduled class.
+ * @param onDayOfWeekChange Callback invoked when the day of week changes.
+ * @param newStartTime Proposed new class start time.
+ * @param newEndTime Proposed new class end time.
+ * @param onStartTimeChange Callback invoked when the start time changes.
+ * @param onEndTimeChange Callback invoked when the end time changes.
+ * @param hasConflict Whether a scheduling conflict is detected with another class.
+ * @param conflictingClass The conflicting schedule item, if any.
  */
 @Composable
 fun RescheduleSection(

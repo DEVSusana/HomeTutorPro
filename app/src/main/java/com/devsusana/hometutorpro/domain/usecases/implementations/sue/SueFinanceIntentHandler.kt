@@ -6,14 +6,22 @@ import com.devsusana.hometutorpro.domain.usecases.implementations.StudentTools
 import javax.inject.Inject
 
 /**
- * Handles finance-related intents such as registering payments, adding balance, and querying debt.
+ * Internal delegate handler for [SueRuleIntentDetector] that processes finance-related intents
+ * (e.g. registering payments, adding balance, and querying debt).
+ * This component is an internal domain delegate, not a standalone public Use Case.
  */
-class SueFinanceIntentHandler @Inject constructor(
+internal class SueFinanceIntentHandler @Inject constructor(
     private val studentTools: StudentTools,
     private val conversationContext: SueConversationContext
 ) {
 
-    suspend fun handleRegisterPayment(lower: String): SueOperationResult {
+    /**
+     * Handles payment registration for a student, prompting for missing slots if needed.
+     *
+     * @param normalizedQuery Normalized lowercase user query string.
+     * @return Operation result representing the payment action or conversational prompt.
+     */
+    internal suspend fun handleRegisterPayment(normalizedQuery: String): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.REGISTER_PAYMENT, SlotType.STUDENT_NAME)
@@ -30,13 +38,18 @@ class SueFinanceIntentHandler @Inject constructor(
                     "¿De cuánto es el pago de $studentName?"
                 )
             } else {
-                val paymentType = if (lower.contains("bizum")) PaymentType.BIZUM else PaymentType.EFFECTIVE
+                val paymentType = if (normalizedQuery.contains("bizum")) PaymentType.BIZUM else PaymentType.EFFECTIVE
                 studentTools.prepareRegisterPayment(studentName, amount, paymentType)
             }
         }
     }
 
-    suspend fun handleAddBalance(): SueOperationResult {
+    /**
+     * Handles adding positive balance to a student account.
+     *
+     * @return Operation result representing the add balance action or prompt.
+     */
+    internal suspend fun handleAddBalance(): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
         return if (studentName == null) {
             conversationContext.setAwaitingSlot(IntentType.ADD_BALANCE, SlotType.STUDENT_NAME)
@@ -58,11 +71,21 @@ class SueFinanceIntentHandler @Inject constructor(
         }
     }
 
-    suspend fun handleQueryStudentsWithBalance(): SueOperationResult {
+    /**
+     * Queries all students who currently owe money.
+     *
+     * @return Operation result listing debtor students and amounts.
+     */
+    internal suspend fun handleQueryStudentsWithBalance(): SueOperationResult {
         return studentTools.getStudentsWithBalance()
     }
 
-    suspend fun handleQueryStudentBalance(): SueOperationResult {
+    /**
+     * Queries the specific balance of the active student.
+     *
+     * @return Operation result containing the student balance response.
+     */
+    internal suspend fun handleQueryStudentBalance(): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
             ?: return SueOperationResult.ReadSuccess("¿De qué alumno quieres saber el saldo pendiente?")
 

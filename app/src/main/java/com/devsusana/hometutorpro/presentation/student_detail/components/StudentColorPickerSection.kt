@@ -30,6 +30,10 @@ import com.devsusana.hometutorpro.domain.utils.StudentColorUtil
 
 /**
  * Color picker row displaying preset colors and an 'Auto' option for student color tagging.
+ *
+ * @param selectedColor The currently selected color integer, or null for automatic assignment.
+ * @param onColorSelected Callback invoked when a color or auto mode is selected.
+ * @param modifier Optional modifier for the section container.
  */
 @Composable
 fun StudentColorPickerSection(

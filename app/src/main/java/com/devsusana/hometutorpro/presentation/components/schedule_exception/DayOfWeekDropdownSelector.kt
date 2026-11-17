@@ -21,6 +21,9 @@ import java.time.DayOfWeek
 
 /**
  * Dropdown selector for picking a target day of the week when rescheduling a class.
+ *
+ * @param selectedDay The currently selected day of the week.
+ * @param onDaySelected Callback invoked when the user selects a day of the week.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

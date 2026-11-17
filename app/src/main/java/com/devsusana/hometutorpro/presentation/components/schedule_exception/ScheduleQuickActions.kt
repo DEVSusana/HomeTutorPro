@@ -22,6 +22,12 @@ import com.devsusana.hometutorpro.R
 
 /**
  * Quick action buttons to start a class or add an extra class directly from the schedule item.
+ *
+ * @param studentId The unique identifier of the student.
+ * @param studentName The display name of the student.
+ * @param onStartClass Optional callback to start an immediate class session.
+ * @param onAddExtraClass Optional callback to schedule an extra class.
+ * @param onDismiss Callback to dismiss the current schedule dialog.
  */
 @Composable
 fun ScheduleQuickActions(

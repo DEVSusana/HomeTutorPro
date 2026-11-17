@@ -29,6 +29,8 @@ def classify_component(file_path: str, code: str = "") -> str:
         return COMPONENT_ROOM_ENTITY
     if "domain/entities/" in norm_path:
         return COMPONENT_DOMAIN_ENTITY
+    if "domain/usecases/implementations/sue/" in norm_path and ("Handler" in norm_path or "Keywords" in norm_path or "Extractor" in norm_path or "Parser" in norm_path or "Context" in norm_path or "Matcher" in norm_path):
+        return COMPONENT_GENERIC
     if "domain/usecases/" in norm_path or re.search(r"operator\s+fun\s+invoke", code):
         return COMPONENT_USECASE
     if "domain/repository/" in norm_path:
@@ -145,7 +147,9 @@ def get_component_boundaries(component_type: str) -> dict:
             "Strict English naming and SOLID principles"
         ],
         "out_of_scope": [
-            "Demanding responsibilities that belong to other layers"
+            "Demanding responsibilities that belong to other layers",
+            "Enforcing single operator fun invoke(...) on internal delegates, helper classes, or conversational NLU engines (e.g. SUE modules)",
+            "Flagging natural language conversational strings/prompts inside NLU intent parsers as UI presentation leaks (NLU engines process domain dialogue)"
         ]
     })
 

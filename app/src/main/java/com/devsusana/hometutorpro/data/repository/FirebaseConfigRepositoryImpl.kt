@@ -20,13 +20,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.devsusana.hometutorpro.domain.repository.IWidgetUpdater
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class FirebaseConfigRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val remoteConfig: FirebaseRemoteConfig
+    private val remoteConfig: FirebaseRemoteConfig,
+    private val widgetUpdater: IWidgetUpdater? = null
 ) : IConfigRepository {
 
     companion object {
@@ -68,9 +70,11 @@ class FirebaseConfigRepositoryImpl @Inject constructor(
 
             // Activate previous fetched values immediately for offline-first fast startup
             remoteConfig.activate().addOnCompleteListener {
-                _featureFlags.value = readCurrentFlags()
-                SafeLogger.d(TAG, "Activated cached config on startup: ${_featureFlags.value}")
-                notifyWidgetUpdate()
+                scope.launch {
+                    _featureFlags.value = readCurrentFlags()
+                    SafeLogger.d(TAG, "Activated cached config on startup: ${_featureFlags.value}")
+                    notifyWidgetUpdate()
+                }
             }
 
             // Real-time remote config updates
@@ -78,8 +82,10 @@ class FirebaseConfigRepositoryImpl @Inject constructor(
                 override fun onUpdate(configUpdate: ConfigUpdate) {
                     SafeLogger.d(TAG, "Remote config updated in real time for keys: ${configUpdate.updatedKeys}")
                     remoteConfig.activate().addOnCompleteListener {
-                        _featureFlags.value = readCurrentFlags()
-                        notifyWidgetUpdate()
+                        scope.launch {
+                            _featureFlags.value = readCurrentFlags()
+                            notifyWidgetUpdate()
+                        }
                     }
                 }
 
@@ -112,7 +118,7 @@ class FirebaseConfigRepositoryImpl @Inject constructor(
 
     private fun notifyWidgetUpdate() {
         try {
-            com.devsusana.hometutorpro.presentation.widget.ClassTimerWidget.updateWidget(context)
+            widgetUpdater?.updateWidget()
         } catch (e: Exception) {
             SafeLogger.e(TAG, "Error triggering widget update on config change: ${e.message}", e)
         }

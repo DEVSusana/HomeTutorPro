@@ -16,6 +16,8 @@ import com.devsusana.hometutorpro.presentation.weekly_schedule.WeeklyScheduleIte
 
 /**
  * Warning card displayed when a proposed rescheduled time overlaps with another class.
+ *
+ * @param conflictingClass The existing regular class item that conflicts with the proposed time.
  */
 @Composable
 fun ScheduleConflictWarning(conflictingClass: WeeklyScheduleItem.Regular) {

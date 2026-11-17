@@ -27,6 +27,11 @@ import com.devsusana.hometutorpro.presentation.components.TimePickerDialog
 
 /**
  * Time picker buttons to pick new start and end times for a rescheduled class.
+ *
+ * @param startTime The current selected start time string.
+ * @param endTime The current selected end time string.
+ * @param onStartTimeChange Callback invoked when the user selects a new start time.
+ * @param onEndTimeChange Callback invoked when the user selects a new end time.
  */
 @Composable
 fun RescheduleTimePickers(
