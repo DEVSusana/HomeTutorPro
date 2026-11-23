@@ -20,11 +20,12 @@ graph LR
         Gate -- Yes / Approved --> SpecFile["specs/my_feature.md"]
     end
 
-    subgraph Phase2 ["Phase 2: run (Build and Test)"]
-        SpecFile --> Loop["Autonomous ReAct Loop"]
+    subgraph Phase2 ["Phase 2: run (Build, Verify & Blind Review)"]
+        SpecFile --> Loop["Autonomous ReAct Builder"]
         Loop --> Surgery["Surgical Precision (Minimal Diff)"]
         Surgery --> Gradle["./gradlew compile & test"]
-        Gradle --> FinalCheck["You Approve via git diff (y/n)"]
+        Gradle --> BlindReview["Independent Blind Reviewer (Scope + Spec)"]
+        BlindReview --> FinalCheck["You Approve via git diff (y/n)"]
     end
 ```
 
@@ -108,7 +109,14 @@ python3 -m agents_dev --provider claude run --spec specs/negative_balance_calcul
 4. It validates dependency injection with `check_hilt_bindings` and generates tests with `scaffold_test`.
 5. It runs `./gradlew compileDebugKotlin` and `./gradlew test` in a self-healing loop, auto-correcting any compilation or test failures.
 6. If ambiguities arise, it asks you using `ask_human`.
-7. When finished, it displays the final `git diff` and prompts for `(y/n)` to keep or revert.
+7. Once the Builder finishes, an independent **Blind Reviewer** (`core/blind_reviewer.py`) runs deterministic `Scope` and verification-command checks and audits the `git diff` against the spec in a fresh, tool-less session (pass `--no-blind-review` to skip).
+8. Finally, it displays the `git diff` and prompts for `(y/n)` to keep or revert.
+
+### C. Phase 3: End-to-End Feature Orchestrator (`orchestrate`)
+```bash
+# Run full pipeline: spec check -> worktree -> Builder + BlindReviewer -> optional PR
+python3 -m agents_dev orchestrate --spec specs/my_feature.md --create-pr
+```
 
 ---
 
@@ -137,12 +145,20 @@ agents_dev/
 ├── ci/
 │   └── pr_review.py            # CI Executor: reviews PRs with unified_reviewer and posts clean reports
 ├── core/
-│   ├── engine.py               # Autonomous ReAct loop with compilation/test self-healing
+│   ├── engine.py               # Autonomous ReAct Builder loop with compilation/test self-healing
+│   ├── blind_reviewer.py       # Independent, read-only Blind Reviewer (Scope + deterministic checks + LLM audit)
+│   ├── orchestrator.py         # End-to-end orchestrator (spec -> worktree -> Builder + BlindReviewer -> optional PR)
 │   ├── system_tools.py         # System tools: read_file, patch_file, write_new_file, run_command, list_files
 │   ├── skill_tools.py          # Bridge exposing Android skills as LLM tools
 │   └── interactive.py          # ask_human tool and interactive git diff confirmation gateway
+├── evals/
+│   ├── cases.json              # Frozen benchmark cases for deterministic harness evaluation
+│   └── eval_harness.py         # Reproducible eval runner and scorecard
+├── rag_lab/
+│   ├── README.md               # Guide to chunking, embeddings, hybrid search, and grounded prompts
+│   └── rag_demo.py             # Isolated RAG & embeddings sandbox (offline + optional --live Gemini)
 ├── planner/
-│   └── spec_interviewer.py     # Spec interview engine and strict approval gate
+│   └── spec_interviewer.py     # Spec interview engine using specs/_TEMPLATE.md contract format
 ├── providers/
 │   ├── base.py                 # Universal BaseLLMProvider, LLMResponse, ToolCall interface
 │   ├── gemini_provider.py      # Native Google Gemini connector with exponential backoff
@@ -161,8 +177,9 @@ agents_dev/
 │   ├── config.py               # Local AI client configuration (gitignored)
 │   └── config.example.py       # Safe configuration template
 ├── specs/                      # Generated technical specifications (.md)
-├── tests/                      # Unit test suite for the agent engine (15 tests)
-├── cli.py                      # Unified CLI (plan | run | review) with --provider and --model
+├── tests/                      # Unit test suite for the agent engine (31 tests)
+├── mcp_server.py               # Zero-dependency MCP stdio server (check_hilt_bindings, check_code_metrics, list_specs)
+├── cli.py                      # Unified CLI (plan | run | review | orchestrate) with --provider, --model, --no-blind-review
 ├── run.sh                      # Launcher with automatic virtual environment activation
 ├── requirements.txt            # Required Python dependencies (google-genai, anthropic, PyGithub)
 └── __main__.py                 # Entry point for modular execution: 'python3 -m agents_dev'

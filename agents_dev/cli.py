@@ -9,6 +9,7 @@ if AGENTS_DEV_DIR not in sys.path:
 
 from providers.base import BaseLLMProvider
 from core.engine import AgenticEngine
+from core.orchestrator import FeatureOrchestrator
 from planner.spec_interviewer import SpecInterviewer
 
 
@@ -57,10 +58,19 @@ def main():
     run_parser.add_argument("goal", nargs="?", default="", help="Direct objective to implement or refactor.")
     run_parser.add_argument("--spec", type=str, help="Path to the approved technical specification (.md) file.")
     run_parser.add_argument("--iterations", type=int, default=25, help="Maximum number of ReAct loop iterations (default: 25).")
+    run_parser.add_argument("--no-blind-review", action="store_true", help="Skip the independent Blind Reviewer step after Builder finishes.")
 
     # 3. Skills Review Mode (Local CI)
     review_parser = subparsers.add_parser("review", help="Execute the 5 review skills (Architecture, Security, Tests, KDoc, Refactor) locally.")
     review_parser.add_argument("files", nargs="*", default=[], help="Specific Kotlin files to audit (optional).")
+
+    # 4. End-to-End Feature Orchestrator Mode
+    orch_parser = subparsers.add_parser("orchestrate", help="Phase 3: Run spec -> worktree -> Builder + BlindReviewer -> optional PR.")
+    orch_parser.add_argument("--spec", required=True, type=str, help="Path to the approved specification (.md).")
+    orch_parser.add_argument("--slug", type=str, default=None, help="Optional worktree/branch slug.")
+    orch_parser.add_argument("--no-worktree", action="store_true", help="Run in current workspace instead of creating a worktree.")
+    orch_parser.add_argument("--create-pr", action="store_true", help="Ask to push and open a GitHub PR after approval.")
+    orch_parser.add_argument("--iterations", type=int, default=25, help="Maximum Builder iterations (default: 25).")
 
     args = parser.parse_args()
 
@@ -91,13 +101,30 @@ def main():
             sys.exit(1)
 
         goal = args.goal or f"Fully implement and verify the specification in '{args.spec}'."
-        engine = AgenticEngine(provider=provider, max_iterations=args.iterations)
+        engine = AgenticEngine(
+            provider=provider,
+            max_iterations=args.iterations,
+            enable_blind_review=not args.no_blind_review,
+        )
         success = engine.run(goal=goal, spec_file=args.spec)
 
         if success:
             print("\n🎉 Agentic mission completed and approved successfully!")
         else:
             print("\n❌ Agentic mission finished or changes reverted.")
+
+    elif args.subcommand == "orchestrate":
+        orchestrator = FeatureOrchestrator(provider=provider, max_iterations=args.iterations)
+        success = orchestrator.run(
+            spec_file=args.spec,
+            slug=args.slug,
+            use_worktree=not args.no_worktree,
+            create_pr=args.create_pr,
+        )
+        if success:
+            print("\n🎉 Feature orchestration completed!")
+        else:
+            print("\n❌ Feature orchestration stopped or cancelled.")
 
 
 if __name__ == "__main__":

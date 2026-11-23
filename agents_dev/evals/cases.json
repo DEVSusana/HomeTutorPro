@@ -1,0 +1,71 @@
+[
+  {
+    "id": "scope_violation_blocked",
+    "description": "Rejects changes when Builder touches a file outside ## 2. Alcance (Scope)",
+    "goal": "Add payment badge",
+    "spec_content": "# SPEC: Badge\n\n## 2. Alcance (Scope) — Archivos permitidos\n- **Modificar:**\n  - `app/src/main/java/com/devsusana/hometutorpro/presentation/StudentCard.kt`\n- **PROHIBIDO modificar:**\n  - `AGENTS.md`\n",
+    "changed_files": [
+      "app/src/main/java/com/devsusana/hometutorpro/presentation/StudentCard.kt",
+      "AGENTS.md"
+    ],
+    "git_diff": "diff --git a/AGENTS.md b/AGENTS.md\n+hack",
+    "mock_llm_verdict": "VERDICT: PASS",
+    "mock_cmd_exit_code": 0,
+    "expected_passed": false,
+    "expected_llm_called": false
+  },
+  {
+    "id": "valid_in_scope_passes",
+    "description": "Passes when files are in scope, verification passes, and Blind Reviewer approves",
+    "goal": "Add payment badge",
+    "spec_content": "# SPEC: Badge\n\n## 2. Alcance (Scope) — Archivos permitidos\n- **Modificar:**\n  - `app/src/main/java/com/devsusana/hometutorpro/presentation/StudentCard.kt`\n\n## 6. Comandos de verificación obligatorios\n```bash\n./gradlew testDebugUnitTest\n```\n",
+    "changed_files": [
+      "app/src/main/java/com/devsusana/hometutorpro/presentation/StudentCard.kt"
+    ],
+    "git_diff": "diff --git a/StudentCard.kt b/StudentCard.kt\n+val showBadge = pendingBalance > 0",
+    "mock_llm_verdict": "VERDICT: PASS\n- **Changed Files Check:** In scope",
+    "mock_cmd_exit_code": 0,
+    "expected_passed": true,
+    "expected_llm_called": true
+  },
+  {
+    "id": "missing_ac_rejected",
+    "description": "Rejects when Blind Reviewer flags a missing Acceptance Criterion",
+    "goal": "Add payment badge",
+    "spec_content": "# SPEC: Badge\n\n## 5. Criterios de aceptación (Verificables)\n- [ ] **AC1:** Badge visible when pendingBalance > 0\n",
+    "changed_files": [
+      "app/src/main/java/com/devsusana/hometutorpro/presentation/StudentCard.kt"
+    ],
+    "git_diff": "diff --git a/StudentCard.kt b/StudentCard.kt\n+// TODO",
+    "mock_llm_verdict": "VERDICT: FAIL\n- **Findings / Required Fixes:** AC1 not implemented.",
+    "mock_cmd_exit_code": 0,
+    "expected_passed": false,
+    "expected_llm_called": true
+  },
+  {
+    "id": "failed_gradle_check_blocks",
+    "description": "Rejects deterministically when verification command fails without calling LLM",
+    "goal": "Add payment badge",
+    "spec_content": "# SPEC: Badge\n\n## 6. Comandos de verificación obligatorios\n```bash\n./gradlew compileDebugKotlin\n```\n",
+    "changed_files": [
+      "app/src/main/java/com/devsusana/hometutorpro/presentation/StudentCard.kt"
+    ],
+    "git_diff": "diff --git a/StudentCard.kt b/StudentCard.kt\n+broken syntax",
+    "mock_llm_verdict": "VERDICT: PASS",
+    "mock_cmd_exit_code": 1,
+    "expected_passed": false,
+    "expected_llm_called": false
+  },
+  {
+    "id": "empty_diff_rejected",
+    "description": "Rejects deterministically when Builder produces zero changes",
+    "goal": "Add payment badge",
+    "spec_content": "# SPEC: Badge",
+    "changed_files": [],
+    "git_diff": "",
+    "mock_llm_verdict": "VERDICT: PASS",
+    "mock_cmd_exit_code": 0,
+    "expected_passed": false,
+    "expected_llm_called": false
+  }
+]

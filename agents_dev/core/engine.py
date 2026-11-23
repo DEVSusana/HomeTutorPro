@@ -6,17 +6,29 @@ from providers.base import BaseLLMProvider
 from core.system_tools import SYSTEM_TOOLS, execute_system_tool, PROJECT_ROOT
 from core.skill_tools import SKILL_TOOLS, execute_skill_tool
 from core.interactive import INTERACTIVE_TOOLS, execute_interactive_tool, show_diff_and_confirm
+from core.blind_reviewer import BlindReviewer
 
 
 class AgenticEngine:
     """
     Universal Autonomous Agentic Engine based on the ReAct (Reason + Act) loop.
-    Governs autonomous execution, Gradle self-healing compilation/tests, and final human confirmation.
+    Governs autonomous execution, Gradle self-healing compilation/tests,
+    independent Blind Reviewer verification, and final human confirmation.
     """
 
-    def __init__(self, provider: BaseLLMProvider, max_iterations: int = 30):
+    def __init__(
+        self,
+        provider: BaseLLMProvider,
+        max_iterations: int = 30,
+        enable_blind_review: bool = True,
+        review_provider: Optional[BaseLLMProvider] = None,
+        max_review_rounds: int = 1,
+    ):
         self.provider = provider
         self.max_iterations = max_iterations
+        self.enable_blind_review = enable_blind_review
+        self.review_provider = review_provider or provider
+        self.max_review_rounds = max_review_rounds
         self.tools = SYSTEM_TOOLS + SKILL_TOOLS + INTERACTIVE_TOOLS
 
     def _load_project_guidelines(self) -> str:
@@ -117,6 +129,7 @@ You are running directly inside the user's project workspace.
         print("═" * 72)
 
         iteration = 0
+        review_round = 0
         current_limit = self.max_iterations
 
         while iteration < current_limit:
@@ -131,12 +144,36 @@ You are running directly inside the user's project workspace.
                 print(f"❌ Error in LLM call: {e}")
                 return False
 
-            # If the model requests no tools, it has completed its work
+            # If the model requests no tools, hand off to the independent Blind Reviewer
             if not response.has_tool_calls:
                 print("\n" + "🎯" + "═" * 70)
-                print("✅ [AGENT HAS COMPLETED THE TASK]")
+                print("✅ [BUILDER FINISHED IMPLEMENTATION]")
                 print("═" * 72)
                 print(f"\n{response.content}\n")
+
+                if self.enable_blind_review:
+                    print("\n" + "🔍" + "═" * 70)
+                    print("🕵️ [PHASE 2B: INDEPENDENT BLIND REVIEWER]")
+                    print("═" * 72)
+                    reviewer = BlindReviewer(provider=self.review_provider)
+                    review_result = reviewer.review(goal=goal, spec_content=spec_content)
+                    print(f"\n{review_result.report}\n")
+
+                    if not review_result.passed and review_round < self.max_review_rounds:
+                        review_round += 1
+                        print(f"🔁 Blind Reviewer rejected changes (round {review_round}/{self.max_review_rounds}). Returning findings to Builder...")
+                        messages.append({"role": "assistant", "content": response.content or ""})
+                        messages.append({
+                            "role": "user",
+                            "content": (
+                                "An independent Blind Reviewer inspected your git diff against the spec and REJECTED it.\n"
+                                "Fix ONLY the issues listed below, re-run verification, and stop when resolved:\n\n"
+                                f"{review_result.report}"
+                            ),
+                        })
+                        iteration += 1
+                        continue
+
                 # Final Human-in-the-Loop phase
                 return show_diff_and_confirm()
 
