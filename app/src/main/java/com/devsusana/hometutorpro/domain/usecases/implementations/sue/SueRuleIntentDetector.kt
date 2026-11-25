@@ -10,8 +10,9 @@ import java.util.Locale
 import javax.inject.Inject
 
 /**
- * Handles rule-based and keyword-driven intent detection, routing intents to domain-specific handlers
- * and managing multi-turn conversation context.
+ * Internal domain delegate for [SueAgentImpl] that handles rule-based and keyword-driven
+ * intent detection, routing intents to domain-specific handlers and managing multi-turn context.
+ * This component is an internal domain delegate, not a standalone public Use Case.
  */
 class SueRuleIntentDetector @Inject constructor(
     private val studentTools: StudentTools,
@@ -25,6 +26,14 @@ class SueRuleIntentDetector @Inject constructor(
     private val studentHandler = SueStudentIntentHandler(studentTools, scheduleTools, entityExtractor, conversationContext)
     private val scheduleHandler = SueScheduleIntentHandler(scheduleTools, studentTools, authRepository, dateTimeProvider, entityExtractor, conversationContext)
     private val financeHandler = SueFinanceIntentHandler(studentTools, conversationContext)
+
+    /**
+     * Operator entry point delegating to [detectActionIntent].
+     *
+     * @param query Raw user query string.
+     * @return Matched [SueOperationResult] or null if no deterministic rule matched.
+     */
+    suspend operator fun invoke(query: String): SueOperationResult? = detectActionIntent(query)
 
     suspend fun detectActionIntent(query: String): SueOperationResult? {
         val lower = entityExtractor.stripAccents(query.lowercase().trim())

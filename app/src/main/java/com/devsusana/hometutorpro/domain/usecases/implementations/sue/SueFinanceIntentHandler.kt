@@ -87,7 +87,10 @@ internal class SueFinanceIntentHandler @Inject constructor(
      */
     internal suspend fun handleQueryStudentBalance(): SueOperationResult {
         val studentName = conversationContext.lastMentionedStudentName
-            ?: return SueOperationResult.ReadSuccess("¿De qué alumno quieres saber el saldo pendiente?")
+        if (studentName == null) {
+            conversationContext.setAwaitingSlot(IntentType.QUERY_STUDENT_BALANCE, SlotType.STUDENT_NAME)
+            return SueOperationResult.ReadSuccess("¿De qué alumno quieres saber el saldo pendiente?")
+        }
 
         val details = studentTools.searchStudent(studentName)
         return if (details is SueOperationResult.StudentDetails && details.students.isNotEmpty()) {

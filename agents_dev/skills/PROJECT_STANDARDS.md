@@ -38,12 +38,13 @@ To prevent false positives and hallucinated violations, each file must only be e
 * **IN SCOPE:**
   - Single public `operator fun invoke(...)` for standalone Use Case classes.
   - Pure Kotlin domain logic and orchestration.
-  - Explicit business validation and domain error returns (e.g. `Result<T, DomainError>`).
+  - Explicit business validation and typed domain error returns (e.g. `Result<ConcreteType, DomainError>`, never untyped `Any`) for operations that have business validation or I/O/network failure states callers must handle.
   - Constructor injection with `@Inject constructor(...)`.
 * **STRICTLY OUT OF SCOPE:**
   - Direct persistence calls without a repository contract.
   - Android framework dependencies (Context, Views, ViewModels).
-  - Internal engine delegates/handlers (e.g. SUE conversational engine modules in `sue/`) that orchestrate multi-turn intent actions are domain helpers, not single-shot Use Cases. Natural language dialogue prompts in conversational engines are domain responses, not UI leaks.
+  - Reactive stream Use Cases (`StateFlow<ConcreteType>`, `Flow<ConcreteType>`), simple nullable state queries (e.g. `ActiveSession?`, `CalendarOccurrence?`), and fire-and-forget local state commands (`Unit`) without domain error states do NOT need to be wrapped in `Result`.
+  - Internal engine delegates/handlers (`internal class`, e.g. SUE conversational engine modules in `sue/`) that orchestrate multi-turn intent actions are domain helpers, not standalone public Use Cases. Natural language dialogue prompts in conversational engines are domain responses, not UI leaks.
 
 ### E. Repositories (`data/repository/` and `domain/repository/`)
 * **IN SCOPE:**
