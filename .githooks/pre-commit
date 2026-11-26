@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""
+HomeTutorPro deterministic pre-commit hook.
+Runs fast, zero-LLM checks on staged files before allowing a commit:
+1. Blocks sensitive files (.env, local.properties, keystores, config.py).
+2. Scans staged diffs for potential hardcoded secrets/API keys.
+3. Enforces AGENTS.md domain purity (no android/androidx imports in domain/).
+4. Enforces AGENTS.md 300-line limit on staged non-test Kotlin files.
+5. Disallows GlobalScope in staged Kotlin additions.
+6. Verifies Hilt bindings for staged UseCase/Repository interfaces.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MAX_KT_LINES = 300
+
+BLOCKED_FILENAMES = {
+    ".env",
+    "local.properties",
+    "config.py",
+}
+BLOCKED_EXTENSIONS = {".jks", ".keystore", ".p12"}
+
+SECRET_PATTERNS = [
+    re.compile(r"AIza[0-9A-Za-z\-_]{35}"),
+    re.compile(r"sk-ant-[0-9A-Za-z\-_]{20,}"),
+    re.compile(r"sk-[0-9A-Za-z]{32,}"),
+]
+
+
+def get_staged_files() -> list[str]:
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def get_staged_added_lines(rel_path: str) -> list[str]:
+    result = subprocess.run(
+        ["git", "diff", "--cached", "-U0", "--", rel_path],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [
+        line[1:]
+        for line in result.stdout.splitlines()
+        if line.startswith("+") and not line.startswith("+++")
+    ]
+
+
+def check_hilt_binding(rel_path: str) -> str | None:
+    hilt_checker = PROJECT_ROOT / "agents_dev" / "skills" / "hilt_checker.py"
+    if not hilt_checker.exists():
+        return None
+    result = subprocess.run(
+        [sys.executable, str(hilt_checker), rel_path],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    output = (result.stdout or "").strip()
+    if output.startswith("FAIL:"):
+        return output
+    return None
+
+
+def main() -> int:
+    staged_files = get_staged_files()
+    if not staged_files:
+        print("pre-commit: no staged files to check.")
+        return 0
+
+    errors: list[str] = []
+
+    for rel_path in staged_files:
+        path = PROJECT_ROOT / rel_path
+        filename = path.name
+
+        if filename in BLOCKED_FILENAMES or path.suffix in BLOCKED_EXTENSIONS:
+            errors.append(f"[SECRET/CONFIG] Blocked file staged for commit: {rel_path}")
+            continue
+
+        if not path.is_file():
+            continue
+
+        added_lines = get_staged_added_lines(rel_path)
+        for line in added_lines:
+            for pattern in SECRET_PATTERNS:
+                if pattern.search(line):
+                    errors.append(f"[SECRET] Potential API key/secret added in {rel_path}")
+                    break
+
+        if path.suffix != ".kt":
+            continue
+
+        is_test = (
+            filename.endswith("Test.kt")
+            or "/src/test/" in rel_path
+            or "/src/androidTest/" in rel_path
+        )
+
+        # 1. Domain layer purity
+        if "/domain/" in rel_path and not is_test:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            if re.search(r"^\s*import\s+android(x)?\.", content, re.MULTILINE):
+                errors.append(
+                    f"[ARCHITECTURE] Domain file '{rel_path}' imports Android/AndroidX SDK."
+                )
+
+        # 2. Max 300 lines per Kotlin file (non-test)
+        if not is_test:
+            line_count = len(path.read_text(encoding="utf-8", errors="ignore").splitlines())
+            if line_count > MAX_KT_LINES:
+                errors.append(
+                    f"[METRICS] '{rel_path}' has {line_count} lines (max {MAX_KT_LINES})."
+                )
+
+        # 3. Disallow GlobalScope in newly added lines
+        for line in added_lines:
+            if "GlobalScope" in line:
+                errors.append(f"[CONCURRENCY] Avoid GlobalScope in '{rel_path}'.")
+                break
+
+        # 4. Hilt bindings for UseCases and Repositories
+        if not is_test and ("UseCase" in filename or "Repository" in filename):
+            hilt_err = check_hilt_binding(rel_path)
+            if hilt_err:
+                errors.append(f"[HILT] {hilt_err}")
+
+    if errors:
+        print("\npre-commit FAILED:")
+        for err in errors:
+            print(f"  - {err}")
+        print("\nFix the issues above before committing.")
+        return 1
+
+    print(f"pre-commit PASSED ({len(staged_files)} staged file(s) checked).")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

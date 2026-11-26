@@ -694,6 +694,7 @@
     <string name="sue_compatibility_unsupported_title">SUE not available on this device</string>
     <string name="sue_compatibility_reason_android">SUE requires Android 9.0 (Pie) or higher to run on-device AI.</string>
     <string name="sue_compatibility_reason_ram">SUE requires at least 4 GB of RAM to run on-device AI.</string>
+    <string name="sue_compatibility_reason_disabled">On-device AI is temporarily paused for maintenance. Core features remain operational.</string>
     <string name="sue_compatibility_reason_generic">This device does not meet the hardware requirements to run on-device AI.</string>
 
     <!-- Class Timer Widget -->

@@ -3,12 +3,12 @@ import fnmatch
 import subprocess
 from typing import Dict, Any, Optional, Tuple
 
-# Raíz del proyecto Android (2 niveles arriba de agents_dev/core)
+# Project root (2 levels above agents_dev/core)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
 
 def _resolve_path(path: str) -> str:
-    """Resuelve la ruta para que siempre apunte al proyecto de forma segura."""
+    """Safely resolves the path relative to the project root."""
     if os.path.isabs(path):
         return path
     return os.path.abspath(os.path.join(PROJECT_ROOT, path))
@@ -16,7 +16,7 @@ def _resolve_path(path: str) -> str:
 
 def read_file(path: str, start_line: Optional[int] = None, end_line: Optional[int] = None) -> str:
     """
-    Lee el contenido de un archivo, con soporte opcional de rango de líneas (1-indexed).
+    Reads file content with optional line number range support (1-indexed).
     """
     full_path = _resolve_path(path)
     if not os.path.exists(full_path):
@@ -44,8 +44,8 @@ def read_file(path: str, start_line: Optional[int] = None, end_line: Optional[in
 
 def patch_file(path: str, search: str, replace: str) -> str:
     """
-    Aplica una cirugía de precisión (Search & Replace) sobre un archivo.
-    Garantiza que el bloque 'search' exista exactamente una única vez.
+    Applies surgical precision patching (Search & Replace) to an existing file.
+    Guarantees that the 'search' block exists exactly once.
     """
     full_path = _resolve_path(path)
     if not os.path.exists(full_path):
@@ -81,7 +81,7 @@ def patch_file(path: str, search: str, replace: str) -> str:
 
 def write_new_file(path: str, content: str) -> str:
     """
-    Crea un nuevo archivo con el contenido especificado. Falla si ya existe para evitar sobreescrituras accidentales.
+    Creates a new file with the specified content. Fails if the file already exists to prevent accidental overwrites.
     """
     full_path = _resolve_path(path)
     if os.path.exists(full_path):
@@ -98,10 +98,10 @@ def write_new_file(path: str, content: str) -> str:
 
 def run_command(command: str) -> str:
     """
-    Ejecuta un comando en la raíz del proyecto (útil para Gradle, git, etc.).
+    Runs a shell command in the project root directory (useful for Gradle, git, etc.).
     """
     try:
-        # Si se invoca gradlew, asegurar ruta ejecutable
+        # If invoking gradlew, ensure executable path
         gradle_bin = "./gradlew" if os.name != "nt" else "gradlew.bat"
         if command.startswith("./gradlew") or command.startswith("gradlew"):
             parts = command.split()
@@ -131,14 +131,14 @@ def run_command(command: str) -> str:
 
 def list_files(directory: str = ".", pattern: Optional[str] = None) -> str:
     """
-    Lista archivos y carpetas recursivamente o por patrón desde el directorio indicado.
+    Lists files and directories recursively or matching a pattern from the specified directory.
     """
     full_dir = _resolve_path(directory)
     if not os.path.exists(full_dir):
         return f"ERROR: Directory '{directory}' not found."
 
     results = []
-    # Exclusiones típicas para no saturar contexto
+    # Standard exclusions to prevent context saturation
     ignored_dirs = {".git", ".gradle", "build", ".idea", ".venv_agente", "__pycache__"}
 
     for root, dirs, files in os.walk(full_dir):
@@ -153,7 +153,7 @@ def list_files(directory: str = ".", pattern: Optional[str] = None) -> str:
     if not results:
         return f"No files matched in '{directory}' with pattern '{pattern or '*'}'."
 
-    # Limitar a máximo 150 archivos para no desbordar
+    # Cap to maximum 150 files to prevent overflow
     clipped = results[:150]
     out = "\n".join(clipped)
     if len(results) > 150:
@@ -161,7 +161,7 @@ def list_files(directory: str = ".", pattern: Optional[str] = None) -> str:
     return out
 
 
-# Definiciones de herramientas para el LLM (JSON Schema universal)
+# System tool definitions for the LLM (Universal JSON Schema)
 SYSTEM_TOOLS = [
     {
         "name": "read_file",
@@ -227,7 +227,7 @@ SYSTEM_TOOLS = [
 
 
 def execute_system_tool(name: str, args: Dict[str, Any]) -> str:
-    """Despacha la ejecución de herramientas del sistema."""
+    """Dispatches execution for system tools."""
     if name == "read_file":
         return read_file(args.get("path", ""), args.get("start_line"), args.get("end_line"))
     elif name == "patch_file":

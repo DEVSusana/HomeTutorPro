@@ -2,18 +2,19 @@ import os
 import sys
 import argparse
 
-# Asegurar importaciones relativas
+# Ensure relative imports
 AGENTS_DEV_DIR = os.path.abspath(os.path.dirname(__file__))
 if AGENTS_DEV_DIR not in sys.path:
     sys.path.insert(0, AGENTS_DEV_DIR)
 
 from providers.base import BaseLLMProvider
 from core.engine import AgenticEngine
+from core.orchestrator import FeatureOrchestrator
 from planner.spec_interviewer import SpecInterviewer
 
 
 def get_default_provider(provider_name: str = None, model: str = None) -> BaseLLMProvider:
-    """Selecciona el proveedor según el argumento o las variables de entorno disponibles."""
+    """Selects the LLM provider based on argument or available environment variables."""
     name = (provider_name or "").lower()
 
     if name == "claude" or (not name and os.environ.get("ANTHROPIC_API_KEY")):
@@ -23,8 +24,8 @@ def get_default_provider(provider_name: str = None, model: str = None) -> BaseLL
         from providers.gemini_provider import GeminiProvider
         return GeminiProvider(model=model)
     else:
-        # Fallback por defecto: intentar Gemini si existe o guiar al usuario
-        print("ℹ️ No se detectó proveedor explícito. Intentando inicializar con Gemini...")
+        # Default fallback: attempt Gemini or guide the user
+        print("ℹ️ No explicit provider detected. Attempting to initialize with Gemini...")
         from providers.gemini_provider import GeminiProvider
         return GeminiProvider(model=model)
 
@@ -37,30 +38,39 @@ def main():
     parser.add_argument(
         "--provider",
         choices=["claude", "gemini"],
-        help="LLM Provider to use (claude = Anthropic Claude 3.5 Sonnet, gemini = Google Gemini 2.5 Flash)."
+        help="LLM Provider to use (claude = Anthropic Claude 3.5 Sonnet, gemini = Google Gemini 2.5 Flash / 3.1 Flash-Lite)."
     )
     parser.add_argument(
         "--model",
         type=str,
         default=None,
-        help="Modelo específico a usar (ej: gemini-3.1-flash-lite, gemini-2.5-pro, claude-3-5-sonnet-20241022)."
+        help="Specific model to use (e.g. gemini-3.1-flash-lite, gemini-2.5-pro, claude-3-5-sonnet-20241022)."
     )
 
-    subparsers = parser.add_subparsers(dest="subcommand", help="Modo de operación")
+    subparsers = parser.add_subparsers(dest="subcommand", help="Operating mode")
 
-    # 1. Modo Planificación / Entrevista
-    plan_parser = subparsers.add_parser("plan", help="Fase 1: Entrevista interactiva para definir y cerrar la Spec (.md).")
-    plan_parser.add_argument("idea", type=str, help="Idea o descripción inicial de la feature/cambio.")
+    # 1. Planning / Interview Mode
+    plan_parser = subparsers.add_parser("plan", help="Phase 1: Interactive interview to define and lock the technical Spec (.md).")
+    plan_parser.add_argument("idea", type=str, help="Initial idea or description of the feature or change.")
 
-    # 2. Modo Ejecución Agéntica
-    run_parser = subparsers.add_parser("run", help="Fase 2: Bucle agéntico autónomo con cirugía de precisión y Gradle self-healing.")
-    run_parser.add_argument("goal", nargs="?", default="", help="Objetivo directo a implementar o refactorizar.")
-    run_parser.add_argument("--spec", type=str, help="Ruta al archivo de especificación .md aprobado.")
-    run_parser.add_argument("--iterations", type=int, default=25, help="Límite máximo de iteraciones ReAct (default: 25).")
+    # 2. Agentic Run Mode
+    run_parser = subparsers.add_parser("run", help="Phase 2: Autonomous agentic loop with surgical precision and Gradle self-healing.")
+    run_parser.add_argument("goal", nargs="?", default="", help="Direct objective to implement or refactor.")
+    run_parser.add_argument("--spec", type=str, help="Path to the approved technical specification (.md) file.")
+    run_parser.add_argument("--iterations", type=int, default=25, help="Maximum number of ReAct loop iterations (default: 25).")
+    run_parser.add_argument("--no-blind-review", action="store_true", help="Skip the independent Blind Reviewer step after Builder finishes.")
 
-    # 3. Modo Revisión de Skills (CI Local)
-    review_parser = subparsers.add_parser("review", help="Ejecutar las 5 skills de revisión (Arquitectura, Seguridad, Tests, KDoc, Refactor) localmente.")
-    review_parser.add_argument("files", nargs="*", default=[], help="Archivos Kotlin específicos a auditar (opcional).")
+    # 3. Skills Review Mode (Local CI)
+    review_parser = subparsers.add_parser("review", help="Execute the 5 review skills (Architecture, Security, Tests, KDoc, Refactor) locally.")
+    review_parser.add_argument("files", nargs="*", default=[], help="Specific Kotlin files to audit (optional).")
+
+    # 4. End-to-End Feature Orchestrator Mode
+    orch_parser = subparsers.add_parser("orchestrate", help="Phase 3: Run spec -> worktree -> Builder + BlindReviewer -> optional PR.")
+    orch_parser.add_argument("--spec", required=True, type=str, help="Path to the approved specification (.md).")
+    orch_parser.add_argument("--slug", type=str, default=None, help="Optional worktree/branch slug.")
+    orch_parser.add_argument("--no-worktree", action="store_true", help="Run in current workspace instead of creating a worktree.")
+    orch_parser.add_argument("--create-pr", action="store_true", help="Ask to push and open a GitHub PR after approval.")
+    orch_parser.add_argument("--iterations", type=int, default=25, help="Maximum Builder iterations (default: 25).")
 
     args = parser.parse_args()
 
@@ -75,29 +85,46 @@ def main():
         return
 
     provider = get_default_provider(args.provider, model=args.model)
-    print(f"🤖 Proveedor activo: {provider.__class__.__name__} | Modelo: {provider.model}")
+    print(f"🤖 Active Provider: {provider.__class__.__name__} | Model: {provider.model}")
 
     if args.subcommand == "plan":
         interviewer = SpecInterviewer(provider=provider)
         spec_path = interviewer.interview(args.idea)
         if spec_path:
-            print(f"✅ Proceso de especificación finalizado con éxito.")
+            print(f"✅ Specification process completed successfully.")
         else:
-            print("⚠️ Proceso de especificación cancelado.")
+            print("⚠️ Specification process cancelled.")
 
     elif args.subcommand == "run":
         if not args.goal and not args.spec:
-            print("❌ Error: Debes proporcionar un objetivo entre comillas o una spec con --spec <ruta>.")
+            print("❌ Error: You must provide a goal in quotes or a spec with --spec <path>.")
             sys.exit(1)
 
-        goal = args.goal or f"Implementar y verificar completamente la especificación en '{args.spec}'."
-        engine = AgenticEngine(provider=provider, max_iterations=args.iterations)
+        goal = args.goal or f"Fully implement and verify the specification in '{args.spec}'."
+        engine = AgenticEngine(
+            provider=provider,
+            max_iterations=args.iterations,
+            enable_blind_review=not args.no_blind_review,
+        )
         success = engine.run(goal=goal, spec_file=args.spec)
 
         if success:
-            print("\n🎉 ¡Misión agéntica completada y aprobada con éxito!")
+            print("\n🎉 Agentic mission completed and approved successfully!")
         else:
-            print("\n❌ Misión agéntica finalizada o cambios revertidos.")
+            print("\n❌ Agentic mission finished or changes reverted.")
+
+    elif args.subcommand == "orchestrate":
+        orchestrator = FeatureOrchestrator(provider=provider, max_iterations=args.iterations)
+        success = orchestrator.run(
+            spec_file=args.spec,
+            slug=args.slug,
+            use_worktree=not args.no_worktree,
+            create_pr=args.create_pr,
+        )
+        if success:
+            print("\n🎉 Feature orchestration completed!")
+        else:
+            print("\n❌ Feature orchestration stopped or cancelled.")
 
 
 if __name__ == "__main__":

@@ -1,15 +1,15 @@
-# 🎤 Guía Maestra para Ponencia: Integración de IA On-Device y RAG Local en Android con MediaPipe y Gemma
+# 🧠 Guía Maestra: Integración de IA On-Device y RAG Local en Android con MediaPipe y Gemma
 
-> **Documento de Referencia Técnica y Preparación para Ponencia (DevFest / Tech Conferences)**  
+> **Documento de Referencia Técnica y Arquitectura de Producción**  
 > **Autora:** Susana Córdoba Serrano  
 > **Proyecto / Caso de Estudio Real:** HomeTutorPro — Asistente Inteligente Local "SUE" (*Smart User Entity*)  
 > **Nivel:** Intermedio – Avanzado (Android Developers, Mobile Architects, AI Engineers)
 
 ---
 
-## 📌 Resumen Ejecutivo de la Charla (Abstract para CFP)
+## 📌 Resumen Ejecutivo y Caso de Estudio
 
-> **Título sugerido:** *"De la Nube al Bolsillo: Cómo integrar un LLM 100% On-Device con RAG Local y MediaPipe en Android"*  
+> **Título:** *"De la Nube al Bolsillo: Cómo integrar un LLM 100% On-Device con RAG Local y MediaPipe en Android"*  
 > **Subtítulo:** *Arquitectura limpia, cero costes de API, privacidad estricta (RGPD) y gestión avanzada de memoria en Android 15-17.*
 >
 > **Abstract:**  
@@ -32,7 +32,7 @@
 10. [Código de Producción: Componentes Clave Explicados](#10-código-de-producción-componentes-clave-explicados)
 11. [Calidad, Testing y Evaluación Continua (Prompt Evaluation Benchmark)](#11-calidad-testing-y-evaluación-continua-prompt-evaluation-benchmark)
 12. [Q&A Shield: Respuestas a las Preguntas más Difíciles](#12-qa-shield-respuestas-a-las-preguntas-más-difíciles)
-13. [Estructura y Tiempos de la Ponencia (Guion para 40 Minutos)](#13-estructura-y-tiempos-de-la-ponencia)
+13. [Estructura Modular y Desglose de Tiempos (Sesión de 40 Minutos)](#13-estructura-modular-y-desglose-de-tiempos)
 
 ---
 
@@ -684,7 +684,7 @@ Prepárate para responder a estas preguntas habituales de arquitectos senior e i
 
 ---
 
-## 13. Estructura y Tiempos de la Ponencia (Guion para 40 Minutos)
+## 13. Estructura Modular y Desglose de Tiempos
 
 | Minuto | Bloque | Contenido / Diapositivas |
 |---|---|---|
@@ -698,4 +698,4 @@ Prepárate para responder a estas preguntas habituales de arquitectos senior e i
 
 ---
 
-> 💡 **Consejo para el escenario:** Enfatiza siempre que **la mejor IA en un móvil es la que sabe cuándo NO ejecutarse**. Combinar código tradicional determinista, normalización fonética y modelos generativos es la clave para crear aplicaciones comerciales rápidas, baratas y fiables.
+> 💡 **Lección de Arquitectura:** Enfatiza siempre que **la mejor IA en un móvil es la que sabe cuándo NO ejecutarse**. Combinar código tradicional determinista, normalización fonética y modelos generativos es la clave para crear aplicaciones comerciales rápidas, baratas y fiables.

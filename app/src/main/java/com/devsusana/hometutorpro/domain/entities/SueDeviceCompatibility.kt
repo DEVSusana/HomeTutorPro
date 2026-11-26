@@ -23,5 +23,8 @@ enum class SueUnsupportedReason {
     UNSUPPORTED_ANDROID_VERSION,
 
     /** The device has less than the minimum required physical RAM (e.g. < 3.5 GB) or is low-RAM. */
-    INSUFFICIENT_RAM
+    INSUFFICIENT_RAM,
+
+    /** The local AI feature has been temporarily disabled via remote configuration. */
+    DISABLED_BY_CONFIG
 }

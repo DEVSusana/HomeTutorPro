@@ -37,7 +37,7 @@ def get_client():
             "Export it as an environment variable or set it in config.py. "
             "See config.example.py for details."
         )
-    return genai.Client(api_key=API_KEY)
+    return genai.Client(api_key=API_KEY, http_options={"api_version": "v1beta"})
 
 
 class MockResponse:
@@ -45,7 +45,7 @@ class MockResponse:
         self.text = text
 
 
-def generate_content_with_retry(client, contents, config_args=None, max_retries=3, initial_delay=35):
+def generate_content_with_retry(client, contents, config_args=None, max_retries=2, initial_delay=8):
     """Generates content using Gemini, with exponential backoff and jitter on 429/Resource Exhausted errors."""
     delay = initial_delay
     for attempt in range(max_retries + 1):
@@ -63,12 +63,21 @@ def generate_content_with_retry(client, contents, config_args=None, max_retries=
                 )
         except Exception as e:
             err_str = str(e)
+            if "JSON mode is not enabled" in err_str and config_args is not None:
+                # Resilient fallback: Retry immediately without forced response_mime_type
+                try:
+                    return client.models.generate_content(
+                        model=MODEL_ID,
+                        contents=contents
+                    )
+                except Exception as inner_e:
+                    err_str = str(inner_e)
             is_transient = any(code in err_str for code in [
                 "429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE", "500", "INTERNAL", "high traffic"
             ])
             if is_transient:
                 if attempt < max_retries:
-                    jitter = random.uniform(1.0, 5.0)
+                    jitter = random.uniform(1.0, 3.0)
                     retry_base = 5.0 if ("503" in err_str or "UNAVAILABLE" in err_str or "high traffic" in err_str) else delay
                     sleep_time = retry_base + jitter
                     print(f"\n⚠️ Transient API Error ({err_str[:60]}...). Retrying in {sleep_time:.1f}s (Attempt {attempt + 1}/{max_retries})...")
@@ -76,23 +85,30 @@ def generate_content_with_retry(client, contents, config_args=None, max_retries=
                     delay *= 2
                     continue
                 else:
+                    # If free API quota is exhausted, provide a mock response for local testing
+                    print("\n🛑 Quota exhausted. Activating Mock Fallback for developer loop test...")
                     contents_str = str(contents)
+                    
+                    # Case 1: Surgical Refactoring Test (JSON replacements)
                     if "StudentRepositoryImpl_temp" in contents_str and "replacements" in contents_str and "ERROR LOG" not in contents_str:
                         mock_json = """{
   "replacements": [
     {
-      "search": "    fun calcular_saldo_pendiente() {\\n        // Violaciones: Nombre en español, snake_case y variable no utilizada.\\n        val saldo_alumno = 100\\n        println(\\"Prueba de refactor\\")\\n    }",
-      "replace": "    fun calculatePendingBalance() {\\n        println(\\"Prueba de refactor\\")\\n    }"
+      "search": "    fun calculate_pending_balance() {\\n        // Violations: Snake_case naming and unused variable.\\n        val student_balance = 100\\n        println(\\"Refactor test\\")\\n    }",
+      "replace": "    fun calculatePendingBalance() {\\n        println(\\"Refactor test\\")\\n    }"
     }
   ]
 }"""
                         return MockResponse(mock_json)
+                    
+                    # Case 2: Self-healing compilation error test
                     elif "StudentRepositoryImpl_temp" in contents_str and "ERROR LOG" in contents_str:
+                        # Return JSON patch that removes the broken compilation line
                         mock_json_fix = """{
   "replacements": [
     {
-      "search": "val error_de_compilacion =",
-      "replace": "// Corregido: Remoción de línea inválida"
+      "search": "val compilation_error =",
+      "replace": "// Fixed: Removed invalid line"
     }
   ]
 }"""

@@ -3,37 +3,49 @@ package com.devsusana.hometutorpro.presentation.student_detail.components
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.devsusana.hometutorpro.R
 import com.devsusana.hometutorpro.domain.entities.Student
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import com.devsusana.hometutorpro.presentation.student_detail.StudentDetailEvent
 import com.devsusana.hometutorpro.ui.theme.HomeTutorProTheme
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import com.devsusana.hometutorpro.domain.utils.StudentColorUtil
 
 /**
  * Tab displaying personal information of a student.
@@ -202,240 +214,28 @@ fun PersonalInfoTab(
 
             if (isEditMode) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.student_detail_color_label),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                // Color Picker Row (Scrollable)
-                androidx.compose.foundation.lazy.LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 4.dp)
-                ) {
-                    item {
-                        // "Auto" Option (represented by a multicolored or primary-colored circle with an icon)
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .border(
-                                    width = if (student.color == null) 2.dp else 0.dp,
-                                    color = if (student.color == null) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                    shape = CircleShape
-                                )
-                                .clickable { onEvent(StudentDetailEvent.StudentChange(student.copy(color = null))) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = stringResource(R.string.student_detail_color_auto),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-
-                    // All 20 Preset Color Options
-                    items(StudentColorUtil.PRESET_COLORS) { colorInt ->
-                        val isSelected = student.color == colorInt
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(colorInt))
-                                .border(
-                                    width = if (isSelected) 3.dp else 0.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
-                                    shape = CircleShape
-                                )
-                                .clickable { onEvent(StudentDetailEvent.StudentChange(student.copy(color = colorInt))) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = stringResource(R.string.cd_color_selected),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                Text(
-                    text = stringResource(R.string.student_detail_color_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+                StudentColorPickerSection(
+                    selectedColor = student.color,
+                    onColorSelected = { onEvent(StudentDetailEvent.StudentChange(student.copy(color = it))) }
                 )
             }
         }
 
         // Contact Section
-        SectionCard(
-            title = stringResource(R.string.student_detail_parent_phone),
-            icon = Icons.Default.Phone
-        ) {
-            OutlinedTextField(
-                value = student.parentPhones,
-                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(parentPhones = it))) },
-                label = { Text(stringResource(id = R.string.student_detail_parent_phone)) },
-                enabled = isEditMode,
-                modifier = Modifier.fillMaxWidth().testTag("parent_phones_field"),
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = stringResource(R.string.cd_phone_icon)) }
-            )
+        StudentContactSection(
+            student = student,
+            isEditMode = isEditMode,
+            onEvent = onEvent
+        )
 
-            Spacer(modifier = Modifier.height(12.dp))
+        // Academic and Notes Section
+        StudentAcademicNotesSection(
+            student = student,
+            isEditMode = isEditMode,
+            onEvent = onEvent
+        )
 
-            OutlinedTextField(
-                value = student.studentPhone,
-                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(studentPhone = it))) },
-                label = { Text(stringResource(id = R.string.student_detail_student_phone)) },
-                enabled = isEditMode,
-                modifier = Modifier.fillMaxWidth().testTag("student_phone_field"),
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = stringResource(R.string.cd_phone_icon)) }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            student.studentEmail?.let {
-                OutlinedTextField(
-                    value = it,
-                    onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(studentEmail = it))) },
-                    label = { Text(stringResource(id = R.string.student_detail_student_email)) },
-                    enabled = isEditMode,
-                    modifier = Modifier.fillMaxWidth().testTag("student_email_field"),
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = stringResource(R.string.cd_email_icon)) }
-                )
-            }
-        }
-
-        // Academic Section
-        SectionCard(
-            title = stringResource(R.string.student_detail_course),
-            icon = Icons.Default.School
-        ) {
-            OutlinedTextField(
-                value = student.course,
-                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(course = it))) },
-                label = { Text(stringResource(id = R.string.student_detail_course)) },
-                enabled = isEditMode,
-                modifier = Modifier.fillMaxWidth().testTag("course_field"),
-                leadingIcon = { Icon(Icons.Default.School, contentDescription = stringResource(R.string.cd_school_icon)) }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = student.subjects,
-                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(subjects = it))) },
-                label = { Text(stringResource(id = R.string.student_detail_subjects)) },
-                enabled = isEditMode,
-                modifier = Modifier.fillMaxWidth().testTag("subjects_field"),
-                leadingIcon = { Icon(Icons.Default.Book, contentDescription = stringResource(R.string.cd_book_icon)) }
-            )
-        }
-        
-        // Notes Section
-        SectionCard(
-            title = stringResource(R.string.student_detail_notes),
-            icon = Icons.Default.Notes
-        ) {
-            OutlinedTextField(
-                value = student.notes,
-                onValueChange = { onEvent(StudentDetailEvent.StudentChange(student.copy(notes = it))) },
-                label = { Text(stringResource(id = R.string.student_detail_notes)) },
-                readOnly = !isEditMode,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .defaultMinSize(minHeight = 150.dp)
-                    .testTag("notes_field"),
-                placeholder = { Text(stringResource(R.string.student_detail_notes_hint)) },
-                leadingIcon = { 
-                    Icon(
-                        Icons.Default.Notes, 
-                        contentDescription = stringResource(R.string.cd_file_icon)
-                    ) 
-                },
-                colors = if (!isEditMode) {
-                    OutlinedTextFieldDefaults.colors(
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    OutlinedTextFieldDefaults.colors()
-                }
-            )
-        }
-        
         // Bottom spacing
         Spacer(modifier = Modifier.height(80.dp))
-    }
-}
-
-@Preview(showBackground = true, name = "Personal Info Tab - Edit Mode")
-@Composable
-private fun PersonalInfoTabEditPreview() {
-    val mockStudent = Student(
-        id = "1",
-        name = "Susana González",
-        age = 25,
-        course = "Matemáticas",
-        address = "Calle Principal 123",
-        parentPhones = "+34 600 123 456",
-        studentPhone = "+34 600 654 321",
-        studentEmail = "susana@example.com",
-        subjects = "Álgebra, Geometría",
-        notes = "Estudiante destacada",
-        educationalAttention = "",
-        pendingBalance = 0.0,
-        pricePerHour = 20.0,
-        isActive = true
-    )
-    
-    HomeTutorProTheme {
-        PersonalInfoTab(
-            student = mockStudent,
-            isEditMode = true,
-            isNewStudent = false,
-            context = LocalContext.current,
-            onEvent = {}
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Personal Info Tab - View Mode")
-@Composable
-private fun PersonalInfoTabViewPreview() {
-    val mockStudent = Student(
-        id = "1",
-        name = "Susana González",
-        age = 25,
-        course = "Matemáticas",
-        address = "Calle Principal 123",
-        parentPhones = "+34 600 123 456",
-        studentPhone = "+34 600 654 321",
-        studentEmail = "susana@example.com",
-        subjects = "Álgebra, Geometría",
-        notes = "Estudiante destacada",
-        educationalAttention = "",
-        pendingBalance = 0.0,
-        pricePerHour = 20.0,
-        isActive = true
-    )
-    
-    HomeTutorProTheme {
-        PersonalInfoTab(
-            student = mockStudent,
-            isEditMode = false,
-            isNewStudent = false,
-            context = LocalContext.current,
-            onEvent = {}
-        )
     }
 }

@@ -86,5 +86,17 @@ abstract class RepositoryModule {
     abstract fun bindDataMigrator(
         localDataMigrator: com.devsusana.hometutorpro.data.migration.LocalDataMigrator
     ): com.devsusana.hometutorpro.domain.repository.DataMigrator
+
+    @Binds
+    @Singleton
+    abstract fun bindConfigRepository(
+        firebaseConfigRepositoryImpl: FirebaseConfigRepositoryImpl
+    ): IConfigRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWidgetUpdater(
+        widgetUpdaterImpl: com.devsusana.hometutorpro.presentation.widget.WidgetUpdaterImpl
+    ): IWidgetUpdater
 }
 

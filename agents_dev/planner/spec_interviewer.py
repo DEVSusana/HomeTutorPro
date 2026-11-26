@@ -1,5 +1,6 @@
 import os
 import re
+import unicodedata
 from typing import List, Dict, Any
 from providers.base import BaseLLMProvider
 from core.system_tools import PROJECT_ROOT
@@ -7,9 +8,9 @@ from core.system_tools import PROJECT_ROOT
 
 class SpecInterviewer:
     """
-    Motor de Entrevista de Especificaciones (Fase 1: Pensar y Acordar).
-    Dialoga interactivamente con el desarrollador hasta que todos los requisitos
-    estén perfectamente definidos y confirmados explícitamente.
+    Specification Interview Engine (Phase 1: Think and Agree).
+    Interactively dialogues with the developer until all technical requirements
+    and architecture boundaries are clearly defined and approved.
     """
 
     def __init__(self, provider: BaseLLMProvider):
@@ -29,102 +30,197 @@ class SpecInterviewer:
                     pass
         return "\n\n".join(guidelines)
 
+    def _load_template(self) -> str:
+        """Loads specs/_TEMPLATE.md if present, returning a minimal contract fallback otherwise."""
+        template_path = os.path.join(self.specs_dir, "_TEMPLATE.md")
+        if os.path.exists(template_path):
+            try:
+                with open(template_path, "r", encoding="utf-8") as f:
+                    return f.read()
+            except Exception:
+                pass
+        return (
+            "# SPEC: [Short title]\n"
+            "- **Estado:** DRAFT | APPROVED\n"
+            "- **Rama / Worktree:** `feat/<slug>`\n\n"
+            "## 1. Objetivo\n...\n\n"
+            "## 2. Alcance (Scope) — Archivos permitidos\n- **Modificar:**\n- **Crear:**\n- **PROHIBIDO modificar:**\n\n"
+            "## 3. Reglas de negocio aplicables\n...\n\n"
+            "## 4. Fuera de alcance (Out of Scope)\n...\n\n"
+            "## 5. Criterios de aceptación (Verificables)\n- [ ] **AC1:** ...\n\n"
+            "## 6. Comandos de verificación obligatorios\n```bash\n./gradlew compileDebugKotlin\n```"
+        )
+
     def _build_interviewer_prompt(self) -> str:
+        template = self._load_template()
         return f"""You are the Lead Android Architect for HomeTutorPro conducting a Spec Planning Interview.
-Your goal is to help the developer convert their feature idea into a crystal-clear, unambiguous Technical Specification (.md).
+Your goal is to help the developer convert their feature idea into a crystal-clear, unambiguous Technical Specification (.md) contract.
 
 {self._load_guidelines()}
+
+### MANDATORY SPEC CONTRACT TEMPLATE:
+```markdown
+{template}
+```
 
 ### YOUR INTERVIEW PROTOCOL:
 1. **Analyze the Feature Idea:** Compare it against existing Clean Architecture boundaries, Room persistence, and domain policies in BUSINESS_RULES.md.
 2. **Identify Ambiguities & Edge Cases:** Ask 2-3 precise questions per turn focusing on:
-   - UI vs Domain responsibilities.
-   - Database entities / migrations needed.
+   - UI vs Domain responsibilities and exact files/packages to touch (Scope).
+   - Database entities / migrations needed (or explicitly mark them Out of Scope).
    - Exception handling and business rule impacts (e.g. negative balances, calendar exceptions).
-   - Test criteria.
-3. **Progressive Drafting:** In each reply, provide:
-   - Your questions or clarifications.
-   - An updated DRAFT of the specification formatted in clean Markdown.
+   - Verifiable acceptance criteria (Given / When / Then) and Gradle verification commands.
+3. **Progressive Contract Drafting (CRITICAL FORMAT):**
+   - Put your conversational questions or clarifications OUTSIDE the spec markers.
+   - ALWAYS wrap the updated specification draft strictly between `<!-- SPEC_START -->` and `<!-- SPEC_END -->` markers, following the exact structure of the template above.
+   - Keep `Estado: DRAFT` while interviewing; only the final saved contract becomes `APPROVED`.
 4. **STRICT CONFIRMATION GATE:**
-   - You MUST NOT consider the spec final until the developer explicitly states they are 100% satisfied and approves it (e.g. typing 'OK', 'Aprobado', 'Sí').
+   - You MUST NOT consider the spec final until the developer explicitly states they are 100% satisfied and approves it (e.g. typing 'OK', 'Approved', 'Yes').
    - In each turn, remind the developer that they can keep refining or approve with 'OK' when satisfied.
 """
 
+    def _extract_clean_spec(self, latest_reply: str, messages: List[Dict[str, Any]], system_prompt: str) -> str:
+        """Extracts the contract block between SPEC_START/SPEC_END or asks the model to consolidate it."""
+        match = re.search(r"<!--\s*SPEC_START\s*-->(.*?)<!--\s*SPEC_END\s*-->", latest_reply, re.DOTALL)
+        if match:
+            clean_spec = match.group(1).strip()
+        else:
+            # Fallback: request a clean, chat-free contract matching _TEMPLATE.md
+            consolidation_messages = list(messages) + [
+                {"role": "assistant", "content": latest_reply},
+                {
+                    "role": "user",
+                    "content": (
+                        "The spec is approved. Output ONLY the final clean Markdown specification following the template, "
+                        "with no greetings, no questions, and no extra commentary."
+                    ),
+                },
+            ]
+            try:
+                response = self.provider.chat(
+                    messages=consolidation_messages,
+                    tools=[],
+                    system_prompt=system_prompt,
+                )
+                clean_spec = response.content.strip()
+            except Exception:
+                clean_spec = latest_reply.strip()
+
+        clean_spec = re.sub(
+            r"(\*\*Estado:\*\*\s*)(DRAFT\s*\|\s*APPROVED|DRAFT)",
+            r"\1APPROVED",
+            clean_spec,
+            flags=re.IGNORECASE,
+        )
+        return clean_spec
+
+    def _build_spec_slug(self, clean_spec: str, initial_idea: str, max_len: int = 45) -> str:
+        """Builds a readable ASCII snake_case filename slug from the approved spec or idea."""
+        candidate = ""
+        branch_match = re.search(r"feat/([a-zA-Z0-9_-]+)", clean_spec)
+        if branch_match and "<" not in branch_match.group(1):
+            candidate = branch_match.group(1)
+        else:
+            title_match = re.search(r"^#\s*(?:SPEC(?:IFICATION)?:\s*)?(.+)$", clean_spec, re.MULTILINE)
+            if title_match and "[" not in title_match.group(1):
+                candidate = title_match.group(1)
+
+        if not candidate.strip():
+            candidate = initial_idea
+
+        ascii_text = (
+            unicodedata.normalize("NFKD", candidate)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .lower()
+        )
+        slug = re.sub(r"[^a-z0-9]+", "_", ascii_text).strip("_")
+        if len(slug) > max_len:
+            truncated = slug[:max_len]
+            if "_" in truncated:
+                truncated = truncated.rsplit("_", 1)[0]
+            slug = truncated.strip("_")
+        return slug or "feature_spec"
+
     def interview(self, initial_idea: str) -> str:
         """
-        Sostiene la entrevista interactiva con el desarrollador hasta la aprobación final.
+        Conducts the interactive interview with the developer until final approval.
         """
         system_prompt = self._build_interviewer_prompt()
         messages: List[Dict[str, Any]] = [
-            {"role": "user", "content": f"Quiero definir la especificación para esta feature/tarea: '{initial_idea}'"}
+            {"role": "user", "content": f"I want to define the technical specification for this feature/task: '{initial_idea}'"}
         ]
 
         print("\n" + "📋" + "═" * 70)
-        print("🧠 [FASE 1: MODO ENTREVISTA DE ESPECIFICACIONES]")
-        print(f"💡 Idea inicial: {initial_idea}")
+        print("🧠 [PHASE 1: SPECIFICATION INTERVIEW MODE]")
+        print(f"💡 Initial idea: {initial_idea}")
         print("═" * 72)
-        print("El agente revisará las reglas de arquitectura y te entrevistará para cerrar la spec.")
-        print("Nota: El proceso NO terminará hasta que tú confirmes que todo está 100% claro.\n")
+        print("The agent will review architecture guidelines and interview you to finalize the specification.")
+        print("Note: The process will NOT finish until you explicitly approve the spec.\n")
 
         latest_spec_draft = ""
         turn = 1
 
         while True:
-            print(f"⏳ [Turno {turn}] El arquitecto está analizando...")
+            print(f"⏳ [Turn {turn}] Architect is analyzing...")
             try:
                 response = self.provider.chat(
                     messages=messages,
-                    tools=[],  # En la entrevista dialogamos directamente sin tools
+                    tools=[],  # Direct dialogue without tools during planning interview
                     system_prompt=system_prompt
                 )
             except Exception as e:
-                print(f"❌ Error conectando con el modelo: {e}")
+                print(f"❌ Error connecting to model: {e}")
                 return ""
 
             agent_reply = response.content
             latest_spec_draft = agent_reply
 
             print("\n" + "━" * 70)
-            print("🤖 [RESPUESTA DEL ARQUITECTO]")
+            print("🤖 [ARCHITECT RESPONSE]")
             print(agent_reply)
             print("━" * 70)
 
-            # Gate de confirmación explícito
-            print("\n👉 ¿Qué deseas hacer?")
-            print("   - Escribe 'OK' o 'APROBADO' si la spec está 100% clara y lista para guardar.")
-            print("   - O escribe tus dudas, ajustes o respuestas a las preguntas anteriores:")
+            # Explicit confirmation gate
+            print("\n👉 What would you like to do?")
+            print("   - Type 'OK' or 'APPROVED' if the spec is 100% clear and ready to save.")
+            print("   - Or enter your feedback, adjustments, or answers to the questions above:")
 
             try:
-                user_feedback = input("\nTu respuesta: ").strip()
+                user_feedback = input("\nYour response: ").strip()
                 while not user_feedback:
-                    user_feedback = input("Por favor ingresa una respuesta: ").strip()
+                    user_feedback = input("Please enter a response: ").strip()
             except (EOFError, KeyboardInterrupt):
-                print("\nEntrevista cancelada por el usuario.")
+                print("\nInterview cancelled by user.")
                 return ""
 
-            # Verificación del Gate
-            approval_keywords = {"ok", "aprobado", "aprobar", "sí", "si", "yes", "listo"}
+            # Gate verification (supporting English & Spanish confirmation keywords)
+            approval_keywords = {"ok", "approved", "approve", "yes", "y", "done", "aprobado", "aprobar", "sí", "si", "listo"}
             if user_feedback.lower() in approval_keywords:
-                print("\n🎉 ¡Especificación aprobada al 100% por el desarrollador!")
+                print("\n🎉 Specification 100% approved by the developer!")
                 break
 
-            # Agregar turno al historial y continuar
+            # Add turn to history and continue
             messages.append({"role": "assistant", "content": agent_reply})
             messages.append({"role": "user", "content": user_feedback})
             turn += 1
 
-        # Extraer y guardar la spec en specs/<slug>.md
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", initial_idea.lower()).strip("_")[:30] or "feature_spec"
+        # Extract clean contract and save spec into specs/<slug>.md
+        clean_spec = self._extract_clean_spec(latest_spec_draft, messages, system_prompt)
+        slug = self._build_spec_slug(clean_spec, initial_idea)
         spec_filename = f"{slug}.md"
         spec_path = os.path.join(self.specs_dir, spec_filename)
 
         with open(spec_path, "w", encoding="utf-8") as f:
-            f.write(f"# SPECIFICATION: {initial_idea.upper()}\n\n{latest_spec_draft}\n")
+            if clean_spec.lstrip().startswith("# "):
+                f.write(f"{clean_spec}\n")
+            else:
+                f.write(f"# SPEC: {initial_idea}\n\n{clean_spec}\n")
 
         rel_spec_path = os.path.relpath(spec_path, PROJECT_ROOT)
         print("\n" + "💾" + "═" * 70)
-        print(f"✅ Spec guardada exitosamente en: {rel_spec_path}")
-        print(f"🚀 Ahora puedes lanzar el bucle autónomo cuando desees:")
+        print(f"✅ Spec successfully saved to: {rel_spec_path}")
+        print(f"🚀 You can now launch the autonomous loop whenever you want:")
         print(f"   python -m agents_dev run --spec {rel_spec_path}")
         print("═" * 72 + "\n")
 

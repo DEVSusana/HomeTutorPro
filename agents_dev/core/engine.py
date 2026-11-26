@@ -6,21 +6,33 @@ from providers.base import BaseLLMProvider
 from core.system_tools import SYSTEM_TOOLS, execute_system_tool, PROJECT_ROOT
 from core.skill_tools import SKILL_TOOLS, execute_skill_tool
 from core.interactive import INTERACTIVE_TOOLS, execute_interactive_tool, show_diff_and_confirm
+from core.blind_reviewer import BlindReviewer
 
 
 class AgenticEngine:
     """
-    Motor Agéntico Autónomo universal basado en el bucle ReAct (Reason + Act).
-    Gobierna la ejecución autónoma, la autocorrección mediante Gradle y la confirmación final.
+    Universal Autonomous Agentic Engine based on the ReAct (Reason + Act) loop.
+    Governs autonomous execution, Gradle self-healing compilation/tests,
+    independent Blind Reviewer verification, and final human confirmation.
     """
 
-    def __init__(self, provider: BaseLLMProvider, max_iterations: int = 30):
+    def __init__(
+        self,
+        provider: BaseLLMProvider,
+        max_iterations: int = 30,
+        enable_blind_review: bool = True,
+        review_provider: Optional[BaseLLMProvider] = None,
+        max_review_rounds: int = 1,
+    ):
         self.provider = provider
         self.max_iterations = max_iterations
+        self.enable_blind_review = enable_blind_review
+        self.review_provider = review_provider or provider
+        self.max_review_rounds = max_review_rounds
         self.tools = SYSTEM_TOOLS + SKILL_TOOLS + INTERACTIVE_TOOLS
 
     def _load_project_guidelines(self) -> str:
-        """Carga las reglas arquitectónicas y de negocio del proyecto."""
+        """Loads project architecture and business rules."""
         guidelines = []
         agents_md = os.path.join(PROJECT_ROOT, "AGENTS.md")
         business_md = os.path.join(PROJECT_ROOT, "BUSINESS_RULES.md")
@@ -42,7 +54,7 @@ class AgenticEngine:
         return "\n\n".join(guidelines)
 
     def _build_system_prompt(self, spec_content: Optional[str] = None) -> str:
-        """Construye las directivas de comportamiento del agente."""
+        """Constructs the agent's behavior and system directives."""
         base_prompt = f"""You are Antigravity Core, a Senior Android Staff Engineer operating as an autonomous development agent.
 You are running directly inside the user's project workspace.
 
@@ -82,14 +94,11 @@ You are running directly inside the user's project workspace.
         return base_prompt
 
     def _dispatch_tool(self, name: str, args: Dict[str, Any]) -> str:
-        """Despacha la ejecución de la herramienta a la capa correspondiente."""
-        # Herramientas del sistema
+        """Dispatches tool execution to the appropriate layer."""
         if any(t["name"] == name for t in SYSTEM_TOOLS):
             return execute_system_tool(name, args)
-        # Herramientas de skills
         elif any(t["name"] == name for t in SKILL_TOOLS):
             return execute_skill_tool(name, args)
-        # Herramientas interactivas
         elif any(t["name"] == name for t in INTERACTIVE_TOOLS):
             return execute_interactive_tool(name, args)
         else:
@@ -97,7 +106,7 @@ You are running directly inside the user's project workspace.
 
     def run(self, goal: str, spec_file: Optional[str] = None) -> bool:
         """
-        Ejecuta el bucle agéntico autónomo hasta cumplir el objetivo.
+        Executes the autonomous agentic loop until the goal is achieved.
         """
         spec_content = None
         if spec_file:
@@ -105,9 +114,9 @@ You are running directly inside the user's project workspace.
             if os.path.exists(full_spec_path):
                 with open(full_spec_path, "r", encoding="utf-8") as f:
                     spec_content = f.read()
-                print(f"📄 Spec cargada: {os.path.basename(full_spec_path)}")
+                print(f"📄 Spec loaded: {os.path.basename(full_spec_path)}")
             else:
-                print(f"⚠️ Archivo spec '{spec_file}' no encontrado. Procediendo con el objetivo directo.")
+                print(f"⚠️ Spec file '{spec_file}' not found. Proceeding with direct goal.")
 
         system_prompt = self._build_system_prompt(spec_content)
         messages: List[Dict[str, Any]] = [
@@ -115,15 +124,16 @@ You are running directly inside the user's project workspace.
         ]
 
         print("\n" + "🚀" + "═" * 70)
-        print(f"🤖 [INICIANDO BUCLE AGÉNTICO AUTÓNOMO]")
-        print(f"🎯 Objetivo: {goal}")
+        print(f"🤖 [STARTING AUTONOMOUS AGENTIC LOOP]")
+        print(f"🎯 Goal: {goal}")
         print("═" * 72)
 
         iteration = 0
+        review_round = 0
         current_limit = self.max_iterations
 
         while iteration < current_limit:
-            print(f"\n🧠 [Iteración {iteration + 1}/{current_limit}] Pensando...")
+            print(f"\n🧠 [Iteration {iteration + 1}/{current_limit}] Thinking...")
             try:
                 response = self.provider.chat(
                     messages=messages,
@@ -131,19 +141,43 @@ You are running directly inside the user's project workspace.
                     system_prompt=system_prompt
                 )
             except Exception as e:
-                print(f"❌ Error en llamada al LLM: {e}")
+                print(f"❌ Error in LLM call: {e}")
                 return False
 
-            # Si el modelo no pide herramientas, ha terminado su trabajo
+            # If the model requests no tools, hand off to the independent Blind Reviewer
             if not response.has_tool_calls:
                 print("\n" + "🎯" + "═" * 70)
-                print("✅ [EL AGENTE HA COMPLETADO LA TAREA]")
+                print("✅ [BUILDER FINISHED IMPLEMENTATION]")
                 print("═" * 72)
                 print(f"\n{response.content}\n")
-                # Fase final Human-in-the-Loop
+
+                if self.enable_blind_review:
+                    print("\n" + "🔍" + "═" * 70)
+                    print("🕵️ [PHASE 2B: INDEPENDENT BLIND REVIEWER]")
+                    print("═" * 72)
+                    reviewer = BlindReviewer(provider=self.review_provider)
+                    review_result = reviewer.review(goal=goal, spec_content=spec_content)
+                    print(f"\n{review_result.report}\n")
+
+                    if not review_result.passed and review_round < self.max_review_rounds:
+                        review_round += 1
+                        print(f"🔁 Blind Reviewer rejected changes (round {review_round}/{self.max_review_rounds}). Returning findings to Builder...")
+                        messages.append({"role": "assistant", "content": response.content or ""})
+                        messages.append({
+                            "role": "user",
+                            "content": (
+                                "An independent Blind Reviewer inspected your git diff against the spec and REJECTED it.\n"
+                                "Fix ONLY the issues listed below, re-run verification, and stop when resolved:\n\n"
+                                f"{review_result.report}"
+                            ),
+                        })
+                        iteration += 1
+                        continue
+
+                # Final Human-in-the-Loop phase
                 return show_diff_and_confirm()
 
-            # Añadimos la respuesta del asistente con sus tool calls y raw content al historial
+            # Append assistant message with its tool calls and raw content to history
             messages.append({
                 "role": "assistant",
                 "content": response.content,
@@ -153,19 +187,19 @@ You are running directly inside the user's project workspace.
                 "raw": response.raw
             })
 
-            # Si el LLM emitió texto explicativo además de tools, lo mostramos
+            # If the LLM outputted explanatory text, display it
             if response.content:
                 print(f"💬 {response.content}")
 
-            # Ejecutamos cada tool call y agrupamos las respuestas para el proveedor
+            # Execute each tool call and aggregate responses for the provider
             tool_responses = []
             for tool_call in response.tool_calls:
-                print(f"🛠️  Ejecutando: {tool_call.name}({tool_call.args})")
+                print(f"🛠️  Executing: {tool_call.name}({tool_call.args})")
                 tool_output = self._dispatch_tool(tool_call.name, tool_call.args)
 
-                # Mostramos un extracto limpio del resultado
+                # Show a clean snippet of the result
                 first_line = tool_output.strip().split("\n")[0] if tool_output else "Empty output"
-                print(f"    ↳ Resultado: {first_line[:90]}")
+                print(f"    ↳ Result: {first_line[:90]}")
 
                 tool_responses.append({
                     "tool_call_id": tool_call.id,
@@ -180,21 +214,21 @@ You are running directly inside the user's project workspace.
 
             iteration += 1
 
-            # Si alcanzamos el límite pero el agente sigue solicitando herramientas, ofrecer prórroga interactiva
+            # If iteration limit is reached but the agent is still requesting tools, offer interactive extension
             if iteration >= current_limit:
                 print("\n" + "⚠️" + "═" * 70)
-                print(f"⚠️ Se ha alcanzado el límite de {current_limit} iteraciones, pero el agente sigue trabajando activamente.")
+                print(f"⚠️ Reached limit of {current_limit} iterations, but the agent is still actively working.")
                 print("═" * 72)
                 try:
-                    user_input = input("👉 ¿Deseas concederle 10 pasos adicionales para que termine la tarea? (y/n) [y]: ").strip().lower()
+                    user_input = input("👉 Do you want to grant 10 additional steps to complete the task? (y/n) [y]: ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     user_input = "n"
 
                 if user_input in ("", "y", "yes", "s", "si", "sí"):
                     current_limit += 10
-                    print(f"⏩ Prórroga concedida (+10 pasos). Nuevo límite: {current_limit} iteraciones.")
+                    print(f"⏩ Extension granted (+10 steps). New limit: {current_limit} iterations.")
                 else:
                     break
 
-        print(f"\n⚠️ Bucle agéntico finalizado tras {iteration} iteraciones.")
+        print(f"\n⚠️ Agentic loop finished after {iteration} iterations.")
         return show_diff_and_confirm()

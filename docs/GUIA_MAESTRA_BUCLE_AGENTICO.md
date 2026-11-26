@@ -1,5 +1,15 @@
 # 📘 Guía Maestra del Bucle Agéntico: De Novato a Experto
 
+> [!NOTE]
+> **Ampliación del Arnés (Noviembre 2026):** El bucle ahora incluye además:
+> - **Contrato de Specs y Discovery portable:** [`specs/_TEMPLATE.md`](../specs/_TEMPLATE.md) y [`.agents/`](../.agents/skills/discovery/SKILL.md).
+> - **Validador Ciego independiente:** [`agents_dev/core/blind_reviewer.py`](../agents_dev/core/blind_reviewer.py) con control determinista de `Scope` y comandos de verificación.
+> - **Hook `pre-commit` versionado:** [`.githooks/pre-commit`](../.githooks/pre-commit).
+> - **Worktrees, Evals y MCP:** [`scripts/worktree.py`](../scripts/worktree.py), [`agents_dev/evals/eval_harness.py`](../agents_dev/evals/eval_harness.py) y [`agents_dev/mcp_server.py`](../agents_dev/mcp_server.py).
+> - **Orquestador completo y Laboratorio RAG:** [`agents_dev/core/orchestrator.py`](../agents_dev/core/orchestrator.py) (`orchestrate`) y [`agents_dev/rag_lab/README.md`](../agents_dev/rag_lab/README.md).
+> - **Suite de tests actual:** 31 tests en `agents_dev/tests/` (`python3 -m unittest discover agents_dev/tests`).
+> - Para la referencia completa paso a paso de todo el arnés, consulta [`MANUAL_INGENIERIA_AGENTICA.md`](./MANUAL_INGENIERIA_AGENTICA.md).
+
 **Guía completa de estudio, arquitectura y referencia para entender, instalar, ejecutar y explicar al 100% el motor de desarrollo autónomo de HomeTutorPro (`agents_dev/`).**
 
 ---

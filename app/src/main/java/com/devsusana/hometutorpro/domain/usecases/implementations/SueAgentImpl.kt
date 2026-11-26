@@ -117,7 +117,7 @@ class SueAgentImpl @Inject constructor(
 
     override suspend fun detectActionIntent(
         query: String
-    ): SueOperationResult? = ruleIntentDetector.detectActionIntent(query)
+    ): SueOperationResult? = ruleIntentDetector(query)
 
     /**
      * Helper methods retained for test compatibility.

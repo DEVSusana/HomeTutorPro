@@ -1,10 +1,10 @@
-# 🎤 Guion Técnico de Ponencia: De la Nube al Bolsillo (IA 100% On-Device en Android)
+# 🎤 Guion Técnico: De la Nube al Bolsillo (IA 100% On-Device en Android)
 
-* **Ponente:** Susana Córdoba Serrano (Senior Android Engineer & Tech Lead)
-* **Duración total:** 40 minutos (35 min exposición + 5 min Q&A)
-* **Público:** Android Developers, Mobile Architects, AI Engineers
+* **Autora:** Susana Córdoba Serrano (Senior Android Engineer & Tech Lead)
+* **Duración total:** 40 minutos (35 min desglose técnico + 5 min Q&A)
+* **Audiencia objetivo:** Android Developers, Mobile Architects, AI Engineers
 * **Enfoque:** Técnico, sobrio, analítico y centrado en decisiones de arquitectura y métricas de producción.
-* **Documentos de referencia:** [`docs/PONENCIA_IA_LOCAL_GUIA_MAESTRA.md`](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/docs/PONENCIA_IA_LOCAL_GUIA_MAESTRA.md) y [`docs/ON_DEVICE_AI_AND_RAG_ARCHITECTURE.md`](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/docs/ON_DEVICE_AI_AND_RAG_ARCHITECTURE.md)
+* **Documentos de referencia:** [`docs/GUIA_MAESTRA_IA_LOCAL_ON_DEVICE.md`](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/docs/GUIA_MAESTRA_IA_LOCAL_ON_DEVICE.md) y [`docs/ON_DEVICE_AI_AND_RAG_ARCHITECTURE.md`](file:///Users/susanacordobaserrano/AndroidStudioProjects/HomeTutorPro/docs/ON_DEVICE_AI_AND_RAG_ARCHITECTURE.md)
 
 ---
 
