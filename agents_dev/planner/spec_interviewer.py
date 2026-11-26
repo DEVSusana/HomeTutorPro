@@ -1,5 +1,6 @@
 import os
 import re
+import unicodedata
 from typing import List, Dict, Any
 from providers.base import BaseLLMProvider
 from core.system_tools import PROJECT_ROOT
@@ -113,6 +114,34 @@ Your goal is to help the developer convert their feature idea into a crystal-cle
         )
         return clean_spec
 
+    def _build_spec_slug(self, clean_spec: str, initial_idea: str, max_len: int = 45) -> str:
+        """Builds a readable ASCII snake_case filename slug from the approved spec or idea."""
+        candidate = ""
+        branch_match = re.search(r"feat/([a-zA-Z0-9_-]+)", clean_spec)
+        if branch_match and "<" not in branch_match.group(1):
+            candidate = branch_match.group(1)
+        else:
+            title_match = re.search(r"^#\s*(?:SPEC(?:IFICATION)?:\s*)?(.+)$", clean_spec, re.MULTILINE)
+            if title_match and "[" not in title_match.group(1):
+                candidate = title_match.group(1)
+
+        if not candidate.strip():
+            candidate = initial_idea
+
+        ascii_text = (
+            unicodedata.normalize("NFKD", candidate)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .lower()
+        )
+        slug = re.sub(r"[^a-z0-9]+", "_", ascii_text).strip("_")
+        if len(slug) > max_len:
+            truncated = slug[:max_len]
+            if "_" in truncated:
+                truncated = truncated.rsplit("_", 1)[0]
+            slug = truncated.strip("_")
+        return slug or "feature_spec"
+
     def interview(self, initial_idea: str) -> str:
         """
         Conducts the interactive interview with the developer until final approval.
@@ -178,7 +207,7 @@ Your goal is to help the developer convert their feature idea into a crystal-cle
 
         # Extract clean contract and save spec into specs/<slug>.md
         clean_spec = self._extract_clean_spec(latest_spec_draft, messages, system_prompt)
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", initial_idea.lower()).strip("_")[:30] or "feature_spec"
+        slug = self._build_spec_slug(clean_spec, initial_idea)
         spec_filename = f"{slug}.md"
         spec_path = os.path.join(self.specs_dir, spec_filename)
 

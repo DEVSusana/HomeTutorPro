@@ -10,6 +10,8 @@ Runs fast, zero-LLM checks on staged files before allowing a commit:
 6. Verifies Hilt bindings for staged UseCase/Repository interfaces.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import subprocess

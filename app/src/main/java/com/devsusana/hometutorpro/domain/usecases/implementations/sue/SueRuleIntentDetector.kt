@@ -35,7 +35,7 @@ class SueRuleIntentDetector @Inject constructor(
      */
     suspend operator fun invoke(query: String): SueOperationResult? = detectActionIntent(query)
 
-    suspend fun detectActionIntent(query: String): SueOperationResult? {
+    private suspend fun detectActionIntent(query: String): SueOperationResult? {
         val lower = entityExtractor.stripAccents(query.lowercase().trim())
 
         // If the query is creating a student and setting their price/class attributes, do not split on "y ponle ...".

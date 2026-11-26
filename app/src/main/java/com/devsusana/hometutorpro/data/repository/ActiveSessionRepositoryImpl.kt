@@ -98,7 +98,7 @@ class ActiveSessionRepositoryImpl internal constructor(
         )
     }
 
-    override suspend fun startSession(session: ActiveSession): Unit = withContext(ioDispatcher) {
+    override suspend fun startSession(session: ActiveSession): com.devsusana.hometutorpro.domain.core.Result<Unit, com.devsusana.hometutorpro.domain.core.DomainError> = withContext(ioDispatcher) {
         try {
             prefs.edit()
                 .putBoolean(KEY_IS_ONGOING, true)
@@ -109,20 +109,26 @@ class ActiveSessionRepositoryImpl internal constructor(
                 .putString(KEY_TUTOR_ID, session.tutorId)
                 .putBoolean(KEY_IS_BILLED, session.isBilled)
                 .apply()
+            com.devsusana.hometutorpro.domain.core.Result.Success(Unit)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             SafeLogger.e(TAG, "Failed to persist active session: ${e.message}", e)
+            com.devsusana.hometutorpro.domain.core.Result.Error(com.devsusana.hometutorpro.domain.core.DomainError.Unknown)
         }
     }
 
-    override suspend fun stopSession(): Unit = withContext(ioDispatcher) {
+    override suspend fun stopSession(): com.devsusana.hometutorpro.domain.core.Result<Unit, com.devsusana.hometutorpro.domain.core.DomainError> = withContext(ioDispatcher) {
         clearSessionSync()
     }
 
-    private fun clearSessionSync() {
-        try {
+    private fun clearSessionSync(): com.devsusana.hometutorpro.domain.core.Result<Unit, com.devsusana.hometutorpro.domain.core.DomainError> {
+        return try {
             prefs.edit().clear().apply()
+            com.devsusana.hometutorpro.domain.core.Result.Success(Unit)
         } catch (e: Exception) {
             SafeLogger.e(TAG, "Failed to clear active session: ${e.message}", e)
+            com.devsusana.hometutorpro.domain.core.Result.Error(com.devsusana.hometutorpro.domain.core.DomainError.Unknown)
         }
     }
 

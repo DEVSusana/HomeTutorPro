@@ -1,5 +1,8 @@
 package com.devsusana.hometutorpro.domain.usecases
 
+import com.devsusana.hometutorpro.domain.core.DomainError
+import com.devsusana.hometutorpro.domain.core.Result
+
 /**
  * Use case to stop and clear the active tutoring session.
  */
@@ -7,8 +10,7 @@ interface IStopActiveSessionUseCase {
     /**
      * Executes stopping and clearing the active tutoring session.
      *
-     * @return Unit indicating that any active session has been successfully cleared,
-     * or that no action was needed if no session was active.
+     * @return [Result.Success] with [Unit] when cleared, or [Result.Error] on persistence failure.
      */
-    suspend operator fun invoke()
+    suspend operator fun invoke(): Result<Unit, DomainError>
 }

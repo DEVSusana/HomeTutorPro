@@ -4,6 +4,7 @@ import com.devsusana.hometutorpro.domain.entities.ExceptionType
 import com.devsusana.hometutorpro.domain.entities.SueOperationResult
 import com.devsusana.hometutorpro.domain.repository.DateTimeProvider
 import com.devsusana.hometutorpro.domain.usecases.implementations.ScheduleTools
+import java.time.DayOfWeek
 
 /**
  * Gathers schedule, cancellation, and free-slot context blocks for [SueContextBuilder].
@@ -16,50 +17,58 @@ internal class SueScheduleContextGatherer(
 ) {
 
     /**
-     * Appends schedule-related context blocks into [builder] when the query targets schedules.
+     * Builds schedule-related context blocks when the query targets schedules, cancellations, or free slots.
+     *
+     * @param lowerQuery Normalized lowercase query string without accents.
+     * @param day Optional ISO day-of-week integer (`1`..`7`) extracted from the query.
+     * @param studentName Optional student name mentioned in the query.
+     * @param workingStart Professor's working start time in `HH:mm` format.
+     * @param workingEnd Professor's working end time in `HH:mm` format.
+     * @return Formatted schedule context block, or an empty string if not applicable.
      */
-    suspend fun appendScheduleContext(
-        builder: StringBuilder,
+    suspend fun gatherScheduleContext(
         lowerQuery: String,
         day: Int?,
         studentName: String?,
         workingStart: String,
         workingEnd: String
-    ) {
+    ): String {
         if (!SueContextKeywords.containsScheduleKeywords(lowerQuery) &&
             !SueContextKeywords.containsCancelledQueryKeywords(lowerQuery)
         ) {
-            return
+            return ""
         }
 
         val isAskingPurelyAboutCancellations = SueContextKeywords.containsCancelledQueryKeywords(lowerQuery) &&
             !listOf("activa", "activas", "no cancelada", "no canceladas", "todas las clases", "horario completo").any { it in lowerQuery }
 
-        when {
-            SueContextKeywords.containsNextClassKeywords(lowerQuery) -> {
-                builder.appendLine(formatResult(scheduleTools.getNextClass()))
-            }
-            isAskingPurelyAboutCancellations -> {
-                appendCancelledClassesContext(builder, lowerQuery, day, studentName)
-            }
-            SueContextKeywords.containsFreeSlotWithDayKeywords(lowerQuery) -> {
-                val targetDay = day ?: dateTimeProvider.getNow().dayOfWeek.value
-                builder.appendLine(formatResult(scheduleTools.getScheduleForDay(targetDay, entityExtractor.extractTimeOfDayFilter(lowerQuery))))
-                builder.appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd, targetDay)))
-                val exceptionsCtx = scheduleTools.getCancelledClassesDescription(targetDay)
-                if (exceptionsCtx.isNotBlank()) {
-                    builder.appendLine(exceptionsCtx)
+        return buildString {
+            when {
+                SueContextKeywords.containsNextClassKeywords(lowerQuery) -> {
+                    appendLine(formatResult(scheduleTools.getNextClass()))
                 }
-            }
-            SueContextKeywords.containsFreeSlotKeywords(lowerQuery) -> {
-                builder.appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd)))
-                val exceptionsCtx = scheduleTools.getCancelledClassesDescription()
-                if (exceptionsCtx.isNotBlank()) {
-                    builder.appendLine(exceptionsCtx)
+                isAskingPurelyAboutCancellations -> {
+                    appendCancelledClassesContext(this, lowerQuery, day, studentName)
                 }
-            }
-            else -> {
-                appendDailyOrWeeklyScheduleContext(builder, lowerQuery, day, workingStart, workingEnd)
+                SueContextKeywords.containsFreeSlotWithDayKeywords(lowerQuery) -> {
+                    val targetDay = day ?: dateTimeProvider.getNow().dayOfWeek.value
+                    appendLine(formatResult(scheduleTools.getScheduleForDay(targetDay, entityExtractor.extractTimeOfDayFilter(lowerQuery))))
+                    appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd, targetDay)))
+                    val exceptionsCtx = scheduleTools.getCancelledClassesDescription(targetDay)
+                    if (exceptionsCtx.isNotBlank()) {
+                        appendLine(exceptionsCtx)
+                    }
+                }
+                SueContextKeywords.containsFreeSlotKeywords(lowerQuery) -> {
+                    appendLine(formatResult(scheduleTools.getFreeSlots(workingStart, workingEnd)))
+                    val exceptionsCtx = scheduleTools.getCancelledClassesDescription()
+                    if (exceptionsCtx.isNotBlank()) {
+                        appendLine(exceptionsCtx)
+                    }
+                }
+                else -> {
+                    appendDailyOrWeeklyScheduleContext(this, lowerQuery, day, workingStart, workingEnd)
+                }
             }
         }
     }
@@ -87,10 +96,14 @@ internal class SueScheduleContextGatherer(
                 null -> "clases canceladas, reprogramadas ni extra registradas"
             }
             val dayLabel = if (day != null) {
-                when (day) {
-                    1 -> "el lunes"; 2 -> "el martes"; 3 -> "el miércoles"
-                    4 -> "el jueves"; 5 -> "el viernes"; 6 -> "el sábado"
-                    else -> "el domingo"
+                when (DayOfWeek.of(day)) {
+                    DayOfWeek.MONDAY -> "el lunes"
+                    DayOfWeek.TUESDAY -> "el martes"
+                    DayOfWeek.WEDNESDAY -> "el miércoles"
+                    DayOfWeek.THURSDAY -> "el jueves"
+                    DayOfWeek.FRIDAY -> "el viernes"
+                    DayOfWeek.SATURDAY -> "el sábado"
+                    DayOfWeek.SUNDAY -> "el domingo"
                 }
             } else if (studentName != null) {
                 "con $studentName"
@@ -109,7 +122,7 @@ internal class SueScheduleContextGatherer(
         val daysToInject = mutableSetOf<Int>()
         val isGeneralWeeklyQuery = listOf("semana", "semanal", "horario", "agenda", "calendario", "mis clases", "que clases tengo").any { it in lowerQuery }
         if (isGeneralWeeklyQuery && day == null) {
-            daysToInject.addAll(1..5)
+            daysToInject.addAll(DayOfWeek.MONDAY.value..DayOfWeek.FRIDAY.value)
         } else {
             daysToInject.add(dateTimeProvider.getNow().dayOfWeek.value)
             if (day != null) daysToInject.add(day)

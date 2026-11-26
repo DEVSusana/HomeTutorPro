@@ -38,6 +38,10 @@ class SueContextBuilder @Inject constructor(
     companion object {
         /**
          * Builds the Sue system prompt with a locale-aware language instruction.
+         *
+         * @param locale Active user locale used to enforce response language.
+         * @param isQuestion True when the query is an informational question rather than an action command.
+         * @return Localized system prompt string for on-device LLM inference.
          */
         fun buildSystemPrompt(locale: Locale, isQuestion: Boolean = false): String =
             SueSystemPromptProvider.buildSystemPrompt(locale, isQuestion)
@@ -118,13 +122,14 @@ class SueContextBuilder @Inject constructor(
     ): String {
         val lowerQuery = entityExtractor.stripAccents(query.lowercase())
 
+        val appLocale = dateTimeProvider.getLocale()
         val matchedStudent = studentTools.extractRelevantStudent(lowerQuery)
         val studentName = matchedStudent?.name
             ?: entityExtractor.extractStudentName(lowerQuery)
             ?: entityExtractor.extractStudentNameForFinance(lowerQuery)
         if (studentName != null) {
             val capitalizedName = studentName.trim().replaceFirstChar {
-                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                if (it.isLowerCase()) it.titlecase(appLocale) else it.toString()
             }
             conversationContext.lastMentionedStudentName = capitalizedName
         }
@@ -141,7 +146,7 @@ class SueContextBuilder @Inject constructor(
         }
 
         return buildString {
-            scheduleGatherer.appendScheduleContext(this, lowerQuery, day, studentName, workingStart, workingEnd)
+            append(scheduleGatherer.gatherScheduleContext(lowerQuery, day, studentName, workingStart, workingEnd))
             studentGatherer.appendStudentContext(this, lowerQuery)
         }
     }

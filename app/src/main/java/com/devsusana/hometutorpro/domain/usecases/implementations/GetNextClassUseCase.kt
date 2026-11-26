@@ -27,7 +27,7 @@ class GetNextClassUseCase @Inject constructor(
     private val getActiveSessionUseCase: IGetActiveSessionUseCase
 ) : IGetNextClassUseCase {
 
-    override suspend fun invoke(): CalendarOccurrence? {
+    override suspend operator fun invoke(): CalendarOccurrence? {
         val tutorId = getCurrentUserUseCase().value?.uid
             ?: getActiveSessionUseCase()?.tutorId?.takeIf { it.isNotBlank() }
             ?: return null

@@ -1,5 +1,7 @@
 package com.devsusana.hometutorpro.domain.repository
 
+import com.devsusana.hometutorpro.domain.core.DomainError
+import com.devsusana.hometutorpro.domain.core.Result
 import com.devsusana.hometutorpro.domain.entities.ActiveSession
 
 /**
@@ -17,15 +19,14 @@ interface IActiveSessionRepository {
      * Starts and persists a new active tutoring session.
      *
      * @param session The active session details to persist.
-     * @return Unit indicating the session has been persisted.
+     * @return [Result.Success] with [Unit] when persisted, or [Result.Error] with [DomainError] on failure.
      */
-    suspend fun startSession(session: ActiveSession)
+    suspend fun startSession(session: ActiveSession): Result<Unit, DomainError>
 
     /**
      * Stops and clears the current active tutoring session.
      *
-     * @return Unit indicating that any active session has been successfully cleared,
-     * or that no action was needed if no session was active.
+     * @return [Result.Success] with [Unit] when cleared, or [Result.Error] with [DomainError] on failure.
      */
-    suspend fun stopSession()
+    suspend fun stopSession(): Result<Unit, DomainError>
 }
